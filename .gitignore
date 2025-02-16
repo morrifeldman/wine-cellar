@@ -4,10 +4,24 @@
 .lsp/
 .calva/
 .nrepl-port
+.lein-*
+.lein-deps-sum
+.lein-repl-history
+.lein-plugins/
+.lein-failures
+
+# Build artifacts
+*.jar
+*.class
+/lib/
+/classes/
+/target/
+/checkouts/
+pom.xml
+pom.xml.asc
 
 # ClojureScript & Shadow-cljs
 .shadow-cljs/
-target/
 node_modules/
 public/js/
 public/cljs-runtime/
