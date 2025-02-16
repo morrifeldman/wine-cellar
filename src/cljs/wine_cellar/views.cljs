@@ -73,7 +73,7 @@
      [:h2 "My Wines"]
      (cond
        (:loading? state)
-       [:div "Loading..."]
+       [:div.loading "Loading your wine collection..."]
 
        (empty? (:wines state))
        [:div "No wines yet. Add your first wine above!"]
@@ -97,12 +97,19 @@
               [:td (:vintage wine)]
               [:td (when-let [type (:type wine)]
                      (when (not-empty type)
-                       (str (.toUpperCase (first type)) (subs type 1))))]
+                       (case type
+                         "red" "Red"
+                         "white" "White"
+                         "rose" "Rosé"
+                         "sparkling" "Sparkling"
+                         "fortified" "Fortified"
+                         "orange" "Orange"
+                         type)))]
               [:td (:location wine)]
               [:td (:quantity wine)]
-              [:td (if-let [price (:price wine)]
-                     (gstring/format "$%.2f" price)
-                     "$0.00")]
+              [:td.price (if-let [price (:price wine)]
+                           (gstring/format "$%.2f" price)
+                           "$0.00")]
               [:td
                [:button {:on-click #(api/delete-wine app-state (:id wine))}
                 "Delete"]]]))]])]))
