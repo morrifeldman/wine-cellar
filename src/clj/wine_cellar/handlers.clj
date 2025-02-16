@@ -28,16 +28,16 @@
     (catch Exception e
       (server-error e))))
 
-(defn create-wine [{:keys [body-params]}]
-  (try
-    (let [new-wine (db/create-wine body-params)]
-      (response/created
-        (str "/api/wines/" (:id new-wine))
-        new-wine))
-    (catch Exception e
-      (response/bad-request
-        {:error "Invalid wine data"
-         :details (.getMessage e)}))))
+(defn create-wine [request]
+  (let [wine (-> request :parameters :body)
+        wine-with-double-price (update wine :price double)]
+    (try
+      (let [created-wine (db/create-wine wine-with-double-price)]
+        {:status 201
+         :body created-wine})
+      (catch Exception e
+        {:status 500
+         :body {:error (ex-message e)}}))))
 
 (defn update-wine [{{:keys [id]} :path-params
                     :keys [body-params]}]

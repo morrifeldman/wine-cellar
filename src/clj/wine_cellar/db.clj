@@ -1,6 +1,7 @@
 (ns wine-cellar.db
   (:require [honey.sql :as sql]
-            [next.jdbc :as jdbc]))
+            [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]))
 
 (def db
   {:dbtype "sqlite"
@@ -8,6 +9,9 @@
 
 (def ds
   (jdbc/get-datasource db))
+
+(def db-opts
+  {:builder-fn rs/as-unqualified-maps})
 
 (def create-table-sql
   "CREATE TABLE IF NOT EXISTS
@@ -25,22 +29,7 @@
    );")
 
 (defn create-wines-table []
-  (jdbc/execute-one! ds [create-table-sql]))
-
-#_(jdbc/execute-one!
-    ds
-    (sql/format {:drop-table [:if-exists table]}))
-
-#_(create-wines-table)
-#_(jdbc/execute! ds (-> {:select [:*] :from :wines} sql/format))
-#_(jdbc/execute! ds (-> {:insert-into [:wines]
-                         :values [{:name "a-wine"
-                                   :type "rose"
-                                   :vintage 2019
-                                   :location "H2"
-                                   :price 25.30
-                                   :quantity 3}]}
-                        sql/format))
+  (jdbc/execute-one! ds [create-table-sql] db-opts))
 
 (defn create-wine [wine]
   (jdbc/execute-one! ds
@@ -52,21 +41,24 @@
                 (:type wine)
                 (:location wine)
                 (:quantity wine)
-                (:price wine)]]})))
+                (:price wine)]]})
+    db-opts))
 
 (defn get-wine [id]
   (jdbc/execute-one! ds
     (sql/format
       {:select :*
        :from :wines
-       :where [:= :id id]})))
+       :where [:= :id id]})
+    db-opts))
 
 (defn get-all-wines []
   (jdbc/execute! ds
     (sql/format
       {:select :*
        :from :wines
-       :order-by [[:created_at :desc]]})))
+       :order-by [[:created_at :desc]]})
+    db-opts))
 
 (defn update-wine! [id wine]
   (jdbc/execute-one!
@@ -75,7 +67,8 @@
       {:update :wines
        :set (assoc wine
                    :updated_at [:raw "CURRENT_TIMESTAMP"])
-       :where [:= :id id]})))
+       :where [:= :id id]})
+    db-opts))
 
 (defn update-quantity [id new-quantity]
   (update-wine! id {:quantity new-quantity}))
@@ -87,4 +80,5 @@
   (jdbc/execute-one! ds
     (sql/format
       {:delete-from :wines
-       :where [:= :id id]})))
+       :where [:= :id id]})
+    db-opts))
