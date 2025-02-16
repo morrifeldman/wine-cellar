@@ -1,0 +1,26 @@
+# Clojure development
+.clj-kondo/.cache/
+.cpcache/
+.lsp/
+.calva/
+.nrepl-port
+
+# ClojureScript & Shadow-cljs
+.shadow-cljs/
+target/
+node_modules/
+public/js/
+public/cljs-runtime/
+
+# Dependencies
+package-lock.json
+
+# IDE specific
+.idea/
+.vscode/
+*.iml
+*.swp
+.DS_Store
+
+# Logs
+*.log

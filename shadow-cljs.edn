@@ -1,0 +1,12 @@
+{:source-paths ["src"]
+ :dependencies [[reagent "1.2.0"]]
+ :npm-deps {"@mui/material" "^5.15.3"
+            "@emotion/react" "^11.11.3"
+            "@emotion/styled" "^11.11.0"
+            "react" "^18.2.0"
+            "react-dom" "^18.2.0"}
+ :dev-http {8080 "public"}
+ :builds {:app {:target :browser
+                :output-dir "public/js"
+                :asset-path "/js"
+                :modules {:main {:init-fn wine-cellar.core/init}}}}}
