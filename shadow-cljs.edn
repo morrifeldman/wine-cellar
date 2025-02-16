@@ -1,4 +1,4 @@
-{:source-paths ["src"]
+{:source-paths ["src/cljs"]
  :dependencies [[reagent "1.2.0"]]
  :npm-deps {"@mui/material" "^5.15.3"
             "@emotion/react" "^11.11.3"

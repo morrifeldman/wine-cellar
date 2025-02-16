@@ -38,3 +38,6 @@ package-lock.json
 
 # Logs
 *.log
+
+# Database
+wine-cellar.db
