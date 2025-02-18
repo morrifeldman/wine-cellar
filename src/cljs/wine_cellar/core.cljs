@@ -6,15 +6,25 @@
             [wine-cellar.api :as api]))
 
 ;; State
-(def initial-state {:wines []
-                    :loading? true
-                    :error nil
-                    :new-wine {:name ""
-                               :vintage 2020
-                               :type ""
-                               :location ""
-                               :quantity 1
-                               :price 0.0}})
+(def initial-state
+  {:wines []
+   :loading? true
+   :error nil
+   :classifications []  ;; For storing wine classifications
+   :regions []         ;; For storing regions of selected country
+   :new-wine {:producer ""
+              :country ""
+              :region ""
+              :aoc ""
+              :communal_aoc ""
+              :classification ""
+              :vineyard ""
+              :name ""
+              :vintage 2020
+              :styles []          ;; Array of styles
+              :location ""
+              :quantity 1
+              :price 0.0}})
 
 (defonce app-state (r/atom initial-state))
 (defonce root (atom nil))
@@ -23,6 +33,7 @@
 (defn init []
   (js/console.log "Initializing app...")
   (api/fetch-wines app-state)
+  (api/fetch-classifications app-state)  ;; Load classifications at startup
   (when-let [container (.getElementById js/document "app")]
     (when (nil? @root)
       (reset! root (createRoot container)))
