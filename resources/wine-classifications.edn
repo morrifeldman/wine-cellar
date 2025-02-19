@@ -1,0 +1,55 @@
+[;; Bordeaux Left Bank
+ {:country "France" :region "Bordeaux" :aoc "Médoc" :classification "AOC"}
+ {:country "France" :region "Bordeaux" :aoc "Pauillac" :classification "Premier Cru Classé"}
+ {:country "France" :region "Bordeaux" :aoc "Margaux" :classification "Premier Cru Classé"}
+ {:country "France" :region "Bordeaux" :aoc "Saint-Julien" :classification "Grand Cru Classé"}
+ {:country "France" :region "Bordeaux" :aoc "Saint-Estèphe" :classification "Grand Cru Classé"}
+ {:country "France" :region "Bordeaux" :aoc "Pessac-Léognan" :classification "Grand Cru Classé"}
+ {:country "France" :region "Bordeaux" :aoc "Graves" :classification "AOC"}
+ {:country "France" :region "Bordeaux" :aoc "Sauternes" :classification "Premier Cru Supérieur"}
+
+ ;; Bordeaux Right Bank
+ {:country "France" :region "Bordeaux" :aoc "Saint-Émilion" :classification "Grand Cru Classé"}
+ {:country "France" :region "Bordeaux" :aoc "Pomerol" :classification "AOC"}
+ {:country "France" :region "Bordeaux" :aoc "Fronsac" :classification "AOC"}
+
+ ;; Burgundy (representatives)
+ {:country "France" :region "Burgundy" :aoc "Chablis" :classification "Grand Cru"}
+ {:country "France" :region "Burgundy" :aoc "Côte de Nuits" :classification "Grand Cru"}
+
+ ;; Rhône North
+ {:country "France" :region "Rhône" :aoc "Côte-Rôtie" :classification "AOC"}
+ {:country "France" :region "Rhône" :aoc "Hermitage" :classification "AOC"}
+ {:country "France" :region "Rhône" :aoc "Crozes-Hermitage" :classification "AOC"}
+ {:country "France" :region "Rhône" :aoc "Saint-Joseph" :classification "AOC"}
+
+ ;; Rhône South
+ {:country "France" :region "Rhône" :aoc "Châteauneuf-du-Pape" :classification "AOC"}
+ {:country "France" :region "Rhône" :aoc "Gigondas" :classification "AOC"}
+ {:country "France" :region "Rhône" :aoc "Vacqueyras" :classification "AOC"}
+
+ ;; Loire
+ {:country "France" :region "Loire" :aoc "Sancerre" :classification "AOC"}
+ {:country "France" :region "Loire" :aoc "Vouvray" :classification "AOC"}
+ {:country "France" :region "Loire" :aoc "Chinon" :classification "AOC"}
+
+ ;; Alsace
+ {:country "France" :region "Alsace" :aoc "Alsace Grand Cru" :classification "AOC"}
+
+ ;; Tuscany
+ {:country "Italy" :region "Tuscany" :aoc "Chianti Classico" :classification "DOCG"}
+ {:country "Italy" :region "Tuscany" :aoc "Brunello di Montalcino" :classification "DOCG"}
+ {:country "Italy" :region "Tuscany" :aoc "Vino Nobile di Montepulciano" :classification "DOCG"}
+
+ ;; Piedmont
+ {:country "Italy" :region "Piedmont" :aoc "Barolo" :classification "DOCG"}
+ {:country "Italy" :region "Piedmont" :aoc "Barbaresco" :classification "DOCG"}
+ {:country "Italy" :region "Piedmont" :aoc "Barbera d'Alba" :classification "DOC"}
+
+ ;; Veneto
+ {:country "Italy" :region "Veneto" :aoc "Amarone della Valpolicella" :classification "DOCG"}
+ {:country "Italy" :region "Veneto" :aoc "Soave" :classification "DOC"}
+
+ ;; Sicily
+ {:country "Italy" :region "Sicily" :aoc "Etna" :classification "DOC"}]
+

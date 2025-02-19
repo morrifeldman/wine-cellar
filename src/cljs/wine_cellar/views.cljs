@@ -4,6 +4,94 @@
             [wine-cellar.api :as api]
             [wine-cellar.common :as common]))
 
+(defn unique-countries [classifications]
+  (->> classifications
+       (map :country)
+       distinct
+       sort))
+
+(defn country-select [app-state]
+  (let [classifications (:classifications @app-state)
+        countries (unique-countries classifications)]
+    [:div
+     [:label "Country: "]
+     [:select {:value (get-in @app-state [:new-wine :country])
+               :required true
+               :on-change #(swap! app-state assoc-in [:new-wine :country]
+                                  (.. % -target -value))}
+      [:option {:value ""} "Select a country"]
+      (for [country countries]
+        ^{:key country}
+        [:option {:value country} country])]]))
+
+(defn regions-for-country [classifications country]
+  (->> classifications
+       (filter #(= country (:country %)))
+       (map :region)
+       distinct
+       sort))
+
+(defn region-select [app-state]
+  (let [country (get-in @app-state [:new-wine :country])
+        regions (regions-for-country (:classifications @app-state) country)]
+    [:div
+     [:label "Region: "]
+     [:select {:value (get-in @app-state [:new-wine :region])
+               :required true
+               :disabled (empty? country)
+               :on-change #(swap! app-state assoc-in [:new-wine :region] (.. % -target -value))}
+      [:option {:value ""} "Select a region"]
+      (for [region regions]
+        ^{:key region}
+        [:option {:value region} region])]]))
+
+(defn aocs-for-region [classifications country region]
+  (->> classifications
+       (filter #(and (= country (:country %))
+                    (= region (:region %))))
+       (map :aoc)
+       (remove nil?)
+       distinct
+       sort))
+
+(defn aoc-select [app-state]
+  (let [{:keys [country region]} (:new-wine @app-state)
+        aocs (aocs-for-region (:classifications @app-state) country region)]
+    [:div
+     [:label "AOC: "]
+     [:select {:value (get-in @app-state [:new-wine :aoc])
+               :disabled (or (empty? country) (empty? region))
+               :on-change #(swap! app-state assoc-in [:new-wine :aoc] (.. % -target -value))}
+      [:option {:value ""} "Select an AOC"]
+      (for [aoc aocs]
+        ^{:key aoc}
+        [:option {:value aoc} aoc])]]))
+
+(defn classifications-for-aoc [classifications country region aoc]
+ (->> classifications
+      (filter #(and (= country (:country %))
+                   (= region (:region %))
+                   (= aoc (:aoc %))))
+      (map :classification)
+      (remove nil?)
+      distinct
+      sort))
+
+(defn classification-select [app-state]
+ (let [{:keys [country region aoc]} (:new-wine @app-state)
+       classifications (classifications-for-aoc (:classifications @app-state) 
+                                             country region aoc)]
+   [:div
+    [:label "Classification: "]
+    [:select {:value (get-in @app-state [:new-wine :classification])
+              :disabled (or (empty? country) (empty? region) (empty? aoc))
+              :on-change #(swap! app-state assoc-in [:new-wine :classification] 
+                                (.. % -target -value))}
+     [:option {:value ""} "Select a classification"]
+     (for [c classifications]
+       ^{:key c}
+       [:option {:value c} c])]]))
+
 (defn wine-form [app-state]
   (let [new-wine (:new-wine @app-state)]
     [:div.wine-form
@@ -28,26 +116,10 @@
                 :value (:producer new-wine)
                 :on-change #(swap! app-state assoc-in [:new-wine :producer]
                                    (.. % -target -value))}]]
-      [:div
-       [:label "Country: "]
-       [:input {:type "text"
-                :required true
-                :value (:country new-wine)
-                :on-change #(swap! app-state assoc-in [:new-wine :country]
-                                   (.. % -target -value))}]]
-      [:div
-       [:label "Region: "]
-       [:input {:type "text"
-                :required true
-                :value (:region new-wine)
-                :on-change #(swap! app-state assoc-in [:new-wine :region]
-                                   (.. % -target -value))}]]
-      [:div
-       [:label "AOC: "]
-       [:input {:type "text"
-                :value (:aoc new-wine)
-                :on-change #(swap! app-state assoc-in [:new-wine :aoc]
-                                   (.. % -target -value))}]]
+      [country-select app-state]
+      [region-select app-state]
+      [aoc-select app-state]
+      [classification-select app-state]
       [:div
        [:label "Styles: "]
        [:select {:multiple true
@@ -109,6 +181,8 @@
           [:th "Producer"]
           [:th "Name"]
           [:th "Region"]
+          [:th "AOC"]
+          [:th "Classification"]
           [:th "Vintage"]
           [:th "Styles"]
           [:th "Location"]
@@ -120,9 +194,9 @@
            [:tr {:key (:id wine)}
             [:td (:producer wine)]
             [:td (:name wine)]
-            [:td (str (:region wine) 
-                     (when (:aoc wine) 
-                       (str " - " (:aoc wine))))]
+           [:td (:region wine)]
+           [:td (:aoc wine)]
+           [:td (:classification wine)]
             [:td (:vintage wine)]
             [:td (interpose ", " (map str (:styles wine)))]
             [:td (:location wine)]

@@ -1,6 +1,8 @@
 (ns wine-cellar.db
   (:require [wine-cellar.common :as common]
             [clojure.string :as string]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs])
@@ -40,10 +42,12 @@
     [[:constraint :wine_classifications_natural_key]
      :unique
      [:composite :country :region :aoc :communal_aoc :classification :vineyard]]]})
+
 (def create-wine-style-type
   {:raw ["DO $$ BEGIN "
          "IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'wine_style') THEN "
-         "CREATE TYPE wine_style AS ENUM " [:inline common/wine-styles]
+         "CREATE TYPE wine_style AS ENUM "
+         [:inline common/wine-styles]
          "; END IF; END $$;"]})
 
 (def wines-table-schema
@@ -182,3 +186,17 @@
                [:= :region region]]
        :order-by [:aoc]})
     db-opts))
+
+(def classifications-file "wine-classifications.edn")
+
+(defn seed-classifications! []
+  (let [wine-classifications (edn/read-string
+                               (slurp (or
+                                        (io/resource "wine-classifications.edn")
+                                        (io/file
+                                          (str "resources/"
+                                               classifications-file)))))]
+    (doseq [c wine-classifications]
+      (create-classification c))))
+
+#_(seed-classifications!)
