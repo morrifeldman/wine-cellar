@@ -3,6 +3,7 @@
             [clojure.string :as string]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.java.shell :as sh]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs])
@@ -14,11 +15,21 @@
   PgArray (read-column-by-index [^PgArray v _2 _3]
             (.getArray v)))
 
+(defn get-password-from-pass [password-path]
+  (let [result (sh/sh "pass" password-path)]
+    (if (= 0 (:exit result))
+      (string/trim (:out result))
+      (throw (ex-info (str "Failed to retrieve password from pass: " (:err result))
+                      {:type :password-retrieval-error
+                       :path password-path})))))
+
+(def password-pass-name "wine_cellar/db")
+
 (def db
   {:dbtype "postgresql"
    :dbname "wine_cellar"
    :user "wine_cellar"
-   :password "chianti"})
+   :password (get-password-from-pass password-pass-name)})
 
 (def ds
   (jdbc/get-datasource db))
@@ -123,10 +134,11 @@
 (defn create-wine [wine]
   (jdbc/execute-one! ds
                      (sql/format
-                      {:insert-into :wines
-                       :values [(cond-> wine
-                                  true (update :styles ->pg-array)
-                                  (:level wine) (update :level (partial sql-cast :wine_level)))]})
+                       {:insert-into :wines
+                        :values [(cond-> wine
+                                   true (update :styles ->pg-array)
+                                   (:level wine) (update :level
+                                                         (partial sql-cast :wine_level)))]})
                      db-opts))
 
 (defn get-wine [id]
@@ -177,7 +189,11 @@
   (jdbc/execute-one! ds
                      (sql/format
                       {:insert-into :wine_classifications
+<<<<<<< Updated upstream
                        :values [(update classification :levels ->pg-array)]})
+=======
+                       :values [classification]})
+>>>>>>> Stashed changes
                      db-opts))
 
 (defn get-classifications []
