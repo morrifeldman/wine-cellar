@@ -1,4 +1,7 @@
 (ns wine-cellar.common)
 
 (def wine-styles
-  ["red" "white" "rose" "sparkling" "fortified" "orange" "desert"])
+  #{"Red" "White" "Rosé" "Sparkling" "Fortified" "Orange" "Dessert"})
+
+(def wine-levels
+  #{"Gran Reserva" "Gran Selezione" "Reserva" "Reserve" "Riserva"})

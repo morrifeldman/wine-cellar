@@ -31,7 +31,7 @@
     (let [response (<! (http/get (str api-base-url "/api/wines")
                                 default-opts))]
       (if (:success response)
-        (swap! app-state assoc 
+        (swap! app-state assoc
                :wines (:body response)
                :loading? false
                :error nil)

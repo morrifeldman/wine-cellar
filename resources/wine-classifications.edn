@@ -37,19 +37,27 @@
  {:country "France" :region "Alsace" :aoc "Alsace Grand Cru" :classification "AOC"}
 
  ;; Tuscany
- {:country "Italy" :region "Tuscany" :aoc "Chianti Classico" :classification "DOCG"}
- {:country "Italy" :region "Tuscany" :aoc "Brunello di Montalcino" :classification "DOCG"}
- {:country "Italy" :region "Tuscany" :aoc "Vino Nobile di Montepulciano" :classification "DOCG"}
+ {:country "Italy" :region "Tuscany" :aoc "Chianti Classico" :classification "DOCG"
+  :levels ["Riserva" "Gran Selezione"]}
+ {:country "Italy" :region "Tuscany" :aoc "Brunello di Montalcino" :classification "DOCG"
+  :levels ["Riserva"]}
+ {:country "Italy" :region "Tuscany" :aoc "Vino Nobile di Montepulciano" :classification "DOCG"
+  :levels ["Riserva"]}
 
  ;; Piedmont
- {:country "Italy" :region "Piedmont" :aoc "Barolo" :classification "DOCG"}
- {:country "Italy" :region "Piedmont" :aoc "Barbaresco" :classification "DOCG"}
- {:country "Italy" :region "Piedmont" :aoc "Barbera d'Alba" :classification "DOC"}
+ {:country "Italy" :region "Piedmont" :aoc "Barolo" :classification "DOCG"
+  :levels ["Riserva"]}
+ {:country "Italy" :region "Piedmont" :aoc "Barbaresco" :classification "DOCG"
+  :levels ["Riserva"]}
+ {:country "Italy" :region "Piedmont" :aoc "Barbera d'Alba" :classification "DOC"
+  :levels ["Riserva"]}
 
  ;; Veneto
- {:country "Italy" :region "Veneto" :aoc "Amarone della Valpolicella" :classification "DOCG"}
- {:country "Italy" :region "Veneto" :aoc "Soave" :classification "DOC"}
+ {:country "Italy" :region "Veneto" :aoc "Amarone della Valpolicella" :classification "DOCG"
+  :levels ["Riserva"]}
+ {:country "Italy" :region "Veneto" :aoc "Soave" :classification "DOC"
+  :levels ["Riserva"]}
 
  ;; Sicily
- {:country "Italy" :region "Sicily" :aoc "Etna" :classification "DOC"}]
-
+ {:country "Italy" :region "Sicily" :aoc "Etna" :classification "DOC"
+  :levels ["Riserva"]}]

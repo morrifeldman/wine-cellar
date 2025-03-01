@@ -23,14 +23,15 @@
 (s/def ::vineyard string?)
 (s/def ::name string?)
 (s/def ::vintage int?)
-(s/def ::styles (s/coll-of (set common/wine-styles) :kind vector?))
+(s/def ::styles (s/coll-of (set common/wine-styles)))
+(s/def ::level (s/nilable (set common/wine-levels)))
 (s/def ::location string?)
 (s/def ::quantity int?)
 (s/def ::price number?)
 
 (def wine-schema
- (s/keys :req-un [::producer 
-                  ::country 
+ (s/keys :req-un [::producer
+                  ::country
                   ::region
                   ::vintage
                   ::styles
@@ -41,13 +42,14 @@
                   ::classification
                   ::vineyard
                   ::name
-                  ::location]))
+                  ::location
+                  ::level]))
 
 (def cors-middleware
   {:name ::cors
    :wrap (fn [handler]
            (wrap-cors handler
-                     :access-control-allow-origin [#"http://localhost:8080"]
+                     :access-control-allow-origin #".*"
                      :access-control-allow-methods
                      [:get :put :post :delete :options]
                      :access-control-allow-headers ["Content-Type" "Accept"]
