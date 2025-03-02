@@ -7,7 +7,8 @@
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs])
-  (:import [org.postgresql.jdbc PgArray]))
+  (:import [org.postgresql.jdbc PgArray]
+           [java.sql Date]))
 
 (extend-protocol rs/ReadableColumn
   PgArray (read-column-by-label [^PgArray v _]
@@ -63,7 +64,7 @@
     [:communal_aoc :varchar]
     [:classification :varchar]
     [:vineyard :varchar]
-    [:levels :wine_level :array]  ; Change from single level to array
+    [:levels :wine_level :array]
     [:created_at :timestamp [:default [:now]]]
     [[:constraint :wine_classifications_natural_key]
      :unique
@@ -95,41 +96,31 @@
   {:create-table [:tasting_notes :if-not-exists]
    :with-columns
    [[:id :serial :primary-key]
-    [:wine_id :integer [:not nil] [:references :wines :id] [:on-delete :cascade]]
+    [:wine_id :integer [:not nil]]
     [:tasting_date :date [:not nil]]
     [:notes :text [:not nil]]
     [:rating :integer [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
     [:created_at :timestamp [:default [:now]]]
-    [:updated_at :timestamp [:default [:now]]]]})
+    [:updated_at :timestamp [:default [:now]]]
+    [[:foreign-key :wine_id]
+     :references [:entity :wines] [:nest :id]
+     :on-delete :cascade]]})
 
-(defn- sql-execute-helper [tx sql-map]
-  (let [sql (sql/format sql-map)]
-    (println "Compiled SQL:" sql)
-    (println "DB Response:" (jdbc/execute-one! tx sql db-opts))))
-
-(defn ensure-tables
-  ([] (jdbc/with-transaction [tx ds]
-        (ensure-tables tx)))
-  ([tx]
-   (sql-execute-helper tx create-wine-style-type)
-   (sql-execute-helper tx create-wine-level-type)
-   (sql-execute-helper tx classifications-table-schema)
-   (sql-execute-helper tx wines-table-schema)
-   (sql-execute-helper tx tasting-notes-table-schema)))
-
-(defn- drop-tables [tx]
-  (sql-execute-helper tx {:drop-table [:if-exists :wines]})
-  (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_style CASCADE"]})
-  (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_level CASCADE"]})
-  (sql-execute-helper tx {:drop-table [:if-exists :wine_classifications]}))
+(def wines-with-ratings-view-schema
+  {:create-or-replace-view [:wines-with-ratings]
+   :select [:w.*
+            [{:select :tn.rating
+             :from [[:tasting_notes :tn]]
+             :where [:= :tn.wine_id :w.id]
+             :order-by [[:tn.tasting_date :desc]]
+             :limit [:inline 1]} :latest_rating]]
+   :from [[:wines :w]]})
 
 (defn- ->pg-array [coll]
   {:raw (str "'{" (string/join "," coll) "}'")})
 
 (defn sql-cast [sql-type field]
   [:cast field sql-type])
-
-#_(->pg-array ["a" "bd" "d"])
 
 (defn create-wine [wine]
   (jdbc/execute-one! ds
@@ -154,6 +145,14 @@
                  (sql/format
                   {:select :*
                    :from :wines
+                   :order-by [[:created_at :desc]]})
+                 db-opts))
+
+(defn get-all-wines-with-ratings []
+  (jdbc/execute! ds
+                 (sql/format
+                  {:select :*
+                   :from :wines_with_ratings  ;; Use the view directly
                    :order-by [[:created_at :desc]]})
                  db-opts))
 
@@ -185,15 +184,12 @@
                      db-opts))
 
 ;; Classification operations
-(defn create-classification [classification]
+(defn create-classification
+  [classification]
   (jdbc/execute-one! ds
                      (sql/format
                       {:insert-into :wine_classifications
-<<<<<<< Updated upstream
                        :values [(update classification :levels ->pg-array)]})
-=======
-                       :values [classification]})
->>>>>>> Stashed changes
                      db-opts))
 
 (defn get-classifications []
@@ -224,6 +220,63 @@
                    :order-by [:aoc]})
                  db-opts))
 
+(defn- ->sql-date [^String date-string]
+  (some-> date-string (Date/valueOf)))
+
+;; Tasting Notes Operations
+(defn create-tasting-note [note]
+  (jdbc/execute-one! ds
+                     (sql/format
+                       {:insert-into :tasting_notes
+                        :values [(-> note
+                                    ;; Add date conversion here
+                                    (update :tasting_date ->sql-date)
+                                    (assoc :updated_at [:now]))]
+                        :returning :*})
+                     db-opts))
+
+(defn update-tasting-note! [id note]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:update :tasting_notes
+                       :set (-> note
+                               ;; Add date conversion here
+                               (update :tasting_date ->sql-date)
+                               (assoc :updated_at [:now]))
+                       :where [:= :id id]
+                       :returning :*})
+                     db-opts))
+
+(defn get-tasting-note [id]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:select :*
+                       :from :tasting_notes
+                       :where [:= :id id]})
+                     db-opts))
+
+(defn get-tasting-notes-by-wine [wine-id]
+  (jdbc/execute! ds
+                 (sql/format
+                  {:select :*
+                   :from :tasting_notes
+                   :where [:= :wine_id wine-id]
+                   :order-by [[:tasting_date :desc]]})
+                 db-opts))
+
+(defn delete-tasting-note! [id]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:delete-from :tasting_notes
+                       :where [:= :id id]})
+                     db-opts))
+
+(defn get-wine-with-tasting-notes [id]
+  (let [wine (get-wine id)
+        tasting-notes (get-tasting-notes-by-wine id)]
+    (when wine
+      (assoc wine :tasting_notes tasting-notes))))
+
 (def classifications-file "wine-classifications.edn")
 
 (defn seed-classifications! []
@@ -236,10 +289,54 @@
     (doseq [c wine-classifications]
       (create-classification c))))
 
-(defn- reset-db! []
-  (jdbc/with-transaction [tx ds]
-    (drop-tables tx)
-    (ensure-tables tx))
-  (seed-classifications!))
+(defn classifications-exist?
+  "Check if any classifications exist in the database"
+  []
+  (pos? (:count (jdbc/execute-one! ds
+                                   (sql/format
+                                     {:select [[[:count :*]]]
+                                      :from :wine_classifications})
+                                   db-opts))))
 
-#_(reset-db!)
+(defn seed-classifications-if-needed!
+  "Seeds classifications only if none exist in the database"
+  []
+  (when-not (classifications-exist?)
+    (println "No wine classifications found. Seeding from file...")
+    (seed-classifications!)
+    (println "Wine classifications seeded successfully.")))
+
+(defn- sql-execute-helper [tx sql-map]
+  (let [sql (sql/format sql-map)]
+    (println "Compiled SQL:" sql)
+    (println "DB Response:" (jdbc/execute-one! tx sql db-opts))))
+
+(defn- ensure-tables
+  ([] (jdbc/with-transaction [tx ds]
+        (ensure-tables tx)))
+  ([tx]
+   (sql-execute-helper tx create-wine-style-type)
+   (sql-execute-helper tx create-wine-level-type)
+   (sql-execute-helper tx classifications-table-schema)
+   (sql-execute-helper tx wines-table-schema)
+   (sql-execute-helper tx tasting-notes-table-schema)
+   (sql-execute-helper tx wines-with-ratings-view-schema)))
+
+(defn initialize-db []
+  (ensure-tables)
+  (seed-classifications-if-needed!))
+
+#_(initialize-db)
+
+(defn- drop-tables
+  ([] (jdbc/with-transaction [tx ds]
+        (drop-tables tx)))
+  ([tx]
+   (sql-execute-helper tx {:drop-view [:if-exists :wines-with-ratings]})
+   (sql-execute-helper tx {:drop-table [:if-exists :tasting_notes]})
+   (sql-execute-helper tx {:drop-table [:if-exists :wines]})
+   (sql-execute-helper tx {:drop-table [:if-exists :wine_classifications]})
+   (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_style CASCADE"]})
+   (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_level CASCADE"]})))
+
+#_(drop-tables)

@@ -1,0 +1,41 @@
+---
+# playbooks/postgresql.yml
+# ansible-playbook playbooks/postgresql.yml
+- name: PostgreSQL Database Setup
+  hosts: localhost
+  connection: local
+  become: true
+  vars:
+    pg_databases:
+      - name: wine_cellar
+        owner: wine_cellar
+        pass_path: "wine_cellar/db"  # Path in your pass store
+
+  tasks:
+    - name: Get database passwords from pass
+      command: "pass {{ item.pass_path }}"
+      register: db_passwords
+      loop: "{{ pg_databases }}"
+      become: false  # Run as your user, not root
+      changed_when: false
+      no_log: true   # Don't log the output which contains passwords
+      failed_when: db_passwords.rc != 0
+
+    - name: Create PostgreSQL users
+      become_user: postgres
+      community.postgresql.postgresql_user:
+        name: "{{ pg_databases[idx].owner }}"
+        password: "{{ item.stdout }}"
+        state: present
+      loop: "{{ db_passwords.results }}"
+      no_log: true
+      loop_control:
+        index_var: idx
+
+    - name: Create PostgreSQL databases
+      become_user: postgres
+      community.postgresql.postgresql_db:
+        name: "{{ item.name }}"
+        owner: "{{ item.owner }}"
+        state: present
+      loop: "{{ pg_databases }}"

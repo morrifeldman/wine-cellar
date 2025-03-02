@@ -43,6 +43,13 @@
     (catch Exception e
       (server-error e))))
 
+(defn get-all-wines-with-ratings [_]
+  (try
+    (let [wines (db/get-all-wines-with-ratings)]
+      (response/response wines))
+    (catch Exception e
+      (server-error e))))
+
 (defn get-wine [{{:keys [id]} :path-params}]
   (try
     (if-let [wine (db/get-wine (parse-long id))]
@@ -102,3 +109,58 @@
       (response/not-found {:error "Wine not found"}))
     (catch Exception e
       (server-error e))))
+
+;; Tasting Notes Handlers
+(defn get-tasting-notes-by-wine [{{:keys [id]} :path-params}]
+  (try
+    (let [tasting-notes (db/get-tasting-notes-by-wine (parse-long id))]
+      (response/response tasting-notes))
+    (catch Exception e
+      (server-error e))))
+
+(defn get-tasting-note [{{:keys [id note-id]} :path-params}]
+  (try
+    (if-let [note (db/get-tasting-note (parse-long note-id))]
+      (response/response note)
+      (response/not-found {:error "Tasting note not found"}))
+    (catch Exception e
+      (server-error e))))
+
+(defn create-tasting-note [{{:keys [id]} :path-params {:keys [body]} :parameters}]
+  (try
+    (if (db/get-wine (parse-long id))
+      (let [note-with-wine-id (assoc body :wine_id (parse-long id))
+            created-note (db/create-tasting-note note-with-wine-id)]
+        {:status 201
+         :body created-note})
+      (response/not-found {:error "Wine not found"}))
+    (catch org.postgresql.util.PSQLException e
+      {:status 400
+       :body {:error "Invalid tasting note data"
+              :details (.getMessage e)}})
+    (catch Exception e
+      (server-error e))))
+
+(defn update-tasting-note [{{:keys [note-id]} :path-params {:keys [body]} :parameters}]
+  (try
+    (if (db/get-tasting-note (parse-long note-id))
+      (let [updated (db/update-tasting-note! (parse-long note-id) body)]
+        (response/response updated))
+      (response/not-found {:error "Tasting note not found"}))
+    (catch org.postgresql.util.PSQLException e
+      {:status 400
+       :body {:error "Invalid tasting note data"
+              :details (.getMessage e)}})
+    (catch Exception e
+      (server-error e))))
+
+(defn delete-tasting-note [{{:keys [note-id]} :path-params}]
+  (try
+    (if (db/get-tasting-note (parse-long note-id))
+      (do
+        (db/delete-tasting-note! (parse-long note-id))
+        (no-content))
+      (response/not-found {:error "Tasting note not found"}))
+    (catch Exception e
+      (server-error e))))
+

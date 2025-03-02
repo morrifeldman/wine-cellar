@@ -12,7 +12,6 @@
             [ring.middleware.cors :refer [wrap-cors]]
             [muuntaja.core :as m]))
 
-
 ;; Specs for individual fields
 (s/def ::producer string?)
 (s/def ::country string?)
@@ -28,6 +27,9 @@
 (s/def ::location string?)
 (s/def ::quantity int?)
 (s/def ::price number?)
+(s/def ::tasting_date string?) ;; Will be parsed to a date
+(s/def ::notes string?)
+(s/def ::rating (s/int-in 1 101)) ;; Ratings from 1-100
 
 (def wine-schema
  (s/keys :req-un [::producer
@@ -45,95 +47,137 @@
                   ::location
                   ::level]))
 
+;; Define tasting note schema
+(def tasting-note-schema
+  (s/keys :req-un [::tasting_date
+                  ::notes
+                  ::rating]))
+
 (def cors-middleware
   {:name ::cors
    :wrap (fn [handler]
            (wrap-cors handler
-                     :access-control-allow-origin #".*"
-                     :access-control-allow-methods
-                     [:get :put :post :delete :options]
+                     :access-control-allow-origin [#"http://localhost:8080"]
+                     :access-control-allow-methods [:get :put :post :delete :options]
                      :access-control-allow-headers ["Content-Type" "Accept"]
-                     :access-control-allow-credentials "false"))})
+                     :access-control-allow-credentials true))})
 
 (def wine-routes
   [["/swagger.json"
     {:get {:no-doc true
            :swagger {:info {:title "Wine Cellar API"
-                           :description "API for managing your wine collection"}}
+                            :description "API for managing your wine collection"}}
            :handler (swagger/create-swagger-handler)}}]
    ; Redirect root to api-docs
    ["/"
     {:get {:no-doc true
            :handler (fn [_]
-                     {:status 302
-                      :headers {"Location" "/api-docs/"}
-                      :body ""})}}]
+                      {:status 302
+                       :headers {"Location" "/api-docs/"}
+                       :body ""})}}]
    ["/api-docs/*"
     {:get {:no-doc true
            :handler (swagger-ui/create-swagger-ui-handler)}}]
-   
+
    ;; Wine Classification Routes
    ["/api/classifications"
     {:get {:summary "Get all wine classifications"
            :responses {200 {:body vector?}
-                      500 {:body map?}}
+                       500 {:body map?}}
            :handler handlers/get-classifications}}]
-   
+
    ["/api/classifications/regions/:country"
     {:parameters {:path {:country string?}}
      :get {:summary "Get regions for a country"
            :responses {200 {:body vector?}
-                      500 {:body map?}}
+                       500 {:body map?}}
            :handler handlers/get-regions-by-country}}]
-   
+
    ["/api/classifications/aocs/:country/:region"
     {:parameters {:path {:country string?
-                        :region string?}}
+                         :region string?}}
      :get {:summary "Get AOCs for a region"
            :responses {200 {:body vector?}
-                      500 {:body map?}}
+                       500 {:body map?}}
            :handler handlers/get-aocs-by-region}}]
-   
+
    ;; Wine Routes
    ["/api/wines"
     {:get {:summary "Get all wines"
            :responses {200 {:body vector?}
-                      500 {:body map?}}
-           :handler handlers/get-all-wines}
+                       500 {:body map?}}
+           :handler handlers/get-all-wines-with-ratings}
      :post {:summary "Create a new wine"
             :parameters {:body wine-schema}
             :responses {201 {:body map?}
-                       400 {:body map?}
-                       500 {:body map?}}
+                        400 {:body map?}
+                        500 {:body map?}}
             :handler handlers/create-wine}}]
-   
+
    ["/api/wines/:id"
     {:parameters {:path {:id int?}}
      :get {:summary "Get wine by ID"
            :responses {200 {:body map?}
-                      404 {:body map?}
-                      500 {:body map?}}
+                       404 {:body map?}
+                       500 {:body map?}}
            :handler handlers/get-wine}
      :put {:summary "Update wine"
            :parameters {:body wine-schema}
            :responses {200 {:body map?}
-                      404 {:body map?}
-                      500 {:body map?}}
+                       404 {:body map?}
+                       500 {:body map?}}
            :handler handlers/update-wine}
      :delete {:summary "Delete wine"
               :responses {204 {:body nil?}
-                         404 {:body map?}
-                         500 {:body map?}}
+                          404 {:body map?}
+                          500 {:body map?}}
               :handler handlers/delete-wine}}]
-   
+
    ["/api/wines/:id/adjust-quantity"
     {:parameters {:path {:id int?}}
      :post {:summary "Adjust wine quantity"
             :parameters {:body {:adjustment int?}}
             :responses {200 {:body map?}
+                        404 {:body map?}
+                        500 {:body map?}}
+            :handler handlers/adjust-quantity}}]
+
+   ;; Tasting Notes Routes
+   ["/api/wines/:id/tasting-notes"
+    {:parameters {:path {:id int?}}
+     :get {:summary "Get all tasting notes for a wine"
+           :responses {200 {:body vector?}
                        404 {:body map?}
                        500 {:body map?}}
-            :handler handlers/adjust-quantity}}]])
+           :handler handlers/get-tasting-notes-by-wine}
+     :post {:summary "Create a tasting note for a wine"
+            :parameters {:body tasting-note-schema}
+            :responses {201 {:body map?}
+                        404 {:body map?}
+                        400 {:body map?}
+                        500 {:body map?}}
+            :handler handlers/create-tasting-note}}]
+
+   ["/api/wines/:id/tasting-notes/:note-id"
+    {:parameters {:path {:id int?
+                         :note-id int?}}
+     :get {:summary "Get tasting note by ID"
+           :responses {200 {:body map?}
+                       404 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/get-tasting-note}
+     :put {:summary "Update tasting note"
+           :parameters {:body tasting-note-schema}
+           :responses {200 {:body map?}
+                       404 {:body map?}
+                       400 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/update-tasting-note}
+     :delete {:summary "Delete tasting note"
+              :responses {204 {:body nil?}
+                          404 {:body map?}
+                          500 {:body map?}}
+              :handler handlers/delete-tasting-note}}]])
 
 (def app
   (ring/ring-handler

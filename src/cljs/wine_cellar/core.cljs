@@ -5,28 +5,20 @@
             [wine-cellar.views :as views]
             [wine-cellar.api :as api]))
 
-;; State
-(def initial-state
-  {:wines []
-   :loading? true
-   :error nil
-   :classifications []  ;; For storing wine classifications
-   :regions []         ;; For storing regions of selected country
-   :new-wine {:producer ""
-              :country ""
-              :region ""
-              :aoc ""
-              :communal_aoc ""
-              :classification ""
-              :vineyard ""
-              :name ""
-              :vintage 2020
-              :styles []          ;; Array of styles
-              :location ""
-              :quantity 1
-              :price 0.0}})
+(defonce app-state
+  (r/atom {:wines []
+           :classifications []
+           :new-wine {}
+           :error nil
+           :loading? false
+           :selected-wine-id nil
+           :tasting-notes []
+           :new-tasting-note {}
+           :sort {:field nil :direction :asc}
+           :filters {:search "" :country nil :region nil :styles nil}}))
 
-(defonce app-state (r/atom initial-state))
+#_(prn @app-state)
+
 (defonce root (atom nil))
 
 ;; Initialize app

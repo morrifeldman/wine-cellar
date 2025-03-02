@@ -12,7 +12,7 @@
 
 (defn start-server! [port]
   (stop-server!)
-  (db/ensure-tables)
+  (db/initialize-db)
   (reset! server (http-kit/run-server app {:port port}))
   (println (str "Server running on port " port)))
 
