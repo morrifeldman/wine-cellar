@@ -77,7 +77,6 @@
         (swap! app-state assoc :error "Failed to fetch tasting notes")))))
 
 (defn create-tasting-note [app-state wine-id note]
-  (prn note)
   (go
     (let [response (<! (http/post (str api-base-url "/api/wines/" wine-id "/tasting-notes")
                                  (merge default-opts
