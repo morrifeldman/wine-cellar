@@ -164,3 +164,18 @@
     (catch Exception e
       (server-error e))))
 
+(defn create-classification [request]
+  (let [classification (-> request :parameters :body)
+        classification-with-levels (update classification :levels vec)]  ;; Ensure levels is a vector
+    (try
+      (let [created-classification
+            (db/create-or-update-classification classification-with-levels)]
+        {:status 201
+         :body created-classification})
+      (catch org.postgresql.util.PSQLException e
+        {:status 400
+         :body {:error "Invalid classification data"
+                :details (.getMessage e)}})
+      (catch Exception e
+        (server-error e)))))
+

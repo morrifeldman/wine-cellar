@@ -106,3 +106,36 @@
         (swap! app-state update :tasting-notes
                #(remove (fn [note] (= (:id note) note-id)) %))
         (swap! app-state assoc :error "Failed to delete tasting note")))))
+
+(defn adjust-wine-quantity [app-state wine-id adjustment]
+  (go
+    (let [response (<! (http/post (str api-base-url "/api/wines/" wine-id "/adjust-quantity")
+                                 (merge default-opts
+                                        {:json-params {:adjustment adjustment}})))]
+      (if (:success response)
+        (swap! app-state update :wines
+               (fn [wines]
+                 (map #(if (= (:id %) wine-id) 
+                         (update % :quantity + adjustment) 
+                         %) 
+                      wines)))
+        (swap! app-state assoc :error "Failed to update wine quantity")))))
+
+(defn create-classification [app-state classification]
+  (js/console.log "Sending classification data:" (clj->js classification))
+  (go
+    (let [response (<! (http/post (str api-base-url "/api/classifications")
+                                 (merge default-opts
+                                        {:json-params classification})))]
+      ;; Log response for debugging
+      (when-not (:success response)
+        (js/console.log "Error response:" (clj->js (:body response))))
+      (if (:success response)
+        (do
+          ;; First close the form immediately
+          (swap! app-state assoc 
+                 :creating-classification? false
+                 :new-classification nil)
+          ;; Then fetch updated classifications
+          (fetch-classifications app-state))
+        (swap! app-state assoc :error "Failed to create classification")))))

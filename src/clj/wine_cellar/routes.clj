@@ -24,6 +24,7 @@
 (s/def ::vintage int?)
 (s/def ::styles (s/coll-of (set common/wine-styles)))
 (s/def ::level (s/nilable (set common/wine-levels)))
+(s/def ::levels (s/coll-of (set common/wine-levels)))
 (s/def ::location string?)
 (s/def ::quantity int?)
 (s/def ::price number?)
@@ -46,6 +47,15 @@
                   ::name
                   ::location
                   ::level]))
+
+(def classification-schema
+  (s/keys :req-un [::country
+                   ::region
+                   ::levels]
+          :opt-un [::aoc
+                   ::communal_aoc
+                   ::classification
+                   ::vineyard]))
 
 ;; Define tasting note schema
 (def tasting-note-schema
@@ -81,10 +91,16 @@
 
    ;; Wine Classification Routes
    ["/api/classifications"
-    {:get {:summary "Get all wine classifications"
-           :responses {200 {:body vector?}
-                       500 {:body map?}}
-           :handler handlers/get-classifications}}]
+ {:get {:summary "Get all wine classifications"
+        :responses {200 {:body vector?}
+                    500 {:body map?}}
+        :handler handlers/get-classifications}
+  :post {:summary "Create a new wine classification"
+         :parameters {:body classification-schema}
+         :responses {201 {:body map?}
+                     400 {:body map?}
+                     500 {:body map?}}
+         :handler handlers/create-classification}}]
 
    ["/api/classifications/regions/:country"
     {:parameters {:path {:country string?}}

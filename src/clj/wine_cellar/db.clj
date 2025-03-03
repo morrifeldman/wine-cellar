@@ -67,9 +67,9 @@
     [:levels :wine_level :array]
     [:created_at :timestamp [:default [:now]]]
     [[:constraint :wine_classifications_natural_key]
-     :unique
+     :unique-nulls-not-distinct
      [:composite :country :region :aoc :communal_aoc
-      :classification :vineyard :levels]]]})
+      :classification :vineyard]]]})
 
 (def wines-table-schema
   {:create-table [:wines :if-not-exists]
@@ -184,13 +184,40 @@
                      db-opts))
 
 ;; Classification operations
-(defn create-classification
+
+(defn create-or-update-classification
+  "Creates a new classification or updates an existing one by combining levels"
   [classification]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:insert-into :wine_classifications
-                       :values [(update classification :levels ->pg-array)]})
-                     db-opts))
+  (jdbc/with-transaction [tx ds]
+    (let [existing-query {:select :*
+                          :from :wine_classifications
+                          :where [:and
+                                 [:= :country (:country classification)]
+                                 [:= :region (:region classification)]
+                                 [:= [:coalesce :aoc ""]
+                                  [:coalesce (:aoc classification) ""]]
+                                 [:= [:coalesce :communal_aoc ""]
+                                  [:coalesce (:communal_aoc classification) ""]]
+                                 [:= [:coalesce :classification ""]
+                                  [:coalesce (:classification classification) ""]]
+                                 [:= [:coalesce :vineyard ""]
+                                  [:coalesce (:vineyard classification) ""]]]}
+          existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
+      (if existing
+        ;; Update existing classification - merge levels
+        (let [levels1 (or (:levels existing) [])
+              levels2 (or (:levels classification) [])
+              combined-levels (vec (distinct (concat levels1 levels2)))
+              update-query {:update :wine_classifications
+                            :set {:levels (->pg-array combined-levels)}
+                            :where [:= :id (:id existing)]
+                            :returning :*}]
+          (jdbc/execute-one! tx (sql/format update-query) db-opts))
+        ;; Create new classification
+        (let [insert-query {:insert-into :wine_classifications
+                            :values [(update classification :levels ->pg-array)]
+                            :returning :*}]
+          (jdbc/execute-one! tx (sql/format insert-query) db-opts))))))
 
 (defn get-classifications []
   (jdbc/execute! ds
@@ -287,7 +314,7 @@
                                        (str "resources/"
                                             classifications-file)))))]
     (doseq [c wine-classifications]
-      (create-classification c))))
+      (create-or-update-classification c))))
 
 (defn classifications-exist?
   "Check if any classifications exist in the database"

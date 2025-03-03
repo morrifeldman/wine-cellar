@@ -1,42 +1,183 @@
 [;; Bordeaux Left Bank
- {:country "France" :region "Bordeaux" :aoc "Médoc" :classification "AOC"}
+ {:country "France" :region "Bordeaux" :aoc "Médoc"}
  {:country "France" :region "Bordeaux" :aoc "Pauillac" :classification "Premier Cru Classé"}
  {:country "France" :region "Bordeaux" :aoc "Margaux" :classification "Premier Cru Classé"}
  {:country "France" :region "Bordeaux" :aoc "Saint-Julien" :classification "Grand Cru Classé"}
  {:country "France" :region "Bordeaux" :aoc "Saint-Estèphe" :classification "Grand Cru Classé"}
  {:country "France" :region "Bordeaux" :aoc "Pessac-Léognan" :classification "Grand Cru Classé"}
- {:country "France" :region "Bordeaux" :aoc "Graves" :classification "AOC"}
+ {:country "France" :region "Bordeaux" :aoc "Graves"}
  {:country "France" :region "Bordeaux" :aoc "Sauternes" :classification "Premier Cru Supérieur"}
 
  ;; Bordeaux Right Bank
  {:country "France" :region "Bordeaux" :aoc "Saint-Émilion" :classification "Grand Cru Classé"}
- {:country "France" :region "Bordeaux" :aoc "Pomerol" :classification "AOC"}
- {:country "France" :region "Bordeaux" :aoc "Fronsac" :classification "AOC"}
+ {:country "France" :region "Bordeaux" :aoc "Pomerol"}
+ {:country "France" :region "Bordeaux" :aoc "Fronsac"}
 
- ;; Burgundy (representatives)
+ ;; Bordeaux - Additional AOCs
+ {:country "France" :region "Bordeaux" :aoc "Entre-Deux-Mers"}
+ {:country "France" :region "Bordeaux" :aoc "Barsac" :classification "Premier Cru Classé"}
+ {:country "France" :region "Bordeaux" :aoc "Blaye"}
+ {:country "France" :region "Bordeaux" :aoc "Bourg"}
+ {:country "France" :region "Bordeaux" :aoc "Cadillac"}
+ {:country "France" :region "Bordeaux" :aoc "Canon-Fronsac"}
+ {:country "France" :region "Bordeaux" :aoc "Côtes de Bordeaux"}
+ {:country "France" :region "Bordeaux" :aoc "Côtes de Blaye"}
+ {:country "France" :region "Bordeaux" :aoc "Côtes de Bourg"}
+ {:country "France" :region "Bordeaux" :aoc "Francs Côtes de Bordeaux"}
+ {:country "France" :region "Bordeaux" :aoc "Graves Supérieures"}
+ {:country "France" :region "Bordeaux" :aoc "Haut-Médoc"}
+ {:country "France" :region "Bordeaux" :aoc "Lalande-de-Pomerol"}
+ {:country "France" :region "Bordeaux" :aoc "Listrac-Médoc"}
+ {:country "France" :region "Bordeaux" :aoc "Loupiac"}
+ {:country "France" :region "Bordeaux" :aoc "Lussac-Saint-Émilion"}
+ {:country "France" :region "Bordeaux" :aoc "Montagne-Saint-Émilion"}
+ {:country "France" :region "Bordeaux" :aoc "Moulis"}
+ {:country "France" :region "Bordeaux" :aoc "Premières Côtes de Bordeaux"}
+ {:country "France" :region "Bordeaux" :aoc "Puisseguin-Saint-Émilion"}
+ {:country "France" :region "Bordeaux" :aoc "Sainte-Croix-du-Mont"}
+ {:country "France" :region "Bordeaux" :aoc "Saint-Georges-Saint-Émilion"}
+
+ ;; Burgundy - Comprehensive
  {:country "France" :region "Burgundy" :aoc "Chablis" :classification "Grand Cru"}
+ {:country "France" :region "Burgundy" :aoc "Chablis" :classification "Premier Cru"}
+ {:country "France" :region "Burgundy" :aoc "Chablis"}
+ {:country "France" :region "Burgundy" :aoc "Petit Chablis"}
+ {:country "France" :region "Burgundy" :aoc "Côte de Beaune" :classification "Grand Cru"}
+ {:country "France" :region "Burgundy" :aoc "Côte de Beaune" :classification "Premier Cru"}
+ {:country "France" :region "Burgundy" :aoc "Côte de Beaune"}
  {:country "France" :region "Burgundy" :aoc "Côte de Nuits" :classification "Grand Cru"}
+ {:country "France" :region "Burgundy" :aoc "Côte de Nuits" :classification "Premier Cru"}
+ {:country "France" :region "Burgundy" :aoc "Côte de Nuits"}
+ {:country "France" :region "Burgundy" :aoc "Aloxe-Corton"}
+ {:country "France" :region "Burgundy" :aoc "Auxey-Duresses"}
+ {:country "France" :region "Burgundy" :aoc "Bouzeron"}
+ {:country "France" :region "Burgundy" :aoc "Chassagne-Montrachet"}
+ {:country "France" :region "Burgundy" :aoc "Chorey-lès-Beaune"}
+ {:country "France" :region "Burgundy" :aoc "Gevrey-Chambertin"}
+ {:country "France" :region "Burgundy" :aoc "Ladoix"}
+ {:country "France" :region "Burgundy" :aoc "Mâcon"}
+ {:country "France" :region "Burgundy" :aoc "Meursault"}
+ {:country "France" :region "Burgundy" :aoc "Monthélie"}
+ {:country "France" :region "Burgundy" :aoc "Nuits-Saint-Georges"}
+ {:country "France" :region "Burgundy" :aoc "Pernand-Vergelesses"}
+ {:country "France" :region "Burgundy" :aoc "Pommard"}
+ {:country "France" :region "Burgundy" :aoc "Pouilly-Fuissé"}
+ {:country "France" :region "Burgundy" :aoc "Puligny-Montrachet"}
+ {:country "France" :region "Burgundy" :aoc "Saint-Aubin"}
+ {:country "France" :region "Burgundy" :aoc "Santenay"}
+ {:country "France" :region "Burgundy" :aoc "Savigny-lès-Beaune"}
+ {:country "France" :region "Burgundy" :aoc "Volnay"}
+ {:country "France" :region "Burgundy" :aoc "Vosne-Romanée"}
 
- ;; Rhône North
- {:country "France" :region "Rhône" :aoc "Côte-Rôtie" :classification "AOC"}
- {:country "France" :region "Rhône" :aoc "Hermitage" :classification "AOC"}
- {:country "France" :region "Rhône" :aoc "Crozes-Hermitage" :classification "AOC"}
- {:country "France" :region "Rhône" :aoc "Saint-Joseph" :classification "AOC"}
+ ;; Rhône Valley - Comprehensive
+ {:country "France" :region "Rhône" :aoc "Côtes du Rhône"}
+ {:country "France" :region "Rhône" :aoc "Côtes du Rhône Villages"}
+ {:country "France" :region "Rhône" :aoc "Châteauneuf-du-Pape"}
+ {:country "France" :region "Rhône" :aoc "Condrieu"}
+ {:country "France" :region "Rhône" :aoc "Cornas"}
+ {:country "France" :region "Rhône" :aoc "Côte-Rôtie"}
+ {:country "France" :region "Rhône" :aoc "Crozes-Hermitage"}
+ {:country "France" :region "Rhône" :aoc "Gigondas"}
+ {:country "France" :region "Rhône" :aoc "Hermitage"}
+ {:country "France" :region "Rhône" :aoc "Lirac"}
+ {:country "France" :region "Rhône" :aoc "Rasteau"}
+ {:country "France" :region "Rhône" :aoc "Saint-Joseph"}
+ {:country "France" :region "Rhône" :aoc "Saint-Péray"}
+ {:country "France" :region "Rhône" :aoc "Tavel"}
+ {:country "France" :region "Rhône" :aoc "Vacqueyras"}
+ {:country "France" :region "Rhône" :aoc "Vinsobres"}
 
- ;; Rhône South
- {:country "France" :region "Rhône" :aoc "Châteauneuf-du-Pape" :classification "AOC"}
- {:country "France" :region "Rhône" :aoc "Gigondas" :classification "AOC"}
- {:country "France" :region "Rhône" :aoc "Vacqueyras" :classification "AOC"}
+ ;; Loire Valley - Comprehensive
+ {:country "France" :region "Loire" :aoc "Anjou"}
+ {:country "France" :region "Loire" :aoc "Anjou-Villages"}
+ {:country "France" :region "Loire" :aoc "Bonnezeaux"}
+ {:country "France" :region "Loire" :aoc "Bourgueil"}
+ {:country "France" :region "Loire" :aoc "Chinon"}
+ {:country "France" :region "Loire" :aoc "Coteaux de l'Aubance"}
+ {:country "France" :region "Loire" :aoc "Coteaux du Layon"}
+ {:country "France" :region "Loire" :aoc "Coteaux du Loir"}
+ {:country "France" :region "Loire" :aoc "Jasnieres"}
+ {:country "France" :region "Loire" :aoc "Menetou-Salon"}
+ {:country "France" :region "Loire" :aoc "Montlouis-sur-Loire"}
+ {:country "France" :region "Loire" :aoc "Muscadet"}
+ {:country "France" :region "Loire" :aoc "Muscadet Sèvre et Maine"}
+ {:country "France" :region "Loire" :aoc "Pouilly-Fumé"}
+ {:country "France" :region "Loire" :aoc "Pouilly-sur-Loire"}
+ {:country "France" :region "Loire" :aoc "Quarts de Chaume"}
+ {:country "France" :region "Loire" :aoc "Quincy"}
+ {:country "France" :region "Loire" :aoc "Sancerre"}
+ {:country "France" :region "Loire" :aoc "Saumur"}
+ {:country "France" :region "Loire" :aoc "Saumur-Champigny"}
+ {:country "France" :region "Loire" :aoc "Savennières"}
+ {:country "France" :region "Loire" :aoc "Touraine"}
+ {:country "France" :region "Loire" :aoc "Vouvray"}
 
- ;; Loire
- {:country "France" :region "Loire" :aoc "Sancerre" :classification "AOC"}
- {:country "France" :region "Loire" :aoc "Vouvray" :classification "AOC"}
- {:country "France" :region "Loire" :aoc "Chinon" :classification "AOC"}
+ ;; Alsace - Comprehensive
+ {:country "France" :region "Alsace" :aoc "Alsace"}
+ {:country "France" :region "Alsace" :aoc "Alsace Grand Cru" :classification "Grand Cru"}
+ {:country "France" :region "Alsace" :aoc "Crémant d'Alsace"}
 
- ;; Alsace
- {:country "France" :region "Alsace" :aoc "Alsace Grand Cru" :classification "AOC"}
+ ;; Champagne
+ {:country "France" :region "Champagne" :aoc "Champagne"}
+ {:country "France" :region "Champagne" :aoc "Coteaux Champenois"}
+ {:country "France" :region "Champagne" :aoc "Rosé des Riceys"}
 
- ;; Tuscany
+ ;; Beaujolais
+ {:country "France" :region "Beaujolais" :aoc "Beaujolais"}
+ {:country "France" :region "Beaujolais" :aoc "Beaujolais Villages"}
+ {:country "France" :region "Beaujolais" :aoc "Brouilly"}
+ {:country "France" :region "Beaujolais" :aoc "Chénas"}
+ {:country "France" :region "Beaujolais" :aoc "Chiroubles"}
+ {:country "France" :region "Beaujolais" :aoc "Côte de Brouilly"}
+ {:country "France" :region "Beaujolais" :aoc "Fleurie"}
+ {:country "France" :region "Beaujolais" :aoc "Juliénas"}
+ {:country "France" :region "Beaujolais" :aoc "Morgon"}
+ {:country "France" :region "Beaujolais" :aoc "Moulin-à-Vent"}
+ {:country "France" :region "Beaujolais" :aoc "Régnié"}
+ {:country "France" :region "Beaujolais" :aoc "Saint-Amour"}
+
+ ;; Provence
+ {:country "France" :region "Provence" :aoc "Bandol"}
+ {:country "France" :region "Provence" :aoc "Bellet"}
+ {:country "France" :region "Provence" :aoc "Cassis"}
+ {:country "France" :region "Provence" :aoc "Côtes de Provence"}
+ {:country "France" :region "Provence" :aoc "Coteaux d'Aix-en-Provence"}
+ {:country "France" :region "Provence" :aoc "Les Baux-de-Provence"}
+ {:country "France" :region "Provence" :aoc "Palette"}
+
+ ;; Languedoc-Roussillon
+ {:country "France" :region "Languedoc-Roussillon" :aoc "Corbières"}
+ {:country "France" :region "Languedoc-Roussillon" :aoc "Côtes du Roussillon"}
+ {:country "France" :region "Languedoc-Roussillon" :aoc "Côtes du Roussillon Villages"}
+ {:country "France" :region "Languedoc-Roussillon" :aoc "Fitou"}
+ {:country "France" :region "Languedoc-Roussillon" :aoc "Minervois"}
+ {:country "France" :region "Languedoc-Roussillon" :aoc "Pic-Saint-Loup"}
+
+ ;; Corsica
+ {:country "France" :region "Corsica" :aoc "Ajaccio"}
+ {:country "France" :region "Corsica" :aoc "Corse"}
+ {:country "France" :region "Corsica" :aoc "Corse Calvi"}
+ {:country "France" :region "Corsica" :aoc "Corse Figari"}
+ {:country "France" :region "Corsica" :aoc "Corse Porto-Vecchio"}
+ {:country "France" :region "Corsica" :aoc "Corse Sartène"}
+ {:country "France" :region "Corsica" :aoc "Patrimonio"}
+
+ ;; Jura
+ {:country "France" :region "Jura" :aoc "Arbois"}
+ {:country "France" :region "Jura" :aoc "Côtes du Jura"}
+ {:country "France" :region "Jura" :aoc "L'Étoile"}
+ {:country "France" :region "Jura" :aoc "Château-Chalon"}
+ {:country "France" :region "Jura" :aoc "Macvin du Jura"}
+ {:country "France" :region "Jura" :aoc "Crémant du Jura"}
+
+ ;; Savoie
+ {:country "France" :region "Savoie" :aoc "Vin de Savoie"}
+ {:country "France" :region "Savoie" :aoc "Roussette de Savoie"}
+ {:country "France" :region "Savoie" :aoc "Seyssel"}
+ {:country "France" :region "Savoie" :aoc "Crépy"}
+ {:country "France" :region "Savoie" :aoc "Bugey"}
+
+ ;; Italy - Tuscany
  {:country "Italy" :region "Tuscany" :aoc "Chianti Classico" :classification "DOCG"
   :levels ["Riserva" "Gran Selezione"]}
  {:country "Italy" :region "Tuscany" :aoc "Brunello di Montalcino" :classification "DOCG"
@@ -44,7 +185,7 @@
  {:country "Italy" :region "Tuscany" :aoc "Vino Nobile di Montepulciano" :classification "DOCG"
   :levels ["Riserva"]}
 
- ;; Piedmont
+ ;; Italy - Piedmont
  {:country "Italy" :region "Piedmont" :aoc "Barolo" :classification "DOCG"
   :levels ["Riserva"]}
  {:country "Italy" :region "Piedmont" :aoc "Barbaresco" :classification "DOCG"
@@ -52,12 +193,54 @@
  {:country "Italy" :region "Piedmont" :aoc "Barbera d'Alba" :classification "DOC"
   :levels ["Riserva"]}
 
- ;; Veneto
+ ;; Italy - Veneto
  {:country "Italy" :region "Veneto" :aoc "Amarone della Valpolicella" :classification "DOCG"
   :levels ["Riserva"]}
  {:country "Italy" :region "Veneto" :aoc "Soave" :classification "DOC"
   :levels ["Riserva"]}
 
- ;; Sicily
+ ;; Italy - Sicily
  {:country "Italy" :region "Sicily" :aoc "Etna" :classification "DOC"
-  :levels ["Riserva"]}]
+  :levels ["Riserva"]}
+
+ ;; Spain
+ {:country "Spain" :region "Rioja" :aoc "Rioja DOCa" :classification "DOCa"
+  :levels ["Crianza" "Reserva" "Gran Reserva"]}
+ {:country "Spain" :region "Ribera del Duero" :aoc "Ribera del Duero" :classification "DO"
+  :levels ["Crianza" "Reserva" "Gran Reserva"]}
+ {:country "Spain" :region "Priorat" :aoc "Priorat" :classification "DOCa"}
+ {:country "Spain" :region "Rías Baixas" :aoc "Rías Baixas" :classification "DO"}
+
+ ;; Germany
+ {:country "Germany" :region "Mosel" :aoc "Mosel" :classification "Prädikatswein"
+  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
+ {:country "Germany" :region "Rheingau" :aoc "Rheingau" :classification "Prädikatswein"
+  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
+ {:country "Germany" :region "Pfalz" :aoc "Pfalz" :classification "Prädikatswein"
+  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
+
+ ;; United States
+ {:country "United States" :region "California" :aoc "Napa Valley" :classification "AVA"}
+ {:country "United States" :region "California" :aoc "Sonoma County" :classification "AVA"}
+ {:country "United States" :region "California" :aoc "Russian River Valley" :classification "AVA"}
+ {:country "United States" :region "Oregon" :aoc "Willamette Valley" :classification "AVA"}
+ {:country "United States" :region "Washington" :aoc "Columbia Valley" :classification "AVA"}
+
+ ;; Australia
+ {:country "Australia" :region "South Australia" :aoc "Barossa Valley" :classification "GI"}
+ {:country "Australia" :region "South Australia" :aoc "McLaren Vale" :classification "GI"}
+ {:country "Australia" :region "Western Australia" :aoc "Margaret River" :classification "GI"}
+ {:country "Australia" :region "Victoria" :aoc "Yarra Valley" :classification "GI"}
+
+ ;; Portugal
+ {:country "Portugal" :region "Douro" :aoc "Porto" :classification "DOC"}
+ {:country "Portugal" :region "Douro" :aoc "Douro" :classification "DOC"}
+ {:country "Portugal" :region "Alentejo" :aoc "Alentejo" :classification "DOC"}
+
+ ;; Argentina
+ {:country "Argentina" :region "Mendoza" :aoc "Mendoza" :classification "DOC"}
+ {:country "Argentina" :region "Mendoza" :aoc "Uco Valley" :classification "GI"}
+
+ ;; Chile
+ {:country "Chile" :region "Central Valley" :aoc "Maipo Valley" :classification "DO"}
+ {:country "Chile" :region "Central Valley" :aoc "Colchagua Valley" :classification "DO"}]
