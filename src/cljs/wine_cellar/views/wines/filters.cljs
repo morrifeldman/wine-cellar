@@ -18,15 +18,15 @@
     [grid {:container true :spacing 3 :sx {:mb 3 :mt 2}}
      ;; Search field
      [grid {:item true :xs 12 :md 4}
-      [text-field 
+      [text-field
        {:fullWidth true
         :label "Search wines"
         :variant "outlined"
         :placeholder "Search by name, producer, region..."
         :value (:search filters)
-        :onChange #(swap! app-state assoc-in [:filters :search] 
-                         (.. % -target -value))}]]
-     
+        :onChange #(swap! app-state assoc-in [:filters :search]
+                          (.. % -target -value))}]]
+
      ;; Country dropdown
      [grid {:item true :xs 12 :md 2}
       [form-control
@@ -38,13 +38,13 @@
         {:value (or (:country filters) "")
          :label "Country"
          :onChange #(swap! app-state assoc-in [:filters :country]
-                          (let [v (.. % -target -value)]
-                            (when-not (empty? v) v)))}
+                           (let [v (.. % -target -value)]
+                             (when-not (empty? v) v)))}
         [menu-item {:value ""} "All Countries"]
         (for [country (unique-countries classifications)]
           ^{:key country}
           [menu-item {:value country} country])]]]
-     
+
      ;; Region dropdown
      [grid {:item true :xs 12 :md 2}
       [form-control
@@ -57,13 +57,13 @@
         {:value (or (:region filters) "")
          :label "Region"
          :onChange #(swap! app-state assoc-in [:filters :region]
-                          (let [v (.. % -target -value)]
-                            (when-not (empty? v) v)))}
+                           (let [v (.. % -target -value)]
+                             (when-not (empty? v) v)))}
         [menu-item {:value ""} "All Regions"]
         (for [region (regions-for-country classifications (:country filters))]
           ^{:key region}
           [menu-item {:value region} region])]]]
-     
+
      ;; Style dropdown
      [grid {:item true :xs 12 :md 2}
       [form-control
@@ -75,16 +75,25 @@
         {:value (or (:styles filters) "")
          :label "Style"
          :onChange #(swap! app-state assoc-in [:filters :styles]
-                          (let [v (.. % -target -value)]
-                            (when-not (empty? v) v)))}
+                           (let [v (.. % -target -value)]
+                             (when-not (empty? v) v)))}
         [menu-item {:value ""} "All Styles"]
         (for [style common/wine-styles]
           ^{:key style}
           [menu-item {:value style} style])]]]
-     
+
+     [grid {:item true :xs 12 :md 2 :sx {:display "flex" :alignItems "center" :mt 1}}
+      [button
+       {:variant "outlined"
+        :color (if (:show-out-of-stock? @app-state) "secondary" "primary")
+        :onClick #(swap! app-state update :show-out-of-stock? not)}
+       (if (:show-out-of-stock? @app-state)
+         "In Cellar Only"
+         "All History")]]
+
      ;; Clear filters button
      [grid {:item true :xs 12 :md 2 :sx {:display "flex" :alignItems "center" :mt 1}}
-      [button 
+      [button
        {:variant "outlined"
         :color "secondary"
         :onClick #(swap! app-state assoc :filters {:search "" :country nil :region nil :styles nil})}

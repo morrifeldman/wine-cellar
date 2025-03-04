@@ -2,11 +2,11 @@
   (:require [reagent.core :as r]
             [clojure.string :as str]
             [wine-cellar.views.components :refer [smart-field smart-select-field multi-select-field
-                                                 form-section form-field-style]]
+                                                  form-section form-field-style]]
             [wine-cellar.views.classifications.form :refer [classification-form]]
             [wine-cellar.utils.formatting :refer [valid-name-producer? unique-countries
-                                                regions-for-country aocs-for-region
-                                                classifications-for-aoc levels-for-classification]]
+                                                  regions-for-country aocs-for-region
+                                                  classifications-for-aoc levels-for-classification]]
             [wine-cellar.api :as api]
             [wine-cellar.common :as common]
             [reagent-mui.material.button :refer [button]]
@@ -24,8 +24,12 @@
      [:form {:on-submit (fn [e]
                           (.preventDefault e)
                           (if (valid-name-producer? new-wine)
-                            (api/create-wine app-state
-                                             (update new-wine :price js/parseFloat))
+                            (api/create-wine
+                             app-state
+                             (-> new-wine
+                                 (update :price js/parseFloat)
+                                 (update :vintage #(js/parseInt % 10))
+                                 (update :quantity #(js/parseInt % 10))))
                             (swap! app-state assoc
                                    :error
                                    "Either Wine Name or Producer must be provided")))}
@@ -45,8 +49,7 @@
           :sx form-field-style
           :helperText "Either Name or Producer required"
           :on-change #(swap! app-state assoc-in [:new-wine :name]
-                             (.. % -target -value))}]
-        ]
+                             (.. % -target -value))}]]
 
        [grid {:item true :xs 12 :md 4}
         [text-field
@@ -58,10 +61,9 @@
           :sx form-field-style
           :helperText "Either Name or Producer required"
           :on-change #(swap! app-state assoc-in [:new-wine :producer]
-                             (.. % -target -value))}]
-        ]
+                             (.. % -target -value))}]]
 
-       ;; Styles is special due to multi-select
+;; Styles is special due to multi-select
        [grid {:item true :xs 12 :md 4}
         [multi-select-field {:label "Style"
                              :value (:styles new-wine)
@@ -99,7 +101,7 @@
         [smart-select-field app-state [:new-wine :region]
          :required true
          :disabled (empty? (:country new-wine))
-         :options (map #(vector % %) 
+         :options (map #(vector % %)
                        (regions-for-country classifications (:country new-wine)))]]
 
        ;; AOC dropdown (dependent on region)
@@ -118,7 +120,7 @@
          :disabled (or (empty? (:country new-wine))
                        (empty? (:region new-wine))
                        (empty? (:aoc new-wine)))
-         :options (map #(vector % %) 
+         :options (map #(vector % %)
                        (classifications-for-aoc classifications
                                                 (:country new-wine)
                                                 (:region new-wine)
@@ -131,13 +133,13 @@
                        (empty? (:region new-wine))
                        (empty? (:aoc new-wine))
                        (empty? (:classification new-wine)))
-         :options (map #(vector % %) 
+         :options (map #(vector % %)
                        (levels-for-classification
-                         classifications
-                         (:country new-wine)
-                         (:region new-wine)
-                         (:aoc new-wine)
-                         (:classification new-wine)))
+                        classifications
+                        (:country new-wine)
+                        (:region new-wine)
+                        (:aoc new-wine)
+                        (:classification new-wine)))
          :on-change #(swap! app-state assoc-in [:new-wine :level]
                             (when-not (empty? %) %))]]
 
@@ -166,8 +168,7 @@
          :on-change #(swap! app-state assoc-in [:new-wine :quantity]
                             (js/parseInt %))]]
 
-
-       ;; Price with decimal step
+;; Price with decimal step
        [grid {:item true :xs 12 :md 4}
         [smart-field app-state [:new-wine :price]
          :type "number"
@@ -180,7 +181,7 @@
 
        [grid {:item true :xs 12}
         [box {:sx {:display "flex" :justifyContent "flex-end" :mt 2}}
-         [button 
+         [button
           {:type "submit"
            :variant "contained"
            :color "primary"}

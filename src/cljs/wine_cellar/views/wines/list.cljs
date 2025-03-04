@@ -7,6 +7,7 @@
             [wine-cellar.views.wines.filters :refer [filter-bar]]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
             [wine-cellar.api :as api]
+            [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
@@ -36,29 +37,31 @@
                  (str rating "/100")
                  "-")]
    [table-cell (:location wine)]
-   [table-cell 
+   [table-cell
     [quantity-control app-state (:id wine) (:quantity wine)]]
    [table-cell (gstring/format "$%.2f" (or (:price wine) 0))]
    [table-cell 
     {:align "right"}
-    [button
-     {:variant "contained"
-      :color "primary"
-      :size "small"
-      :start-icon (r/as-element [visibility])
-      :sx {:mr 1}
-      :onClick #(do
-                 (swap! app-state assoc :selected-wine-id (:id wine))
-                 (swap! app-state assoc :new-tasting-note {})
-                 (api/fetch-tasting-notes app-state (:id wine)))}
-     "View"]
-    [button
-     {:variant "outlined"
-      :color "error"
-      :size "small"
-      :start-icon (r/as-element [delete])
-      :onClick #(api/delete-wine app-state (:id wine))}
-     "Delete"]]])
+    [box {:display "flex" 
+          :flexDirection "column"  ;; This creates the vertical stack
+          :alignItems "flex-end"}  ;; This right-aligns the buttons
+     [button
+      {:variant "outlined"
+       :color "primary"
+       :size "small"
+       :sx {:mb 1}  ;; Margin bottom for spacing between buttons
+       :onClick #(do
+                   (swap! app-state assoc :selected-wine-id (:id wine))
+                   (swap! app-state assoc :new-tasting-note {})
+                   (api/fetch-tasting-notes app-state (:id wine)))}
+      "View"]
+     [button
+      {:variant "outlined"
+       :color "error"
+       :size "small"
+       :onClick #(api/delete-wine app-state (:id wine))}
+      "Delete"]]]
+   ])
 
 (defn wine-table [app-state wines]
   [table-container
@@ -83,18 +86,49 @@
        ^{:key (:id wine)}
        [wine-table-row app-state wine])]]])
 
+(defn wine-stats [app-state]
+  (let [wines (:wines @app-state)
+        visible-wines (filtered-sorted-wines app-state)
+        total-wines (count wines)
+        visible-count (count visible-wines)
+        total-bottles (reduce + 0 (map :quantity wines))
+        ratings (keep :latest_rating wines)
+        avg-rating (if (seq ratings)
+                     (js/Math.round (/ (reduce + 0 ratings) (count ratings)))
+                     "-")]
+    [paper {:elevation 2 :sx {:p 2 :mb 3}}
+     [grid {:container true :spacing 2}
+      [grid {:item true :xs 12 :sm 3}
+       [typography {:variant "body1"}
+        [box {:component "span" :sx {:fontWeight "bold"}} "Wines: "]
+        (str visible-count "/" total-wines)]]
+      [grid {:item true :xs 12 :sm 3}
+       [typography {:variant "body1"}
+        [box {:component "span" :sx {:fontWeight "bold"}} "Bottles: "]
+        total-bottles]]
+      [grid {:item true :xs 12 :sm 3}
+       [typography {:variant "body1"}
+        [box {:component "span" :sx {:fontWeight "bold"}} "Avg. Rating: "]
+        (if (= avg-rating "-") "-" (str avg-rating "/100"))]]
+      [grid {:item true :xs 12 :sm 3}
+       [typography {:variant "body1"}
+        [box {:component "span" :sx {:fontWeight "bold"}} "Value: "]
+        (str "$" (js/Math.round (reduce + 0 (map #(* (or (:price %) 0) (:quantity %)) wines))))]]]]))
+
 (defn wine-list [app-state]
   [box {:sx {:width "100%" :mt 3}}
    [typography {:variant "h4" :component "h2" :sx {:mb 2}} "My Wines"]
    (if (:loading? @app-state)
      [box {:display "flex" :justifyContent "center" :p 4}
       [circular-progress]]
-     
+
      (if (empty? (:wines @app-state))
        [paper {:elevation 2 :sx {:p 3 :textAlign "center"}}
         [typography {:variant "h6"} "No wines yet. Add your first wine above!"]]
-       
-       [box 
+
+       [box
+        [wine-stats app-state]
+
         ;; Wine details view or table with filtering
         (if (:selected-wine-id @app-state)
           [:div] ;; Wine details are rendered separately

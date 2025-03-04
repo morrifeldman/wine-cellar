@@ -44,9 +44,12 @@
 (defn filtered-sorted-wines [app-state]
   (let [wines (:wines @app-state)
         {:keys [search country region styles]} (:filters @app-state)
-        {:keys [field direction]} (:sort @app-state)]
-    
+        {:keys [field direction]} (:sort @app-state)
+        show-out-of-stock? (:show-out-of-stock? @app-state)]
+
     (as-> wines w
+      ;; Filter out zero-quantity wines if show-out-of-stock? is false
+      (if show-out-of-stock? w (filter #(pos? (:quantity %)) w))
       ;; Apply all filters
       (filter #(matches-text-search? % search) w)
       (filter #(matches-country? % country) w)
