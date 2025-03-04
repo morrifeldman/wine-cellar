@@ -26,9 +26,6 @@ node_modules/
 public/js/
 public/cljs-runtime/
 
-# Dependencies
-package-lock.json
-
 # IDE specific
 .idea/
 .vscode/
