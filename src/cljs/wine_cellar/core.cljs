@@ -1,7 +1,7 @@
 (ns wine-cellar.core
   (:require [reagent.core :as r]
             ["react-dom/client" :refer [createRoot]]
-            [wine-cellar.views :as views]
+            [wine-cellar.views.main :as views]
             [wine-cellar.api :as api]))
 
 (defonce app-state
