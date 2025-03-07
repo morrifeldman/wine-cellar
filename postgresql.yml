@@ -1,6 +1,5 @@
 ---
 # playbooks/postgresql.yml
-# ansible-playbook playbooks/postgresql.yml
 - name: PostgreSQL Database Setup
   hosts: localhost
   connection: local
@@ -10,63 +9,49 @@
         owner: wine_cellar
         pass_path: "wine_cellar/db"  # Path in your pass store
 
+    # OS-specific PostgreSQL connection parameters
+    pg_params:
+      Darwin:
+        become: false
+        # No become_user needed since become is false
+        login: "{{ ansible_user_id }}"
+        db: "postgres"  # Only needed for Darwin
+      Debian:
+        become: true
+        become_user: postgres
+        # No login parameter needed for Debian
+        # No db parameter needed for Debian
+
   tasks:
     - name: Get database passwords from pass
       command: "pass {{ item.pass_path }}"
       register: db_passwords
       loop: "{{ pg_databases }}"
-      become: false  # Run as your user, not root
+      become: false
       changed_when: false
-      no_log: true   # Don't log the output which contains passwords
+      no_log: true
       failed_when: db_passwords.rc != 0
 
+    - name: Create PostgreSQL users
+      community.postgresql.postgresql_user:
+        login: "{{ pg_params[ansible_os_family].login | default(omit) }}"
+        name: "{{ pg_databases[idx].owner }}"
+        password: "{{ item.stdout }}"
+        state: present
+        db: "{{ pg_params[ansible_os_family].db | default(omit) }}"
+      become: "{{ pg_params[ansible_os_family].become }}"
+      become_user: "{{ pg_params[ansible_os_family].become_user | default(omit) }}"
+      loop: "{{ db_passwords.results }}"
+      # no_log: true
+      loop_control:
+        index_var: idx
 
-    - name: Install on Darwin
-      when: ansible_os_family == "Darwin"
-      block:
-      # Working example on Darwin with homebrew
-      # https://www.valerieparhamthompson.com/posts/provision-ansible-postgres/
-      - name: Create PostgreSQL users
-        community.postgresql.postgresql_user:
-          login: "{{ ansible_user_id }}"
-          db: postgres
-          name: "{{ pg_databases[idx].owner }}"
-          password: "{{ item.stdout }}"
-          state: present
-        loop: "{{ db_passwords.results }}"
-        # no_log: true
-        loop_control:
-          index_var: idx
-
-      - name: Create PostgreSQL databases
-        community.postgresql.postgresql_db:
-          login: "{{ ansible_user_id }}"
-          name: "{{ item.name }}"
-          owner: "{{ item.owner }}"
-          state: present
-        loop: "{{ pg_databases }}"
-
-
-    - name: Install on Debian
-      when: ansible_os_family == "Debian"
-      become: true
-      become_user: postgres
-      block:
-      - name: Create PostgreSQL users
-        community.postgresql.postgresql_user:
-          name: "{{ pg_databases[idx].owner }}"
-          password: "{{ item.stdout }}"
-          state: present
-        loop: "{{ db_passwords.results }}"
-        # no_log: true
-        loop_control:
-          index_var: idx
-
-      - name: Create PostgreSQL databases
-        community.postgresql.postgresql_db:
-          name: "{{ item.name }}"
-          owner: "{{ item.owner }}"
-          state: present
-        loop: "{{ pg_databases }}"
-
-### Should be able to unify these with variables for become, become_user login...
+    - name: Create PostgreSQL databases
+      community.postgresql.postgresql_db:
+        login: "{{ pg_params[ansible_os_family].login | default(omit) }}"
+        name: "{{ item.name }}"
+        owner: "{{ item.owner }}"
+        state: present
+      become: "{{ pg_params[ansible_os_family].become }}"
+      become_user: "{{ pg_params[ansible_os_family].become_user | default(omit) }}"
+      loop: "{{ pg_databases }}"
