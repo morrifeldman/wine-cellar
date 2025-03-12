@@ -10,7 +10,7 @@ use nvim. Please do not give an answer if you want more information or files -- 
 
 # Source Code Structure
 
-src
+.
 ├── clj
 │   └── wine_cellar
 │       ├── db.clj
@@ -24,10 +24,24 @@ src
     └── wine_cellar
         ├── api.cljs
         ├── core.cljs
-        └── views.cljs
+        ├── utils
+        │   ├── filters.cljs
+        │   └── formatting.cljs
+        └── views
+            ├── classifications
+            │   └── form.cljs
+            ├── components.cljs
+            ├── main.cljs
+            ├── tasting_notes
+            │   ├── form.cljs
+            │   └── list.cljs
+            └── wines
+                ├── detail.cljs
+                ├── filters.cljs
+                ├── form.cljs
+                └── list.cljs
 
-7 directories, 8 files
-
+12 directories, 18 files
 # Summaries of Previous chats
 Newer chats first
 ## Chat 7

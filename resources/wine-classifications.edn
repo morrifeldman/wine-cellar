@@ -204,21 +204,21 @@
   :levels ["Riserva"]}
 
  ;; Spain
- {:country "Spain" :region "Rioja" :aoc "Rioja DOCa" :classification "DOCa"
-  :levels ["Crianza" "Reserva" "Gran Reserva"]}
- {:country "Spain" :region "Ribera del Duero" :aoc "Ribera del Duero" :classification "DO"
-  :levels ["Crianza" "Reserva" "Gran Reserva"]}
+ ; {:country "Spain" :region "Rioja" :aoc "Rioja DOCa" :classification "DOCa"
+ ;  :levels ["Crianza" "Reserva" "Gran Reserva"]}
+ ; {:country "Spain" :region "Ribera del Duero" :aoc "Ribera del Duero" :classification "DO"
+ ;  :levels ["Crianza" "Reserva" "Gran Reserva"]}
  {:country "Spain" :region "Priorat" :aoc "Priorat" :classification "DOCa"}
  {:country "Spain" :region "Rías Baixas" :aoc "Rías Baixas" :classification "DO"}
 
  ;; Germany
- {:country "Germany" :region "Mosel" :aoc "Mosel" :classification "Prädikatswein"
-  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
- {:country "Germany" :region "Rheingau" :aoc "Rheingau" :classification "Prädikatswein"
-  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
- {:country "Germany" :region "Pfalz" :aoc "Pfalz" :classification "Prädikatswein"
-  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
-
+ ; {:country "Germany" :region "Mosel" :aoc "Mosel" :classification "Prädikatswein"
+ ;  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
+ ; {:country "Germany" :region "Rheingau" :aoc "Rheingau" :classification "Prädikatswein"
+ ;  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
+ ; {:country "Germany" :region "Pfalz" :aoc "Pfalz" :classification "Prädikatswein"
+ ;  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
+ ;
  ;; United States
  {:country "United States" :region "California" :aoc "Napa Valley" :classification "AVA"}
  {:country "United States" :region "California" :aoc "Sonoma County" :classification "AVA"}
