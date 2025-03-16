@@ -1,9 +1,9 @@
 (ns wine-cellar.views.wines.form
   (:require
-   [wine-cellar.views.components :refer [smart-field smart-select-field select-field]]
    [wine-cellar.views.components.form :refer [form-container form-actions form-row
                                               form-divider text-field currency-field
-                                              number-field]]
+                                              number-field select-field
+                                              smart-field smart-select-field]]
    [wine-cellar.views.classifications.form :refer [classification-form]]
    [wine-cellar.utils.formatting :refer [valid-name-producer? unique-countries
                                          regions-for-country aocs-for-region
@@ -90,8 +90,8 @@
        :disabled (or (empty? (:country new-wine))
                      (empty? (:region new-wine)))
        :options (aocs-for-region classifications
-                                      (:country new-wine)
-                                      (:region new-wine))]]
+                                 (:country new-wine)
+                                 (:region new-wine))]]
 
      [form-row
       [smart-select-field app-state [:new-wine :classification]
@@ -99,9 +99,9 @@
                      (empty? (:region new-wine))
                      (empty? (:aoc new-wine)))
        :options (classifications-for-aoc classifications
-                                              (:country new-wine)
-                                              (:region new-wine)
-                                              (:aoc new-wine))]
+                                         (:country new-wine)
+                                         (:region new-wine)
+                                         (:aoc new-wine))]
 
       [smart-select-field app-state [:new-wine :level]
        :disabled (or (empty? (:country new-wine))
@@ -109,11 +109,11 @@
                      (empty? (:aoc new-wine))
                      (empty? (:classification new-wine)))
        :options (levels-for-classification
-                      classifications
-                      (:country new-wine)
-                      (:region new-wine)
-                      (:aoc new-wine)
-                      (:classification new-wine))
+                 classifications
+                 (:country new-wine)
+                 (:region new-wine)
+                 (:aoc new-wine)
+                 (:classification new-wine))
        :on-change #(swap! app-state assoc-in [:new-wine :level]
                           (when-not (empty? %) %))]
 

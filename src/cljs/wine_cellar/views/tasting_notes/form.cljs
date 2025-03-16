@@ -1,9 +1,10 @@
 (ns wine-cellar.views.tasting-notes.form
-  (:require [wine-cellar.views.components :refer [date-field]]
-            [wine-cellar.views.components.form :refer [form-container
+  (:require [wine-cellar.views.components.form :refer [form-container
                                                        form-actions
                                                        text-area-field
-                                                       number-field form-row]]
+                                                       number-field
+                                                       form-row
+                                                       date-field]]
             [wine-cellar.api :as api]
             [reagent-mui.material.grid :refer [grid]]))
 

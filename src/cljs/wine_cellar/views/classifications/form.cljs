@@ -1,6 +1,6 @@
 (ns wine-cellar.views.classifications.form
-  (:require [wine-cellar.views.components :refer [smart-field select-field]]
-            [wine-cellar.views.components.form :refer [form-container form-actions form-row]]
+  (:require [wine-cellar.views.components.form :refer [form-container form-actions form-row
+                                                       smart-field select-field]]
             [wine-cellar.api :as api]
             [wine-cellar.common :as common]))
 
