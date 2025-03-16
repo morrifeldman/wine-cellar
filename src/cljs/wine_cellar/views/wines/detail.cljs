@@ -16,62 +16,91 @@
 
 (defn wine-detail [app-state wine]
   (let [wine-id (:id wine)]
-    [paper {:elevation 2 :sx {:p 3 :mb 3}}
+    [paper {:elevation 2
+            :sx {:p 4
+                 :mb 3
+                 :borderRadius 2
+                 :position "relative"
+                 :overflow "hidden"
+                 :backgroundImage "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"}}
      ;; Wine title and basic info
-     [typography {:variant "h4" :component "h2" :sx {:mb 2}}
-      (str (:producer wine) (when-let [name (:name wine)] (str " - " name)))]
+     [box {:sx {:mb 3 :pb 2 :borderBottom "1px solid rgba(0,0,0,0.08)"}}
+      [typography {:variant "h4"
+                   :component "h2"
+                   :sx {:mb 1
+                        :color "primary.main"}}
+       (str (:producer wine) (when-let [name (:name wine)] (str " - " name)))]
 
-     [grid {:container true :spacing 2 :sx {:mb 3}}
-      ;; Vintage, region, etc.
-      [grid {:item true :xs 12 :md 6}
-       [typography {:variant "body1"}
-        [box {:component "span" :sx {:fontWeight "bold"}} "Vintage: "]
-        (:vintage wine)]]
+      [typography {:variant "subtitle1" :color "text.secondary"}
+       (str (:vintage wine) " • " (:region wine)
+            (when-let [aoc (:aoc wine)] (str " • " aoc)))]]
 
-      [grid {:item true :xs 12 :md 6}
-       [typography {:variant "body1"}
-        [box {:component "span" :sx {:fontWeight "bold"}} "Region: "]
-        (:region wine)
-        (when-let [aoc (:aoc wine)] (str " - " aoc))
-        (when-let [classification (:classification wine)]
-          (str " - " classification))]]
+     [grid {:container true :spacing 3 :sx {:mb 4}}
+      ;; Classification
+      (when-let [classification (:classification wine)]
+        [grid {:item true :xs 12 :md 6}
+         [paper {:elevation 0
+                 :sx {:p 2
+                      :bgcolor "rgba(0,0,0,0.02)"
+                      :borderRadius 1}}
+          [typography {:variant "body2" :color "text.secondary"} "Classification"]
+          [typography {:variant "body1"} classification]]])
 
       ;; Styles
       [grid {:item true :xs 12 :md 6}
-       [typography {:variant "body1"}
-        [box {:component "span" :sx {:fontWeight "bold"}} "Styles: "]
-        (str/join ", " (:styles wine))]]
+       [paper {:elevation 0
+               :sx {:p 2
+                    :bgcolor "rgba(0,0,0,0.02)"
+                    :borderRadius 1}}
+        [typography {:variant "body2" :color "text.secondary"} "Styles"]
+        [typography {:variant "body1"} (str/join ", " (:styles wine))]]]
 
-      ;; Location and quantity
+      ;; Location
       [grid {:item true :xs 12 :md 6}
-       [box {:display "flex" :alignItems "center"}
-        [box {:component "span" :mr 2}
-         [typography {:variant "body1" :display "inline"}
-          [box {:component "span" :sx {:fontWeight "bold"}} "Location: "]
-          (:location wine)]]
+       [paper {:elevation 0
+               :sx {:p 2
+                    :bgcolor "rgba(0,0,0,0.02)"
+                    :borderRadius 1}}
+        [typography {:variant "body2" :color "text.secondary"} "Location"]
+        [typography {:variant "body1"} (:location wine)]]]
 
-        ;; Updated quantity display - all on one line
-        [box {:display "flex" :alignItems "center"}
-         [typography {:variant "body1" :component "span"}
-          [box {:component "span" :sx {:fontWeight "bold"}} "Quantity: "]]
-         [quantity-control app-state (:id wine) (:quantity wine)]]]] 
-      ]
+      ;; Quantity
+      [grid {:item true :xs 12 :md 6}
+       [paper {:elevation 0
+               :sx {:p 2
+                    :bgcolor "rgba(0,0,0,0.02)"
+                    :borderRadius 1}}
+        [typography {:variant "body2" :color "text.secondary"} "Quantity"]
+        [box {:display "flex" :alignItems "center" :mt 1}
+         [quantity-control app-state (:id wine) (:quantity wine)]]]]
 
-     ;; Price
-     (when (:price wine)
-       [box {:sx {:mb 3}}
-        [typography {:variant "body1"}
-         [box {:component "span" :sx {:fontWeight "bold"}} "Price: "]
-         (gstring/format "$%.2f" (:price wine))]])
+      ;; Price
+      (when (:price wine)
+        [grid {:item true :xs 12 :md 6}
+         [paper {:elevation 0
+                 :sx {:p 2
+                      :bgcolor "rgba(0,0,0,0.02)"
+                      :borderRadius 1}}
+          [typography {:variant "body2" :color "text.secondary"} "Price"]
+          [typography {:variant "body1" :fontWeight "medium"}
+           (gstring/format "$%.2f" (:price wine))]]])]
 
      ;; Tasting notes section
-     [tasting-notes-list app-state wine-id]
-     [tasting-note-form app-state wine-id]]))
+     [box {:sx {:mt 4}}
+      [typography {:variant "h5"
+                   :component "h3"
+                   :sx {:mb 3
+                        :pb 1
+                        :borderBottom "1px solid rgba(0,0,0,0.08)"
+                        :color "primary.main"}}
+       "Tasting Notes"]
+      [tasting-notes-list app-state wine-id]
+      [tasting-note-form app-state wine-id]]]))
 
 (defn wine-details-section [app-state]
   (when-let [selected-wine-id (:selected-wine-id @app-state)]
     (when-let [selected-wine (first (filter #(= (:id %) selected-wine-id)
-                                           (:wines @app-state)))]
+                                            (:wines @app-state)))]
       [box {:sx {:mb 3}}
        [wine-detail app-state selected-wine]
        [button

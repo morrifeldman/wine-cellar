@@ -55,7 +55,8 @@
       (when-not (:success response)
         (js/console.log "Error response:" (clj->js (:body response))))
       (if (:success response)
-        (fetch-wines app-state)
+        (do (fetch-wines app-state)
+            (swap! app-state assoc :new-wine {}))
         (swap! app-state assoc :error "Failed to create wine")))))
 
 (defn delete-wine [app-state id]

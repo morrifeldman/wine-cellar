@@ -10,7 +10,8 @@ use nvim. Please do not give an answer if you want more information or files -- 
 
 # Source Code Structure
 
-.
+
+src/
 ├── clj
 │   └── wine_cellar
 │       ├── db.clj
@@ -24,11 +25,14 @@ use nvim. Please do not give an answer if you want more information or files -- 
     └── wine_cellar
         ├── api.cljs
         ├── core.cljs
+        ├── theme.cljs
         ├── utils
         │   ├── filters.cljs
         │   └── formatting.cljs
         └── views
             ├── classifications
+            │   └── form.cljs
+            ├── components
             │   └── form.cljs
             ├── components.cljs
             ├── main.cljs
@@ -41,7 +45,14 @@ use nvim. Please do not give an answer if you want more information or files -- 
                 ├── form.cljs
                 └── list.cljs
 
-12 directories, 18 files
+## Technical Stack
+- Backend: Clojure
+- Frontend: ClojureScript with Reagent
+- Database: PostgreSQL 15
+- UI Framework: Material UI (via reagent-mui)
+- Build Tool: Shadow-cljs
+- Editor: Neovim
+
 # Summaries of Previous chats
 Newer chats first
 ## Chat 7

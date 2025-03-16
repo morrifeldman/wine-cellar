@@ -1,188 +1,154 @@
 (ns wine-cellar.views.wines.form
-  (:require [reagent.core :as r]
-            [clojure.string :as str]
-            [wine-cellar.views.components :refer [smart-field smart-select-field multi-select-field
-                                                  form-section form-field-style]]
-            [wine-cellar.views.classifications.form :refer [classification-form]]
-            [wine-cellar.utils.formatting :refer [valid-name-producer? unique-countries
-                                                  regions-for-country aocs-for-region
-                                                  classifications-for-aoc levels-for-classification]]
-            [wine-cellar.api :as api]
-            [wine-cellar.common :as common]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.text-field :refer [text-field]]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.box :refer [box]]))
+  (:require
+   [wine-cellar.views.components :refer [smart-field smart-select-field select-field]]
+   [wine-cellar.views.components.form :refer [form-container form-actions form-row
+                                              form-divider text-field currency-field
+                                              number-field]]
+   [wine-cellar.views.classifications.form :refer [classification-form]]
+   [wine-cellar.utils.formatting :refer [valid-name-producer? unique-countries
+                                         regions-for-country aocs-for-region
+                                         classifications-for-aoc levels-for-classification]]
+   [wine-cellar.api :as api]
+   [wine-cellar.common :as common]
+   [reagent-mui.material.button :refer [button]]
+   [reagent-mui.material.grid :refer [grid]]
+   [reagent-mui.material.box :refer [box]]))
 
 (defn wine-form [app-state]
   (let [new-wine (:new-wine @app-state)
-        classifications (:classifications @app-state)]
-    [paper {:elevation 3 :sx {:p 3 :mb 3}}
-     [typography {:variant "h5" :component "h2" :sx {:mb 3}} "Add New Wine"]
-     [:form {:on-submit (fn [e]
-                          (.preventDefault e)
-                          (if (valid-name-producer? new-wine)
-                            (api/create-wine
-                             app-state
-                             (-> new-wine
-                                 (update :price js/parseFloat)
-                                 (update :vintage #(js/parseInt % 10))
-                                 (update :quantity #(js/parseInt % 10))))
-                            (swap! app-state assoc
-                                   :error
-                                   "Either Wine Name or Producer must be provided")))}
+        classifications (:classifications @app-state)
+        submit-handler (fn []
+                         (if (valid-name-producer? new-wine)
+                           (api/create-wine
+                            app-state
+                            (-> new-wine
+                                (update :price js/parseFloat)
+                                (update :vintage (fn [v] (js/parseInt v 10)))
+                                (update :quantity (fn [q] (js/parseInt q 10)))))
+                           (swap! app-state assoc
+                                  :error
+                                  "Either Wine Name or Producer must be provided")))]
+    [form-container
+     {:title "Add New Wine"
+      :on-submit submit-handler}
 
-      [grid {:container true :spacing 2}
+     ;; Basic Information Section
+     [form-divider "Basic Information"]
 
-       ;; Basic Information Section
-       [form-section "Basic Information"]
+     [form-row
+      [text-field
+       {:label "Name"
+        :value (:name new-wine)
+        :helper-text "Either Name or Producer required"
+        :on-change #(swap! app-state assoc-in [:new-wine :name] %)}]
 
-       [grid {:item true :xs 12 :md 4}
-        [text-field
-         {:label "Name"
-          :value (:name new-wine)
-          :margin "normal"
-          :fullWidth false
-          :variant "outlined"
-          :sx form-field-style
-          :helperText "Either Name or Producer required"
-          :on-change #(swap! app-state assoc-in [:new-wine :name]
-                             (.. % -target -value))}]]
+      [text-field
+       {:label "Producer"
+        :value (:producer new-wine)
+        :helper-text "Either Name or Producer required"
+        :on-change #(swap! app-state assoc-in [:new-wine :producer] %)}]
 
-       [grid {:item true :xs 12 :md 4}
-        [text-field
-         {:label "Producer"
-          :value (:producer new-wine)
-          :margin "normal"
-          :fullWidth false
-          :variant "outlined"
-          :sx form-field-style
-          :helperText "Either Name or Producer required"
-          :on-change #(swap! app-state assoc-in [:new-wine :producer]
-                             (.. % -target -value))}]]
+      [select-field
+       {:label "Style"
+        :value (:styles new-wine)
+        :required true
+        :multiple true
+        :options common/wine-styles
+        :on-change #(swap! app-state assoc-in [:new-wine :styles] %)}]]
 
-;; Styles is special due to multi-select
-       [grid {:item true :xs 12 :md 4}
-        [multi-select-field {:label "Style"
-                             :value (:styles new-wine)
-                             :required true
-                             :options common/wine-styles
-                             :on-change #(swap! app-state assoc-in [:new-wine :styles] %)}]]
+     ;; Wine Classification Section
+     [form-divider "Wine Classification"]
 
-       ;; Wine Classification Section
-       [form-section "Wine Classification"]
+     [grid {:item true :xs 12}
+      [box {:display "flex" :justifyContent "flex-end"}
+       [button
+        {:variant "outlined"
+         :color "secondary"
+         :size "small"
+         :onClick #(do
+                     (swap! app-state assoc :creating-classification? true)
+                     (swap! app-state assoc :new-classification {:levels []}))}
+        "Create New Classification"]]]
 
+     ;; Show classification form when needed
+     (when (:creating-classification? @app-state)
        [grid {:item true :xs 12}
-        [box {:display "flex" :justifyContent "flex-end"}
-         [button
-          {:variant "outlined"
-           :color "secondary"
-           :size "small"
-           :onClick #(do
-                       (swap! app-state assoc :creating-classification? true)
-                       (swap! app-state assoc :new-classification {:levels []}))}
-          "Create New Classification"]]]
+        [classification-form app-state]])
 
-       ;; Show classification form when needed
-       (when (:creating-classification? @app-state)
-         [grid {:item true :xs 12}
-          [classification-form app-state]])
+     ;; Classification dropdowns
+     [form-row
+      [smart-select-field app-state [:new-wine :country]
+       :required true
+       :options (unique-countries classifications)]
 
-       ;; Country dropdown (still needs custom logic)
-       [grid {:item true :xs 12 :md 4}
-        [smart-select-field app-state [:new-wine :country]
-         :required true
-         :options (map #(vector % %) (unique-countries classifications))]]
+      [smart-select-field app-state [:new-wine :region]
+       :required true
+       :disabled (empty? (:country new-wine))
+       :options (regions-for-country classifications (:country new-wine))]
 
-       ;; Region dropdown (dependent on country)
-       [grid {:item true :xs 12 :md 4}
-        [smart-select-field app-state [:new-wine :region]
-         :required true
-         :disabled (empty? (:country new-wine))
-         :options (map #(vector % %)
-                       (regions-for-country classifications (:country new-wine)))]]
+      [smart-select-field app-state [:new-wine :aoc]
+       :disabled (or (empty? (:country new-wine))
+                     (empty? (:region new-wine)))
+       :options (aocs-for-region classifications
+                                      (:country new-wine)
+                                      (:region new-wine))]]
 
-       ;; AOC dropdown (dependent on region)
-       [grid {:item true :xs 12 :md 4}
-        [smart-select-field app-state [:new-wine :aoc]
-         :disabled (or (empty? (:country new-wine))
-                       (empty? (:region new-wine)))
-         :options (map #(vector % %)
-                       (aocs-for-region classifications
-                                        (:country new-wine)
-                                        (:region new-wine)))]]
+     [form-row
+      [smart-select-field app-state [:new-wine :classification]
+       :disabled (or (empty? (:country new-wine))
+                     (empty? (:region new-wine))
+                     (empty? (:aoc new-wine)))
+       :options (classifications-for-aoc classifications
+                                              (:country new-wine)
+                                              (:region new-wine)
+                                              (:aoc new-wine))]
 
-       ;; Classification dropdown (dependent on AOC)
-       [grid {:item true :xs 12 :md 4}
-        [smart-select-field app-state [:new-wine :classification]
-         :disabled (or (empty? (:country new-wine))
-                       (empty? (:region new-wine))
-                       (empty? (:aoc new-wine)))
-         :options (map #(vector % %)
-                       (classifications-for-aoc classifications
-                                                (:country new-wine)
-                                                (:region new-wine)
-                                                (:aoc new-wine)))]]
+      [smart-select-field app-state [:new-wine :level]
+       :disabled (or (empty? (:country new-wine))
+                     (empty? (:region new-wine))
+                     (empty? (:aoc new-wine))
+                     (empty? (:classification new-wine)))
+       :options (levels-for-classification
+                      classifications
+                      (:country new-wine)
+                      (:region new-wine)
+                      (:aoc new-wine)
+                      (:classification new-wine))
+       :on-change #(swap! app-state assoc-in [:new-wine :level]
+                          (when-not (empty? %) %))]
 
-       ;; Level dropdown (dependent on classification)
-       [grid {:item true :xs 12 :md 4}
-        [smart-select-field app-state [:new-wine :level]
-         :disabled (or (empty? (:country new-wine))
-                       (empty? (:region new-wine))
-                       (empty? (:aoc new-wine))
-                       (empty? (:classification new-wine)))
-         :options (map #(vector % %)
-                       (levels-for-classification
-                        classifications
-                        (:country new-wine)
-                        (:region new-wine)
-                        (:aoc new-wine)
-                        (:classification new-wine)))
-         :on-change #(swap! app-state assoc-in [:new-wine :level]
-                            (when-not (empty? %) %))]]
+      [number-field
+       {:label "Vintage"
+        :required true
+        :min 1900
+        :max 2100
+        :value (:vintage new-wine)
+        :on-change #(swap! app-state assoc-in [:new-wine :vintage]
+                           (js/parseInt %))}]]
 
-       ;; Vintage with min/max constraints
-       [grid {:item true :xs 12 :md 4}
-        [smart-field app-state [:new-wine :vintage]
-         :type "number"
-         :required true
-         :min 1900
-         :max 2100
-         :on-change #(swap! app-state assoc-in [:new-wine :vintage]
-                            (js/parseInt %))]]
+     ;; Additional Information Section
+     [form-divider "Additional Information"]
 
-       ;; Additional Information Section
-       [form-section "Additional Information"]
+     [form-row
+      [smart-field app-state [:new-wine :location] :required true]
 
-       [grid {:item true :xs 12 :md 4}
-        [smart-field app-state [:new-wine :location]
-         :required true]]
+      [number-field
+       {:label "Quantity"
+        :required true
+        :min 0
+        :value (:quantity new-wine)
+        :on-change #(swap! app-state assoc-in [:new-wine :quantity]
+                           (js/parseInt %))}]
 
-       [grid {:item true :xs 12 :md 4}
-        [smart-field app-state [:new-wine :quantity]
-         :type "number"
-         :required true
-         :min 0
-         :on-change #(swap! app-state assoc-in [:new-wine :quantity]
-                            (js/parseInt %))]]
+      [currency-field
+       {:label "Price"
+        :required true
+        :value (if (string? (:price new-wine))
+                 (:price new-wine)
+                 (str (:price new-wine)))
+        :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]]
 
-;; Price with decimal step
-       [grid {:item true :xs 12 :md 4}
-        [smart-field app-state [:new-wine :price]
-         :type "number"
-         :required true
-         :step "0.01"
-         :min "0"
-         :value (if (string? (:price new-wine))
-                  (:price new-wine)
-                  (str (:price new-wine)))]]
-
-       [grid {:item true :xs 12}
-        [box {:sx {:display "flex" :justifyContent "flex-end" :mt 2}}
-         [button
-          {:type "submit"
-           :variant "contained"
-           :color "primary"}
-          "Add Wine"]]]]]]))
+     ;; Form actions
+     [form-actions
+      {:on-submit submit-handler
+       :submit-text "Add Wine"}]]))

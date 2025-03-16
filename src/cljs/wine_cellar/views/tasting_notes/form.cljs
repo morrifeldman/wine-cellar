@@ -1,60 +1,56 @@
 (ns wine-cellar.views.tasting-notes.form
-  (:require [reagent.core :as r]
-            [wine-cellar.views.components :refer [smart-field date-field form-field-style]]
+  (:require [wine-cellar.views.components :refer [date-field]]
+            [wine-cellar.views.components.form :refer [form-container
+                                                       form-actions
+                                                       text-area-field
+                                                       number-field form-row]]
             [wine-cellar.api :as api]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.text-field :refer [text-field]]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]))
+            [reagent-mui.material.grid :refer [grid]]))
 
 (defn tasting-note-form [app-state wine-id]
   (let [new-note (:new-tasting-note @app-state)]
-    [paper {:elevation 1 :sx {:p 3 :mb 3}}
-     [typography {:variant "h6" :sx {:mb 2}} "Add Tasting Note"]
-     [:form {:on-submit (fn [e]
-                     (.preventDefault e)
-                     (api/create-tasting-note app-state wine-id 
-                       (update new-note :rating #(if (string? %) (js/parseInt %) %))))}
+    [form-container
+     {:title "Add Tasting Note"
+      :on-submit #(api/create-tasting-note
+                   app-state
+                   wine-id
+                   (update new-note :rating (fn [r]
+                                              (if (string? r)
+                                                (js/parseInt r)
+                                                r))))}
 
-      [grid {:container true :spacing 2}
-       ;; Date input
-       [grid {:item true :xs 12 :md 6}
-        [date-field {:label "Tasting Date"
-                     :required true
-                     :value (:tasting_date new-note)
-                     :on-change #(swap! app-state assoc-in
-                                        [:new-tasting-note :tasting_date] %)}]]
+     ;; Date input
+     [form-row
+      [date-field {:label "Tasting Date"
+                   :required true
+                   :value (:tasting_date new-note)
+                   :on-change #(swap! app-state assoc-in
+                                      [:new-tasting-note :tasting_date] %)}]]
 
-       ;; Tasting notes textarea
-       [grid {:item true :xs 12}
-        [text-field
-         {:label "Notes"
-          :multiline true
-          :rows 4
-          :required true
-          :fullWidth true
-          :value (:notes new-note)
-          :sx form-field-style
-          :variant "outlined"
-          :onChange #(swap! app-state assoc-in [:new-tasting-note :notes]
-                            (.. % -target -value))}]]
+     ;; Tasting notes textarea
+     [grid {:item true :xs 12}
+      [text-area-field
+       {:label "Notes"
+        :required true
+        :value (:notes new-note)
+        :on-change #(swap! app-state assoc-in [:new-tasting-note :notes] %)}]]
 
-       ;; Rating input
-       [grid {:item true :xs 12 :md 6}
-        [smart-field app-state [:new-tasting-note :rating]
-         :label "Rating (1-100)"
-         :type "number"
-         :required true
-         :min 1
-         :max 100
-         :on-change #(swap! app-state assoc-in [:new-tasting-note :rating]
-                            (js/parseInt %))]]
+     ;; Rating input
+     [form-row
+      [number-field
+       {:label "Rating (1-100)"
+        :required true
+        :min 1
+        :max 100
+        :value (:rating new-note)
+        :on-change #(swap! app-state assoc-in
+                           [:new-tasting-note :rating]
+                           (js/parseInt %))}]]
 
-       ;; Submit button
-       [grid {:item true :xs 12 :sx {:textAlign "right" :mt 2}}
-        [button
-         {:type "submit"
-          :variant "contained"
-          :color "primary"}
-         "Add Note"]]]]]))
+     ;; Submit button
+     [form-actions
+      {:on-submit #(api/create-tasting-note
+                    app-state
+                    wine-id
+                    (update new-note :rating (fn [r] (if (string? r) (js/parseInt r) r))))
+       :submit-text "Add Note"}]]))

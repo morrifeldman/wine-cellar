@@ -2,7 +2,9 @@
   (:require [reagent.core :as r]
             ["react-dom/client" :refer [createRoot]]
             [wine-cellar.views.main :as views]
-            [wine-cellar.api :as api]))
+            [wine-cellar.api :as api]
+            [wine-cellar.theme :refer [wine-theme]]
+            [reagent-mui.styles :refer [theme-provider]]))
 
 (defonce app-state
   (r/atom {:wines []
@@ -17,8 +19,6 @@
            :sort {:field nil :direction :asc}
            :filters {:search "" :country nil :region nil :styles nil}}))
 
-#_(prn @app-state)
-
 (defonce root (atom nil))
 
 ;; Initialize app
@@ -29,8 +29,10 @@
   (when-let [container (.getElementById js/document "app")]
     (when (nil? @root)
       (reset! root (createRoot container)))
-    (.render @root (r/as-element [views/main-app app-state]))))
+    (.render @root (r/as-element [theme-provider wine-theme
+                                  [views/main-app app-state]]))))
 
 ;; Start the app when loaded
 (defn ^:export main []
   (init))
+

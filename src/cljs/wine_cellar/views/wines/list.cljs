@@ -1,6 +1,5 @@
 (ns wine-cellar.views.wines.list
-  (:require [reagent.core :as r]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [goog.string :as gstring]
             [goog.string.format]
             [wine-cellar.views.components :refer [sortable-header quantity-control]]
@@ -18,9 +17,13 @@
             [reagent-mui.material.table-head :refer [table-head]]
             [reagent-mui.material.table-body :refer [table-body]]
             [reagent-mui.material.table-row :refer [table-row]]
-            [reagent-mui.material.table-cell :refer [table-cell]]
-            [reagent-mui.icons.visibility :refer [visibility]]
-            [reagent-mui.icons.delete :refer [delete]]))
+            [reagent-mui.material.table-cell :refer [table-cell]]))
+
+(defn get-rating-color [rating]
+  (cond
+    (>= rating 90) "rating.high"
+    (>= rating 80) "rating.medium"
+    :else "rating.low"))
 
 (defn wine-table-row [app-state wine]
   [table-row {:hover true
@@ -33,23 +36,26 @@
    [table-cell (:vintage wine)]
    [table-cell (str/join ", " (:styles wine))]
    [table-cell (:level wine)]
-   [table-cell (if-let [rating (:latest_rating wine)]
-                 (str rating "/100")
-                 "-")]
+   [table-cell
+    (if-let [rating (:latest_rating wine)]
+      [typography {:sx {:color (get-rating-color rating)
+                        :fontWeight "bold"}}
+       (str rating "/100")]
+      "-")]
    [table-cell (:location wine)]
    [table-cell
     [quantity-control app-state (:id wine) (:quantity wine)]]
    [table-cell (gstring/format "$%.2f" (or (:price wine) 0))]
-   [table-cell 
+   [table-cell
     {:align "right"}
-    [box {:display "flex" 
-          :flexDirection "column"  ;; This creates the vertical stack
-          :alignItems "flex-end"}  ;; This right-aligns the buttons
+    [box {:display "flex"
+          :flexDirection "column"
+          :alignItems "flex-end"}
      [button
       {:variant "outlined"
        :color "primary"
        :size "small"
-       :sx {:mb 1}  ;; Margin bottom for spacing between buttons
+       :sx {:mb 1}
        :onClick #(do
                    (swap! app-state assoc :selected-wine-id (:id wine))
                    (swap! app-state assoc :new-tasting-note {})
@@ -60,8 +66,7 @@
        :color "error"
        :size "small"
        :onClick #(api/delete-wine app-state (:id wine))}
-      "Delete"]]]
-   ])
+      "Delete"]]]])
 
 (defn wine-table [app-state wines]
   [table-container
@@ -95,25 +100,34 @@
         ratings (keep :latest_rating wines)
         avg-rating (if (seq ratings)
                      (js/Math.round (/ (reduce + 0 ratings) (count ratings)))
-                     "-")]
-    [paper {:elevation 2 :sx {:p 2 :mb 3}}
-     [grid {:container true :spacing 2}
-      [grid {:item true :xs 12 :sm 3}
-       [typography {:variant "body1"}
-        [box {:component "span" :sx {:fontWeight "bold"}} "Wines: "]
-        (str visible-count "/" total-wines)]]
-      [grid {:item true :xs 12 :sm 3}
-       [typography {:variant "body1"}
-        [box {:component "span" :sx {:fontWeight "bold"}} "Bottles: "]
-        total-bottles]]
-      [grid {:item true :xs 12 :sm 3}
-       [typography {:variant "body1"}
-        [box {:component "span" :sx {:fontWeight "bold"}} "Avg. Rating: "]
-        (if (= avg-rating "-") "-" (str avg-rating "/100"))]]
-      [grid {:item true :xs 12 :sm 3}
-       [typography {:variant "body1"}
-        [box {:component "span" :sx {:fontWeight "bold"}} "Value: "]
-        (str "$" (js/Math.round (reduce + 0 (map #(* (or (:price %) 0) (:quantity %)) wines))))]]]]))
+                     "-")
+        total-value (js/Math.round (reduce + 0 (map #(* (or (:price %) 0) (:quantity %)) wines)))]
+    [paper {:elevation 2 :sx {:p 3 :mb 3 :borderRadius 2}}
+     [typography {:variant "h6" :component "h3" :sx {:mb 2}} "Collection Overview"]
+     [grid {:container true :spacing 3}
+      [grid {:item true :xs 12 :sm 6 :md 3}
+       [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
+        [typography {:variant "h4" :color "primary"} (str visible-count "/" total-wines)]
+        [typography {:variant "body2" :color "text.secondary"} "Wines"]]]
+
+      [grid {:item true :xs 12 :sm 6 :md 3}
+       [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
+        [typography {:variant "h4" :color "primary"} total-bottles]
+        [typography {:variant "body2" :color "text.secondary"} "Bottles"]]]
+
+      [grid {:item true :xs 12 :sm 6 :md 3}
+       [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
+        [typography {:variant "h4"
+                     :color (if (= avg-rating "-")
+                              "text.secondary"
+                              (get-rating-color (js/parseInt avg-rating)))}
+         (if (= avg-rating "-") "-" (str avg-rating "/100"))]
+        [typography {:variant "body2" :color "text.secondary"} "Avg. Rating"]]]
+
+      [grid {:item true :xs 12 :sm 6 :md 3}
+       [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
+        [typography {:variant "h4" :color "primary"} (str "$" total-value)]
+        [typography {:variant "body2" :color "text.secondary"} "Collection Value"]]]]]))
 
 (defn wine-list [app-state]
   [box {:sx {:width "100%" :mt 3}}
@@ -135,3 +149,4 @@
           [paper {:elevation 3 :sx {:p 2 :mb 3}}
            [filter-bar app-state]
            [wine-table app-state (filtered-sorted-wines app-state)]])]))])
+
