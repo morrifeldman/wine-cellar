@@ -1,5 +1,5 @@
 (ns wine-cellar.handlers
-  (:require [wine-cellar.db :as db]
+  (:require [wine-cellar.db.api :as api]
             [ring.util.response :as response]))
 
 (defn- no-content []
@@ -16,21 +16,21 @@
 ;; Wine Classification Handlers
 (defn get-classifications [_]
   (try
-    (let [classifications (db/get-classifications)]
+    (let [classifications (api/get-classifications)]
       (response/response classifications))
     (catch Exception e
       (server-error e))))
 
 (defn get-regions-by-country [{{:keys [country]} :path-params}]
   (try
-    (let [regions (db/get-regions-by-country country)]
+    (let [regions (api/get-regions-by-country country)]
       (response/response regions))
     (catch Exception e
       (server-error e))))
 
 (defn get-aocs-by-region [{{:keys [country region]} :path-params}]
   (try
-    (let [aocs (db/get-aocs-by-region country region)]
+    (let [aocs (api/get-aocs-by-region country region)]
       (response/response aocs))
     (catch Exception e
       (server-error e))))
@@ -38,32 +38,30 @@
 ;; Wine Handlers
 (defn get-all-wines [_]
   (try
-    (let [wines (db/get-all-wines)]
+    (let [wines (api/get-all-wines)]
       (response/response wines))
     (catch Exception e
       (server-error e))))
 
 (defn get-all-wines-with-ratings [_]
   (try
-    (let [wines (db/get-all-wines-with-ratings)]
+    (let [wines (api/get-all-wines-with-ratings)]
       (response/response wines))
     (catch Exception e
       (server-error e))))
 
 (defn get-wine [{{:keys [id]} :path-params}]
   (try
-    (if-let [wine (db/get-wine (parse-long id))]
+    (if-let [wine (api/get-wine (parse-long id))]
       (response/response wine)
       (response/not-found {:error "Wine not found"}))
     (catch Exception e
       (server-error e))))
 
 (defn create-wine [request]
-  (let [wine (-> request :parameters :body)
-        wine-with-types (update wine :styles vec)  ;; Ensure styles is a vector
-        prepared-wine (update wine-with-types :price bigdec)]
+  (let [wine (-> request :parameters :body)]
     (try
-      (let [created-wine (db/create-wine prepared-wine)]
+      (let [created-wine (api/create-wine wine)]
         {:status 201
          :body created-wine})
       (catch org.postgresql.util.PSQLException e
@@ -77,10 +75,8 @@
 (defn update-wine [{{:keys [id]} :path-params
                     {:keys [body]} :parameters}]
   (try
-    (if (db/get-wine (parse-long id))
-      (let [wine-with-types (update body :styles vec)
-            prepared-wine (update wine-with-types :price bigdec)
-            updated (db/update-wine! (parse-long id) prepared-wine)]
+    (if (api/get-wine (parse-long id))
+      (let [updated (api/update-wine! (parse-long id) body)]
         (response/response updated))
       (response/not-found {:error "Wine not found"}))
     (catch org.postgresql.util.PSQLException e
@@ -92,9 +88,9 @@
 
 (defn delete-wine [{{:keys [id]} :path-params}]
   (try
-    (if (db/get-wine (parse-long id))
+    (if (api/get-wine (parse-long id))
       (do
-        (db/delete-wine! (parse-long id))
+        (api/delete-wine! (parse-long id))
         (no-content))
       (response/not-found {:error "Wine not found"}))
     (catch Exception e
@@ -103,8 +99,8 @@
 (defn adjust-quantity [{{:keys [id]} :path-params
                         {:keys [adjustment]} :body-params}]
   (try
-    (if (db/get-wine (parse-long id))
-      (let [updated (db/adjust-quantity (parse-long id) adjustment)]
+    (if (api/get-wine (parse-long id))
+      (let [updated (api/adjust-quantity (parse-long id) adjustment)]
         (response/response updated))
       (response/not-found {:error "Wine not found"}))
     (catch Exception e
@@ -113,14 +109,14 @@
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine [{{:keys [id]} :path-params}]
   (try
-    (let [tasting-notes (db/get-tasting-notes-by-wine (parse-long id))]
+    (let [tasting-notes (api/get-tasting-notes-by-wine (parse-long id))]
       (response/response tasting-notes))
     (catch Exception e
       (server-error e))))
 
 (defn get-tasting-note [{{:keys [id note-id]} :path-params}]
   (try
-    (if-let [note (db/get-tasting-note (parse-long note-id))]
+    (if-let [note (api/get-tasting-note (parse-long note-id))]
       (response/response note)
       (response/not-found {:error "Tasting note not found"}))
     (catch Exception e
@@ -128,9 +124,9 @@
 
 (defn create-tasting-note [{{:keys [id]} :path-params {:keys [body]} :parameters}]
   (try
-    (if (db/get-wine (parse-long id))
+    (if (api/get-wine (parse-long id))
       (let [note-with-wine-id (assoc body :wine_id (parse-long id))
-            created-note (db/create-tasting-note note-with-wine-id)]
+            created-note (api/create-tasting-note note-with-wine-id)]
         {:status 201
          :body created-note})
       (response/not-found {:error "Wine not found"}))
@@ -143,8 +139,8 @@
 
 (defn update-tasting-note [{{:keys [note-id]} :path-params {:keys [body]} :parameters}]
   (try
-    (if (db/get-tasting-note (parse-long note-id))
-      (let [updated (db/update-tasting-note! (parse-long note-id) body)]
+    (if (api/get-tasting-note (parse-long note-id))
+      (let [updated (api/update-tasting-note! (parse-long note-id) body)]
         (response/response updated))
       (response/not-found {:error "Tasting note not found"}))
     (catch org.postgresql.util.PSQLException e
@@ -156,20 +152,19 @@
 
 (defn delete-tasting-note [{{:keys [note-id]} :path-params}]
   (try
-    (if (db/get-tasting-note (parse-long note-id))
+    (if (api/get-tasting-note (parse-long note-id))
       (do
-        (db/delete-tasting-note! (parse-long note-id))
+        (api/delete-tasting-note! (parse-long note-id))
         (no-content))
       (response/not-found {:error "Tasting note not found"}))
     (catch Exception e
       (server-error e))))
 
 (defn create-classification [request]
-  (let [classification (-> request :parameters :body)
-        classification-with-levels (update classification :levels vec)]  ;; Ensure levels is a vector
+  (let [classification (-> request :parameters :body)]
     (try
       (let [created-classification
-            (db/create-or-update-classification classification-with-levels)]
+            (api/create-or-update-classification classification)]
         {:status 201
          :body created-classification})
       (catch org.postgresql.util.PSQLException e

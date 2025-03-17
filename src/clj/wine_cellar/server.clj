@@ -1,7 +1,7 @@
 (ns wine-cellar.server
   (:require [org.httpkit.server :as http-kit]
             [wine-cellar.routes :refer [app]]
-            [wine-cellar.db :as db]))
+            [wine-cellar.db.setup :as db-setup]))
 
 (defonce server (atom nil))
 
@@ -12,7 +12,7 @@
 
 (defn start-server! [port]
   (stop-server!)
-  (db/initialize-db)
+  (db-setup/initialize-db)
   (reset! server (http-kit/run-server app {:port port}))
   (println (str "Server running on port " port)))
 

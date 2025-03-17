@@ -1,0 +1,103 @@
+(ns wine-cellar.db.setup
+  (:require [clojure.string :as string]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.java.shell :as sh]
+            [honey.sql :as sql]
+            [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]
+            [wine-cellar.db.schema :as schema])
+  (:import [org.postgresql.jdbc PgArray]))
+
+;; Protocol extension for PostgreSQL arrays
+(extend-protocol rs/ReadableColumn
+  PgArray (read-column-by-label [^PgArray v _]
+            (.getArray v))
+  PgArray (read-column-by-index [^PgArray v _2 _3]
+            (.getArray v)))
+
+;; Database connection setup
+(defn get-password-from-pass [password-path]
+  (let [result (sh/sh "pass" password-path)]
+    (if (= 0 (:exit result))
+      (string/trim (:out result))
+      (throw (ex-info (str "Failed to retrieve password from pass: " (:err result))
+                      {:type :password-retrieval-error
+                       :path password-path})))))
+
+(def password-pass-name "wine_cellar/db")
+
+(def db
+  {:dbtype "postgresql"
+   :dbname "wine_cellar"
+   :user "wine_cellar"
+   :password (get-password-from-pass password-pass-name)})
+
+(def ds
+  (jdbc/get-datasource db))
+
+(def db-opts
+  {:builder-fn rs/as-unqualified-maps})
+
+;; Classification seeding
+(def classifications-file "wine-classifications.edn")
+
+(defn seed-classifications! []
+  (let [wine-classifications (edn/read-string
+                              (slurp (or
+                                      (io/resource "wine-classifications.edn")
+                                      (io/file
+                                       (str "resources/"
+                                            classifications-file)))))]
+    (doseq [c wine-classifications]
+      (require 'wine-cellar.db.api)
+      ((resolve 'wine-cellar.db.api/create-or-update-classification) c))))
+
+(defn classifications-exist?
+  "Check if any classifications exist in the database"
+  []
+  (pos? (:count (jdbc/execute-one! ds
+                                   (sql/format
+                                     {:select [[[:count :*]]]
+                                      :from :wine_classifications})
+                                   db-opts))))
+
+(defn seed-classifications-if-needed!
+  "Seeds classifications only if none exist in the database"
+  []
+  (when-not (classifications-exist?)
+    (println "No wine classifications found. Seeding from file...")
+    (seed-classifications!)
+    (println "Wine classifications seeded successfully.")))
+
+;; Database setup and teardown
+(defn- sql-execute-helper [tx sql-map]
+  (let [sql (sql/format sql-map)]
+    (println "Compiled SQL:" sql)
+    (println "DB Response:" (jdbc/execute-one! tx sql db-opts))))
+
+(defn- ensure-tables
+  ([] (jdbc/with-transaction [tx ds]
+        (ensure-tables tx)))
+  ([tx]
+   (sql-execute-helper tx schema/create-wine-style-type)
+   (sql-execute-helper tx schema/create-wine-level-type)
+   (sql-execute-helper tx schema/classifications-table-schema)
+   (sql-execute-helper tx schema/wines-table-schema)
+   (sql-execute-helper tx schema/tasting-notes-table-schema)
+   (sql-execute-helper tx schema/wines-with-ratings-view-schema)))
+
+(defn initialize-db []
+  (ensure-tables)
+  (seed-classifications-if-needed!))
+
+(defn- drop-tables
+  ([] (jdbc/with-transaction [tx ds]
+        (drop-tables tx)))
+  ([tx]
+   (sql-execute-helper tx {:drop-view [:if-exists :wines-with-ratings]})
+   (sql-execute-helper tx {:drop-table [:if-exists :tasting_notes]})
+   (sql-execute-helper tx {:drop-table [:if-exists :wines]})
+   (sql-execute-helper tx {:drop-table [:if-exists :wine_classifications]})
+   (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_style CASCADE"]})
+   (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_level CASCADE"]})))
