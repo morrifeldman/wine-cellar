@@ -194,8 +194,7 @@
                    [props]
                    [mui-text-field/text-field (merge props
                                                      {:label label
-                                                      :variant "outlined"
-                                                      :required required})])
+                                                      :variant "outlined"})])
 
      :onChange (fn [_event new-value] (on-change new-value))
      :autoHighlight true
