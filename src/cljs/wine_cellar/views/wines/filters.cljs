@@ -9,7 +9,8 @@
             [reagent-mui.material.input-label :refer [input-label]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]))
+            [reagent-mui.material.typography :refer [typography]]
+            [wine-cellar.utils.tasting-window :refer [tasting-window-label]]))
 
 (defn filter-bar [app-state]
   (let [filters (:filters @app-state)
@@ -94,6 +95,25 @@
            ^{:key style}
            [menu-item {:value style} style])]]]
 
+      ;; Tasting Window dropdown
+      [grid {:item true :xs 12 :md 2}
+       [form-control
+        {:variant "outlined"
+         :fullWidth true
+         :size "small"
+         :sx {:mt 0}}
+        [input-label "Tasting Window"]
+        [select
+         {:value (or (:tasting-window filters) "")
+          :label "Tasting Window"
+          :onChange #(swap! app-state assoc-in [:filters :tasting-window]
+                            (let [v (.. % -target -value)]
+                              (when-not (empty? v) (keyword v))))}
+         [menu-item {:value ""} "All Wines"]
+         [menu-item {:value "ready"} (tasting-window-label :ready)]
+         [menu-item {:value "too-young"} (tasting-window-label :too-young)]
+         [menu-item {:value "too-old"} (tasting-window-label :too-old)]]]
+
       [grid {:item true :xs 12 :md 2 :sx {:display "flex" :alignItems "center"}}
        [button
         {:variant "outlined"
@@ -110,5 +130,5 @@
         {:variant "outlined"
          :size "small"
          :color "secondary"
-         :onClick #(swap! app-state assoc :filters {:search "" :country nil :region nil :styles nil})}
-        "Clear Filters"]]]]))
+         :onClick #(swap! app-state assoc :filters {:search "" :country nil :region nil :styles nil :tasting-window nil})}
+        "Clear Filters"]]]]]))

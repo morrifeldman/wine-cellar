@@ -1,5 +1,6 @@
 (ns wine-cellar.utils.filters
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [wine-cellar.utils.tasting-window :refer [matches-tasting-window?]]))
 
 ;; Filter helper functions
 (defn matches-text-search? [wine search-term]
@@ -43,7 +44,7 @@
 ;; Main filtering and sorting function
 (defn filtered-sorted-wines [app-state]
   (let [wines (:wines @app-state)
-        {:keys [search country region styles]} (:filters @app-state)
+        {:keys [search country region styles tasting-window]} (:filters @app-state)
         {:keys [field direction]} (:sort @app-state)
         show-out-of-stock? (:show-out-of-stock? @app-state)]
 
@@ -55,5 +56,7 @@
       (filter #(matches-country? % country) w)
       (filter #(matches-region? % region) w)
       (filter #(matches-style? % styles) w)
+      (filter #(matches-tasting-window? % tasting-window) w)
       ;; Apply sorting
       (apply-sorting w field direction))))
+

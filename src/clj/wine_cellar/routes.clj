@@ -31,6 +31,8 @@
 (s/def ::tasting_date string?) ;; Will be parsed to a date
 (s/def ::notes string?)
 (s/def ::rating (s/int-in 1 101)) ;; Ratings from 1-100
+(s/def ::drink_from_year int?)
+(s/def ::drink_until_year int?)
 
 (def wine-schema
  (s/keys :req-un [::producer
@@ -46,7 +48,9 @@
                   ::vineyard
                   ::name
                   ::location
-                  ::level]))
+                  ::level
+                  ::drink_from_year
+                  ::drink_until_year]))
 
 (def classification-schema
   (s/keys :req-un [::country
@@ -157,6 +161,16 @@
                         404 {:body map?}
                         500 {:body map?}}
             :handler handlers/adjust-quantity}}]
+
+   ["/api/wines/:id/tasting-window"
+    {:parameters {:path {:id int?}}
+     :put {:summary "Update wine tasting window"
+           :parameters {:body {:drink_from_year int?
+                               :drink_until_year int?}}
+           :responses {200 {:body map?}
+                       404 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/update-tasting-window}}]
 
    ;; Tasting Notes Routes
    ["/api/wines/:id/tasting-notes"

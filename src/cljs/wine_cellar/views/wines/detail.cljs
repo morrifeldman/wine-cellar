@@ -14,6 +14,36 @@
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.icons.arrow-back :refer [arrow-back]]))
 
+(defn determine-tasting-window-status [wine]
+  (let [today (js/Date.)
+        drink-from-year (:drink_from_year wine)
+        drink-until-year (:drink_until_year wine)
+        drink-from (when drink-from-year 
+                     (js/Date. (str drink-from-year "-01-01")))
+        drink-until (when drink-until-year 
+                      (js/Date. (str drink-until-year "-01-01")))]
+    (cond
+      (and drink-from (< today drink-from)) :too-young
+      (and drink-until (> today drink-until)) :too-old
+      (or drink-from drink-until) :ready
+      :else :unknown)))
+
+(defn format-tasting-window-text [wine]
+  (let [from-year (:drink_from_year wine)
+        until-year (:drink_until_year wine)]
+    (cond
+      (and from-year until-year) (str from-year " to " until-year)
+      from-year (str "From " from-year)
+      until-year (str "Until " until-year)
+      :else "")))
+
+(defn tasting-window-color [status]
+  (case status
+    :too-young "warning.main"
+    :ready "success.main"
+    :too-old "error.main"
+    "text.secondary"))
+
 (defn wine-detail [app-state wine]
   (let [wine-id (:id wine)]
     [paper {:elevation 2
@@ -83,7 +113,22 @@
                       :borderRadius 1}}
           [typography {:variant "body2" :color "text.secondary"} "Price"]
           [typography {:variant "body1" :fontWeight "medium"}
-           (gstring/format "$%.2f" (:price wine))]]])]
+           (gstring/format "$%.2f" (:price wine))]]])
+
+      ;; Tasting Window
+      (when (or (:drink_from_year wine) (:drink_until_year wine))
+        (let [status (determine-tasting-window-status wine)]
+          [grid {:item true :xs 12 :md 6}
+           [paper {:elevation 0
+                   :sx {:p 2
+                        :bgcolor "rgba(0,0,0,0.02)"
+                        :borderRadius 1}}
+            [typography {:variant "body2" :color "text.secondary"} "Tasting Window"]
+            [typography {:variant "body1" 
+                        :color (tasting-window-color status)}
+             (format-tasting-window-text wine)]]]))
+
+      ]
 
      ;; Tasting notes section
      [box {:sx {:mt 4}}

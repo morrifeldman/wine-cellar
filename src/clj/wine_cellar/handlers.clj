@@ -106,6 +106,18 @@
     (catch Exception e
       (server-error e))))
 
+(defn update-tasting-window [{{:keys [id]} :path-params
+                             {:keys [drink_from_year drink_until_year]} :body-params}]
+  (try
+    (if (api/get-wine (parse-long id))
+      (let [updated (api/update-wine-tasting-window (parse-long id) 
+                                                   drink_from_year 
+                                                   drink_until_year)]
+        (response/response updated))
+      (response/not-found {:error "Wine not found"}))
+    (catch Exception e
+      (server-error e))))
+
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine [{{:keys [id]} :path-params}]
   (try

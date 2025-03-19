@@ -71,6 +71,16 @@
                        :where [:= :id id]})
                      db-opts))
 
+(defn update-wine-tasting-window [id drink-from-year drink-until-year]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:update :wines
+                       :set {:drink_from_year drink-from-year
+                             :drink_until_year drink-until-year
+                             :updated_at [:now]}
+                       :where [:= :id id]})
+                     db-opts))
+
 ;; Classification operations
 (defn create-or-update-classification
   "Creates a new classification or updates an existing one by combining levels"

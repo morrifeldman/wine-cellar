@@ -130,6 +130,7 @@
     :fullWidth false
     :variant "outlined"
     :sx form-field-style
+    :InputLabelProps {:shrink true}
     :InputProps (cond-> {}
                   min (assoc :min min)
                   max (assoc :max max)
@@ -201,6 +202,7 @@
      :autoSelect false
      :selectOnFocus true
      :blurOnSelect "touch"
+     :openOnFocus true
      :disableCloseOnSelect multiple}]])
 
 ;; Smart field components

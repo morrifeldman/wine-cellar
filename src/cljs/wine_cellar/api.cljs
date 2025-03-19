@@ -140,3 +140,20 @@
           ;; Then fetch updated classifications
           (fetch-classifications app-state))
         (swap! app-state assoc :error "Failed to create classification")))))
+
+(defn update-wine-tasting-window [app-state wine-id drink-from-year drink-until-year]
+  (go
+    (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/tasting-window")
+                               (merge default-opts
+                                      {:json-params {:drink_from_year drink-from-year
+                                                    :drink_until_year drink-until-year}})))]
+      (if (:success response)
+        (swap! app-state update :wines
+               (fn [wines]
+                 (map #(if (= (:id %) wine-id) 
+                         (assoc % 
+                                :drink_from_year drink-from-year
+                                :drink_until_year drink-until-year) 
+                         %) 
+                      wines)))
+        (swap! app-state assoc :error "Failed to update tasting window")))))

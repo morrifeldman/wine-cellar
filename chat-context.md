@@ -14,7 +14,10 @@ use nvim. Please do not give an answer if you want more information or files -- 
 src/
 ├── clj
 │   └── wine_cellar
-│       ├── db.clj
+│       ├── db
+│       │   ├── api.clj
+│       │   ├── schema.clj
+│       │   └── setup.clj
 │       ├── handlers.clj
 │       ├── routes.clj
 │       └── server.clj
@@ -28,7 +31,8 @@ src/
         ├── theme.cljs
         ├── utils
         │   ├── filters.cljs
-        │   └── formatting.cljs
+        │   ├── formatting.cljs
+        │   └── tasting_window.cljs
         └── views
             ├── classifications
             │   └── form.cljs
@@ -44,6 +48,8 @@ src/
                 ├── filters.cljs
                 ├── form.cljs
                 └── list.cljs
+
+14 directories, 23 files
 
 ## Technical Stack
 - Backend: Clojure

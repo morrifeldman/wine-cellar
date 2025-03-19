@@ -6,6 +6,10 @@
             [wine-cellar.views.wines.filters :refer [filter-bar]]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
             [wine-cellar.api :as api]
+            [wine-cellar.utils.tasting-window :refer
+             [tasting-window-status
+              tasting-window-label
+              tasting-window-color]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.paper :refer [paper]]
@@ -42,6 +46,11 @@
                         :fontWeight "bold"}}
        (str rating "/100")]
       "-")]
+   [table-cell
+    (let [status (tasting-window-status wine)]
+      [typography {:sx {:color (tasting-window-color status)
+                        :fontWeight "medium"}}
+       (tasting-window-label status)])]
    [table-cell (:location wine)]
    [table-cell
     [quantity-control app-state (:id wine) (:quantity wine)]]
@@ -82,6 +91,7 @@
       [table-cell "Styles"]  ;; Not sortable (array)
       [sortable-header app-state "Level" :level]
       [sortable-header app-state "Last Rating" :latest_rating]
+      [table-cell "Tasting Window"]
       [sortable-header app-state "Location" :location]
       [sortable-header app-state "Quantity" :quantity]
       [sortable-header app-state "Price" :price]

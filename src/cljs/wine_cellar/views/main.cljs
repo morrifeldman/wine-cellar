@@ -29,8 +29,11 @@
              :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
       [typography {:variant "body1"} error]])
 
-   [wine-form app-state]
-
    (if (:selected-wine-id @app-state)
+     ;; If a wine is selected, show the details section
      [wine-details-section app-state]
-     [wine-list app-state])])
+     ;; Otherwise, show the form and list
+     [:div
+      [wine-form app-state]
+      [wine-list app-state]])])
+

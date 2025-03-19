@@ -52,6 +52,8 @@
     [:location :varchar]
     [:quantity :integer [:not nil] [:default 0]]
     [:price :decimal [10 2]]
+    [:drink_from_year :integer]  ; When the wine is ready to drink (year)
+    [:drink_until_year :integer] ; When the wine should be consumed by (year)
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]]})
 

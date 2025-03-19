@@ -1,13 +1,16 @@
 (ns wine-cellar.views.wines.form
   (:require
-   [wine-cellar.views.components.form :refer [form-container form-actions form-row
-                                              form-divider text-field currency-field
-                                              number-field select-field
-                                              smart-field smart-select-field]]
-   [wine-cellar.views.classifications.form :refer [classification-form]]
-   [wine-cellar.utils.formatting :refer [valid-name-producer? unique-countries
-                                         regions-for-country aocs-for-region
-                                         classifications-for-aoc levels-for-classification]]
+   [wine-cellar.views.components.form
+    :refer [form-container form-actions form-row
+            form-divider text-field currency-field
+            number-field select-field
+            smart-field smart-select-field]]
+   [wine-cellar.views.classifications.form
+    :refer [classification-form]]
+   [wine-cellar.utils.formatting
+    :refer [valid-name-producer? unique-countries
+            regions-for-country aocs-for-region
+            classifications-for-aoc levels-for-classification]]
    [wine-cellar.api :as api]
    [wine-cellar.common :as common]
    [reagent-mui.material.button :refer [button]]
@@ -125,6 +128,27 @@
         :value (:vintage new-wine)
         :on-change #(swap! app-state assoc-in [:new-wine :vintage]
                            (js/parseInt %))}]]
+
+     [form-divider "Tasting Window"]
+
+     [form-row
+      [number-field
+       {:label "Drink From Year"
+        :min 1900
+        :max 2100
+        :value (:drink_from_year new-wine)
+        :helper-text "Year when the wine will be ready to drink"
+        :on-change #(swap! app-state assoc-in [:new-wine :drink_from_year]
+                           (when-not (empty? %) (js/parseInt % 10)))}]
+
+      [number-field
+       {:label "Drink Until Year"
+        :min 1900
+        :max 2100
+        :value (:drink_until_year new-wine)
+        :helper-text "Year when the wine should be consumed by"
+        :on-change #(swap! app-state assoc-in [:new-wine :drink_until_year]
+                           (when-not (empty? %) (js/parseInt % 10)))}]]
 
      ;; Additional Information Section
      [form-divider "Additional Information"]

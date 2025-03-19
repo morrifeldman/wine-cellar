@@ -101,3 +101,4 @@
    (sql-execute-helper tx {:drop-table [:if-exists :wine_classifications]})
    (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_style CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_level CASCADE"]})))
+#_(drop-tables)
