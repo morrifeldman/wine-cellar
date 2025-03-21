@@ -17,6 +17,7 @@
    [reagent-mui.material.grid :refer [grid]]
    [reagent-mui.material.box :refer [box]]))
 
+
 (defn wine-form [app-state]
   (let [new-wine (:new-wine @app-state)
         classifications (:classifications @app-state)
@@ -68,6 +69,8 @@
         {:variant "outlined"
          :color "secondary"
          :size "small"
+         :sx {:borderRadius "20px"
+              :px 2}
          :onClick #(do
                      (swap! app-state assoc :creating-classification? true)
                      (swap! app-state assoc :new-classification {:levels []}))}
@@ -92,9 +95,7 @@
       [smart-select-field app-state [:new-wine :aoc]
        :disabled (or (empty? (:country new-wine))
                      (empty? (:region new-wine)))
-       :options (aocs-for-region classifications
-                                 (:country new-wine)
-                                 (:region new-wine))]]
+       :options (aocs-for-region classifications (:country new-wine) (:region new-wine))]]
 
      [form-row
       [smart-select-field app-state [:new-wine :classification]
@@ -176,3 +177,4 @@
      [form-actions
       {:on-submit submit-handler
        :submit-text "Add Wine"}]]))
+

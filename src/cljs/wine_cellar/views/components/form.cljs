@@ -29,7 +29,8 @@
                :mb 4
                :position "relative"
                :overflow "hidden"
-               :backgroundImage "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"}}
+               :backgroundImage "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"
+               :borderLeft "4px solid rgba(114,47,55,0.5)"}}
    [:form {:on-submit (fn [e]
                         (.preventDefault e)
                         (when on-submit (on-submit)))}
@@ -40,7 +41,16 @@
                    :sx {:mb 3
                         :pb 1
                         :borderBottom "1px solid rgba(0,0,0,0.08)"
-                        :color "primary.main"}}
+                        :color "primary.main"
+                        :display "flex"
+                        :alignItems "center"}}
+       [box {:component "span"
+             :sx {:width "8px"
+                  :height "8px"
+                  :borderRadius "50%"
+                  :backgroundColor "primary.main"
+                  :display "inline-block"
+                  :mr 1}}]
        title]]
      (map-indexed
       (fn [idx child]
@@ -52,26 +62,38 @@
 (defn form-actions
   "Standard form action buttons (submit, cancel) with consistent styling"
   [{:keys [on-submit on-cancel submit-text cancel-text disabled]}]
-  [grid {:item true :xs 12 :sx {:display "flex" :justifyContent "flex-end" :mt 3}}
+  [grid {:item true :xs 12 
+         :sx {:display "flex" 
+               :justifyContent "flex-end" 
+               :mt 4
+               :pt 2
+               :borderTop "1px solid rgba(0,0,0,0.08)"}}
    (when on-cancel
      [button
       {:variant "outlined"
        :color "secondary"
        :onClick on-cancel
-       :sx {:mr 2}}
+       :sx {:mr 2
+            :px 3}}
       (or cancel-text "Cancel")])
    [button
     {:type "submit"
      :variant "contained"
      :color "primary"
      :disabled disabled
+     :sx {:px 3}
      :onClick (when on-submit on-submit)}
     (or submit-text "Submit")]])
 
 (defn form-row
   "A row in a form with consistent spacing"
   [& children]
-  [grid {:container true :spacing 2 :sx {:mb 2}}
+  [grid {:container true 
+         :spacing 2 
+         :sx {:mb 2
+              :animation "fadeIn 0.3s ease-in-out"
+              "@keyframes fadeIn" {:from {:opacity 0, :transform "translateY(10px)"}
+                                  :to {:opacity 1, :transform "translateY(0)"}}}}
    (map-indexed
     (fn [idx child]
       ^{:key (str "form-row-item-" idx)}
@@ -82,8 +104,23 @@
 (defn form-divider
   "A visual divider between form sections"
   [title]
-  [grid {:item true :xs 12 :sx {:mt 3 :mb 1}}
-   [typography {:variant "subtitle1" :sx {:fontWeight "bold"}} title]])
+  [grid {:item true :xs 12 :sx {:mt 4 :mb 2}}
+   [box {:sx {:display "flex"
+              :alignItems "center"}}
+    [box {:sx {:flex "0 0 auto"
+               :mr 2
+               :height "24px"
+               :width "4px"
+               :backgroundColor "secondary.main"
+               :borderRadius "2px"}}]
+    [typography {:variant "subtitle1" 
+                 :sx {:fontWeight "bold"
+                      :color "text.primary"}} 
+     title]
+    [box {:sx {:flex "1 1 auto"
+               :ml 2
+               :height "1px"
+               :backgroundColor "divider"}}]]])
 
 ;; Input field components
 (defn text-field
@@ -96,7 +133,9 @@
     :value (or value "")
     :error error
     :helperText helper-text
-    :sx form-field-style
+    :sx (merge form-field-style
+               {:transition "all 0.2s ease-in-out"
+                ":hover" {:backgroundColor "rgba(0,0,0,0.01)"}})
     :variant "outlined"
     :onChange #(when on-change (on-change (.. % -target -value)))}])
 
@@ -129,7 +168,10 @@
     :margin "normal"
     :fullWidth false
     :variant "outlined"
-    :sx form-field-style
+    :sx (merge form-field-style
+               {:width "100%"
+                "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button" 
+                {:opacity 1}})
     :InputLabelProps {:shrink true}
     :InputProps (cond-> {}
                   min (assoc :min min)
@@ -193,16 +235,16 @@
      :renderInput (react-component
                    [props]
                    [mui-text-field/text-field (merge props
-                                                     {:label label
-                                                      :variant "outlined"})])
+                                                 {:label label
+                                                  :variant "outlined"})])
 
      :onChange (fn [_event new-value] (on-change new-value))
      :autoHighlight true
      :autoSelect false
      :selectOnFocus true
-     :blurOnSelect "touch"
+     :disableCloseOnSelect multiple
      :openOnFocus true
-     :disableCloseOnSelect multiple}]])
+     :blurOnSelect "touch"}]])
 
 ;; Smart field components
 (defn smart-field
