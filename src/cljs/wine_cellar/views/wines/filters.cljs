@@ -10,6 +10,7 @@
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
+            [reagent-mui.material.box :refer [box]]
             [wine-cellar.utils.tasting-window :refer [tasting-window-label]]))
 
 (defn filter-bar [app-state]
@@ -20,24 +21,50 @@
                  :mb 3
                  :borderRadius 2
                  :bgcolor "background.paper"}}
-     [typography {:variant "subtitle1"
-                  :sx {:mb 2
-                       :fontWeight "medium"}}
-      "Filter Wines"]
+     ;; Header row with buttons aligned to the right
+     [box {:sx {:display "flex"
+                :justifyContent "space-between"
+                :alignItems "center"
+                :mb 2}}
+      [typography {:variant "subtitle1"
+                   :sx {:fontWeight "medium"}}
+       "Filter Wines"]
+      
+      ;; Button container
+      [box {:sx {:display "flex"
+                 :gap 1}}
+       ;; In Cellar/All History button
+       [button
+        {:variant "outlined"
+         :size "small"
+         :color (if (:show-out-of-stock? @app-state) "secondary" "primary")
+         :onClick #(swap! app-state update :show-out-of-stock? not)}
+        (if (:show-out-of-stock? @app-state)
+          "In Cellar Only"
+          "All History")]
+       
+       ;; Clear Filters button
+       [button
+        {:variant "outlined"
+         :size "small"
+         :color "secondary"
+         :onClick #(swap! app-state assoc :filters {:search "" :country nil :region nil :styles nil :tasting-window nil})}
+        "Clear Filters"]]]
+     
      [grid {:container true :spacing 3}
-      ;; Search field
+      ;; Search field - increased width
       [grid {:item true :xs 12 :md 4}
        [text-field
         {:fullWidth true
-         :label "Search wines"
+         :label "Search"
          :variant "outlined"
          :size "small"
-         :placeholder "Search by name, producer, region..."
+         :placeholder "Name, producer, region..."
          :value (:search filters)
          :onChange #(swap! app-state assoc-in [:filters :search]
                            (.. % -target -value))}]]
 
-      ;; Country dropdown
+      ;; Country dropdown - increased width
       [grid {:item true :xs 12 :md 2}
        [form-control
         {:variant "outlined"
@@ -56,7 +83,7 @@
            ^{:key country}
            [menu-item {:value country} country])]]]
 
-      ;; Region dropdown
+      ;; Region dropdown - increased width
       [grid {:item true :xs 12 :md 2}
        [form-control
         {:variant "outlined"
@@ -76,7 +103,7 @@
            ^{:key region}
            [menu-item {:value region} region])]]]
 
-      ;; Style dropdown
+      ;; Style dropdown - increased width
       [grid {:item true :xs 12 :md 2}
        [form-control
         {:variant "outlined"
@@ -95,14 +122,14 @@
            ^{:key style}
            [menu-item {:value style} style])]]]
 
-      ;; Tasting Window dropdown
+      ;; Tasting Window dropdown - increased width
       [grid {:item true :xs 12 :md 2}
        [form-control
         {:variant "outlined"
          :fullWidth true
          :size "small"
          :sx {:mt 0}}
-        [input-label "Tasting Window"]
+        [input-label {:sx {:lineHeight 1.2}} "Tasting\nWindow"]
         [select
          {:value (or (:tasting-window filters) "")
           :label "Tasting Window"
@@ -112,23 +139,4 @@
          [menu-item {:value ""} "All Wines"]
          [menu-item {:value "ready"} (tasting-window-label :ready)]
          [menu-item {:value "too-young"} (tasting-window-label :too-young)]
-         [menu-item {:value "too-old"} (tasting-window-label :too-old)]]]
-
-      [grid {:item true :xs 12 :md 2 :sx {:display "flex" :alignItems "center"}}
-       [button
-        {:variant "outlined"
-         :size "small"
-         :color (if (:show-out-of-stock? @app-state) "secondary" "primary")
-         :onClick #(swap! app-state update :show-out-of-stock? not)}
-        (if (:show-out-of-stock? @app-state)
-          "In Cellar Only"
-          "All History")]]
-
-      ;; Clear filters button
-      [grid {:item true :xs 12 :md 2 :sx {:display "flex" :alignItems "center"}}
-       [button
-        {:variant "outlined"
-         :size "small"
-         :color "secondary"
-         :onClick #(swap! app-state assoc :filters {:search "" :country nil :region nil :styles nil :tasting-window nil})}
-        "Clear Filters"]]]]]))
+         [menu-item {:value "too-old"} (tasting-window-label :too-old)]]]]]]))

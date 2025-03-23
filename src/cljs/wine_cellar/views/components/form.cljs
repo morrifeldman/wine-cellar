@@ -24,9 +24,9 @@
   "A container for forms with consistent styling and a title"
   [{:keys [title elevation on-submit]} & children]
   [paper {:elevation (or elevation 1)
-          :sx {:p 4
+          :sx {:p 2 ;; Reduced from p 4
                :borderRadius 2
-               :mb 4
+               :mb 2 ;; Reduced from mb 4
                :position "relative"
                :overflow "hidden"
                :backgroundImage "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"
@@ -34,19 +34,19 @@
    [:form {:on-submit (fn [e]
                         (.preventDefault e)
                         (when on-submit (on-submit)))}
-    [grid {:container true :spacing 2}
+    [grid {:container true :spacing 1} ;; Reduced from spacing 2
      [grid {:item true :xs 12}
       [typography {:variant "h5"
                    :component "h2"
-                   :sx {:mb 3
-                        :pb 1
+                   :sx {:mb 1.5 ;; Reduced from mb 3
+                        :pb 0.5 ;; Reduced from pb 1
                         :borderBottom "1px solid rgba(0,0,0,0.08)"
                         :color "primary.main"
                         :display "flex"
                         :alignItems "center"}}
        [box {:component "span"
-             :sx {:width "8px"
-                  :height "8px"
+             :sx {:width "6px" ;; Reduced from 8px
+                  :height "6px" ;; Reduced from 8px
                   :borderRadius "50%"
                   :backgroundColor "primary.main"
                   :display "inline-block"
@@ -65,23 +65,25 @@
   [grid {:item true :xs 12 
          :sx {:display "flex" 
                :justifyContent "flex-end" 
-               :mt 4
-               :pt 2
+               :mt 2 ;; Reduced from mt 4
+               :pt 1 ;; Reduced from pt 2
                :borderTop "1px solid rgba(0,0,0,0.08)"}}
    (when on-cancel
      [button
       {:variant "outlined"
        :color "secondary"
        :onClick on-cancel
-       :sx {:mr 2
-            :px 3}}
+       :size "small" ;; Added small size
+       :sx {:mr 1.5 ;; Reduced from mr 2
+            :px 2}} ;; Reduced from px 3
       (or cancel-text "Cancel")])
    [button
     {:type "submit"
      :variant "contained"
      :color "primary"
+     :size "small" ;; Added small size
      :disabled disabled
-     :sx {:px 3}
+     :sx {:px 2} ;; Reduced from px 3
      :onClick (when on-submit on-submit)}
     (or submit-text "Submit")]])
 
@@ -89,10 +91,10 @@
   "A row in a form with consistent spacing"
   [& children]
   [grid {:container true 
-         :spacing 2 
-         :sx {:mb 2
+         :spacing 1.5 ;; Reduced from spacing 2
+         :sx {:mb 1 ;; Reduced from mb 2
               :animation "fadeIn 0.3s ease-in-out"
-              "@keyframes fadeIn" {:from {:opacity 0, :transform "translateY(10px)"}
+              "@keyframes fadeIn" {:from {:opacity 0, :transform "translateY(5px)"} ;; Reduced from 10px
                                   :to {:opacity 1, :transform "translateY(0)"}}}}
    (map-indexed
     (fn [idx child]
@@ -104,21 +106,22 @@
 (defn form-divider
   "A visual divider between form sections"
   [title]
-  [grid {:item true :xs 12 :sx {:mt 4 :mb 2}}
+  [grid {:item true :xs 12 :sx {:mt 2 :mb 1}} ;; Reduced from mt 4 mb 2
    [box {:sx {:display "flex"
               :alignItems "center"}}
     [box {:sx {:flex "0 0 auto"
-               :mr 2
-               :height "24px"
-               :width "4px"
+               :mr 1.5 ;; Reduced from mr 2
+               :height "18px" ;; Reduced from 24px
+               :width "3px" ;; Reduced from 4px
                :backgroundColor "secondary.main"
                :borderRadius "2px"}}]
     [typography {:variant "subtitle1" 
                  :sx {:fontWeight "bold"
-                      :color "text.primary"}} 
+                      :color "text.primary"
+                      :fontSize "0.9rem"}} ;; Added smaller font size
      title]
     [box {:sx {:flex "1 1 auto"
-               :ml 2
+               :ml 1.5 ;; Reduced from ml 2
                :height "1px"
                :backgroundColor "divider"}}]]])
 
@@ -133,6 +136,8 @@
     :value (or value "")
     :error error
     :helperText helper-text
+    :size "small" ;; Added small size
+    :margin "dense" ;; Added dense margin
     :sx (merge form-field-style
                {:transition "all 0.2s ease-in-out"
                 ":hover" {:backgroundColor "rgba(0,0,0,0.01)"}})
@@ -145,12 +150,14 @@
   [mui-text-field/text-field
    {:label label
     :multiline true
-    :rows (or rows 4)
+    :rows (or rows 3) ;; Reduced from 4
     :required required
     :fullWidth true
     :value value
     :error error
     :helperText helper-text
+    :size "small" ;; Added small size
+    :margin "dense" ;; Added dense margin
     :sx form-field-style
     :variant "outlined"
     :onChange #(on-change (.. % -target -value))}])
@@ -165,7 +172,8 @@
     :value value
     :error error
     :helperText helper-text
-    :margin "normal"
+    :margin "dense" ;; Changed from normal to dense
+    :size "small" ;; Added small size
     :fullWidth false
     :variant "outlined"
     :sx (merge form-field-style
@@ -189,7 +197,8 @@
     :value value
     :error error
     :helperText helper-text
-    :margin "normal"
+    :margin "dense" ;; Changed from normal to dense
+    :size "small" ;; Added small size
     :fullWidth false
     :variant "outlined"
     :sx form-field-style
@@ -206,7 +215,8 @@
     :type "date"
     :required required
     :value value
-    :margin "normal"
+    :margin "dense" ;; Changed from normal to dense
+    :size "small" ;; Added small size
     :fullWidth false
     :variant "outlined"
     :InputLabelProps {:shrink true}
@@ -218,13 +228,14 @@
   [{:keys [label value options required on-change multiple disabled]
     :or {multiple false disabled false}}]
   [form-control {:variant "outlined"
-                 :margin "normal"
+                 :margin "dense" ;; Changed from normal to dense
                  :required required
                  :sx form-field-style}
    [autocomplete
     {:multiple multiple
      :disabled disabled
      :options options
+     :size "small" ;; Added small size
      :value (cond-> value
               multiple (or []))
      :getOptionLabel (fn [option]
@@ -236,8 +247,8 @@
                    [props]
                    [mui-text-field/text-field (merge props
                                                  {:label label
-                                                  :variant "outlined"})])
-
+                                                  :variant "outlined"
+                                                  :size "small"})])
      :onChange (fn [_event new-value] (on-change new-value))
      :autoHighlight true
      :autoSelect false
@@ -287,11 +298,12 @@
 (defn checkbox-field
   "A checkbox with label and optional helper text"
   [{:keys [label checked on-change helper-text]}]
-  [form-control {:component "fieldset" :sx {:mt 2}}
+  [form-control {:component "fieldset" :sx {:mt 1}} ;; Reduced from mt 2
    [form-control-label
     {:control (r/as-element
                [checkbox
                 {:checked (boolean checked)
+                 :size "small" ;; Added small size
                  :onChange #(on-change (.. % -target -checked))}])
      :label label}]
    (when helper-text
@@ -300,8 +312,8 @@
 (defn radio-group-field
   "A group of radio buttons with a label"
   [{:keys [label value options on-change required row]}]
-  [form-control {:required required :sx {:mt 2}}
-   [input-label label]
+  [form-control {:required required :sx {:mt 1}} ;; Reduced from mt 2
+   [input-label {:size "small"} label] ;; Added small size
    [radio-group
     {:value (or value "")
      :row (boolean row)
@@ -310,17 +322,18 @@
       ^{:key k}
       [form-control-label
        {:value k
-        :control (r/as-element [radio])
+        :control (r/as-element [radio {:size "small"}]) ;; Added small size
         :label v}])]])
 
 (defn switch-field
   "A toggle switch with label"
   [{:keys [label checked on-change helper-text]}]
-  [form-control {:component "fieldset" :sx {:mt 2}}
+  [form-control {:component "fieldset" :sx {:mt 1}} ;; Reduced from mt 2
    [form-control-label
     {:control (r/as-element
                [switch
                 {:checked (boolean checked)
+                 :size "small" ;; Added small size
                  :onChange #(on-change (.. % -target -checked))}])
      :label label}]
    (when helper-text
@@ -329,8 +342,8 @@
 (defn slider-field
   "A slider input with min/max values and optional step"
   [{:keys [label value min max step on-change marks disabled]}]
-  [box {:sx {:width "100%" :mt 3 :mb 2}}
-   [typography {:gutterBottom true} label]
+  [box {:sx {:width "100%" :mt 2 :mb 1}} ;; Reduced from mt 3 mb 2
+   [typography {:gutterBottom true :variant "body2"} label] ;; Added body2 for smaller text
    [slider
     {:value (or value min)
      :min min
@@ -338,6 +351,7 @@
      :step (or step 1)
      :marks (boolean marks)
      :disabled disabled
+     :size "small" ;; Added small size
      :valueLabelDisplay "auto"
      :onChange #(on-change (.. % -target -value))}]])
 

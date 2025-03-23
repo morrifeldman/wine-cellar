@@ -20,24 +20,24 @@
                                :young "#1976D2" ;; Blue for too young
                                :past "#FF9800"}} ;; Orange for past prime
 
-    ;; Typography improvements
+    ;; Typography improvements - more compact
     :typography {:fontFamily "'Raleway', 'Roboto', 'Helvetica', 'Arial', sans-serif"
-                 :h1 {:fontWeight 300, :fontSize "2.5rem"}
-                 :h2 {:fontWeight 400, :fontSize "2rem"}
-                 :h3 {:fontWeight 400, :fontSize "1.75rem"}
-                 :h4 {:fontWeight 500, :fontSize "1.5rem"}
-                 :h5 {:fontWeight 500, :fontSize "1.25rem"}
+                 :h1 {:fontWeight 300, :fontSize "2.25rem"}
+                 :h2 {:fontWeight 400, :fontSize "1.75rem"}
+                 :h3 {:fontWeight 400, :fontSize "1.5rem"}
+                 :h4 {:fontWeight 500, :fontSize "1.25rem"}
+                 :h5 {:fontWeight 500, :fontSize "1.1rem"}
                  :h6 {:fontWeight 500, :fontSize "1rem"}
-                 :subtitle1 {:fontSize "1rem", :fontWeight 400}
-                 :subtitle2 {:fontSize "0.875rem", :fontWeight 500}
-                 :body1 {:fontSize "1rem"}
-                 :body2 {:fontSize "0.875rem"}}
+                 :subtitle1 {:fontSize "0.95rem", :fontWeight 500}
+                 :subtitle2 {:fontSize "0.85rem", :fontWeight 500}
+                 :body1 {:fontSize "0.95rem"}
+                 :body2 {:fontSize "0.85rem"}}
 
     :components {:MuiTypography {:styleOverrides {;; Define default styles for each variant
-                                                  :h2 {:fontWeight 400, :fontSize "2rem"}
-                                                  :subtitle1 {:fontSize "1rem", :fontWeight 400}
-                                                  :body1 {:fontSize "1rem"}
-                                                  :body2 {:fontSize "0.875rem"}}}
+                                                  :h2 {:fontWeight 400, :fontSize "1.75rem"}
+                                                  :subtitle1 {:fontSize "0.95rem", :fontWeight 500}
+                                                  :body1 {:fontSize "0.95rem"}
+                                                  :body2 {:fontSize "0.85rem"}}}
                  :MuiPaper {:styleOverrides
                             {:root {:boxShadow "0px 3px 15px rgba(0,0,0,0.05)"}}}
                  :MuiButton {:styleOverrides
@@ -46,41 +46,34 @@
                                      :borderRadius "8px"}
                               :contained {:boxShadow "none"}
                               :outlined {:borderWidth "1.5px"}}}
-
-                 ;; Updated form control styles for more compact layout
+                 
+                 ;; More compact form controls
                  :MuiFormControl {:styleOverrides
                                   {:root {:marginBottom "8px"}}} ;; Reduced from 12px
-
                  :MuiInputLabel {:styleOverrides
-                                 {:root {:fontSize "0.9rem"
-                                         :transform "translate(14px, 10px) scale(1)"}}} ;; Adjusted label position
-
+                                 {:root {:fontSize "0.85rem"}}} ;; Smaller font
                  :MuiOutlinedInput {:styleOverrides
-                                    {:root {:fontSize "0.9rem"
-                                            :borderRadius "8px"}
-                                     :input {:padding "8px 14px"}}} ;; Reduced padding from 10px to 8px
-
+                                    {:root {:fontSize "0.85rem"
+                                            :borderRadius "6px"}
+                                     :input {:padding "8px 12px"}}} ;; Reduced padding
                  :MuiSelect {:styleOverrides
-                             {:root {:fontSize "0.9rem"}}}
-
+                             {:root {:fontSize "0.85rem"}}}
                  :MuiMenuItem {:styleOverrides
-                               {:root {:fontSize "0.9rem"
-                                       :minHeight "30px"}}} ;; Reduced from 35px
-
+                               {:root {:fontSize "0.85rem"
+                                       :minHeight "32px"}}} ;; Reduced height
                  :MuiFormHelperText {:styleOverrides
                                      {:root {:marginTop "0"
-                                             :marginBottom "0"
-                                             :fontSize "0.7rem"}}} ;; Reduced font size and added marginBottom
-
+                                             :fontSize "0.7rem"
+                                             :lineHeight "1.2"}}} ;; Smaller helper text
                  :MuiTableCell {:styleOverrides
-                                {:root {:padding "12px 16px"}
+                                {:root {:padding "8px 12px"} ;; Reduced padding
                                  :head {:fontWeight 600
                                         :backgroundColor "rgba(114,47,55,0.05)"}}}
                  :MuiChip {:styleOverrides
                            {:root {:borderRadius "4px"}
                             :filled {:backgroundColor "rgba(114,47,55,0.1)"}}}
                  :MuiCard {:styleOverrides
-                           {:root {:borderRadius "12px"
+                           {:root {:borderRadius "8px" ;; Reduced from 12px
                                    :overflow "hidden"}}}}
-    :shape {:borderRadius 8}}))
+    :shape {:borderRadius 6}})) ;; Reduced from 8
 

@@ -9,7 +9,7 @@
             [wine-cellar.api :as api]))
 
 ;; Shared styles
-(def form-field-style {:min-width "200px" :width "75%"})
+(def form-field-style {:min-width "180px" :width "75%"})
 
 ;; Table components
 (defn sortable-header [app-state label field]

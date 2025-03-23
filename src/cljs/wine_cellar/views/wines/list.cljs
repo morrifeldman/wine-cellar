@@ -47,10 +47,30 @@
        (str rating "/100")]
       "-")]
    [table-cell
-    (let [status (tasting-window-status wine)]
-      [typography {:sx {:color (tasting-window-color status)
-                        :fontWeight "medium"}}
-       (tasting-window-label status)])]
+    (let [status (tasting-window-status wine)
+          drink-from-year (or (:drink_from_year wine) 
+                             (when-let [date (:drink_from wine)]
+                               (.getFullYear (js/Date. date))))
+          drink-until-year (or (:drink_until_year wine)
+                              (when-let [date (:drink_until wine)]
+                                (.getFullYear (js/Date. date))))]
+      [box {:sx {:color (tasting-window-color status)
+                 :fontWeight "medium"
+                 :display "flex"
+                 :flexDirection "column"
+                 :alignItems "center"}}
+       (when drink-from-year
+         [typography {:variant "body2"
+                      :sx {:lineHeight 1.2}}
+          (str drink-from-year)])
+       (when (and drink-from-year drink-until-year)
+         [typography {:variant "body2"
+                      :sx {:lineHeight 1.2}}
+          "—"])
+       (when drink-until-year
+         [typography {:variant "body2"
+                      :sx {:lineHeight 1.2}}
+          (str drink-until-year)])])]
    [table-cell (:location wine)]
    [table-cell
     [quantity-control app-state (:id wine) (:quantity wine)]]
