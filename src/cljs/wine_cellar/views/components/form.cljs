@@ -228,7 +228,6 @@
   "A dropdown select field with autocomplete"
   [{:keys [label value options required on-change multiple disabled free-solo]
     :or {multiple false disabled false free-solo false}}]
-  (prn label value)
   [form-control {:variant "outlined"
                  :margin "dense"
                  :required required

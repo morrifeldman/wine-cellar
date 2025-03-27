@@ -35,4 +35,3 @@
 ;; Start the app when loaded
 (defn ^:export main []
   (init))
-

@@ -59,6 +59,7 @@
       (server-error e))))
 
 (defn create-wine [request]
+  (tap> request)
   (let [wine (-> request :parameters :body)
         create-classification? (:create-classification-if-needed wine)
         wine-without-flag (dissoc wine :create-classification-if-needed)]

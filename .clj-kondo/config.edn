@@ -1,0 +1,1 @@
+{:lint-as {reagent-mui.util/react-component clojure.core/fn}}
