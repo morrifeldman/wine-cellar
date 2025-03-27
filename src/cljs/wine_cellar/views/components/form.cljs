@@ -1,5 +1,6 @@
 (ns wine-cellar.views.components.form
   (:require [reagent.core :as r]
+            [clojure.string :as str]
             [wine-cellar.views.components :refer [form-field-style format-label]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.text-field :as mui-text-field]
@@ -62,12 +63,12 @@
 (defn form-actions
   "Standard form action buttons (submit, cancel) with consistent styling"
   [{:keys [on-submit on-cancel submit-text cancel-text disabled]}]
-  [grid {:item true :xs 12 
-         :sx {:display "flex" 
-               :justifyContent "flex-end" 
-               :mt 2 ;; Reduced from mt 4
-               :pt 1 ;; Reduced from pt 2
-               :borderTop "1px solid rgba(0,0,0,0.08)"}}
+  [grid {:item true :xs 12
+         :sx {:display "flex"
+              :justifyContent "flex-end"
+              :mt 2 ;; Reduced from mt 4
+              :pt 1 ;; Reduced from pt 2
+              :borderTop "1px solid rgba(0,0,0,0.08)"}}
    (when on-cancel
      [button
       {:variant "outlined"
@@ -90,12 +91,12 @@
 (defn form-row
   "A row in a form with consistent spacing"
   [& children]
-  [grid {:container true 
+  [grid {:container true
          :spacing 1.5 ;; Reduced from spacing 2
          :sx {:mb 1 ;; Reduced from mb 2
               :animation "fadeIn 0.3s ease-in-out"
               "@keyframes fadeIn" {:from {:opacity 0, :transform "translateY(5px)"} ;; Reduced from 10px
-                                  :to {:opacity 1, :transform "translateY(0)"}}}}
+                                   :to {:opacity 1, :transform "translateY(0)"}}}}
    (map-indexed
     (fn [idx child]
       ^{:key (str "form-row-item-" idx)}
@@ -115,7 +116,7 @@
                :width "3px" ;; Reduced from 4px
                :backgroundColor "secondary.main"
                :borderRadius "2px"}}]
-    [typography {:variant "subtitle1" 
+    [typography {:variant "subtitle1"
                  :sx {:fontWeight "bold"
                       :color "text.primary"
                       :fontSize "0.9rem"}} ;; Added smaller font size
@@ -178,7 +179,7 @@
     :variant "outlined"
     :sx (merge form-field-style
                {:width "100%"
-                "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button" 
+                "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button"
                 {:opacity 1}})
     :InputLabelProps {:shrink true}
     :InputProps (cond-> {}
@@ -225,37 +226,44 @@
 
 (defn select-field
   "A dropdown select field with autocomplete"
-  [{:keys [label value options required on-change multiple disabled]
-    :or {multiple false disabled false}}]
+  [{:keys [label value options required on-change multiple disabled free-solo]
+    :or {multiple false disabled false free-solo false}}]
+  (prn label value)
   [form-control {:variant "outlined"
-                 :margin "dense" ;; Changed from normal to dense
+                 :margin "dense"
                  :required required
                  :sx form-field-style}
    [autocomplete
     {:multiple multiple
      :disabled disabled
      :options options
-     :size "small" ;; Added small size
+     :freeSolo free-solo
+     :size "small"
      :value (cond-> value
               multiple (or []))
-     :getOptionLabel (fn [option]
+     :get-option-label (fn [option]
                        (cond
                          (nil? option) ""
                          (string? option) option
                          :else (str option)))
-     :renderInput (react-component
+     :render-input (react-component
                    [props]
                    [mui-text-field/text-field (merge props
-                                                 {:label label
-                                                  :variant "outlined"
-                                                  :size "small"})])
-     :onChange (fn [_event new-value] (on-change new-value))
-     :autoHighlight true
-     :autoSelect false
-     :selectOnFocus true
-     :disableCloseOnSelect multiple
-     :openOnFocus true
-     :blurOnSelect "touch"}]])
+                                                     {:label label
+                                                      :variant "outlined"
+                                                      :size "small"})])
+     :on-change (fn [_event new-value] (on-change new-value))
+     :on-input-change (when free-solo
+                      (fn [_event new-value reason]
+                        (when (= reason "input")
+                          (on-change new-value))))
+     :clear-on-blur true ;; Fix free solo mode holding onto values
+     :auto-highlight true
+     :auto-select false
+     :select-on-focus true
+     :disable-close-on-select multiple
+     :open-on-focus true
+     :blur-on-select "touch"}]])
 
 ;; Smart field components
 (defn smart-field
@@ -278,9 +286,10 @@
 
 (defn smart-select-field
   "A smart select field that updates app-state on change"
-  [app-state path & {:keys [label options disabled on-change required]
+  [app-state path & {:keys [label options disabled on-change required free-solo]
                      :or {required false
-                          disabled false}}]
+                          disabled false
+                          free-solo false}}]
   (let [derived-label (format-label (last path))
         field-label (or label derived-label)
         field-value (get-in @app-state path)
@@ -292,6 +301,7 @@
       :required required
       :disabled disabled
       :options options
+      :free-solo free-solo
       :on-change on-change-fn}]))
 
 ;; Other form components

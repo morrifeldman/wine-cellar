@@ -59,18 +59,27 @@
       (server-error e))))
 
 (defn create-wine [request]
-  (let [wine (-> request :parameters :body)]
+  (let [wine (-> request :parameters :body)
+        create-classification? (:create-classification-if-needed wine)
+        wine-without-flag (dissoc wine :create-classification-if-needed)]
     (try
-      (let [created-wine (api/create-wine wine)]
+      ;; Check if we need to create a new classification
+      (when create-classification?
+        (let [classification {:country (:country wine)
+                              :region (:region wine)
+                              :aoc (:aoc wine)
+                              :classification (:classification wine)
+                              :levels (when (:level wine) [(:level wine)])}]
+          ;; Only create if all required fields are present
+          (when (and (:country classification) (:region classification))
+            (api/create-or-update-classification classification))))
+
+      ;; Now create the wine
+      (let [created-wine (api/create-wine wine-without-flag)]
         {:status 201
          :body created-wine})
-      (catch org.postgresql.util.PSQLException e
-        {:status 400
-         :body {:error "Invalid wine data"
-                :details (.getMessage e)}})
       (catch Exception e
-        {:status 500
-         :body {:error (ex-message e)}}))))
+        (server-error e)))))
 
 (defn update-wine [{{:keys [id]} :path-params
                     {:keys [body]} :parameters}]
@@ -107,12 +116,12 @@
       (server-error e))))
 
 (defn update-tasting-window [{{:keys [id]} :path-params
-                             {:keys [drink_from_year drink_until_year]} :body-params}]
+                              {:keys [drink_from_year drink_until_year]} :body-params}]
   (try
     (if (api/get-wine (parse-long id))
-      (let [updated (api/update-wine-tasting-window (parse-long id) 
-                                                   drink_from_year 
-                                                   drink_until_year)]
+      (let [updated (api/update-wine-tasting-window (parse-long id)
+                                                    drink_from_year
+                                                    drink_until_year)]
         (response/response updated))
       (response/not-found {:error "Wine not found"}))
     (catch Exception e

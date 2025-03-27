@@ -4,13 +4,15 @@
             [clojure.spec.alpha :as s]
             [reitit.ring :as ring]
             [reitit.coercion.spec :as spec-coercion]
+            [reitit.ring.middleware.exception :as exception]
             [reitit.swagger :as swagger]
             [reitit.swagger-ui :as swagger-ui]
             [reitit.ring.coercion :as coercion]
             [reitit.ring.middleware.muuntaja :as muuntaja]
             [reitit.ring.middleware.parameters :as parameters]
             [ring.middleware.cors :refer [wrap-cors]]
-            [muuntaja.core :as m]))
+            [muuntaja.core :as m]
+            [expound.alpha :as expound]))
 
 ;; Specs for individual fields
 (s/def ::producer string?)
@@ -35,22 +37,21 @@
 (s/def ::drink_until_year int?)
 
 (def wine-schema
- (s/keys :req-un [::producer
-                  ::country
-                  ::region
-                  ::vintage
-                  ::styles
-                  ::quantity
-                  ::price]
-         :opt-un [::aoc
-                  ::communal_aoc
-                  ::classification
-                  ::vineyard
-                  ::name
-                  ::location
-                  ::level
-                  ::drink_from_year
-                  ::drink_until_year]))
+  (s/keys :req-un [(or ::name ::producer)
+                   ::country
+                   ::region
+                   ::vintage
+                   ::styles
+                   ::quantity
+                   ::price]
+          :opt-un [::aoc
+                   ::communal_aoc
+                   ::classification
+                   ::vineyard
+                   ::location
+                   ::level
+                   ::drink_from_year
+                   ::drink_until_year]))
 
 (def classification-schema
   (s/keys :req-un [::country
@@ -64,17 +65,17 @@
 ;; Define tasting note schema
 (def tasting-note-schema
   (s/keys :req-un [::tasting_date
-                  ::notes
-                  ::rating]))
+                   ::notes
+                   ::rating]))
 
 (def cors-middleware
   {:name ::cors
    :wrap (fn [handler]
            (wrap-cors handler
-                     :access-control-allow-origin [#"http://localhost:8080"]
-                     :access-control-allow-methods [:get :put :post :delete :options]
-                     :access-control-allow-headers ["Content-Type" "Accept"]
-                     :access-control-allow-credentials true))})
+                      :access-control-allow-origin [#"http://localhost:8080"]
+                      :access-control-allow-methods [:get :put :post :delete :options]
+                      :access-control-allow-headers ["Content-Type" "Accept"]
+                      :access-control-allow-credentials true))})
 
 (def wine-routes
   [["/swagger.json"
@@ -95,16 +96,16 @@
 
    ;; Wine Classification Routes
    ["/api/classifications"
- {:get {:summary "Get all wine classifications"
-        :responses {200 {:body vector?}
-                    500 {:body map?}}
-        :handler handlers/get-classifications}
-  :post {:summary "Create a new wine classification"
-         :parameters {:body classification-schema}
-         :responses {201 {:body map?}
-                     400 {:body map?}
-                     500 {:body map?}}
-         :handler handlers/create-classification}}]
+    {:get {:summary "Get all wine classifications"
+           :responses {200 {:body vector?}
+                       500 {:body map?}}
+           :handler handlers/get-classifications}
+     :post {:summary "Create a new wine classification"
+            :parameters {:body classification-schema}
+            :responses {201 {:body map?}
+                        400 {:body map?}
+                        500 {:body map?}}
+            :handler handlers/create-classification}}]
 
    ["/api/classifications/regions/:country"
     {:parameters {:path {:country string?}}
@@ -209,6 +210,19 @@
                           500 {:body map?}}
               :handler handlers/delete-tasting-note}}]])
 
+(defn coercion-error-handler [status]
+  (fn [exception _]
+    (let [data (ex-data exception)
+          ;; Generate the human-readable error message with expound
+          human-readable-error (expound/expound-str (:spec data) (:value data))]
+      ;; Print to server logs
+      (println "Validation error:")
+      (println human-readable-error)
+
+      ;; Return the expound output directly to the client
+      {:status status
+       :body human-readable-error})))
+
 (def app
   (ring/ring-handler
    (ring/router
@@ -216,15 +230,20 @@
     {:data {:coercion spec-coercion/coercion
             :muuntaja m/instance
             :swagger {:ui "/api-docs"
-                     :spec "/swagger.json"
-                     :data {:info {:title "Wine Cellar API"
-                                 :description "API for managing your wine collection"}}}
-            :middleware [cors-middleware
-                        parameters/parameters-middleware
-                        muuntaja/format-negotiate-middleware
-                        muuntaja/format-response-middleware
-                        muuntaja/format-request-middleware
-                        coercion/coerce-response-middleware
-                        coercion/coerce-request-middleware
-                        swagger/swagger-feature]}})
+                      :spec "/swagger.json"
+                      :data {:info {:title "Wine Cellar API"
+                                    :description "API for managing your wine collection"}}}
+            :middleware [cors-middleware  ;; Move CORS middleware to be first in the chain
+                         (exception/create-exception-middleware
+                          (merge
+                           exception/default-handlers
+                           {:reitit.coercion/request-coercion (coercion-error-handler 400)
+                            :reitit.coercion/response-coercion (coercion-error-handler 500)}))
+                         parameters/parameters-middleware
+                         muuntaja/format-negotiate-middleware
+                         muuntaja/format-response-middleware
+                         muuntaja/format-request-middleware
+                         coercion/coerce-request-middleware
+                         coercion/coerce-response-middleware
+                         swagger/swagger-feature]}})
    (ring/create-default-handler)))

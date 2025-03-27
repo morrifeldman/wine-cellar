@@ -1,5 +1,6 @@
 (ns wine-cellar.api
   (:require [cljs-http.client :as http]
+            [clojure.string :as str]
             [cljs.core.async :refer [<! go]]))
 
 (def api-base-url "http://localhost:3000")
@@ -11,7 +12,7 @@
 (defn fetch-classifications [app-state]
   (go
     (let [response (<! (http/get (str api-base-url "/api/classifications")
-                                default-opts))]
+                                 default-opts))]
       (if (:success response)
         (swap! app-state assoc :classifications (:body response))
         (swap! app-state assoc :error "Failed to fetch classifications")))))
@@ -19,7 +20,7 @@
 (defn fetch-regions [app-state country]
   (go
     (let [response (<! (http/get (str api-base-url "/api/classifications/regions/" country)
-                                default-opts))]
+                                 default-opts))]
       (if (:success response)
         (swap! app-state assoc :regions (:body response))
         (swap! app-state assoc :error "Failed to fetch regions")))))
@@ -30,7 +31,7 @@
   (js/console.log "Fetching wines...")
   (go
     (let [response (<! (http/get (str api-base-url "/api/wines")
-                                default-opts))]
+                                 default-opts))]
       (js/console.log "Wine API response:" (clj->js response))
       (if (:success response)
         (do
@@ -46,23 +47,23 @@
                  :loading? false))))))
 
 (defn create-wine [app-state wine]
-  (js/console.log "Sending wine data:" (clj->js wine))  ;; Add this line
+  (js/console.log "Sending wine data:" (clj->js wine))
   (go
     (let [response (<! (http/post (str api-base-url "/api/wines")
-                                 (merge default-opts
-                                        {:json-params wine})))]
-      ;; Add response logging
-      (when-not (:success response)
-        (js/console.log "Error response:" (clj->js (:body response))))
+                                  (merge default-opts
+                                         {:json-params wine})))]
       (if (:success response)
-        (do (fetch-wines app-state)
-            (swap! app-state assoc :new-wine {}))
-        (swap! app-state assoc :error "Failed to create wine")))))
+        (do
+          (fetch-wines app-state)
+          (fetch-classifications app-state)  ;; Refresh classifications after adding a wine
+          (swap! app-state assoc :new-wine {}))
+        ;; Just use the error message directly from the response body
+        (swap! app-state assoc :error (:body response))))))
 
 (defn delete-wine [app-state id]
   (go
     (let [response (<! (http/delete (str api-base-url "/api/wines/" id)
-                                   default-opts))]
+                                    default-opts))]
       (if (:success response)
         (swap! app-state update :wines #(remove (fn [wine] (= (:id wine) id)) %))
         (swap! app-state assoc
@@ -72,7 +73,7 @@
 (defn fetch-tasting-notes [app-state wine-id]
   (go
     (let [response (<! (http/get (str api-base-url "/api/wines/" wine-id "/tasting-notes")
-                                default-opts))]
+                                 default-opts))]
       (if (:success response)
         (swap! app-state assoc :tasting-notes (:body response))
         (swap! app-state assoc :error "Failed to fetch tasting notes")))))
@@ -80,8 +81,8 @@
 (defn create-tasting-note [app-state wine-id note]
   (go
     (let [response (<! (http/post (str api-base-url "/api/wines/" wine-id "/tasting-notes")
-                                 (merge default-opts
-                                        {:json-params note})))]
+                                  (merge default-opts
+                                         {:json-params note})))]
       (if (:success response)
         (do
           (swap! app-state update :tasting-notes conj (:body response))
@@ -91,8 +92,8 @@
 (defn update-tasting-note [app-state wine-id note-id note]
   (go
     (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/tasting-notes/" note-id)
-                                (merge default-opts
-                                       {:json-params note})))]
+                                 (merge default-opts
+                                        {:json-params note})))]
       (if (:success response)
         (swap! app-state update :tasting-notes
                (fn [notes]
@@ -102,7 +103,7 @@
 (defn delete-tasting-note [app-state wine-id note-id]
   (go
     (let [response (<! (http/delete (str api-base-url "/api/wines/" wine-id "/tasting-notes/" note-id)
-                                   default-opts))]
+                                    default-opts))]
       (if (:success response)
         (swap! app-state update :tasting-notes
                #(remove (fn [note] (= (:id note) note-id)) %))
@@ -111,14 +112,14 @@
 (defn adjust-wine-quantity [app-state wine-id adjustment]
   (go
     (let [response (<! (http/post (str api-base-url "/api/wines/" wine-id "/adjust-quantity")
-                                 (merge default-opts
-                                        {:json-params {:adjustment adjustment}})))]
+                                  (merge default-opts
+                                         {:json-params {:adjustment adjustment}})))]
       (if (:success response)
         (swap! app-state update :wines
                (fn [wines]
-                 (map #(if (= (:id %) wine-id) 
-                         (update % :quantity + adjustment) 
-                         %) 
+                 (map #(if (= (:id %) wine-id)
+                         (update % :quantity + adjustment)
+                         %)
                       wines)))
         (swap! app-state assoc :error "Failed to update wine quantity")))))
 
@@ -126,34 +127,31 @@
   (js/console.log "Sending classification data:" (clj->js classification))
   (go
     (let [response (<! (http/post (str api-base-url "/api/classifications")
-                                 (merge default-opts
-                                        {:json-params classification})))]
-      ;; Log response for debugging
+                                  (merge default-opts
+                                         {:json-params classification})))]
       (when-not (:success response)
         (js/console.log "Error response:" (clj->js (:body response))))
       (if (:success response)
         (do
-          ;; First close the form immediately
-          (swap! app-state assoc 
+          (swap! app-state assoc
                  :creating-classification? false
                  :new-classification nil)
-          ;; Then fetch updated classifications
           (fetch-classifications app-state))
         (swap! app-state assoc :error "Failed to create classification")))))
 
 (defn update-wine-tasting-window [app-state wine-id drink-from-year drink-until-year]
   (go
     (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/tasting-window")
-                               (merge default-opts
-                                      {:json-params {:drink_from_year drink-from-year
-                                                    :drink_until_year drink-until-year}})))]
+                                 (merge default-opts
+                                        {:json-params {:drink_from_year drink-from-year
+                                                       :drink_until_year drink-until-year}})))]
       (if (:success response)
         (swap! app-state update :wines
                (fn [wines]
-                 (map #(if (= (:id %) wine-id) 
-                         (assoc % 
+                 (map #(if (= (:id %) wine-id)
+                         (assoc %
                                 :drink_from_year drink-from-year
-                                :drink_until_year drink-until-year) 
-                         %) 
+                                :drink_until_year drink-until-year)
+                         %)
                       wines)))
         (swap! app-state assoc :error "Failed to update tasting window")))))
