@@ -1,6 +1,5 @@
 (ns wine-cellar.views.components.form
   (:require [reagent.core :as r]
-            [clojure.string :as str]
             [wine-cellar.views.components :refer [form-field-style format-label]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.text-field :as mui-text-field]
@@ -241,21 +240,21 @@
      :value (cond-> value
               multiple (or []))
      :get-option-label (fn [option]
-                       (cond
-                         (nil? option) ""
-                         (string? option) option
-                         :else (str option)))
+                         (cond
+                           (nil? option) ""
+                           (string? option) option
+                           :else (str option)))
      :render-input (react-component
-                   [props]
-                   [mui-text-field/text-field (merge props
-                                                     {:label label
-                                                      :variant "outlined"
-                                                      :size "small"})])
+                    [props]
+                    [mui-text-field/text-field (merge props
+                                                      {:label label
+                                                       :variant "outlined"
+                                                       :size "small"})])
      :on-change (fn [_event new-value] (on-change new-value))
      :on-input-change (when free-solo
-                      (fn [_event new-value reason]
-                        (when (= reason "input")
-                          (on-change new-value))))
+                        (fn [_event new-value reason]
+                          (when (= reason "input")
+                            (on-change new-value))))
      :clear-on-blur true ;; Fix free solo mode holding onto values
      :auto-highlight true
      :auto-select false

@@ -1,10 +1,18 @@
 (ns wine-cellar.views.main
   (:require [wine-cellar.views.wines.form :refer [wine-form]]
+            [wine-cellar.views.components :refer [toggle-button]]
             [wine-cellar.views.wines.list :refer [wine-list]]
             [wine-cellar.views.wines.detail :refer [wine-details-section]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]))
+
+(defn wine-form-toggle [app-state]
+  [toggle-button
+   {:app-state app-state
+    :path [:show-wine-form?]
+    :show-text "Add New Wine"
+    :hide-text "Hide Wine Form"}])
 
 (defn main-app [app-state]
   [box {:sx {:p 3
@@ -29,11 +37,20 @@
              :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
       [typography {:variant "body1"} error]])
 
-   (if (:selected-wine-id @app-state)
+   (cond
      ;; If a wine is selected, show the details section
+     (:selected-wine-id @app-state)
      [wine-details-section app-state]
-     ;; Otherwise, show the form and list
+
+     ;; If wine form is open, show only the toggle and form
+     (:show-wine-form? @app-state)
      [:div
-      [wine-form app-state]
+      [wine-form-toggle app-state]
+      [wine-form app-state]]
+
+     ;; Otherwise, show the toggle, form, and list
+     :else
+     [:div
+      [wine-form-toggle app-state]
       [wine-list app-state]])])
 

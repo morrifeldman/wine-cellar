@@ -60,3 +60,20 @@
   (-> (name k)
       (str/replace #"-|_" " ")
       (str/capitalize)))
+
+(defn toggle-button
+  "A button that toggles a boolean value in app-state"
+  [{:keys [app-state path show-text hide-text color variant on-click]
+    :or {color "primary"
+         variant "contained"
+         show-text "Show"
+         hide-text "Hide"}}]
+  [box {:sx {:mb 2}}
+   [button
+    {:variant variant
+     :color color
+     :onClick (or on-click #(swap! app-state update-in path not))}
+    (if (get-in @app-state path)
+      hide-text
+      show-text)]])
+
