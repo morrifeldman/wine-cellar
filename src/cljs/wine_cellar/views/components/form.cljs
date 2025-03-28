@@ -225,7 +225,7 @@
 
 (defn select-field
   "A dropdown select field with autocomplete"
-  [{:keys [label value options required on-change multiple disabled free-solo]
+  [{:keys [label value options required on-change multiple disabled free-solo helper-text on-blur]
     :or {multiple false disabled false free-solo false}}]
   [form-control {:variant "outlined"
                  :margin "dense"
@@ -261,7 +261,9 @@
      :select-on-focus true
      :disable-close-on-select multiple
      :open-on-focus true
-     :blur-on-select "touch"}]])
+     :blur-on-select "touch"
+     :on-blur on-blur
+     :helperText helper-text}]])
 
 ;; Smart field components
 (defn smart-field
@@ -284,7 +286,7 @@
 
 (defn smart-select-field
   "A smart select field that updates app-state on change"
-  [app-state path & {:keys [label options disabled on-change required free-solo]
+  [app-state path & {:keys [label options disabled on-change required free-solo helper-text on-blur]
                      :or {required false
                           disabled false
                           free-solo false}}]
@@ -300,6 +302,8 @@
       :disabled disabled
       :options options
       :free-solo free-solo
+      :helper-text helper-text
+      :on-blur on-blur
       :on-change on-change-fn}]))
 
 ;; Other form components
