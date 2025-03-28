@@ -59,24 +59,19 @@
       (server-error e))))
 
 (defn create-wine [request]
-  (tap> request)
-  (let [wine (-> request :parameters :body)
-        create-classification? (:create-classification-if-needed wine)
-        wine-without-flag (dissoc wine :create-classification-if-needed)]
+  (let [wine (-> request :parameters :body)]
     (try
-      ;; Check if we need to create a new classification
-      (when create-classification?
-        (let [classification {:country (:country wine)
-                              :region (:region wine)
-                              :aoc (:aoc wine)
-                              :classification (:classification wine)
-                              :levels (when (:level wine) [(:level wine)])}]
-          ;; Only create if all required fields are present
-          (when (and (:country classification) (:region classification))
-            (api/create-or-update-classification classification))))
+      (let [classification {:country (:country wine)
+                            :region (:region wine)
+                            :aoc (:aoc wine)
+                            :classification (:classification wine)
+                            :levels (when (:level wine) [(:level wine)])}]
+        ;; Only create if all required fields are present
+        (when (and (:country classification) (:region classification))
+          (api/create-or-update-classification classification)))
 
       ;; Now create the wine
-      (let [created-wine (api/create-wine wine-without-flag)]
+      (let [created-wine (api/create-wine wine)]
         {:status 201
          :body created-wine})
       (catch Exception e
