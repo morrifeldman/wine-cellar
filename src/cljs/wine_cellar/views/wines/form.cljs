@@ -49,12 +49,13 @@
 
                           (or (empty? (:location new-wine))
                               (not (common/valid-location? (:location new-wine))))
-                          (common/format-location-error)
+                          common/format-location-error
 
                           (and (:level new-wine)
                                (seq (:level new-wine))
                                (not (contains? common/wine-levels (:level new-wine))))
-                          (str "Level must be one of: " (clojure.string/join ", " (sort common/wine-levels)))
+                          (str "Level must be one of: "
+                               (str/join ", " (sort common/wine-levels)))
 
                           :else nil))
         submit-handler (fn []
@@ -133,8 +134,7 @@
       [smart-select-field app-state [:new-wine :level]
        :free-solo true
        :disabled (or (empty? (:country new-wine))
-                     (empty? (:region new-wine))
-                     (empty? (:classification new-wine)))
+                     (empty? (:region new-wine)))
        :options (levels-for-classification
                  classifications
                  (:country new-wine)
@@ -146,7 +146,8 @@
                             (seq (:level new-wine))
                             (not (contains? common/wine-levels (:level new-wine))))
                    (swap! app-state assoc :error
-                          (str "Level must be one of: " (clojure.string/join ", " (sort common/wine-levels)))))]
+                          (str "Level must be one of: "
+                               (str/join ", " (sort common/wine-levels)))))]
 
       [select-field
        {:label "Vintage"
@@ -208,7 +209,7 @@
         :on-change #(swap! app-state assoc-in [:new-wine :location] %)
         :on-blur #(when (and (:location new-wine)
                              (not (common/valid-location? (:location new-wine))))
-                    (swap! app-state assoc :error (common/format-location-error)))}]
+                    (swap! app-state assoc :error common/format-location-error))}]
 
       [number-field
        {:label "Quantity"

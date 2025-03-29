@@ -3,7 +3,7 @@
             [clojure.string :as str]
             [goog.string :as gstring]
             [goog.string.format]
-            [wine-cellar.views.components :refer [quantity-control]]
+            [wine-cellar.views.components :refer [editable-field quantity-control]]
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
             [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
             [wine-cellar.api :as api]
@@ -12,11 +12,6 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.text-field :refer [text-field]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.edit :refer [edit]]
-            [reagent-mui.icons.save :refer [save]]
-            [reagent-mui.icons.cancel :refer [cancel]]
             [reagent-mui.icons.arrow-back :refer [arrow-back]]
             [wine-cellar.common :as common]))
 
@@ -51,90 +46,40 @@
     "text.secondary"))
 
 (defn editable-location [app-state wine]
-  (let [editing (r/atom false)
-        location-value (r/atom (:location wine))
-        location-error (r/atom nil)]
-    (fn [app-state wine]
-      (if @editing
-        ;; Edit mode
-        [box {:display "flex" :flexDirection "column" :width "100%"}
-         [box {:display "flex" :alignItems "center"}
-          [text-field
-           {:value @location-value
-            :size "small"
-            :fullWidth true
-            :autoFocus true
-            :error (boolean @location-error)
-            :helperText (or @location-error common/format-location-error)
-            :onChange #(do
-                         (reset! location-value (.. % -target -value))
-                         (reset! location-error nil))
-            :sx {:mr 1}}]
-          [icon-button
-           {:color "primary"
-            :size "small"
-            :disabled (boolean @location-error)
-            :onClick #(if (common/valid-location? @location-value)
-                        (do
-                          (api/update-wine-location app-state (:id wine) @location-value)
-                          (reset! editing false))
-                        (reset! location-error (common/format-location-error)))}
-           [save]]
-          [icon-button
-           {:color "secondary"
-            :size "small"
-            :onClick #(do
-                        (reset! location-value (:location wine))
-                        (reset! location-error nil)
-                        (reset! editing false))}
-           [cancel]]]]
+  [editable-field
+   {:value (:location wine)
+    :on-save (fn [new-value]
+               (api/update-wine-location app-state (:id wine) new-value))
+    :validate-fn (fn [value] (when-not (common/valid-location? value)
+                               common/format-location-error))
+    :text-field-props {:helperText common/format-location-error}}] )
 
-        ;; View mode
-        [box {:display "flex" :alignItems "center" :justifyContent "space-between" :width "100%"}
-         [typography {:variant "body1"} (:location wine)]
-         [icon-button
-          {:color "primary"
-           :size "small"
-           :onClick #(reset! editing true)}
-          [edit]]]))))
 
 (defn editable-purveyor [app-state wine]
-  (let [editing (r/atom false)
-        purveyor-value (r/atom (:purveyor wine))]
-    (fn [app-state wine]
-      (if @editing
-        ;; Edit mode
-        [box {:display "flex" :alignItems "center" :width "100%"}
-         [text-field
-          {:value @purveyor-value
-           :size "small"
-           :fullWidth true
-           :autoFocus true
-           :onChange #(reset! purveyor-value (.. % -target -value))
-           :sx {:mr 1}}]
-         [icon-button
-          {:color "primary"
-           :size "small"
-           :onClick #(do
-                       (api/update-wine-purveyor app-state (:id wine) @purveyor-value)
-                       (reset! editing false))}
-          [save]]
-         [icon-button
-          {:color "secondary"
-           :size "small"
-           :onClick #(do
-                       (reset! purveyor-value (:purveyor wine))
-                       (reset! editing false))}
-          [cancel]]]
+  [editable-field
+   {:value (:purveyor wine)
+    :on-save (fn [new-value]
+               (api/update-wine-purveyor app-state (:id wine) new-value))
+    :empty-text "Not specified"}] )
 
-        ;; View mode
-        [box {:display "flex" :alignItems "center" :justifyContent "space-between" :width "100%"}
-         [typography {:variant "body1"} (or (:purveyor wine) "Not specified")]
-         [icon-button
-          {:color "primary"
-           :size "small"
-           :onClick #(reset! editing true)}
-          [edit]]]))))
+(defn editable-price [app-state wine]
+  [editable-field
+   {:value (when-let [price (:price wine)]
+             (gstring/format "%.2f" price))
+    :on-save (fn [new-value]
+               (let [parsed-price (js/parseFloat new-value)]
+                 (when-not (js/isNaN parsed-price)
+                   (api/update-wine-price app-state (:id wine) parsed-price))))
+    :validate-fn (fn [value]
+                   (let [parsed (js/parseFloat value)]
+                     (cond
+                       (str/blank? value) "Price cannot be empty"
+                       (js/isNaN parsed) "Price must be a valid number"
+                       (< parsed 0) "Price cannot be negative"
+                       :else nil)))
+    :empty-text "Not specified"
+    :text-field-props {:type "number"
+                       :InputProps {:startAdornment "$"}}}])
 
 (defn wine-detail [app-state wine]
   (let [wine-id (:id wine)]
@@ -204,8 +149,7 @@
                       :bgcolor "rgba(0,0,0,0.02)"
                       :borderRadius 1}}
           [typography {:variant "body2" :color "text.secondary"} "Price"]
-          [typography {:variant "body1" :fontWeight "medium"}
-           (gstring/format "$%.2f" (:price wine))]]])
+          [editable-price app-state wine]]])
 
       ;; Purveyor
       [grid {:item true :xs 12 :md 6}

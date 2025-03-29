@@ -189,3 +189,20 @@
                         wines)))
           (swap! app-state assoc :message "Purveyor updated successfully"))
         (swap! app-state assoc :error "Failed to update purveyor")))))
+
+(defn update-wine-price [app-state wine-id price]
+  (go
+    (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/price")
+                                 (merge default-opts
+                                        {:json-params {:price price}})))]
+      (if (:success response)
+        (do
+          (swap! app-state update :wines
+                 (fn [wines]
+                   (map (fn [wine]
+                          (if (= (:id wine) wine-id)
+                            (assoc wine :price price)
+                            wine))
+                        wines)))
+          (swap! app-state assoc :message "Price updated successfully"))
+        (swap! app-state assoc :error "Failed to update price")))))

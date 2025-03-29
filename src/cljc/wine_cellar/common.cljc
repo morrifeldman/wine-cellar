@@ -11,5 +11,5 @@
   (and (string? location)
        (re-matches #"^[A-Z]\d+$" location)))
 
-(defn format-location-error []
+(def format-location-error
   "Location must be an uppercase letter followed by a number (e.g., A1, B2, C10)")

@@ -193,6 +193,15 @@
                        500 {:body map?}}
            :handler handlers/update-wine-purveyor}}]
 
+   ["/api/wines/:id/price"
+    {:parameters {:path {:id int?}}
+     :put {:summary "Update wine price"
+           :parameters {:body {:price number?}}
+           :responses {200 {:body map?}
+                       400 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/update-wine-price}}]
+
    ;; Tasting Notes Routes
    ["/api/wines/:id/tasting-notes"
     {:parameters {:path {:id int?}}

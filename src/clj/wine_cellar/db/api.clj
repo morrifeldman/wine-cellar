@@ -99,6 +99,15 @@
                        :returning [:*]})
                      db-opts))
 
+(defn update-wine-price [id price]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:update :wines
+                       :set {:price price}
+                       :where [:= :id id]
+                       :returning [:*]})
+                     db-opts))
+
 ;; Classification operations
 (defn create-or-update-classification
   "Creates a new classification or updates an existing one by combining levels"

@@ -249,7 +249,8 @@
                     [mui-text-field/text-field (merge props
                                                       {:label label
                                                        :variant "outlined"
-                                                       :size "small"})])
+                                                       :size "small"
+                                                       :helperText helper-text})])
      :on-change (fn [_event new-value] (on-change new-value))
      :on-input-change (when free-solo
                         (fn [_event new-value reason]
@@ -262,8 +263,7 @@
      :disable-close-on-select multiple
      :open-on-focus true
      :blur-on-select "touch"
-     :on-blur on-blur
-     :helperText helper-text}]])
+     :on-blur on-blur}]])
 
 ;; Smart field components
 (defn smart-field
