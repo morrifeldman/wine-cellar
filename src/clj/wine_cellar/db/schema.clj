@@ -1,5 +1,7 @@
 (ns wine-cellar.db.schema
-  (:require [wine-cellar.common :as common]))
+  (:require
+    [clojure.string :as str]
+    [wine-cellar.common :as common]))
 
 ;; Type definitions
 (def create-wine-level-type
@@ -50,6 +52,7 @@
     [:vintage :integer]
     [:styles :wine_style :array]
     [:location :varchar]
+    [:purveyor :varchar]  ; New field for tracking where the wine was purchased
     [:quantity :integer [:not nil] [:default 0]]
     [:price :decimal [10 2]]
     [:drink_from_year :integer]  ; When the wine is ready to drink (year)
@@ -84,7 +87,8 @@
 
 ;; Helper functions for SQL generation
 (defn ->pg-array [coll]
-  {:raw (str "'{" (clojure.string/join "," coll) "}'")})
+  {:raw (str "'{" (str/join "," coll) "}'")})
 
 (defn sql-cast [sql-type field]
   [:cast field sql-type])
+

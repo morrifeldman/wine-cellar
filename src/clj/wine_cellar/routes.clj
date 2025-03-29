@@ -27,7 +27,7 @@
 (s/def ::styles (s/coll-of (set common/wine-styles)))
 (s/def ::level (s/nilable (set common/wine-levels)))
 (s/def ::levels (s/coll-of (set common/wine-levels)))
-(s/def ::location string?)
+(s/def ::location (s/and string? #(common/valid-location? %)))
 (s/def ::quantity int?)
 (s/def ::price number?)
 (s/def ::tasting_date string?) ;; Will be parsed to a date
@@ -35,6 +35,7 @@
 (s/def ::rating (s/int-in 1 101)) ;; Ratings from 1-100
 (s/def ::drink_from_year int?)
 (s/def ::drink_until_year int?)
+(s/def ::purveyor string?)
 
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer)
@@ -50,6 +51,7 @@
                    ::vineyard
                    ::location
                    ::level
+                   ::purveyor
                    ::drink_from_year
                    ::drink_until_year]))
 
@@ -172,6 +174,24 @@
                        404 {:body map?}
                        500 {:body map?}}
            :handler handlers/update-tasting-window}}]
+
+   ["/api/wines/:id/location"
+    {:parameters {:path {:id int?}}
+     :put {:summary "Update wine location"
+           :parameters {:body {:location ::location}}
+           :responses {200 {:body map?}
+                       400 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/update-wine-location}}]
+
+   ["/api/wines/:id/purveyor"
+    {:parameters {:path {:id int?}}
+     :put {:summary "Update wine purveyor"
+           :parameters {:body {:purveyor string?}}
+           :responses {200 {:body map?}
+                       400 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/update-wine-purveyor}}]
 
    ;; Tasting Notes Routes
    ["/api/wines/:id/tasting-notes"

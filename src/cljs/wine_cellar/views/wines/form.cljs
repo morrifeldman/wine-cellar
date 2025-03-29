@@ -5,7 +5,7 @@
     :refer [form-container form-actions form-row
             form-divider text-field currency-field
             number-field select-field
-            smart-field smart-select-field]]
+            smart-select-field]]
    [wine-cellar.utils.formatting
     :refer [valid-name-producer? unique-countries
             regions-for-country aocs-for-region
@@ -46,6 +46,10 @@
 
                           (nil? (:price new-wine))
                           "Price is required"
+
+                          (or (empty? (:location new-wine))
+                              (not (common/valid-location? (:location new-wine))))
+                          (common/format-location-error)
 
                           (and (:level new-wine)
                                (seq (:level new-wine))
@@ -194,7 +198,17 @@
      [form-divider "Additional Information"]
 
      [form-row
-      [smart-field app-state [:new-wine :location] :required true]
+      [text-field
+       {:label "Location"
+        :required true
+        :value (:location new-wine)
+        :helper-text common/format-location-error
+        :error (and (:location new-wine)
+                    (not (common/valid-location? (:location new-wine))))
+        :on-change #(swap! app-state assoc-in [:new-wine :location] %)
+        :on-blur #(when (and (:location new-wine)
+                             (not (common/valid-location? (:location new-wine))))
+                    (swap! app-state assoc :error (common/format-location-error)))}]
 
       [number-field
        {:label "Quantity"
@@ -211,6 +225,12 @@
                  (:price new-wine)
                  (str (:price new-wine)))
         :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]]
+
+     [form-row
+      [text-field
+       {:label "Purchased From"
+        :value (get-in @app-state [:new-wine :purveyor] "")
+        :on-change #(swap! app-state assoc-in [:new-wine :purveyor] %)}]]
 
         ;; Form actions
      [form-actions

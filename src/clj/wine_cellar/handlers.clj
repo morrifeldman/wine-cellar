@@ -1,6 +1,7 @@
 (ns wine-cellar.handlers
   (:require [wine-cellar.db.api :as api]
-            [ring.util.response :as response]))
+            [ring.util.response :as response]
+            [wine-cellar.common :as common]))
 
 (defn- no-content []
   {:status 204
@@ -122,6 +123,29 @@
       (response/not-found {:error "Wine not found"}))
     (catch Exception e
       (server-error e))))
+
+(defn update-wine-location [request]
+  (let [wine-id (-> request :parameters :path :id)
+        location (-> request :parameters :body :location)]
+    (try
+      (if-not (common/valid-location? location)
+        {:status 400
+         :body {:error (common/format-location-error)}}
+        (let [updated-wine (api/update-wine-location wine-id location)]
+          {:status 200
+           :body updated-wine}))
+      (catch Exception e
+        (server-error e)))))
+
+(defn update-wine-purveyor [request]
+  (let [wine-id (-> request :parameters :path :id)
+        purveyor (-> request :parameters :body :purveyor)]
+    (try
+      (let [updated-wine (api/update-wine-purveyor wine-id purveyor)]
+        {:status 200
+         :body updated-wine})
+      (catch Exception e
+        (server-error e)))))
 
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine [{{:keys [id]} :path-params}]

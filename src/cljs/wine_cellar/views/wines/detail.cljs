@@ -12,15 +12,21 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.box :refer [box]]
-            [reagent-mui.icons.arrow-back :refer [arrow-back]]))
+            [reagent-mui.material.text-field :refer [text-field]]
+            [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.icons.edit :refer [edit]]
+            [reagent-mui.icons.save :refer [save]]
+            [reagent-mui.icons.cancel :refer [cancel]]
+            [reagent-mui.icons.arrow-back :refer [arrow-back]]
+            [wine-cellar.common :as common]))
 
 (defn determine-tasting-window-status [wine]
   (let [today (js/Date.)
         drink-from-year (:drink_from_year wine)
         drink-until-year (:drink_until_year wine)
-        drink-from (when drink-from-year 
+        drink-from (when drink-from-year
                      (js/Date. (str drink-from-year "-01-01")))
-        drink-until (when drink-until-year 
+        drink-until (when drink-until-year
                       (js/Date. (str drink-until-year "-01-01")))]
     (cond
       (and drink-from (< today drink-from)) :too-young
@@ -43,6 +49,92 @@
     :ready "success.main"
     :too-old "error.main"
     "text.secondary"))
+
+(defn editable-location [app-state wine]
+  (let [editing (r/atom false)
+        location-value (r/atom (:location wine))
+        location-error (r/atom nil)]
+    (fn [app-state wine]
+      (if @editing
+        ;; Edit mode
+        [box {:display "flex" :flexDirection "column" :width "100%"}
+         [box {:display "flex" :alignItems "center"}
+          [text-field
+           {:value @location-value
+            :size "small"
+            :fullWidth true
+            :autoFocus true
+            :error (boolean @location-error)
+            :helperText (or @location-error common/format-location-error)
+            :onChange #(do
+                         (reset! location-value (.. % -target -value))
+                         (reset! location-error nil))
+            :sx {:mr 1}}]
+          [icon-button
+           {:color "primary"
+            :size "small"
+            :disabled (boolean @location-error)
+            :onClick #(if (common/valid-location? @location-value)
+                        (do
+                          (api/update-wine-location app-state (:id wine) @location-value)
+                          (reset! editing false))
+                        (reset! location-error (common/format-location-error)))}
+           [save]]
+          [icon-button
+           {:color "secondary"
+            :size "small"
+            :onClick #(do
+                        (reset! location-value (:location wine))
+                        (reset! location-error nil)
+                        (reset! editing false))}
+           [cancel]]]]
+
+        ;; View mode
+        [box {:display "flex" :alignItems "center" :justifyContent "space-between" :width "100%"}
+         [typography {:variant "body1"} (:location wine)]
+         [icon-button
+          {:color "primary"
+           :size "small"
+           :onClick #(reset! editing true)}
+          [edit]]]))))
+
+(defn editable-purveyor [app-state wine]
+  (let [editing (r/atom false)
+        purveyor-value (r/atom (:purveyor wine))]
+    (fn [app-state wine]
+      (if @editing
+        ;; Edit mode
+        [box {:display "flex" :alignItems "center" :width "100%"}
+         [text-field
+          {:value @purveyor-value
+           :size "small"
+           :fullWidth true
+           :autoFocus true
+           :onChange #(reset! purveyor-value (.. % -target -value))
+           :sx {:mr 1}}]
+         [icon-button
+          {:color "primary"
+           :size "small"
+           :onClick #(do
+                       (api/update-wine-purveyor app-state (:id wine) @purveyor-value)
+                       (reset! editing false))}
+          [save]]
+         [icon-button
+          {:color "secondary"
+           :size "small"
+           :onClick #(do
+                       (reset! purveyor-value (:purveyor wine))
+                       (reset! editing false))}
+          [cancel]]]
+
+        ;; View mode
+        [box {:display "flex" :alignItems "center" :justifyContent "space-between" :width "100%"}
+         [typography {:variant "body1"} (or (:purveyor wine) "Not specified")]
+         [icon-button
+          {:color "primary"
+           :size "small"
+           :onClick #(reset! editing true)}
+          [edit]]]))))
 
 (defn wine-detail [app-state wine]
   (let [wine-id (:id wine)]
@@ -92,7 +184,7 @@
                     :bgcolor "rgba(0,0,0,0.02)"
                     :borderRadius 1}}
         [typography {:variant "body2" :color "text.secondary"} "Location"]
-        [typography {:variant "body1"} (:location wine)]]]
+        [editable-location app-state wine]]]
 
       ;; Quantity
       [grid {:item true :xs 12 :md 6}
@@ -115,6 +207,15 @@
           [typography {:variant "body1" :fontWeight "medium"}
            (gstring/format "$%.2f" (:price wine))]]])
 
+      ;; Purveyor
+      [grid {:item true :xs 12 :md 6}
+       [paper {:elevation 0
+               :sx {:p 2
+                    :bgcolor "rgba(0,0,0,0.02)"
+                    :borderRadius 1}}
+        [typography {:variant "body2" :color "text.secondary"} "Purchased From"]
+        [editable-purveyor app-state wine]]]
+
       ;; Tasting Window
       (when (or (:drink_from_year wine) (:drink_until_year wine))
         (let [status (determine-tasting-window-status wine)]
@@ -124,11 +225,9 @@
                         :bgcolor "rgba(0,0,0,0.02)"
                         :borderRadius 1}}
             [typography {:variant "body2" :color "text.secondary"} "Tasting Window"]
-            [typography {:variant "body1" 
-                        :color (tasting-window-color status)}
-             (format-tasting-window-text wine)]]]))
-
-      ]
+            [typography {:variant "body1"
+                         :color (tasting-window-color status)}
+             (format-tasting-window-text wine)]]]))]
 
      ;; Tasting notes section
      [box {:sx {:mt 4}}
@@ -158,3 +257,4 @@
                      (swap! app-state assoc :new-tasting-note {})
                      (api/fetch-wines app-state))}
         "Back to List"]])))
+

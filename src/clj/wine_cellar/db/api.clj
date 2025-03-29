@@ -81,6 +81,24 @@
                        :where [:= :id id]})
                      db-opts))
 
+(defn update-wine-location [id location]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:update :wines
+                       :set {:location location}
+                       :where [:= :id id]
+                       :returning [:*]})
+                     db-opts))
+
+(defn update-wine-purveyor [id purveyor]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:update :wines
+                       :set {:purveyor purveyor}
+                       :where [:= :id id]
+                       :returning [:*]})
+                     db-opts))
+
 ;; Classification operations
 (defn create-or-update-classification
   "Creates a new classification or updates an existing one by combining levels"

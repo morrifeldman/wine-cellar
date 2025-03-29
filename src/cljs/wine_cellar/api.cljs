@@ -155,3 +155,37 @@
                          %)
                       wines)))
         (swap! app-state assoc :error "Failed to update tasting window")))))
+
+(defn update-wine-location [app-state wine-id location]
+  (go
+    (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/location")
+                                 (merge default-opts
+                                        {:json-params {:location location}})))]
+      (if (:success response)
+        (do
+          (swap! app-state update :wines
+                 (fn [wines]
+                   (map (fn [wine]
+                          (if (= (:id wine) wine-id)
+                            (assoc wine :location location)
+                            wine))
+                        wines)))
+          (swap! app-state assoc :message "Location updated successfully"))
+        (swap! app-state assoc :error "Failed to update location")))))
+
+(defn update-wine-purveyor [app-state wine-id purveyor]
+  (go
+    (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/purveyor")
+                                 (merge default-opts
+                                        {:json-params {:purveyor purveyor}})))]
+      (if (:success response)
+        (do
+          (swap! app-state update :wines
+                 (fn [wines]
+                   (map (fn [wine]
+                          (if (= (:id wine) wine-id)
+                            (assoc wine :purveyor purveyor)
+                            wine))
+                        wines)))
+          (swap! app-state assoc :message "Purveyor updated successfully"))
+        (swap! app-state assoc :error "Failed to update purveyor")))))
