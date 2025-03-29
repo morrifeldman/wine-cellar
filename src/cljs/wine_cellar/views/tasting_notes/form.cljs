@@ -29,11 +29,12 @@
                     ;; First update the tasting window if changed
                     (when (or (not= (:drink_from_year new-note) current-drink-from)
                               (not= (:drink_until_year new-note) current-drink-until))
-                      (api/update-wine-tasting-window
+                      (api/update-wine
                        app-state
                        wine-id
-                       (:drink_from_year new-note)
-                       (:drink_until_year new-note)))
+                       (select-keys
+                        new-note
+                        [:drink_from_year :drink_until_year])))
 
                     ;; Then create the tasting note
                     (api/create-tasting-note
@@ -100,24 +101,4 @@
 
      ;; Submit button
      [form-actions
-      {:on-submit #(do
-                     ;; First update the tasting window if changed
-                     (when (or (not= (:drink_from_year new-note) current-drink-from)
-                               (not= (:drink_until_year new-note) current-drink-until))
-                       (api/update-wine-tasting-window
-                        app-state
-                        wine-id
-                        (:drink_from_year new-note)
-                        (:drink_until_year new-note)))
-
-                     ;; Then create the tasting note
-                     (api/create-tasting-note
-                      app-state
-                      wine-id
-                      (-> new-note
-                          (update :rating (fn [r]
-                                            (if (string? r)
-                                              (js/parseInt r)
-                                              r)))
-                          (dissoc :drink_from_year :drink_until_year))))
-       :submit-text "Add Note"}]]))
+      {:submit-text "Add Note"}]]))

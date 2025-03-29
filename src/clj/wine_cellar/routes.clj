@@ -55,6 +55,43 @@
                    ::drink_from_year
                    ::drink_until_year]))
 
+(def wine-update-schema
+  (s/keys :req-un [(or
+                     ::producer
+                     ::country
+                     ::region
+                     ::aoc
+                     ::communal_aoc
+                     ::classification
+                     ::vineyard
+                     ::name
+                     ::vintage
+                     ::styles
+                     ::level
+                     ::location
+                     ::quantity
+                     ::price
+                     ::purveyor
+                     ::drink_from_year
+                     ::drink_until_year)]
+          :opt-un [::producer
+                   ::country
+                   ::region
+                   ::aoc
+                   ::communal_aoc
+                   ::classification
+                   ::vineyard
+                   ::name
+                   ::vintage
+                   ::styles
+                   ::level
+                   ::location
+                   ::quantity
+                   ::price
+                   ::purveyor
+                   ::drink_from_year
+                   ::drink_until_year]))
+
 (def classification-schema
   (s/keys :req-un [::country
                    ::region
@@ -145,7 +182,7 @@
                        500 {:body map?}}
            :handler handlers/get-wine}
      :put {:summary "Update wine"
-           :parameters {:body wine-schema}
+           :parameters {:body wine-update-schema}
            :responses {200 {:body map?}
                        404 {:body map?}
                        500 {:body map?}}
@@ -164,43 +201,6 @@
                         404 {:body map?}
                         500 {:body map?}}
             :handler handlers/adjust-quantity}}]
-
-   ["/api/wines/:id/tasting-window"
-    {:parameters {:path {:id int?}}
-     :put {:summary "Update wine tasting window"
-           :parameters {:body {:drink_from_year int?
-                               :drink_until_year int?}}
-           :responses {200 {:body map?}
-                       404 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/update-tasting-window}}]
-
-   ["/api/wines/:id/location"
-    {:parameters {:path {:id int?}}
-     :put {:summary "Update wine location"
-           :parameters {:body {:location ::location}}
-           :responses {200 {:body map?}
-                       400 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/update-wine-location}}]
-
-   ["/api/wines/:id/purveyor"
-    {:parameters {:path {:id int?}}
-     :put {:summary "Update wine purveyor"
-           :parameters {:body {:purveyor string?}}
-           :responses {200 {:body map?}
-                       400 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/update-wine-purveyor}}]
-
-   ["/api/wines/:id/price"
-    {:parameters {:path {:id int?}}
-     :put {:summary "Update wine price"
-           :parameters {:body {:price number?}}
-           :responses {200 {:body map?}
-                       400 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/update-wine-price}}]
 
    ;; Tasting Notes Routes
    ["/api/wines/:id/tasting-notes"

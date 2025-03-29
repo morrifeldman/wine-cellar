@@ -1,6 +1,5 @@
 (ns wine-cellar.api
   (:require [cljs-http.client :as http]
-            [clojure.string :as str]
             [cljs.core.async :refer [<! go]]))
 
 (def api-base-url "http://localhost:3000")
@@ -139,70 +138,15 @@
           (fetch-classifications app-state))
         (swap! app-state assoc :error "Failed to create classification")))))
 
-(defn update-wine-tasting-window [app-state wine-id drink-from-year drink-until-year]
+(defn update-wine [app-state id updates]
   (go
-    (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/tasting-window")
+    (let [response (<! (http/put (str api-base-url "/api/wines/" id)
                                  (merge default-opts
-                                        {:json-params {:drink_from_year drink-from-year
-                                                       :drink_until_year drink-until-year}})))]
+                                        {:json-params updates})))]
       (if (:success response)
-        (swap! app-state update :wines
-               (fn [wines]
-                 (map #(if (= (:id %) wine-id)
-                         (assoc %
-                                :drink_from_year drink-from-year
-                                :drink_until_year drink-until-year)
-                         %)
-                      wines)))
-        (swap! app-state assoc :error "Failed to update tasting window")))))
-
-(defn update-wine-location [app-state wine-id location]
-  (go
-    (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/location")
-                                 (merge default-opts
-                                        {:json-params {:location location}})))]
-      (if (:success response)
-        (do
+        (let [updated-wine (:body response)]
+          ;; Update the wine in the list
           (swap! app-state update :wines
                  (fn [wines]
-                   (map (fn [wine]
-                          (if (= (:id wine) wine-id)
-                            (assoc wine :location location)
-                            wine))
-                        wines)))
-          (swap! app-state assoc :message "Location updated successfully"))
-        (swap! app-state assoc :error "Failed to update location")))))
-
-(defn update-wine-purveyor [app-state wine-id purveyor]
-  (go
-    (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/purveyor")
-                                 (merge default-opts
-                                        {:json-params {:purveyor purveyor}})))]
-      (if (:success response)
-        (do
-          (swap! app-state update :wines
-                 (fn [wines]
-                   (map (fn [wine]
-                          (if (= (:id wine) wine-id)
-                            (assoc wine :purveyor purveyor)
-                            wine))
-                        wines)))
-          (swap! app-state assoc :message "Purveyor updated successfully"))
-        (swap! app-state assoc :error "Failed to update purveyor")))))
-
-(defn update-wine-price [app-state wine-id price]
-  (go
-    (let [response (<! (http/put (str api-base-url "/api/wines/" wine-id "/price")
-                                 (merge default-opts
-                                        {:json-params {:price price}})))]
-      (if (:success response)
-        (do
-          (swap! app-state update :wines
-                 (fn [wines]
-                   (map (fn [wine]
-                          (if (= (:id wine) wine-id)
-                            (assoc wine :price price)
-                            wine))
-                        wines)))
-          (swap! app-state assoc :message "Price updated successfully"))
-        (swap! app-state assoc :error "Failed to update price")))))
+                   (map #(if (= (:id %) id) updated-wine %) wines))))
+        (swap! app-state assoc :error "Failed to update wine")))))

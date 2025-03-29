@@ -49,18 +49,17 @@
   [editable-field
    {:value (:location wine)
     :on-save (fn [new-value]
-               (api/update-wine-location app-state (:id wine) new-value))
+               (api/update-wine app-state (:id wine) {:location new-value}))
     :validate-fn (fn [value] (when-not (common/valid-location? value)
                                common/format-location-error))
-    :text-field-props {:helperText common/format-location-error}}] )
-
+    :text-field-props {:helperText common/format-location-error}}])
 
 (defn editable-purveyor [app-state wine]
   [editable-field
    {:value (:purveyor wine)
     :on-save (fn [new-value]
-               (api/update-wine-purveyor app-state (:id wine) new-value))
-    :empty-text "Not specified"}] )
+               (api/update-wine app-state (:id wine) {:purveyor new-value}))
+    :empty-text "Not specified"}])
 
 (defn editable-price [app-state wine]
   [editable-field
@@ -69,7 +68,7 @@
     :on-save (fn [new-value]
                (let [parsed-price (js/parseFloat new-value)]
                  (when-not (js/isNaN parsed-price)
-                   (api/update-wine-price app-state (:id wine) parsed-price))))
+                   (api/update-wine app-state (:id wine) {:price parsed-price}))))
     :validate-fn (fn [value]
                    (let [parsed (js/parseFloat value)]
                      (cond

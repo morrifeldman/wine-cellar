@@ -49,11 +49,9 @@
                      (sql/format
                       {:update :wines
                        :set (assoc wine :updated_at [:now])
-                       :where [:= :id id]})
+                       :where [:= :id id]
+                       :returning :*})
                      db-opts))
-
-(defn update-quantity [id new-quantity]
-  (update-wine! id {:quantity new-quantity}))
 
 (defn adjust-quantity [id adjustment]
   (jdbc/execute-one! ds
@@ -69,43 +67,6 @@
                      (sql/format
                       {:delete-from :wines
                        :where [:= :id id]})
-                     db-opts))
-
-(defn update-wine-tasting-window [id drink-from-year drink-until-year]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:update :wines
-                       :set {:drink_from_year drink-from-year
-                             :drink_until_year drink-until-year
-                             :updated_at [:now]}
-                       :where [:= :id id]})
-                     db-opts))
-
-(defn update-wine-location [id location]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:update :wines
-                       :set {:location location}
-                       :where [:= :id id]
-                       :returning [:*]})
-                     db-opts))
-
-(defn update-wine-purveyor [id purveyor]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:update :wines
-                       :set {:purveyor purveyor}
-                       :where [:= :id id]
-                       :returning [:*]})
-                     db-opts))
-
-(defn update-wine-price [id price]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:update :wines
-                       :set {:price price}
-                       :where [:= :id id]
-                       :returning [:*]})
                      db-opts))
 
 ;; Classification operations
@@ -216,9 +177,3 @@
                       {:delete-from :tasting_notes
                        :where [:= :id id]})
                      db-opts))
-
-(defn get-wine-with-tasting-notes [id]
-  (let [wine (get-wine id)
-        tasting-notes (get-tasting-notes-by-wine id)]
-    (when wine
-      (assoc wine :tasting_notes tasting-notes))))

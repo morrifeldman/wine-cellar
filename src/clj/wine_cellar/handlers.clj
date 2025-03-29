@@ -112,54 +112,6 @@
     (catch Exception e
       (server-error e))))
 
-(defn update-tasting-window [{{:keys [id]} :path-params
-                              {:keys [drink_from_year drink_until_year]} :body-params}]
-  (try
-    (if (api/get-wine (parse-long id))
-      (let [updated (api/update-wine-tasting-window (parse-long id)
-                                                    drink_from_year
-                                                    drink_until_year)]
-        (response/response updated))
-      (response/not-found {:error "Wine not found"}))
-    (catch Exception e
-      (server-error e))))
-
-(defn update-wine-location [request]
-  (let [wine-id (-> request :parameters :path :id)
-        location (-> request :parameters :body :location)]
-    (try
-      (if-not (common/valid-location? location)
-        {:status 400
-         :body {:error common/format-location-error}}
-        (let [updated-wine (api/update-wine-location wine-id location)]
-          {:status 200
-           :body updated-wine}))
-      (catch Exception e
-        (server-error e)))))
-
-(defn update-wine-purveyor [request]
-  (let [wine-id (-> request :parameters :path :id)
-        purveyor (-> request :parameters :body :purveyor)]
-    (try
-      (let [updated-wine (api/update-wine-purveyor wine-id purveyor)]
-        {:status 200
-         :body updated-wine})
-      (catch Exception e
-        (server-error e)))))
-
-(defn update-wine-price [request]
-  (let [wine-id (-> request :parameters :path :id)
-        price (-> request :parameters :body :price)]
-    (try
-      (if (< price 0)
-        {:status 400
-         :body {:error "Price cannot be negative"}}
-        (let [updated-wine (api/update-wine-price wine-id price)]
-          {:status 200
-           :body updated-wine}))
-      (catch Exception e
-        (server-error e)))))
-
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine [{{:keys [id]} :path-params}]
   (try
