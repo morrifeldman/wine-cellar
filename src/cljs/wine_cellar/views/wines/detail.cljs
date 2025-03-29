@@ -197,7 +197,6 @@
          :sx {:mt 2}
          :onClick #(do
                      (swap! app-state dissoc :selected-wine-id :tasting-notes)
-                     (swap! app-state assoc :new-tasting-note {})
-                     (api/fetch-wines app-state))}
+                     (swap! app-state assoc :new-tasting-note {}))}
         "Back to List"]])))
 
