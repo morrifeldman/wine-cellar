@@ -250,6 +250,12 @@
                                                       {:label label
                                                        :variant "outlined"
                                                        :size "small"
+                                                       :required (if multiple
+                                                                   ;; workaround
+                                                                   ;; for bug
+                                                                   ;; https://github.com/mui/material-ui/issues/21663 
+                                                                   (= (count value) 0)
+                                                                   required) 
                                                        :helperText helper-text})])
      :on-change (fn [_event new-value] (on-change new-value))
      :on-input-change (when free-solo
