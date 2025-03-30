@@ -7,14 +7,17 @@
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
             [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
             [wine-cellar.api :as api]
+            [wine-cellar.utils.vintage :as vintage]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.icons.arrow-back :refer [arrow-back]]
-            [wine-cellar.common :as common]))
+            [wine-cellar.common :as common]
+            [wine-cellar.utils.formatting :refer [valid-name-producer?]]))
 
+;; TODO: remove duplication with vintage namespace
 (defn determine-tasting-window-status [wine]
   (let [today (js/Date.)
         drink-from-year (:drink_from_year wine)
@@ -80,6 +83,123 @@
     :text-field-props {:type "number"
                        :InputProps {:startAdornment "$"}}}])
 
+(defn editable-name [app-state wine]
+  [editable-field
+   {:value (:name wine)
+    :on-save (fn [new-value]
+               (let [updated-wine (assoc wine :name new-value)]
+                 (if (valid-name-producer? updated-wine)
+                   (api/update-wine app-state (:id wine) {:name new-value})
+                   (js/alert "Either Wine Name or Producer must be provided"))))
+    :empty-text "Add wine name"}])
+
+(defn editable-producer [app-state wine]
+  [editable-field
+   {:value (:producer wine)
+    :on-save (fn [new-value]
+               (let [updated-wine (assoc wine :producer new-value)]
+                 (if (valid-name-producer? updated-wine)
+                   (api/update-wine app-state (:id wine) {:producer new-value})
+                   (js/alert "Either Wine Name or Producer must be provided"))))
+    :empty-text "Add producer"}])
+
+(defn editable-vintage [app-state wine]
+  [editable-field
+   {:value (str (:vintage wine))
+    :on-save (fn [new-value]
+               (let [parsed-vintage (js/parseInt new-value 10)]
+                 (when-not (vintage/valid-vintage? parsed-vintage)
+                   (api/update-wine app-state
+                                    (:id wine)
+                                    {:vintage parsed-vintage}))))
+    :validate-fn (fn [value]
+                   (let [parsed (js/parseInt value 10)]
+                     (vintage/valid-vintage? parsed)))
+    :empty-text "Add vintage"
+    :text-field-props {:type "number"}}])
+
+(defn editable-region [app-state wine]
+  [editable-field
+   {:value (:region wine)
+    :on-save (fn [new-value]
+               (api/update-wine app-state (:id wine) {:region new-value}))
+    :validate-fn (fn [value]
+                   (when (str/blank? value)
+                     "Region cannot be empty"))
+    :empty-text "Add region"}])
+
+(defn editable-aoc [app-state wine]
+  [editable-field
+   {:value (:aoc wine)
+    :on-save (fn [new-value]
+               (api/update-wine app-state (:id wine) {:aoc new-value}))
+    :empty-text "Add AOC/AVA"}])
+
+(defn editable-styles [app-state wine]
+  [editable-field
+   {:value (str/join ", " (:styles wine))
+    :on-save (fn [new-value]
+               (let [styles (-> new-value
+                                (str/split #",")
+                                (->> (map str/trim)
+                                     (filter #(not (str/blank? %)))
+                                     (into #{})))]
+                 (when (seq styles)
+                   (api/update-wine app-state (:id wine) {:styles styles}))))
+    :validate-fn (fn [value]
+                   (let [styles (-> value
+                                    (str/split #",")
+                                    (->> (map str/trim)
+                                         (filter #(not (str/blank? %)))
+                                         (into #{})))]
+                     (cond
+                       (empty? styles) "At least one style must be provided"
+                       (not (every? #(contains? common/wine-styles %) styles))
+                       (str "Styles must be one of: " (str/join ", " (sort common/wine-styles)))
+                       :else nil)))
+    :empty-text "Add styles"
+    :text-field-props {:helperText (str "Comma-separated list of: " 
+                                        (str/join ", " (sort common/wine-styles)))}}])
+;; TODO:
+;; Add validation here and in route & DB layer for from year <= until year
+(defn editable-drink-from-year [app-state wine]
+  [editable-field
+   {:value (when-let [year (:drink_from_year wine)]
+             (str year))
+    :on-save (fn [new-value]
+               (let [parsed-year (when-not (str/blank? new-value)
+                                   (js/parseInt new-value 10))]
+                 (api/update-wine app-state
+                                  (:id wine)
+                                  {:drink_from_year parsed-year})))
+    :validate-fn (fn [value]
+                   (if (str/blank? value)
+                     nil  ;; Allow empty value
+                     (let [parsed (js/parseInt value 10)]
+                       (vintage/valid-tasting-year? parsed))))
+    :empty-text "Add drink from year"
+    :text-field-props {:type "number"
+                       :helperText "Year when the wine is/was ready to drink"}}])
+
+(defn editable-drink-until-year [app-state wine]
+  [editable-field
+   {:value (when-let [year (:drink_until_year wine)]
+             (str year))
+    :on-save (fn [new-value]
+               (let [parsed-year (when-not (str/blank? new-value)
+                                   (js/parseInt new-value 10))]
+                 (api/update-wine app-state
+                                  (:id wine)
+                                  {:drink_until_year parsed-year})))
+    :validate-fn (fn [value]
+                   (if (str/blank? value)
+                     nil  ;; Allow empty value
+                     (let [parsed (js/parseInt value 10)]
+                       (vintage/valid-tasting-year? parsed))))
+    :empty-text "Add drink until year"
+    :text-field-props {:type "number"
+                       :helperText "Year when the wine should be consumed by"}}])
+
 (defn wine-detail [app-state wine]
   (let [wine-id (:id wine)]
     [paper {:elevation 2
@@ -91,15 +211,27 @@
                  :backgroundImage "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"}}
      ;; Wine title and basic info
      [box {:sx {:mb 3 :pb 2 :borderBottom "1px solid rgba(0,0,0,0.08)"}}
-      [typography {:variant "h4"
-                   :component "h2"
-                   :sx {:mb 1
-                        :color "primary.main"}}
-       (str (:producer wine) (when-let [name (:name wine)] (str " - " name)))]
+      [grid {:container true :spacing 2}
+       [grid {:item true :xs 12}
+        [typography {:variant "body2" :color "text.secondary"} "Producer"]
+        [editable-producer app-state wine]]
 
-      [typography {:variant "subtitle1" :color "text.secondary"}
-       (str (:vintage wine) " • " (:region wine)
-            (when-let [aoc (:aoc wine)] (str " • " aoc)))]]
+       [grid {:item true :xs 12}
+        [typography {:variant "body2" :color "text.secondary"} "Wine Name"]
+        [editable-name app-state wine]]]
+
+      [grid {:container true :spacing 2 :sx {:mt 1}}
+       [grid {:item true :xs 4}
+        [typography {:variant "body2" :color "text.secondary"} "Vintage"]
+        [editable-vintage app-state wine]]
+
+       [grid {:item true :xs 4}
+        [typography {:variant "body2" :color "text.secondary"} "Region"]
+        [editable-region app-state wine]]
+
+       [grid {:item true :xs 4}
+        [typography {:variant "body2" :color "text.secondary"} "AOC/AVA"]
+        [editable-aoc app-state wine]]]]
 
      [grid {:container true :spacing 3 :sx {:mb 4}}
       ;; Classification
@@ -119,7 +251,7 @@
                     :bgcolor "rgba(0,0,0,0.02)"
                     :borderRadius 1}}
         [typography {:variant "body2" :color "text.secondary"} "Styles"]
-        [typography {:variant "body1"} (str/join ", " (:styles wine))]]]
+        [editable-styles app-state wine]]]
 
       ;; Location
       [grid {:item true :xs 12 :md 6}
@@ -160,17 +292,24 @@
         [editable-purveyor app-state wine]]]
 
       ;; Tasting Window
-      (when (or (:drink_from_year wine) (:drink_until_year wine))
-        (let [status (determine-tasting-window-status wine)]
-          [grid {:item true :xs 12 :md 6}
-           [paper {:elevation 0
-                   :sx {:p 2
-                        :bgcolor "rgba(0,0,0,0.02)"
-                        :borderRadius 1}}
-            [typography {:variant "body2" :color "text.secondary"} "Tasting Window"]
-            [typography {:variant "body1"
-                         :color (tasting-window-color status)}
-             (format-tasting-window-text wine)]]]))]
+      [grid {:item true :xs 12 :md 6}
+       [paper {:elevation 0
+               :sx {:p 2
+                    :btcolor "rgba(0,0,0,0.02)"
+                    :borderRadius 1}}
+        [typography {:variant "body2" :color "text.secondary"} "Tasting Window"]
+        [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+         [box {:sx {:display "flex" :alignItems "center"}}
+          [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}} "From:"]
+          [editable-drink-from-year app-state wine]]
+         [box {:sx {:display "flex" :alignItems "center"}}
+          [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}} "Until:"]
+          [editable-drink-until-year app-state wine]]
+         (let [status (determine-tasting-window-status wine)]
+           [typography {:variant "body2"
+                        :color (tasting-window-color status)
+                        :sx {:mt 1 :fontStyle "italic"}}
+            (format-tasting-window-text wine)])]]]
 
      ;; Tasting notes section
      [box {:sx {:mt 4}}
@@ -181,8 +320,8 @@
                         :borderBottom "1px solid rgba(0,0,0,0.08)"
                         :color "primary.main"}}
        "Tasting Notes"]
-      [tasting-notes-list app-state wine-id]
-      [tasting-note-form app-state wine-id]]]))
+      [tasting-notes-list app-state (:id wine)]
+      [tasting-note-form app-state (:id wine)]]]]))
 
 (defn wine-details-section [app-state]
   (when-let [selected-wine-id (:selected-wine-id @app-state)]

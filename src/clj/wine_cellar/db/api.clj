@@ -9,15 +9,17 @@
 (defn- ->sql-date [^String date-string]
   (some-> date-string (Date/valueOf)))
 
+(defn wine->db-wine [wine]
+  (-> wine
+      (update :styles schema/->pg-array)
+      (update :level (partial schema/sql-cast :wine_level))))
+
 ;; Wine operations
 (defn create-wine [wine]
   (jdbc/execute-one! ds
                      (sql/format
-                       {:insert-into :wines
-                        :values [(cond-> wine
-                                   true (update :styles schema/->pg-array)
-                                   (:level wine) (update :level
-                                                         (partial schema/sql-cast :wine_level)))]})
+                      {:insert-into :wines
+                       :values [(wine->db-wine wine)]})
                      db-opts))
 
 (defn get-wine [id]
@@ -48,7 +50,8 @@
   (jdbc/execute-one! ds
                      (sql/format
                       {:update :wines
-                       :set (assoc wine :updated_at [:now])
+                       :set (assoc (wine->db-wine wine)
+                                   :updated_at [:now])
                        :where [:= :id id]
                        :returning :*})
                      db-opts))
@@ -77,16 +80,16 @@
     (let [existing-query {:select :*
                           :from :wine_classifications
                           :where [:and
-                                 [:= :country (:country classification)]
-                                 [:= :region (:region classification)]
-                                 [:= [:coalesce :aoc ""]
-                                  [:coalesce (:aoc classification) ""]]
-                                 [:= [:coalesce :communal_aoc ""]
-                                  [:coalesce (:communal_aoc classification) ""]]
-                                 [:= [:coalesce :classification ""]
-                                  [:coalesce (:classification classification) ""]]
-                                 [:= [:coalesce :vineyard ""]
-                                  [:coalesce (:vineyard classification) ""]]]}
+                                  [:= :country (:country classification)]
+                                  [:= :region (:region classification)]
+                                  [:= [:coalesce :aoc ""]
+                                   [:coalesce (:aoc classification) ""]]
+                                  [:= [:coalesce :communal_aoc ""]
+                                   [:coalesce (:communal_aoc classification) ""]]
+                                  [:= [:coalesce :classification ""]
+                                   [:coalesce (:classification classification) ""]]
+                                  [:= [:coalesce :vineyard ""]
+                                   [:coalesce (:vineyard classification) ""]]]}
           existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
       (if existing
         ;; Update existing classification - merge levels
@@ -136,11 +139,11 @@
 (defn create-tasting-note [note]
   (jdbc/execute-one! ds
                      (sql/format
-                       {:insert-into :tasting_notes
-                        :values [(-> note
+                      {:insert-into :tasting_notes
+                       :values [(-> note
                                     (update :tasting_date ->sql-date)
                                     (assoc :updated_at [:now]))]
-                        :returning :*})
+                       :returning :*})
                      db-opts))
 
 (defn update-tasting-note! [id note]
@@ -148,8 +151,8 @@
                      (sql/format
                       {:update :tasting_notes
                        :set (-> note
-                               (update :tasting_date ->sql-date)
-                               (assoc :updated_at [:now]))
+                                (update :tasting_date ->sql-date)
+                                (assoc :updated_at [:now]))
                        :where [:= :id id]
                        :returning :*})
                      db-opts))

@@ -13,6 +13,10 @@
             [reagent-mui.material.box :refer [box]]
             [wine-cellar.utils.vintage :as vintage]))
 
+;; TODO Fix handling of tasting window in this form
+;; Probably just delete the tasting window from here now that we have it above
+
+;; TODO -- add type for external tasting notes
 (defn tasting-note-form [app-state wine-id]
   (let [new-note (:new-tasting-note @app-state)
         wine (first (filter #(= (:id %) wine-id) (:wines @app-state)))
@@ -20,7 +24,8 @@
         current-drink-until (:drink_until_year wine)]
 
     ;; Initialize the tasting window fields with current values
-    (when (and (not (:drink_from_year new-note)) (not (:drink_until_year new-note)))
+    (when (and (not (:drink_from_year new-note))
+               (not (:drink_until_year new-note)))
       (swap! app-state update :new-tasting-note assoc
              :drink_from_year current-drink-from
              :drink_until_year current-drink-until))

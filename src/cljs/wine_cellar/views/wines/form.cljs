@@ -20,29 +20,43 @@
     :required true
     :free-solo true
     :value (:vintage new-wine)
-    :options (vintage/default-vintage-years) 
+    :error (boolean (vintage/valid-vintage? (:vintage new-wine)))
+    :helper-text (some-> (:vintage new-wine) (vintage/valid-vintage?))
+    :options (vintage/default-vintage-years)
     :on-change #(swap! app-state assoc-in [:new-wine :vintage]
                        (when-not (empty? %) (js/parseInt % 10)))}])
 
 (defn drink-from-year [app-state new-wine]
-  [year-field
-   {:label "Drink From Year"
-    :free-solo true
-    :value (:drink_from_year new-wine)
-    :options (vintage/default-drink-from-years) 
-    :helper-text "Year when the wine is/was ready to drink"
-    :on-change #(swap! app-state assoc-in [:new-wine :drink_from_year]
-                       (when-not (empty? %) (js/parseInt % 10)))}])
+  (let [drink-from-year (:drink_from_year new-wine)
+        drink-until-year (:drink_until_year new-wine)
+        invalid? (when (and drink-from-year drink-until-year)
+                   (vintage/valid-tasting-window? drink-from-year
+                                                  drink-until-year))]
+    [year-field
+     {:label "Drink From Year"
+      :free-solo true
+      :value drink-from-year
+      :options (vintage/default-drink-from-years)
+      :error (boolean invalid?)
+      :helper-text (or invalid? "Year when the wine is/was ready to drink")
+      :on-change #(swap! app-state assoc-in [:new-wine :drink_from_year]
+                         (when-not (empty? %) (js/parseInt % 10)))}]))
 
 (defn drink-until-year [app-state new-wine]
-  [year-field
-   {:label "Drink Until Year"
-    :free-solo true
-    :value (:drink_until_year new-wine)
-    :options (vintage/default-drink-until-years) 
-    :helper-text "Year when the wine should be consumed by"
-    :on-change #(swap! app-state assoc-in [:new-wine :drink_until_year]
-                       (when-not (empty? %) (js/parseInt % 10)))}])
+  (let [drink-from-year (:drink_from_year new-wine)
+        drink-until-year (:drink_until_year new-wine)
+        invalid? (when (and drink-from-year drink-until-year)
+                   (vintage/valid-tasting-window? drink-from-year
+                                                  drink-until-year))]
+    [year-field
+     {:label "Drink Until Year"
+      :free-solo true
+      :value drink-until-year
+      :options (vintage/default-drink-until-years)
+      :error (boolean invalid?)
+      :helper-text (or invalid? "Year when the wine should be consumed by")
+      :on-change #(swap! app-state assoc-in [:new-wine :drink_until_year]
+                         (when-not (empty? %) (js/parseInt % 10)))}]))
 
 (defn wine-form [app-state]
   (let [new-wine (:new-wine @app-state)
@@ -58,8 +72,8 @@
                           (empty? (:region new-wine))
                           "Region is required"
 
-                          (nil? (:vintage new-wine))
-                          "Vintage is required"
+                          (not (nil? (vintage/valid-vintage? (:vintage new-wine))))
+                          (vintage/valid-vintage? (:vintage new-wine))
 
                           (empty? (:styles new-wine))
                           "Style is required"
@@ -176,7 +190,7 @@
 
      [form-divider "Vintage"]
 
-     [form-row 
+     [form-row
       [vintage app-state new-wine]]
 
      [form-row
