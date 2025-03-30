@@ -1,6 +1,6 @@
 (ns wine-cellar.utils.filters
   (:require [clojure.string :as str]
-            [wine-cellar.utils.tasting-window :refer [matches-tasting-window?]]))
+            [wine-cellar.utils.vintage :refer [matches-tasting-window?]]))
 
 ;; Filter helper functions
 (defn matches-text-search? [wine search-term]

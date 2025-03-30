@@ -11,7 +11,7 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.box :refer [box]]
-            [wine-cellar.utils.tasting-window :refer [tasting-window-label]]))
+            [wine-cellar.utils.vintage :refer [tasting-window-label]]))
 
 (defn filter-bar [app-state]
   (let [filters (:filters @app-state)

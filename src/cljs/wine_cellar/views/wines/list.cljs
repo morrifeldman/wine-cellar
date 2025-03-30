@@ -6,7 +6,7 @@
             [wine-cellar.views.wines.filters :refer [filter-bar]]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
             [wine-cellar.api :as api]
-            [wine-cellar.utils.tasting-window :refer
+            [wine-cellar.utils.vintage :refer
              [tasting-window-status
               tasting-window-label
               tasting-window-color]]

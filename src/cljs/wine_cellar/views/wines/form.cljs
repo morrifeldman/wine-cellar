@@ -5,21 +5,44 @@
     :refer [form-container form-actions form-row
             form-divider text-field currency-field
             number-field select-field
-            smart-select-field]]
+            smart-select-field year-field]]
    [wine-cellar.utils.formatting
     :refer [valid-name-producer? unique-countries
             regions-for-country aocs-for-region
             classifications-for-aoc levels-for-classification]]
+   [wine-cellar.utils.vintage :as vintage]
    [wine-cellar.api :as api]
    [wine-cellar.common :as common]))
 
-(def vintage-range-years 10)  ;; How many recent years to show
-(def vintage-range-offset 2)  ;; How many years back from current year to start
+(defn vintage [app-state new-wine]
+  [year-field
+   {:label "Vintage"
+    :required true
+    :free-solo true
+    :value (:vintage new-wine)
+    :options (vintage/default-vintage-years) 
+    :on-change #(swap! app-state assoc-in [:new-wine :vintage]
+                       (when-not (empty? %) (js/parseInt % 10)))}])
 
-;; Configuration for drinking window years
-(def drink-from-future-years 10)  ;; How many future years to show in "Drink From" dropdown
-(def drink-from-past-years 5)     ;; How many past years to show in "Drink From" dropdown
-(def drink-until-years 20)        ;; How many future years to show in "Drink Until" dropdown
+(defn drink-from-year [app-state new-wine]
+  [year-field
+   {:label "Drink From Year"
+    :free-solo true
+    :value (:drink_from_year new-wine)
+    :options (vintage/default-drink-from-years) 
+    :helper-text "Year when the wine is/was ready to drink"
+    :on-change #(swap! app-state assoc-in [:new-wine :drink_from_year]
+                       (when-not (empty? %) (js/parseInt % 10)))}])
+
+(defn drink-until-year [app-state new-wine]
+  [year-field
+   {:label "Drink Until Year"
+    :free-solo true
+    :value (:drink_until_year new-wine)
+    :options (vintage/default-drink-until-years) 
+    :helper-text "Year when the wine should be consumed by"
+    :on-change #(swap! app-state assoc-in [:new-wine :drink_until_year]
+                       (when-not (empty? %) (js/parseInt % 10)))}])
 
 (defn wine-form [app-state]
   (let [new-wine (:new-wine @app-state)
@@ -119,7 +142,9 @@
        :free-solo true
        :disabled (or (empty? (:country new-wine))
                      (empty? (:region new-wine)))
-       :options (aocs-for-region classifications (:country new-wine) (:region new-wine))]]
+       :options (aocs-for-region classifications
+                                 (:country new-wine)
+                                 (:region new-wine))]]
 
      [form-row
       [smart-select-field app-state [:new-wine :classification]
@@ -147,53 +172,16 @@
                             (not (contains? common/wine-levels (:level new-wine))))
                    (swap! app-state assoc :error
                           (str "Level must be one of: "
-                               (str/join ", " (sort common/wine-levels)))))]
+                               (str/join ", " (sort common/wine-levels)))))]]
 
-      [select-field
-       {:label "Vintage"
-        :required true
-        :free-solo true
-        :value (when (:vintage new-wine) (str (:vintage new-wine)))
-        :options (concat
-                     ;; Recent years starting a few years back
-                  (map str (range (- (js/parseInt (.getFullYear (js/Date.))) vintage-range-offset)
-                                  (- (- (js/parseInt (.getFullYear (js/Date.))) vintage-range-offset) vintage-range-years)
-                                  -1))
-                     ;; Then decades for older wines
-                  (map #(str (+ 1900 (* % 10))) (range 9 -1 -1)))
-        :on-change #(swap! app-state assoc-in [:new-wine :vintage]
-                           (when-not (empty? %) (js/parseInt % 10)))}]]
+     [form-divider "Vintage"]
 
-     [form-divider "Tasting Window"]
+     [form-row 
+      [vintage app-state new-wine]]
 
      [form-row
-      [select-field
-       {:label "Drink From Year"
-        :free-solo true
-        :value (when (:drink_from_year new-wine) (str (:drink_from_year new-wine)))
-        :options (concat
-             ;; Current year and future years for aging potential (show these first)
-                  (map str (range (js/parseInt (.getFullYear (js/Date.)))
-                                  (+ (js/parseInt (.getFullYear (js/Date.))) drink-from-future-years)))
-             ;; Add past years for already-drinkable wines
-                  (map str (range (- (js/parseInt (.getFullYear (js/Date.))) 1)
-                                  (- (js/parseInt (.getFullYear (js/Date.))) (inc drink-from-past-years))
-                                  -1)))
-        :helper-text "Year when the wine is/was ready to drink"
-        :on-change #(swap! app-state assoc-in [:new-wine :drink_from_year]
-                           (when-not (empty? %) (js/parseInt % 10)))}]
-
-      [select-field
-       {:label "Drink Until Year"
-        :free-solo true
-        :value (when (:drink_until_year new-wine) (str (:drink_until_year new-wine)))
-        :options (concat
-            ;; Current year and future years for aging potential
-                  (map str (range (js/parseInt (.getFullYear (js/Date.)))
-                                  (+ (js/parseInt (.getFullYear (js/Date.))) drink-until-years))))
-        :helper-text "Year when the wine should be consumed by"
-        :on-change #(swap! app-state assoc-in [:new-wine :drink_until_year]
-                           (when-not (empty? %) (js/parseInt % 10)))}]]
+      [drink-from-year app-state new-wine]
+      [drink-until-year app-state new-wine]]
 
         ;; Additional Information Section
      [form-divider "Additional Information"]

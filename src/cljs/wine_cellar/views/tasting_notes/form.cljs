@@ -3,13 +3,15 @@
                                                        form-actions
                                                        text-area-field
                                                        number-field
+                                                       year-field
                                                        form-row
                                                        form-divider
                                                        date-field]]
             [wine-cellar.api :as api]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.box :refer [box]]))
+            [reagent-mui.material.box :refer [box]]
+            [wine-cellar.utils.vintage :as vintage]))
 
 (defn tasting-note-form [app-state wine-id]
   (let [new-note (:new-tasting-note @app-state)
@@ -83,16 +85,20 @@
        "You can update the wine's tasting window based on this tasting"]]
 
      [form-row
-      [number-field
+      [year-field
        {:label "Drink From Year"
+        :free-solo true
+        :options (vintage/default-drink-from-years)
         :value (:drink_from_year new-note)
         :helper-text "Year when the wine will be ready to drink"
         :on-change #(swap! app-state assoc-in
                            [:new-tasting-note :drink_from_year]
                            (when-not (empty? %) (js/parseInt % 10)))}]
 
-      [number-field
+      [year-field
        {:label "Drink Until Year"
+        :free-solo true
+        :options (vintage/default-drink-until-years)
         :value (:drink_until_year new-note)
         :helper-text "Year when the wine should be consumed by"
         :on-change #(swap! app-state assoc-in

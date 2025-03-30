@@ -176,10 +176,7 @@
     :size "small" ;; Added small size
     :fullWidth false
     :variant "outlined"
-    :sx (merge form-field-style
-               {:width "100%"
-                "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button"
-                {:opacity 1}})
+    :sx form-field-style
     :InputLabelProps {:shrink true}
     :InputProps (cond-> {}
                   min (assoc :min min)
@@ -270,6 +267,16 @@
      :open-on-focus true
      :blur-on-select "touch"
      :on-blur on-blur}]])
+
+(defn year-field
+  [{:keys [value] :as props}]
+  (if value
+    [number-field (select-keys
+                    props
+                    [:label :value :on-change :required :min :max :step :helper-text :error])]
+    [select-field (select-keys
+                    props
+                    [:label :value :on-change :required :options :multiple :disabled :free-solo :helper-text :on-blur])]))
 
 ;; Smart field components
 (defn smart-field
