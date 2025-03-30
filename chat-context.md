@@ -32,7 +32,7 @@ src/
         ├── utils
         │   ├── filters.cljs
         │   ├── formatting.cljs
-        │   └── tasting_window.cljs
+        │   └── vintage.cljs
         └── views
             ├── classifications
             │   └── form.cljs
@@ -50,34 +50,26 @@ src/
                 └── list.cljs
 
 14 directories, 23 files
-
 ## Technical Stack
 - Backend: Clojure
 - Frontend: ClojureScript with Reagent
 - Database: PostgreSQL 15
 - UI Framework: Material UI (via reagent-mui)
 - Build Tool: Shadow-cljs
+- Clojure: tools.deps
 - Editor: Neovim
 
 # Next tasks
 
-## Wine Detail Improvements
-
-* Make all fields in wine detail editable.
-* Constrain tasting window drink from year to be earlier than the drink until
-  year.
-* Use better year picker in wine detail for tasting window.  When the tasting
-  window is empty, use the good year picker.  When it isn't empty use the up
-down arrows.
-
 ## General
 
+* Manage/Edit Classifications
 * Add a picture field
 * Add a general notes field, perhaps multiple.  One type of common note is
   external reviews and ratings. Maybe make internal and external tasting notes.
   For external, the tasting date is optional and color will be different.
 
-# Summaries of Previous chats
+# Summaries of Some Previous chats -- representative early chats
 Newer chats first
 ## Chat 7
 
