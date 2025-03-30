@@ -1,7 +1,8 @@
 (ns wine-cellar.db.schema
   (:require
-    [clojure.string :as str]
-    [wine-cellar.common :as common]))
+   [clojure.string :as str]
+   [wine-cellar.common :as common]
+   [honey.sql :as sql]))
 
 ;; Type definitions
 (def create-wine-level-type
@@ -57,9 +58,15 @@
     [:price :decimal [10 2]]
     [:drink_from_year :integer]  ; When the wine is ready to drink (year)
     [:drink_until_year :integer] ; When the wine should be consumed by (year)
+    [[:constraint :valid_tasting_window]
+     [:check
+      [:or
+      [:= :drink_from_year]
+      [:= :drink_until_year]
+      [:<= :drink_from_year :drink_until_year]]]]
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]]})
-
+#_(sql/format wines-table-schema)
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]
    :with-columns
@@ -74,15 +81,17 @@
      :references [:entity :wines] [:nest :id]
      :on-delete :cascade]]})
 
+#_(sql/format tasting-notes-table-schema)
+
 ;; View schemas
 (def wines-with-ratings-view-schema
   {:create-or-replace-view [:wines-with-ratings]
    :select [:w.*
             [{:select :tn.rating
-             :from [[:tasting_notes :tn]]
-             :where [:= :tn.wine_id :w.id]
-             :order-by [[:tn.tasting_date :desc]]
-             :limit [:inline 1]} :latest_rating]]
+              :from [[:tasting_notes :tn]]
+              :where [:= :tn.wine_id :w.id]
+              :order-by [[:tn.tasting_date :desc]]
+              :limit [:inline 1]} :latest_rating]]
    :from [[:wines :w]]})
 
 ;; Helper functions for SQL generation

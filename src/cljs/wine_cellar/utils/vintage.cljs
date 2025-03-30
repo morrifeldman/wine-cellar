@@ -13,6 +13,7 @@
   (when year
     (js/Date. (str year "-01-01"))))
 
+;; Enhanced to handle both the wine map structure from detail.cljs and the existing structure
 (defn tasting-window-status [wine]
   (let [today-date (today)
         ;; Support both date strings and year numbers
@@ -109,8 +110,19 @@
       :else nil))
 
 (defn valid-tasting-window? [drink-from-year drink-until-year]
-  (or (valid-tasting-year? drink-from-year)
-      (valid-tasting-year? drink-until-year)
-      (cond (> drink-from-year drink-until-year)
-            "Drink from year must be less than or equal to drink until year"
-            :else nil)))
+  (if (or (nil? drink-from-year) (nil? drink-until-year))
+        nil
+        (or (valid-tasting-year? drink-from-year)
+            (valid-tasting-year? drink-until-year)
+            (cond (> drink-from-year drink-until-year)
+                  "Drink from year must be less than or equal to drink until year"
+                  :else nil))))
+
+(defn format-tasting-window-text [wine]
+  (let [from-year (:drink_from_year wine)
+        until-year (:drink_until_year wine)]
+    (cond
+      (and from-year until-year) (str from-year " to " until-year)
+      from-year (str "From " from-year)
+      until-year (str "Until " until-year)
+      :else "")))

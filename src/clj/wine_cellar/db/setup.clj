@@ -91,6 +91,8 @@
   (ensure-tables)
   (seed-classifications-if-needed!))
 
+#_(initialize-db)
+
 (defn- drop-tables
   ([] (jdbc/with-transaction [tx ds]
         (drop-tables tx)))
