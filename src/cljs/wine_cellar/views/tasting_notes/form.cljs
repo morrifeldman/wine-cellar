@@ -7,15 +7,14 @@
                      year-field
                      form-row
                      form-divider
-                     date-field]]
+                     date-field
+                     text-field
+                     checkbox-field]]
             [wine-cellar.api :as api]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.box :refer [box]]
             [wine-cellar.utils.vintage :as vintage]))
-
-;; TODO Fix handling of tasting window in this form
-;; Probably just delete the tasting window from here now that we have it above
 
 ;; TODO -- add type for external tasting notes
 (defn tasting-note-form [app-state wine-id]
@@ -44,7 +43,8 @@
                   (assoc :last-known-drink-until current-drink-until))))
 
     ;; Get the latest version of new-note after potential updates
-    (let [updated-note (:new-tasting-note @app-state)]
+    (let [updated-note (:new-tasting-note @app-state)
+          is-external (boolean (:is_external updated-note))]
       [form-container
        {:title "Add Tasting Note"
         :on-submit #(do
@@ -74,11 +74,36 @@
                                    :last-known-drink-from
                                    :last-known-drink-until))))}
 
-       ;; Date input
+       ;; External note toggle
+       [form-row
+        [checkbox-field
+         {:label "External Tasting Note"
+          :checked is-external
+          :on-change #(swap! app-state update-in [:new-tasting-note]
+                             (fn [note]
+                               (let [new-is-external (not is-external)]
+                                 (-> note
+                                     (assoc :is_external new-is-external)
+                                     ;; Clear tasting date if switching to external and no date set
+                                     (cond-> (and new-is-external (nil? (:tasting_date note)))
+                                       (assoc :tasting_date nil))))))}]]
+
+       ;; Source field (only shown for external notes)
+       (when is-external
+         [form-row
+          [text-field
+           {:label "Source"
+            :required true
+            :value (:source updated-note)
+            :helper-text "e.g., Decanter, Wine Spectator, Vivino"
+            :on-change #(swap! app-state assoc-in [:new-tasting-note :source] %)}]])
+
+       ;; Date input (required only for personal notes)
        [form-row
         [date-field {:label "Tasting Date"
-                     :required true
+                     :required (not is-external)
                      :value (:tasting_date updated-note)
+                     :helper-text (when is-external "Optional for external notes")
                      :on-change #(swap! app-state assoc-in
                                         [:new-tasting-note :tasting_date] %)}]]
 
@@ -116,11 +141,11 @@
           :options (vintage/default-drink-from-years)
           :value (:drink_from_year updated-note)
           :error (boolean (or (vintage/valid-tasting-year? (:drink_from_year updated-note))
-                               (and (:drink_from_year updated-note) 
-                                    (:drink_until_year updated-note)
-                                    (> (:drink_from_year updated-note) (:drink_until_year updated-note)))))
+                              (and (:drink_from_year updated-note)
+                                   (:drink_until_year updated-note)
+                                   (> (:drink_from_year updated-note) (:drink_until_year updated-note)))))
           :helper-text (or (vintage/valid-tasting-year? (:drink_from_year updated-note))
-                           (when (and (:drink_from_year updated-note) 
+                           (when (and (:drink_from_year updated-note)
                                       (:drink_until_year updated-note)
                                       (> (:drink_from_year updated-note) (:drink_until_year updated-note)))
                              "Drink from year must be less than or equal to drink until year")
@@ -137,11 +162,11 @@
           :options (vintage/default-drink-until-years)
           :value (:drink_until_year updated-note)
           :error (boolean (or (vintage/valid-tasting-year? (:drink_until_year updated-note))
-                               (and (:drink_from_year updated-note) 
-                                    (:drink_until_year updated-note)
-                                    (< (:drink_until_year updated-note) (:drink_from_year updated-note)))))
+                              (and (:drink_from_year updated-note)
+                                   (:drink_until_year updated-note)
+                                   (< (:drink_until_year updated-note) (:drink_from_year updated-note)))))
           :helper-text (or (vintage/valid-tasting-year? (:drink_until_year updated-note))
-                           (when (and (:drink_from_year updated-note) 
+                           (when (and (:drink_from_year updated-note)
                                       (:drink_until_year updated-note)
                                       (< (:drink_until_year updated-note) (:drink_from_year updated-note)))
                              "Drink until year must be greater than or equal to drink from year")
@@ -155,3 +180,4 @@
        ;; Submit button
        [form-actions
         {:submit-text "Add Note"}]])))
+

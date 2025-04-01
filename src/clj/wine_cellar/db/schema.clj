@@ -72,11 +72,19 @@
    :with-columns
    [[:id :serial :primary-key]
     [:wine_id :integer [:not nil]]
-    [:tasting_date :date [:not nil]]
+    [:tasting_date :date] 
     [:notes :text [:not nil]]
     [:rating :integer [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
+    [:is_external :boolean [:default false]]
+    [:source :varchar]
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]
+    [[:constraint :tasting_date_required_for_personal]
+     [:check [:or
+              [:= :is_external true]
+              [:and
+               [:= :is_external false]
+               [:not= :tasting_date nil]]]]]
     [[:foreign-key :wine_id]
      :references [:entity :wines] [:nest :id]
      :on-delete :cascade]]})

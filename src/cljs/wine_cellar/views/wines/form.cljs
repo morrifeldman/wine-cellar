@@ -115,16 +115,16 @@
 
      [form-row
       [text-field
-       {:label "Name"
-        :value (:name new-wine)
-        :helper-text "Either Name or Producer required"
-        :on-change #(swap! app-state assoc-in [:new-wine :name] %)}]
-
-      [text-field
        {:label "Producer"
         :value (:producer new-wine)
         :helper-text "Either Name or Producer required"
         :on-change #(swap! app-state assoc-in [:new-wine :producer] %)}]
+
+      [text-field
+       {:label "Name"
+        :value (:name new-wine)
+        :helper-text "Either Name or Producer required"
+        :on-change #(swap! app-state assoc-in [:new-wine :name] %)}]
 
       [select-field
        {:label "Style"

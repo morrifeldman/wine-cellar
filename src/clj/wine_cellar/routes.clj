@@ -30,12 +30,14 @@
 (s/def ::location (s/and string? #(common/valid-location? %)))
 (s/def ::quantity int?)
 (s/def ::price number?)
-(s/def ::tasting_date string?) ;; Will be parsed to a date
+(s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::notes string?)
 (s/def ::rating (s/int-in 1 101)) ;; Ratings from 1-100
 (s/def ::drink_from_year int?)
 (s/def ::drink_until_year int?)
 (s/def ::purveyor string?)
+(s/def ::is_external boolean?)
+(s/def ::source string?)
 
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer)
@@ -103,9 +105,11 @@
 
 ;; Define tasting note schema
 (def tasting-note-schema
-  (s/keys :req-un [::tasting_date
-                   ::notes
-                   ::rating]))
+  (s/keys :req-un [::notes
+                   ::rating]
+          :opt-un [::tasting_date
+                   ::is_external
+                   ::source]))
 
 (def cors-middleware
   {:name ::cors
