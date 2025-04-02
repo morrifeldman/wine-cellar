@@ -24,7 +24,7 @@
 (s/def ::vineyard string?)
 (s/def ::name string?)
 (s/def ::vintage int?)
-(s/def ::styles (s/coll-of (set common/wine-styles)))
+(s/def ::style (set common/wine-styles))
 (s/def ::level (s/nilable (set common/wine-levels)))
 (s/def ::levels (s/coll-of (set common/wine-levels)))
 (s/def ::location (s/and string? #(common/valid-location? %)))
@@ -44,7 +44,7 @@
                    ::country
                    ::region
                    ::vintage
-                   ::styles
+                   ::style
                    ::quantity
                    ::price]
           :opt-un [::aoc
@@ -68,7 +68,7 @@
                      ::vineyard
                      ::name
                      ::vintage
-                     ::styles
+                     ::style
                      ::level
                      ::location
                      ::quantity
@@ -85,7 +85,7 @@
                    ::vineyard
                    ::name
                    ::vintage
-                   ::styles
+                   ::style
                    ::level
                    ::location
                    ::quantity
@@ -96,14 +96,13 @@
 
 (def classification-schema
   (s/keys :req-un [::country
-                   ::region
-                   ::levels]
+                   ::region]
           :opt-un [::aoc
                    ::communal_aoc
                    ::classification
-                   ::vineyard]))
+                   ::vineyard
+                   ::levels]))
 
-;; Define tasting note schema
 (def tasting-note-schema
   (s/keys :req-un [::notes
                    ::rating]

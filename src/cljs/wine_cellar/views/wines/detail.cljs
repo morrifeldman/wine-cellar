@@ -3,7 +3,11 @@
             [clojure.string :as str]
             [goog.string :as gstring]
             [goog.string.format]
-            [wine-cellar.views.components :refer [editable-field quantity-control]]
+            [wine-cellar.views.components
+             :refer [editable-text-field
+                     editable-autocomplete-field
+                     editable-classification-field
+                     quantity-control]]
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
             [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
             [wine-cellar.api :as api]
@@ -18,7 +22,7 @@
             [wine-cellar.utils.formatting :refer [valid-name-producer?]]))
 
 (defn editable-location [app-state wine]
-  [editable-field
+  [editable-text-field
    {:value (:location wine)
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:location new-value}))
@@ -27,14 +31,14 @@
     :text-field-props {:helperText common/format-location-error}}])
 
 (defn editable-purveyor [app-state wine]
-  [editable-field
+  [editable-text-field
    {:value (:purveyor wine)
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:purveyor new-value}))
     :empty-text "Not specified"}])
 
 (defn editable-price [app-state wine]
-  [editable-field
+  [editable-text-field
    {:value (when-let [price (:price wine)]
              (gstring/format "%.2f" price))
     :on-save (fn [new-value]
@@ -53,7 +57,7 @@
                        :InputProps {:startAdornment "$"}}}])
 
 (defn editable-name [app-state wine]
-  [editable-field
+  [editable-text-field
    {:value (:name wine)
     :on-save (fn [new-value]
                (let [updated-wine (assoc wine :name new-value)]
@@ -63,7 +67,7 @@
     :empty-text "Add wine name"}])
 
 (defn editable-producer [app-state wine]
-  [editable-field
+  [editable-text-field
    {:value (:producer wine)
     :on-save (fn [new-value]
                (let [updated-wine (assoc wine :producer new-value)]
@@ -73,7 +77,7 @@
     :empty-text "Add producer"}])
 
 (defn editable-vintage [app-state wine]
-  [editable-field
+  [editable-text-field
    {:value (str (:vintage wine))
     :on-save (fn [new-value]
                (let [parsed-vintage (js/parseInt new-value 10)]
@@ -87,9 +91,27 @@
     :empty-text "Add vintage"
     :text-field-props {:type "number"}}])
 
+(defn editable-country [app-state wine]
+  [editable-classification-field
+   {:value (:country wine)
+    :field-type :country
+    :app-state app-state
+    :wine wine
+    :classifications (:classifications @app-state)
+    :on-save (fn [new-value]
+               (api/update-wine app-state (:id wine) {:country new-value}))
+    :validate-fn (fn [value]
+                   (when (str/blank? value)
+                     "Country cannot be empty"))
+    :empty-text "Add country"}])
+
 (defn editable-region [app-state wine]
-  [editable-field
+  [editable-classification-field
    {:value (:region wine)
+    :field-type :region
+    :app-state app-state
+    :wine wine
+    :classifications (:classifications @app-state)
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:region new-value}))
     :validate-fn (fn [value]
@@ -98,40 +120,41 @@
     :empty-text "Add region"}])
 
 (defn editable-aoc [app-state wine]
-  [editable-field
+  [editable-classification-field
    {:value (:aoc wine)
+    :field-type :aoc
+    :app-state app-state
+    :wine wine
+    :classifications (:classifications @app-state)
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:aoc new-value}))
     :empty-text "Add AOC/AVA"}])
 
-(defn editable-styles [app-state wine]
-  [editable-field
-   {:value (str/join ", " (:styles wine))
+(defn editable-classification [app-state wine]
+  [editable-classification-field
+   {:value (:classification wine)
+    :field-type :classification
+    :app-state app-state
+    :wine wine
+    :classifications (:classifications @app-state)
     :on-save (fn [new-value]
-               (let [styles (-> new-value
-                                (str/split #",")
-                                (->> (map str/trim)
-                                     (filter #(not (str/blank? %)))
-                                     (into #{})))]
-                 (when (seq styles)
-                   (api/update-wine app-state (:id wine) {:styles styles}))))
+               (api/update-wine app-state (:id wine) {:classification new-value}))
+    :empty-text "Add classification"}])
+
+(defn editable-styles [app-state wine]
+  [editable-autocomplete-field
+   {:value (:style wine)
+    :options (vec (sort common/wine-styles))
+    :free-solo false
+    :on-save (fn [new-value]
+               (api/update-wine app-state (:id wine) {:style new-value}))
     :validate-fn (fn [value]
-                   (let [styles (-> value
-                                    (str/split #",")
-                                    (->> (map str/trim)
-                                         (filter #(not (str/blank? %)))
-                                         (into #{})))]
-                     (cond
-                       (empty? styles) "At least one style must be provided"
-                       (not (every? #(contains? common/wine-styles %) styles))
-                       (str "Styles must be one of: " (str/join ", " (sort common/wine-styles)))
-                       :else nil)))
-    :empty-text "Add styles"
-    :text-field-props {:helperText (str "Comma-separated list of: "
-                                        (str/join ", " (sort common/wine-styles)))}}])
+                   (when (str/blank? value)
+                     "Style must be provided"))
+    :empty-text "Add style"}])
 
 (defn editable-drink-from-year [app-state wine]
-  [editable-field
+  [editable-text-field
    {:value (when-let [year (:drink_from_year wine)]
              (str year))
     :on-save (fn [new-value]
@@ -161,7 +184,7 @@
                        :helperText "Year when the wine is/was ready to drink"}}])
 
 (defn editable-drink-until-year [app-state wine]
-  [editable-field
+  [editable-text-field
    {:value (when-let [year (:drink_until_year wine)]
              (str year))
     :on-save (fn [new-value]
@@ -215,23 +238,31 @@
       [editable-vintage app-state wine]]
 
      [grid {:item true :xs 4}
-      [typography {:variant "body2" :color "text.secondary"} "Region"]
-      [editable-region app-state wine]]
+      [typography {:variant "body2" :color "text.secondary"} "Country"]
+      [editable-country app-state wine]]
 
      [grid {:item true :xs 4}
-      [typography {:variant "body2" :color "text.secondary"} "AOC/AVA"]
-      [editable-aoc app-state wine]]]]
+      [typography {:variant "body2" :color "text.secondary"} "Region"]
+      [editable-region app-state wine]]]]
 
    [grid {:container true :spacing 3 :sx {:mb 4}}
+      ;; AOC/AVA
+    [grid {:item true :xs 12 :md 6}
+     [paper {:elevation 0
+             :sx {:p 2
+                  :bgcolor "rgba(0,0,0,0.02)"
+                  :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "AOC/AVA"]
+      [editable-aoc app-state wine]]]
+
       ;; Classification
-    (when-let [classification (:classification wine)]
-      [grid {:item true :xs 12 :md 6}
-       [paper {:elevation 0
-               :sx {:p 2
-                    :bgcolor "rgba(0,0,0,0.02)"
-                    :borderRadius 1}}
-        [typography {:variant "body2" :color "text.secondary"} "Classification"]
-        [typography {:variant "body1"} classification]]])
+    [grid {:item true :xs 12 :md 6}
+     [paper {:elevation 0
+             :sx {:p 2
+                  :bgcolor "rgba(0,0,0,0.02)"
+                  :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Classification"]
+      [editable-classification app-state wine]]]
 
       ;; Styles
     [grid {:item true :xs 12 :md 6}
@@ -239,7 +270,7 @@
              :sx {:p 2
                   :bgcolor "rgba(0,0,0,0.02)"
                   :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Styles"]
+      [typography {:variant "body2" :color "text.secondary"} "Style"]
       [editable-styles app-state wine]]]
 
       ;; Location

@@ -51,7 +51,7 @@
     [:level :wine_level]  ; nullable by default
     [:name :varchar]
     [:vintage :integer]
-    [:styles :wine_style :array]
+    [:style :wine_style]  ; Changed from styles (array) to style (single value)
     [:location :varchar]
     [:purveyor :varchar]  ; New field for tracking where the wine was purchased
     [:quantity :integer [:not nil] [:default 0]]

@@ -11,7 +11,7 @@
 
 (defn wine->db-wine [wine]
   (-> wine
-      (update :styles schema/->pg-array)
+      (update :style (partial schema/sql-cast :wine_style))
       (update :level (partial schema/sql-cast :wine_level))))
 
 ;; Wine operations
@@ -180,3 +180,4 @@
                       {:delete-from :tasting_notes
                        :where [:= :id id]})
                      db-opts))
+

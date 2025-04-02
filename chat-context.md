@@ -6,7 +6,9 @@ use Viveno, but I'm a bit frustrated with Viveno. Too many ads and difficult to
 do the simple tracking that I want. I've made some good progress so far. Please
 consider this context but don't jump right into the task till I focus you.
 Sometimes I will want to have short conversations focused on tooling setup. I
-use nvim. Please do not give an answer if you want more information or files -- I'd rather just give you the data.  Don't bother using shell tools -- just ask me and I will be happy to provide any files directly.
+use nvim. Please do not give an answer if you want more information or files --
+I'd rather just give you the data.  Don't bother using shell tools -- just ask
+me and I will be happy to provide any files directly.
 
 # Source Code Structure
 
@@ -65,9 +67,7 @@ src/
 
 * Manage/Edit Classifications
 * Add a picture field
-* Add a general notes field, perhaps multiple.  One type of common note is
-  external reviews and ratings. Maybe make internal and external tasting notes.
-  For external, the tasting date is optional and color will be different.
+* Make style a single select -- now it is a can be multiple values
 
 # Summaries of Some Previous chats -- representative early chats
 Newer chats first

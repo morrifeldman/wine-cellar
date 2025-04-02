@@ -5,6 +5,8 @@
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.table-cell :refer [table-cell]]
             [reagent-mui.material.table-sort-label :refer [table-sort-label]]
+            [reagent-mui.material.autocomplete :refer [autocomplete]]
+            [reagent-mui.util :refer [react-component]]
             [reagent-mui.icons.arrow-drop-up :refer [arrow-drop-up]]
             [reagent-mui.icons.arrow-drop-down :refer [arrow-drop-down]]
             [reagent-mui.material.text-field :refer [text-field]]
@@ -13,6 +15,7 @@
             [reagent-mui.icons.save :refer [save]]
             [reagent-mui.icons.cancel :refer [cancel]]
             [reagent-mui.material.typography :refer [typography]]
+            [wine-cellar.utils.formatting :as formatting]
             [wine-cellar.api :as api]))
 
 ;; Shared styles
@@ -60,40 +63,32 @@
       :onClick #(api/adjust-wine-quantity app-state wine-id -1)}
      [arrow-drop-down {:fontSize "small"}]]]])
 
-;; Editable field component
-(defn editable-field
-  "A reusable component for inline editing of fields.
+(defn editable-field-wrapper
+  "A generic wrapper for making any field editable.
    Options:
    - value: The current value of the field
    - on-save: Function to call when saving (receives new value)
    - validate-fn: Optional validation function that returns error message or nil
    - empty-text: Text to display when value is empty - defaults to 'Not specified'
-   - text-field-props: Additional props to pass to the text field"
-  [{:keys [value on-save validate-fn empty-text text-field-props]
+   - render-input-fn: Function that renders the input component (receives value, on-change, and error)"
+  [{:keys [value on-save validate-fn empty-text render-input-fn]
     :or {empty-text "Not specified"}}]
   (let [editing (r/atom false)
         field-value (r/atom value)
         field-error (r/atom nil)]
-    (fn [{:keys [value on-save validate-fn empty-text text-field-props]
+    (fn [{:keys [value on-save validate-fn empty-text render-input-fn]
           :or {empty-text "Not specified"}}]
       (if @editing
         ;; Edit mode
         [box {:display "flex" :flexDirection "column" :width "100%"}
          [box {:display "flex" :alignItems "center"}
-          [text-field
-           (merge
-            {:value @field-value
-             :size "small"
-             :fullWidth true
-             :autoFocus true
-             :error (boolean @field-error)
-             :helperText @field-error
-             :onChange (fn [e]
-                         (let [new-value (.. e -target -value)]
-                           (reset! field-value new-value)
-                           (reset! field-error nil)))
-             :sx {:mr 1}}
-            text-field-props)]
+          [box {:sx {:flex 1 :mr 1}}
+           (render-input-fn
+            @field-value
+            (fn [new-value]
+              (reset! field-value new-value)
+              (reset! field-error nil))
+            @field-error)]
           [icon-button
            {:color "primary"
             :size "small"
@@ -125,6 +120,83 @@
            :size "small"
            :onClick #(reset! editing true)}
           [edit]]]))))
+
+;; Specific field implementations
+(defn editable-text-field
+  "Standard text field implementation of editable-field"
+  [{:keys [text-field-props] :as props}]
+  [editable-field-wrapper
+   (assoc props
+          :render-input-fn
+          (fn [value on-change error]
+            [text-field
+             (merge
+              {:value value
+               :size "small"
+               :fullWidth true
+               :autoFocus true
+               :error (boolean error)
+               :helperText error
+               :onChange (fn [e]
+                          (on-change (.. e -target -value)))}
+              text-field-props)]))])
+
+(defn editable-autocomplete-field
+  "Autocomplete implementation of editable-field"
+  [{:keys [options option-label free-solo multiple] :as props}]
+  [editable-field-wrapper
+   (assoc props
+          :render-input-fn
+          (fn [value on-change error]
+            [autocomplete
+             {:multiple (boolean multiple)
+              :freeSolo (boolean free-solo)
+              :options options
+              :size "small"
+              :value (cond-> value multiple (or []))
+              :getOptionLabel (or option-label
+                                  (fn [option]
+                                    (cond
+                                      (nil? option) ""
+                                      (string? option) option
+                                      :else (str option))))
+              :renderInput (react-component
+                            [params]
+                            [text-field (merge params
+                                               {:variant "outlined"
+                                                :size "small"
+                                                :error (boolean error)
+                                                :helperText error
+                                                :autoFocus true})])
+              :onChange (fn [_event new-value]
+                          (on-change new-value))
+              :clearOnBlur true
+              :autoHighlight true
+              :selectOnFocus true
+              :disableCloseOnSelect multiple
+              :openOnFocus true}]))])
+
+(defn editable-classification-field
+  "Classification field implementation of editable-field for country, region, AOC, and classification"
+  [{:keys [field-type app-state wine classifications] :as props}]
+  (let [country (:country wine)
+        region (:region wine)
+        aoc (:aoc wine)
+        raw-options (case field-type
+                      :country (formatting/unique-countries classifications)
+                      :region (formatting/regions-for-country
+                               classifications country)
+                      :aoc (formatting/aocs-for-region
+                            classifications country region)
+                      :classification (formatting/classifications-for-aoc
+                                       classifications country region aoc)
+                      [])
+        options (into [] (map str) (or raw-options []))]
+    [editable-autocomplete-field
+     (assoc props
+            :options options
+            :free-solo true
+            :value (if (nil? (:value props)) "" (:value props)))]))
 
 ;; Utility functions
 (defn format-label

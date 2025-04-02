@@ -24,8 +24,7 @@
 
 (defn matches-style? [wine style]
   (or (nil? style) 
-      (and (:styles wine)
-           (some #(= style %) (:styles wine)))))
+      (= style (:style wine))))
 
 (defn apply-sorting [wines field direction]
   (if field
@@ -44,7 +43,7 @@
 ;; Main filtering and sorting function
 (defn filtered-sorted-wines [app-state]
   (let [wines (:wines @app-state)
-        {:keys [search country region styles tasting-window]} (:filters @app-state)
+        {:keys [search country region style tasting-window]} (:filters @app-state)
         {:keys [field direction]} (:sort @app-state)
         show-out-of-stock? (:show-out-of-stock? @app-state)]
 
@@ -55,7 +54,7 @@
       (filter #(matches-text-search? % search) w)
       (filter #(matches-country? % country) w)
       (filter #(matches-region? % region) w)
-      (filter #(matches-style? % styles) w)
+      (filter #(matches-style? % style) w)
       (filter #(matches-tasting-window? % tasting-window) w)
       ;; Apply sorting
       (apply-sorting w field direction))))

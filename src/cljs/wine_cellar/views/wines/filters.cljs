@@ -48,7 +48,7 @@
         {:variant "outlined"
          :size "small"
          :color "secondary"
-         :onClick #(swap! app-state assoc :filters {:search "" :country nil :region nil :styles nil :tasting-window nil})}
+         :onClick #(swap! app-state assoc :filters {:search "" :country nil :region nil :style nil :tasting-window nil})}
         "Clear Filters"]]]
      
      [grid {:container true :spacing 3}
@@ -112,9 +112,9 @@
          :sx {:mt 0}}
         [input-label "Style"]
         [select
-         {:value (or (:styles filters) "")
+         {:value (or (:style filters) "")
           :label "Style"
-          :onChange #(swap! app-state assoc-in [:filters :styles]
+          :onChange #(swap! app-state assoc-in [:filters :style]
                             (let [v (.. % -target -value)]
                               (when-not (empty? v) v)))}
          [menu-item {:value ""} "All Styles"]
@@ -140,3 +140,4 @@
          [menu-item {:value "ready"} (tasting-window-label :ready)]
          [menu-item {:value "too-young"} (tasting-window-label :too-young)]
          [menu-item {:value "too-old"} (tasting-window-label :too-old)]]]]]]))
+

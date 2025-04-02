@@ -75,7 +75,7 @@
                           (not (nil? (vintage/valid-vintage? (:vintage new-wine))))
                           (vintage/valid-vintage? (:vintage new-wine))
 
-                          (empty? (:styles new-wine))
+                          (empty? (:style new-wine))
                           "Style is required"
 
                           (nil? (:quantity new-wine))
@@ -128,11 +128,11 @@
 
       [select-field
        {:label "Style"
-        :value (:styles new-wine)
+        :value (:style new-wine)
         :required true
-        :multiple true
+        :multiple false
         :options common/wine-styles
-        :on-change #(swap! app-state assoc-in [:new-wine :styles] %)}]]
+        :on-change #(swap! app-state assoc-in [:new-wine :style] %)}]]
 
         ;; Wine Classification Section
      [form-divider "Wine Classification"]
@@ -180,10 +180,12 @@
                  (:region new-wine)
                  (:aoc new-wine)
                  (:classification new-wine))
-       :helper-text (str "Must be one of: " (str/join ", " (sort common/wine-levels)))
+       :helper-text (str "Must be one of: "
+                         (str/join ", " (sort common/wine-levels)))
        :on-blur #(when (and (:level new-wine)
                             (seq (:level new-wine))
-                            (not (contains? common/wine-levels (:level new-wine))))
+                            (not (contains? common/wine-levels
+                                            (:level new-wine))))
                    (swap! app-state assoc :error
                           (str "Level must be one of: "
                                (str/join ", " (sort common/wine-levels)))))]]

@@ -1,6 +1,5 @@
 (ns wine-cellar.views.wines.list
-  (:require [clojure.string :as str]
-            [goog.string :as gstring]
+  (:require [goog.string :as gstring]
             [goog.string.format]
             [wine-cellar.views.components :refer [sortable-header quantity-control]]
             [wine-cellar.views.wines.filters :refer [filter-bar]]
@@ -8,7 +7,6 @@
             [wine-cellar.api :as api]
             [wine-cellar.utils.vintage :refer
              [tasting-window-status
-              tasting-window-label
               tasting-window-color]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.button :refer [button]]
@@ -38,7 +36,7 @@
    [table-cell (:aoc wine)]
    [table-cell (:classification wine)]
    [table-cell (:vintage wine)]
-   [table-cell (str/join ", " (:styles wine))]
+   [table-cell (:style wine)]
    [table-cell (:level wine)]
    [table-cell
     (if-let [rating (:latest_rating wine)]
@@ -108,7 +106,7 @@
       [sortable-header app-state "AOC" :aoc]
       [sortable-header app-state "Classification" :classification]
       [sortable-header app-state "Vintage" :vintage]
-      [table-cell "Styles"]  ;; Not sortable (array)
+      [table-cell "Style"]
       [sortable-header app-state "Level" :level]
       [sortable-header app-state "Last Rating" :latest_rating]
       [table-cell "Tasting Window"]
