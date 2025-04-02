@@ -54,6 +54,16 @@
          :levels)
     []))
 
+(defn unique-purveyors
+  "Returns a sorted list of unique purveyors from the wines collection"
+  [wines]
+  (->> wines
+       (map :purveyor)
+       (remove nil?)
+       (remove str/blank?)
+       distinct
+       sort))
+
 (defn valid-name-producer? [wine]
   (or (not (str/blank? (:name wine)))
       (not (str/blank? (:producer wine)))))

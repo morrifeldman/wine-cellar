@@ -9,7 +9,8 @@
    [wine-cellar.utils.formatting
     :refer [valid-name-producer? unique-countries
             regions-for-country aocs-for-region
-            classifications-for-aoc levels-for-classification]]
+            classifications-for-aoc levels-for-classification
+            unique-purveyors]]
    [wine-cellar.utils.vintage :as vintage]
    [wine-cellar.api :as api]
    [wine-cellar.common :as common]))
@@ -232,14 +233,13 @@
         :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]]
 
      [form-row
-      [text-field
-       {:label "Purchased From"
-        :value (get-in @app-state [:new-wine :purveyor] "")
-        :on-change #(swap! app-state assoc-in [:new-wine :purveyor] %)}]]
+      [smart-select-field app-state [:new-wine :purveyor]
+       :free-solo true
+       :label "Purchased From"
+       :options (unique-purveyors (:wines @app-state))]]
 
         ;; Form actions
      [form-actions
       {:submit-text "Add Wine"
        :cancel-text "Cancel"
        :on-cancel #(swap! app-state assoc :show-wine-form? false)}]]))
-
