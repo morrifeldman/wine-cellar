@@ -14,6 +14,11 @@
       (update :style (partial schema/sql-cast :wine_style))
       (update :level (partial schema/sql-cast :wine_level))))
 
+(defn ping-db
+  "Simple function to test database connectivity"
+  []
+  (jdbc/execute-one! ds ["SELECT 1 as result"] db-opts))
+
 ;; Wine operations
 (defn create-wine [wine]
   (jdbc/execute-one! ds

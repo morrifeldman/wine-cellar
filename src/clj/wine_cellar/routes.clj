@@ -59,23 +59,23 @@
 
 (def wine-update-schema
   (s/keys :req-un [(or
-                     ::producer
-                     ::country
-                     ::region
-                     ::aoc
-                     ::communal_aoc
-                     ::classification
-                     ::vineyard
-                     ::name
-                     ::vintage
-                     ::style
-                     ::level
-                     ::location
-                     ::quantity
-                     ::price
-                     ::purveyor
-                     ::drink_from_year
-                     ::drink_until_year)]
+                    ::producer
+                    ::country
+                    ::region
+                    ::aoc
+                    ::communal_aoc
+                    ::classification
+                    ::vineyard
+                    ::name
+                    ::vintage
+                    ::style
+                    ::level
+                    ::location
+                    ::quantity
+                    ::price
+                    ::purveyor
+                    ::drink_from_year
+                    ::drink_until_year)]
           :opt-un [::producer
                    ::country
                    ::region
@@ -135,6 +135,11 @@
    ["/api-docs/*"
     {:get {:no-doc true
            :handler (swagger-ui/create-swagger-ui-handler)}}]
+
+   ;; Health check endpoint
+   ["/health"
+    {:get {:summary "Health check endpoint"
+           :handler handlers/health-check}}]
 
    ;; Wine Classification Routes
    ["/api/classifications"

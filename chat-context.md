@@ -3,12 +3,16 @@
 I am making a wine cellar tracking web app. It is a learning project. I'm good
 with back end Clojure and am using Clojurescript for the front end. I currently
 use Viveno, but I'm a bit frustrated with Viveno. Too many ads and difficult to
-do the simple tracking that I want. I've made some good progress so far. Please
+do the simple tracking that I want. I've made some good progress so far.
+
+Please follow these instructions as we work together. Please
 consider this context but don't jump right into the task till I focus you.
 Sometimes I will want to have short conversations focused on tooling setup. I
 use nvim. Please do not give an answer if you want more information or files --
 I'd rather just give you the data.  Don't bother using shell tools -- just ask
-me and I will be happy to provide any files directly.
+me and I will be happy to provide any files directly.  It is really important
+that we work incrementally, so please only suggest one change at a time to give
+me a chance to test it before we move on.
 
 # Source Code Structure
 

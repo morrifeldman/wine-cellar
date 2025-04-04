@@ -1,7 +1,6 @@
 (ns wine-cellar.handlers
   (:require [wine-cellar.db.api :as api]
-            [ring.util.response :as response]
-            [wine-cellar.common :as common]))
+            [ring.util.response :as response]))
 
 (defn- no-content []
   {:status 204
@@ -180,3 +179,16 @@
       (catch Exception e
         (server-error e)))))
 
+(defn health-check [_]
+  (try
+    ;; Try to connect to the database
+    (api/ping-db)
+    (response/response {:status "healthy"
+                        :database "connected"
+                        :timestamp (str (java.time.Instant/now))})
+    (catch Exception e
+      {:status 503
+       :body {:status "unhealthy"
+              :database "disconnected"
+              :error (.getMessage e)
+              :timestamp (str (java.time.Instant/now))}})))
