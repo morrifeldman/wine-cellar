@@ -38,3 +38,5 @@ public/cljs-runtime/
 
 # Database
 wine-cellar.db
+
+untracked/
