@@ -277,5 +277,6 @@
                          coercion/coerce-request-middleware
                          coercion/coerce-response-middleware
                          swagger/swagger-feature]}})
+; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
    (ring/routes (ring/create-file-handler {:path "/"})
                 (ring/create-default-handler))))
