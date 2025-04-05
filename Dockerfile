@@ -40,5 +40,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV CLOJURE_ENV=production
 
-# Run the application directly with Clojure
-CMD ["clojure", "-M", "-m", "wine-cellar.server"]
+# Run the application using the run-server alias
+CMD ["clojure", "-M:run-server"]
