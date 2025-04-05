@@ -16,25 +16,37 @@
   PgArray (read-column-by-index [^PgArray v _2 _3]
             (.getArray v)))
 
+;; Environment detection
+(defn get-environment []
+  (or (System/getenv "CLOJURE_ENV") "development"))
+
+(defn production? []
+  (= "production" (get-environment)))
+
 ;; Database connection setup
 (defn get-password-from-pass [password-path]
   (let [result (sh/sh "pass" password-path)]
     (if (= 0 (:exit result))
       (string/trim (:out result))
-      (throw (ex-info (str "Failed to retrieve password from pass: " (:err result))
+      (throw (ex-info (str "Failed to retrieve password from pass: "
+                           (:err result))
                       {:type :password-retrieval-error
                        :path password-path})))))
 
 (def password-pass-name "wine_cellar/db")
 
-(def db
-  {:dbtype "postgresql"
-   :dbname "wine_cellar"
-   :user "wine_cellar"
-   :password (get-password-from-pass password-pass-name)})
+(defn get-db-config []
+  (if (production?)
+    (let [jdbc-url (System/getenv "DATABASE_URL")]
+      {:jdbcUrl jdbc-url})
+    {:dbtype "postgresql"
+     :dbname "wine_cellar"
+     :user "wine_cellar"
+     :password (get-password-from-pass password-pass-name)}))
 
 (def ds
-  (jdbc/get-datasource db))
+  (delay
+    (jdbc/get-datasource (get-db-config))))
 
 (def db-opts
   {:builder-fn rs/as-unqualified-maps})
@@ -56,10 +68,10 @@
 (defn classifications-exist?
   "Check if any classifications exist in the database"
   []
-  (pos? (:count (jdbc/execute-one! ds
+  (pos? (:count (jdbc/execute-one! @ds
                                    (sql/format
-                                     {:select [[[:count :*]]]
-                                      :from :wine_classifications})
+                                    {:select [[[:count :*]]]
+                                     :from :wine_classifications})
                                    db-opts))))
 
 (defn seed-classifications-if-needed!
@@ -77,7 +89,7 @@
     (println "DB Response:" (jdbc/execute-one! tx sql db-opts))))
 
 (defn- ensure-tables
-  ([] (jdbc/with-transaction [tx ds]
+  ([] (jdbc/with-transaction [tx @ds]
         (ensure-tables tx)))
   ([tx]
    (sql-execute-helper tx schema/create-wine-style-type)
@@ -94,7 +106,7 @@
 #_(initialize-db)
 
 (defn- drop-tables
-  ([] (jdbc/with-transaction [tx ds]
+  ([] (jdbc/with-transaction [tx @ds]
         (drop-tables tx)))
   ([tx]
    (sql-execute-helper tx {:drop-view [:if-exists :wines-with-ratings]})

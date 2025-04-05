@@ -1,0 +1,11 @@
+.git
+.github
+.gitignore
+.clj-kondo
+.lsp
+.cpcache
+.shadow-cljs
+node_modules
+target
+untracked
+*.md

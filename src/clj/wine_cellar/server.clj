@@ -16,8 +16,15 @@
   (reset! server (http-kit/run-server app {:port port}))
   (println (str "Server running on port " port)))
 
-(defn -main [& args]
-  (let [port (or (some-> args first parse-long) 3000)]
+(defn get-port []
+  (if-let [port-str (System/getenv "PORT")]
+    (Integer/parseInt port-str)
+    3000))
+
+(defn -main [& _]
+  (let [port (get-port)
+        env (db-setup/get-environment)]
+    (println (str "Starting server in " env " environment"))
     (start-server! port)))
 
 (comment

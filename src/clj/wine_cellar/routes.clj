@@ -125,13 +125,7 @@
            :swagger {:info {:title "Wine Cellar API"
                             :description "API for managing your wine collection"}}
            :handler (swagger/create-swagger-handler)}}]
-   ; Redirect root to api-docs
-   ["/"
-    {:get {:no-doc true
-           :handler (fn [_]
-                      {:status 302
-                       :headers {"Location" "/api-docs/"}
-                       :body ""})}}]
+
    ["/api-docs/*"
     {:get {:no-doc true
            :handler (swagger-ui/create-swagger-ui-handler)}}]
@@ -283,4 +277,5 @@
                          coercion/coerce-request-middleware
                          coercion/coerce-response-middleware
                          swagger/swagger-feature]}})
-   (ring/create-default-handler)))
+   (ring/routes (ring/create-file-handler {:path "/"})
+                (ring/create-default-handler))))

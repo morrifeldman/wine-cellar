@@ -1,8 +1,9 @@
 (ns wine-cellar.api
   (:require [cljs-http.client :as http]
-            [cljs.core.async :refer [<! go]]))
+            [cljs.core.async :refer [<! go]]
+            [wine-cellar.config :as config]))
 
-(def api-base-url "http://localhost:3000")
+(def api-base-url (config/get-api-base-url))
 
 (def default-opts
   {:with-credentials? false})
