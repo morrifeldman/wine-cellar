@@ -1,13 +1,14 @@
 (ns wine-cellar.db.setup
-  (:require [clojure.string :as string]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.java.shell :as sh]
-            [honey.sql :as sql]
-            [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs]
-            [wine-cellar.db.schema :as schema])
-  (:import [org.postgresql.jdbc PgArray]))
+  (:require
+   [clojure.edn :as edn]
+   [clojure.java.io :as io]
+   [honey.sql :as sql]
+   [next.jdbc :as jdbc]
+   [next.jdbc.result-set :as rs]
+   [wine-cellar.config-utils :as config-utils]
+   [wine-cellar.db.schema :as schema])
+  (:import
+   [org.postgresql.jdbc PgArray]))
 
 ;; Protocol extension for PostgreSQL arrays
 (extend-protocol rs/ReadableColumn
@@ -16,33 +17,13 @@
   PgArray (read-column-by-index [^PgArray v _2 _3]
             (.getArray v)))
 
-;; Environment detection
-(defn get-environment []
-  (or (System/getenv "CLOJURE_ENV") "development"))
-
-(defn production? []
-  (= "production" (get-environment)))
-
-;; Database connection setup
-(defn get-password-from-pass [password-path]
-  (let [result (sh/sh "pass" password-path)]
-    (if (= 0 (:exit result))
-      (string/trim (:out result))
-      (throw (ex-info (str "Failed to retrieve password from pass: "
-                           (:err result))
-                      {:type :password-retrieval-error
-                       :path password-path})))))
-
-(def password-pass-name "wine_cellar/db")
-
 (defn get-db-config []
-  (if (production?)
-    (let [jdbc-url (System/getenv "DATABASE_URL")]
-      {:jdbcUrl jdbc-url})
+  (if-let [jdbc-url (System/getenv "DATABASE_URL")]
+    {:jdbcUrl jdbc-url}
     {:dbtype "postgresql"
      :dbname "wine_cellar"
      :user "wine_cellar"
-     :password (get-password-from-pass password-pass-name)}))
+     :password (config-utils/get-password-from-pass "wine_cellar/db")}))
 
 (def ds
   (delay

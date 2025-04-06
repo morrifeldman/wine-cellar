@@ -17,48 +17,74 @@ me a chance to test it before we move on.
 I strongly favor a declarative approach to code, and I like to minimize
 duplication and create reusable abstractions when it makes sense.
 
+I'm an experience back end data developer but I have little front end
+experience.  Nonetheless, I don't generally need any code comments.
+
 # Source Code Structure
 
+.
+├── automation
+│   ├── deploy-to-fly.sh
+│   └── postgresql.yml
+├── deps.edn
+├── dev
+│   └── user.clj
+├── Dockerfile
+├── docs
+│   ├── chat-context.md
+│   ├── chat-summary.md
+│   ├── ideal-taxonomy.md
+│   └── schema-unification-datomic.md
+├── fly.toml
+├── package.json
+├── package-lock.json
+├── public
+│   └── index.html
+├── README.md
+├── resources
+│   └── wine-classifications.edn
+├── shadow-cljs.edn
+└── src
+    ├── clj
+    │   └── wine_cellar
+    │       ├── db
+    │       │   ├── api.clj
+    │       │   ├── schema.clj
+    │       │   └── setup.clj
+    │       ├── handlers.clj
+    │       ├── routes.clj
+    │       └── server.clj
+    ├── cljc
+    │   └── wine_cellar
+    │       └── common.cljc
+    └── cljs
+        └── wine_cellar
+            ├── api.cljs
+            ├── config.cljs
+            ├── core.cljs
+            ├── theme.cljs
+            ├── utils
+            │   ├── filters.cljs
+            │   ├── formatting.cljs
+            │   └── vintage.cljs
+            └── views
+                ├── classifications
+                │   └── form.cljs
+                ├── components
+                │   └── form.cljs
+                ├── components.cljs
+                ├── main.cljs
+                ├── tasting_notes
+                │   ├── form.cljs
+                │   └── list.cljs
+                └── wines
+                    ├── detail.cljs
+                    ├── filters.cljs
+                    ├── form.cljs
+                    └── list.cljs
 
-src/
-├── clj
-│   └── wine_cellar
-│       ├── db
-│       │   ├── api.clj
-│       │   ├── schema.clj
-│       │   └── setup.clj
-│       ├── handlers.clj
-│       ├── routes.clj
-│       └── server.clj
-├── cljc
-│   └── wine_cellar
-│       └── common.cljc
-└── cljs
-    └── wine_cellar
-        ├── api.cljs
-        ├── core.cljs
-        ├── theme.cljs
-        ├── utils
-        │   ├── filters.cljs
-        │   ├── formatting.cljs
-        │   └── vintage.cljs
-        └── views
-            ├── classifications
-            │   └── form.cljs
-            ├── components
-            │   └── form.cljs
-            ├── components.cljs
-            ├── main.cljs
-            ├── tasting_notes
-            │   ├── form.cljs
-            │   └── list.cljs
-            └── wines
-                ├── detail.cljs
-                ├── filters.cljs
-                ├── form.cljs
-                └── list.cljs
+20 directories, 40 files
 
-14 directories, 23 files
 ## Technical Stack
 - Backend: Clojure
 - Frontend: ClojureScript with Reagent

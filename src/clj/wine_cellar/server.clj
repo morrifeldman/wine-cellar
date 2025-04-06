@@ -1,7 +1,9 @@
 (ns wine-cellar.server
   (:require [org.httpkit.server :as http-kit]
             [wine-cellar.routes :refer [app]]
-            [wine-cellar.db.setup :as db-setup]))
+            [wine-cellar.db.setup :as db-setup]
+            [ring.middleware.cookies :refer [wrap-cookies]]
+            [ring.middleware.params :refer [wrap-params]]))
 
 (defonce server (atom nil))
 
@@ -13,8 +15,11 @@
 (defn start-server! [port]
   (stop-server!)
   (db-setup/initialize-db)
-  (reset! server (http-kit/run-server app {:port port}))
-  (println (str "Server running on port " port)))
+  (let [wrapped-app (-> app
+                        wrap-cookies
+                        wrap-params)]
+    (reset! server (http-kit/run-server wrapped-app {:port port}))
+    (println (str "Server running on port " port))))
 
 (defn get-port []
   (if-let [port-str (System/getenv "PORT")]
@@ -22,11 +27,10 @@
     3000))
 
 (defn -main [& _]
-  (let [port (get-port)
-        env (db-setup/get-environment)]
-    (println (str "Starting server in " env " environment"))
+  (let [port (get-port)]
     (start-server! port)))
 
 (comment
   (start-server! 3000)
   (stop-server!))
+

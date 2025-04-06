@@ -1,6 +1,7 @@
 (ns wine-cellar.routes
   (:require [wine-cellar.handlers :as handlers]
             [wine-cellar.common :as common]
+            [wine-cellar.auth.core :as auth]
             [clojure.spec.alpha :as s]
             [reitit.ring :as ring]
             [reitit.coercion.spec :as spec-coercion]
@@ -11,6 +12,7 @@
             [reitit.ring.middleware.muuntaja :as muuntaja]
             [reitit.ring.middleware.parameters :as parameters]
             [ring.middleware.cors :refer [wrap-cors]]
+            [ring.util.response :as response]
             [muuntaja.core :as m]
             [expound.alpha :as expound]))
 
@@ -134,6 +136,26 @@
    ["/health"
     {:get {:summary "Health check endpoint"
            :handler handlers/health-check}}]
+
+   ;; Authentication routes
+   ["/login"
+    {:get {:summary "Login page"
+           :handler (fn [_] (response/resource-response "index.html" {:root "public"}))}}]
+
+   ["/auth/google"
+    {:get {:summary "Redirect to Google for authentication"
+           :handler (fn [_] (auth/redirect-to-google))}}]
+
+   ["/auth/google/callback"
+    {:get {:summary "Handle Google OAuth callback"
+           :handler auth/handle-google-callback}}]
+
+   ["/auth/logout"
+    {:get {:summary "Logout user"
+           :handler (fn [_]
+                      (-> (response/redirect "/")
+                          (assoc-in [:cookies "auth-token"] {:value ""
+                                                             :max-age 0})))}}]
 
    ;; Wine Classification Routes
    ["/api/classifications"
@@ -265,6 +287,7 @@
                       :data {:info {:title "Wine Cellar API"
                                     :description "API for managing your wine collection"}}}
             :middleware [cors-middleware  ;; Move CORS middleware to be first in the chain
+                         auth/wrap-auth   ;; Add authentication middleware
                          (exception/create-exception-middleware
                           (merge
                            exception/default-handlers
