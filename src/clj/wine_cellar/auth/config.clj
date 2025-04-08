@@ -37,6 +37,9 @@
   "Gets the JWT secret for signing tokens, either from environment or a default"
   []
   (or (System/getenv "JWT_SECRET")
-      ;; In production, you should always set JWT_SECRET environment variable
-      ;; This default is only for development
-      "default-jwt-secret-please-change-in-production"))
+      (config-utils/get-password-from-pass "wine-cellar/jwt-secret")))
+
+(defn get-cookie-store-key
+  []
+  (or (System/getenv "COOKIE_STORE_KEY")
+      (config-utils/get-password-from-pass "wine-cellar/cookie-store-key")))

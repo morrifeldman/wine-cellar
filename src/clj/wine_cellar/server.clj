@@ -6,15 +6,14 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.session.cookie :refer [cookie-store]]
-            [wine-cellar.config-utils :as config-utils]
+            [wine-cellar.auth.config :as auth-config]
             [mount.core :as mount :refer [defstate]]))
 
 (defn start-server! [port]
   (db-setup/initialize-db)
   (let [session-store (cookie-store
                        {:key (.getBytes
-                              (config-utils/get-password-from-pass
-                               "wine-cellar/cookie-store-key"))})
+                               (auth-config/get-cookie-store-key))})
         wrapped-app (-> app
                         wrap-cookies
                         wrap-params
