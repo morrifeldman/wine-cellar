@@ -2,7 +2,7 @@
   (:require [jsonista.core :as json]
             [wine-cellar.config-utils :as config-utils]))
 
-(defn get-google-credentials
+(defn get-google-credentials-from-pass
   "Retrieves Google OAuth credentials from pass command line program"
   []
   (try
@@ -24,14 +24,13 @@
 (defn get-oauth-config
   "Returns the OAuth configuration, either from environment variables or pass"
   []
-  (let [{:keys [client-id client-secret redirect-uris javascript-origins]}
-        (get-google-credentials)]
-    {:client-id (or (System/getenv "GOOGLE_CLIENT_ID")
-                    client-id)
-     :client-secret (or (System/getenv "GOOGLE_CLIENT_SECRET")
-                        client-secret)
-     :redirect-uri (or (System/getenv "OAUTH_REDIRECT_URI")
-                       (first redirect-uris))}))
+  (if (config-utils/production?)
+    {:client-id (System/getenv "GOOGLE_CLIENT_ID")
+     :client-secret (System/getenv "GOOGLE_CLIENT_SECRET")
+     :redirect-uri (System/getenv "OAUTH_REDIRECT_URI")}
+    (let [{:keys [redirect-uris] :as creds} (get-google-credentials-from-pass)]
+      (assoc creds
+             :redirect-uri (first redirect-uris)))))
 
 (defn get-jwt-secret
   "Gets the JWT secret for signing tokens, either from environment or a default"
