@@ -5,14 +5,25 @@
             [wine-cellar.views.wines.detail :refer [wine-details-section]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]))
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.typography :refer [typography]]
+            [wine-cellar.api :as api]))
 
-(defn wine-form-toggle [app-state]
-  [toggle-button
-   {:app-state app-state
-    :path [:show-wine-form?]
-    :show-text "Add New Wine"
-    :hide-text "Hide Wine Form"}])
+(defn control-buttons [app-state]
+  [box {:sx {:display "flex"
+             :justifyContent "space-between"
+             :mb 2}}
+   [toggle-button
+    {:app-state app-state
+     :path [:show-wine-form?]
+     :show-text "Add New Wine"
+     :hide-text "Hide Wine Form"}]
+
+   [button
+    {:variant "outlined"
+     :color "secondary"
+     :onClick #(api/logout)}
+    "Logout"]])
 
 (defn main-app [app-state]
   [box {:sx {:p 3
@@ -45,12 +56,12 @@
      ;; If wine form is open, show only the toggle and form
      (:show-wine-form? @app-state)
      [:div
-      [wine-form-toggle app-state]
-      [wine-form app-state]]
+      [wine-form app-state]
+      [control-buttons app-state]]
 
      ;; Otherwise, show the toggle, form, and list
      :else
      [:div
-      [wine-form-toggle app-state]
-      [wine-list app-state]])])
+      [wine-list app-state]
+      [control-buttons app-state] ])])
 

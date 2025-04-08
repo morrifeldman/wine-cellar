@@ -13,4 +13,5 @@
                       {:type :password-retrieval-error
                        :path password-path})))))
 
-
+(defn production? []
+  (= (System/getenv "CLOJURE_ENV") "production"))

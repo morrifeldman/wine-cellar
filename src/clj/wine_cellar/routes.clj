@@ -14,7 +14,8 @@
             [ring.middleware.cors :refer [wrap-cors]]
             [ring.util.response :as response]
             [muuntaja.core :as m]
-            [expound.alpha :as expound]))
+            [expound.alpha :as expound]
+            [wine-cellar.config-utils :as config-utils]))
 
 ;; Specs for individual fields
 (s/def ::producer string?)
@@ -113,13 +114,16 @@
                    ::source]))
 
 (def cors-middleware
-  {:name ::cors
-   :wrap (fn [handler]
-           (wrap-cors handler
-                      :access-control-allow-origin [#"http://localhost:8080"]
-                      :access-control-allow-methods [:get :put :post :delete :options]
-                      :access-control-allow-headers ["Content-Type" "Accept"]
-                      :access-control-allow-credentials true))})
+  (if-not (config-utils/production?)
+    {:name ::cors
+     :wrap (fn [handler]
+             (wrap-cors handler
+                        :access-control-allow-origin [#"http://localhost:8080"]
+                        :access-control-allow-methods [:get :put :post :delete :options]
+                        :access-control-allow-headers ["Content-Type" "Accept" "Authorization"]
+                        :access-control-allow-credentials true))}
+    {:name ::cors
+     :wrap identity}))  ;; No-op middleware in production
 
 (def wine-routes
   [["/swagger.json"
@@ -144,7 +148,7 @@
 
    ["/auth/google"
     {:get {:summary "Redirect to Google for authentication"
-           :handler (fn [_] (auth/redirect-to-google))}}]
+           :handler (fn [request] (auth/redirect-to-google request))}}]
 
    ["/auth/google/callback"
     {:get {:summary "Handle Google OAuth callback"
@@ -155,113 +159,118 @@
            :handler (fn [_]
                       (-> (response/redirect "/")
                           (assoc-in [:cookies "auth-token"] {:value ""
-                                                             :max-age 0})))}}]
-
+                                                             :max-age 0
+                                                             :http-only true
+                                                             :same-site :lax
+                                                             :path "/"})))}}]
+   
+   ["/api"
+    {:middleware [auth/require-authentication]}
    ;; Wine Classification Routes
-   ["/api/classifications"
-    {:get {:summary "Get all wine classifications"
-           :responses {200 {:body vector?}
-                       500 {:body map?}}
-           :handler handlers/get-classifications}
-     :post {:summary "Create a new wine classification"
-            :parameters {:body classification-schema}
-            :responses {201 {:body map?}
-                        400 {:body map?}
+    ["/classifications"
+     {:get {:summary "Get all wine classifications"
+            :responses {200 {:body vector?}
                         500 {:body map?}}
-            :handler handlers/create-classification}}]
+            :handler handlers/get-classifications}
+      :post {:summary "Create a new wine classification"
+             :parameters {:body classification-schema}
+             :responses {201 {:body map?}
+                         400 {:body map?}
+                         500 {:body map?}}
+             :handler handlers/create-classification}}]
 
-   ["/api/classifications/regions/:country"
-    {:parameters {:path {:country string?}}
-     :get {:summary "Get regions for a country"
-           :responses {200 {:body vector?}
-                       500 {:body map?}}
-           :handler handlers/get-regions-by-country}}]
+    ["/classifications/regions/:country"
+     {:parameters {:path {:country string?}}
+      :get {:summary "Get regions for a country"
+            :responses {200 {:body vector?}
+                        500 {:body map?}}
+            :handler handlers/get-regions-by-country}}]
 
-   ["/api/classifications/aocs/:country/:region"
-    {:parameters {:path {:country string?
-                         :region string?}}
-     :get {:summary "Get AOCs for a region"
-           :responses {200 {:body vector?}
-                       500 {:body map?}}
-           :handler handlers/get-aocs-by-region}}]
+    ["/classifications/aocs/:country/:region"
+     {:parameters {:path {:country string?
+                          :region string?}}
+      :get {:summary "Get AOCs for a region"
+            :responses {200 {:body vector?}
+                        500 {:body map?}}
+            :handler handlers/get-aocs-by-region}}]
 
    ;; Wine Routes
-   ["/api/wines"
-    {:get {:summary "Get all wines"
-           :responses {200 {:body vector?}
-                       500 {:body map?}}
-           :handler handlers/get-all-wines-with-ratings}
-     :post {:summary "Create a new wine"
-            :parameters {:body wine-schema}
-            :responses {201 {:body map?}
-                        400 {:body map?}
+    ["/wines"
+     {:get {:summary "Get all wines"
+            :responses {200 {:body vector?}
                         500 {:body map?}}
-            :handler handlers/create-wine}}]
+            :handler handlers/get-all-wines-with-ratings}
+      :post {:summary "Create a new wine"
+             :parameters {:body wine-schema}
+             :responses {201 {:body map?}
+                         400 {:body map?}
+                         500 {:body map?}}
+             :handler handlers/create-wine}}]
 
-   ["/api/wines/:id"
-    {:parameters {:path {:id int?}}
-     :get {:summary "Get wine by ID"
-           :responses {200 {:body map?}
-                       404 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/get-wine}
-     :put {:summary "Update wine"
-           :parameters {:body wine-update-schema}
-           :responses {200 {:body map?}
-                       404 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/update-wine}
-     :delete {:summary "Delete wine"
-              :responses {204 {:body nil?}
-                          404 {:body map?}
-                          500 {:body map?}}
-              :handler handlers/delete-wine}}]
-
-   ["/api/wines/:id/adjust-quantity"
-    {:parameters {:path {:id int?}}
-     :post {:summary "Adjust wine quantity"
-            :parameters {:body {:adjustment int?}}
+    ["/wines/:id"
+     {:parameters {:path {:id int?}}
+      :get {:summary "Get wine by ID"
             :responses {200 {:body map?}
                         404 {:body map?}
                         500 {:body map?}}
-            :handler handlers/adjust-quantity}}]
+            :handler handlers/get-wine}
+      :put {:summary "Update wine"
+            :parameters {:body wine-update-schema}
+            :responses {200 {:body map?}
+                        404 {:body map?}
+                        500 {:body map?}}
+            :handler handlers/update-wine}
+      :delete {:summary "Delete wine"
+               :responses {204 {:body nil?}
+                           404 {:body map?}
+                           500 {:body map?}}
+               :handler handlers/delete-wine}}]
+
+    ["/wines/:id/adjust-quantity"
+     {:parameters {:path {:id int?}}
+      :post {:summary "Adjust wine quantity"
+             :parameters {:body {:adjustment int?}}
+             :responses {200 {:body map?}
+                         404 {:body map?}
+                         500 {:body map?}}
+             :handler handlers/adjust-quantity}}]
 
    ;; Tasting Notes Routes
-   ["/api/wines/:id/tasting-notes"
-    {:parameters {:path {:id int?}}
-     :get {:summary "Get all tasting notes for a wine"
-           :responses {200 {:body vector?}
-                       404 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/get-tasting-notes-by-wine}
-     :post {:summary "Create a tasting note for a wine"
+    ["/wines/:id/tasting-notes"
+     {:parameters {:path {:id int?}}
+      :get {:summary "Get all tasting notes for a wine"
+            :responses {200 {:body vector?}
+                        404 {:body map?}
+                        500 {:body map?}}
+            :handler handlers/get-tasting-notes-by-wine}
+      :post {:summary "Create a tasting note for a wine"
+             :parameters {:body tasting-note-schema}
+             :responses {201 {:body map?}
+                         404 {:body map?}
+                         400 {:body map?}
+                         500 {:body map?}}
+             :handler handlers/create-tasting-note}}]
+
+    ["/wines/:id/tasting-notes/:note-id"
+     {:parameters {:path {:id int?
+                          :note-id int?}}
+      :get {:summary "Get tasting note by ID"
+            :responses {200 {:body map?}
+                        404 {:body map?}
+                        500 {:body map?}}
+            :handler handlers/get-tasting-note}
+      :put {:summary "Update tasting note"
             :parameters {:body tasting-note-schema}
-            :responses {201 {:body map?}
+            :responses {200 {:body map?}
                         404 {:body map?}
                         400 {:body map?}
                         500 {:body map?}}
-            :handler handlers/create-tasting-note}}]
-
-   ["/api/wines/:id/tasting-notes/:note-id"
-    {:parameters {:path {:id int?
-                         :note-id int?}}
-     :get {:summary "Get tasting note by ID"
-           :responses {200 {:body map?}
-                       404 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/get-tasting-note}
-     :put {:summary "Update tasting note"
-           :parameters {:body tasting-note-schema}
-           :responses {200 {:body map?}
-                       404 {:body map?}
-                       400 {:body map?}
-                       500 {:body map?}}
-           :handler handlers/update-tasting-note}
-     :delete {:summary "Delete tasting note"
-              :responses {204 {:body nil?}
-                          404 {:body map?}
-                          500 {:body map?}}
-              :handler handlers/delete-tasting-note}}]])
+            :handler handlers/update-tasting-note}
+      :delete {:summary "Delete tasting note"
+               :responses {204 {:body nil?}
+                           404 {:body map?}
+                           500 {:body map?}}
+               :handler handlers/delete-tasting-note}}]]])
 
 (defn coercion-error-handler [status]
   (fn [exception _]

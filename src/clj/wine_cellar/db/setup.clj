@@ -23,7 +23,7 @@
     {:dbtype "postgresql"
      :dbname "wine_cellar"
      :user "wine_cellar"
-     :password (config-utils/get-password-from-pass "wine_cellar/db")}))
+     :password (config-utils/get-password-from-pass "wine-cellar/db")}))
 
 (def ds
   (delay

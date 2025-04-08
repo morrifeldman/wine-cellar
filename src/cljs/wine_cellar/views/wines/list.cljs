@@ -19,7 +19,11 @@
             [reagent-mui.material.table-head :refer [table-head]]
             [reagent-mui.material.table-body :refer [table-body]]
             [reagent-mui.material.table-row :refer [table-row]]
-            [reagent-mui.material.table-cell :refer [table-cell]]))
+            [reagent-mui.material.table-cell :refer [table-cell]]
+            [reagent-mui.material.collapse :refer [collapse]]
+            [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.icons.expand-more :refer [expand-more]]
+            [reagent-mui.icons.expand-less :refer [expand-less]]))
 
 (defn get-rating-color [rating]
   (cond
@@ -46,12 +50,12 @@
       "-")]
    [table-cell
     (let [status (tasting-window-status wine)
-          drink-from-year (or (:drink_from_year wine) 
-                             (when-let [date (:drink_from wine)]
-                               (.getFullYear (js/Date. date))))
+          drink-from-year (or (:drink_from_year wine)
+                              (when-let [date (:drink_from wine)]
+                                (.getFullYear (js/Date. date))))
           drink-until-year (or (:drink_until_year wine)
-                              (when-let [date (:drink_until wine)]
-                                (.getFullYear (js/Date. date))))]
+                               (when-let [date (:drink_until wine)]
+                                 (.getFullYear (js/Date. date))))]
       [box {:sx {:color (tasting-window-color status)
                  :fontWeight "medium"
                  :display "flex"
@@ -131,31 +135,44 @@
                      "-")
         total-value (js/Math.round (reduce + 0 (map #(* (or (:price %) 0) (:quantity %)) wines)))]
     [paper {:elevation 2 :sx {:p 3 :mb 3 :borderRadius 2}}
-     [typography {:variant "h6" :component "h3" :sx {:mb 2}} "Collection Overview"]
-     [grid {:container true :spacing 3}
-      [grid {:item true :xs 12 :sm 6 :md 3}
-       [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
-        [typography {:variant "h4" :color "primary"} (str visible-count "/" total-wines)]
-        [typography {:variant "body2" :color "text.secondary"} "Wines"]]]
+     [box {:sx {:display "flex"
+                :justifyContent "space-between"
+                :alignItems "center"
+                :mb 2}}
+      [typography {:variant "h6" :component "h3"} "Collection Overview"]
+      [icon-button
+       {:onClick #(swap! app-state update :show-stats? not)
+        :size "small"}
+       (if (:show-stats? @app-state)
+         [expand-less]
+         [expand-more])]]
 
-      [grid {:item true :xs 12 :sm 6 :md 3}
-       [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
-        [typography {:variant "h4" :color "primary"} total-bottles]
-        [typography {:variant "body2" :color "text.secondary"} "Bottles"]]]
+     [collapse {:in (:show-stats? @app-state)
+                :timeout "auto"}
+      [grid {:container true :spacing 3}
+       [grid {:item true :xs 12 :sm 6 :md 3}
+        [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
+         [typography {:variant "h4" :color "primary"} (str visible-count "/" total-wines)]
+         [typography {:variant "body2" :color "text.secondary"} "Wines"]]]
 
-      [grid {:item true :xs 12 :sm 6 :md 3}
-       [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
-        [typography {:variant "h4"
-                     :color (if (= avg-rating "-")
-                              "text.secondary"
-                              (get-rating-color (js/parseInt avg-rating)))}
-         (if (= avg-rating "-") "-" (str avg-rating "/100"))]
-        [typography {:variant "body2" :color "text.secondary"} "Avg. Rating"]]]
+       [grid {:item true :xs 12 :sm 6 :md 3}
+        [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
+         [typography {:variant "h4" :color "primary"} total-bottles]
+         [typography {:variant "body2" :color "text.secondary"} "Bottles"]]]
 
-      [grid {:item true :xs 12 :sm 6 :md 3}
-       [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
-        [typography {:variant "h4" :color "primary"} (str "$" total-value)]
-        [typography {:variant "body2" :color "text.secondary"} "Collection Value"]]]]]))
+       [grid {:item true :xs 12 :sm 6 :md 3}
+        [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
+         [typography {:variant "h4"
+                      :color (if (= avg-rating "-")
+                               "text.secondary"
+                               (get-rating-color (js/parseInt avg-rating)))}
+          (if (= avg-rating "-") "-" (str avg-rating "/100"))]
+         [typography {:variant "body2" :color "text.secondary"} "Avg. Rating"]]]
+
+       [grid {:item true :xs 12 :sm 6 :md 3}
+        [paper {:elevation 1 :sx {:p 2 :textAlign "center" :height "100%"}}
+         [typography {:variant "h4" :color "primary"} (str "$" total-value)]
+         [typography {:variant "body2" :color "text.secondary"} "Collection Value"]]]]]]))
 
 (defn wine-list [app-state]
   [box {:sx {:width "100%" :mt 3}}

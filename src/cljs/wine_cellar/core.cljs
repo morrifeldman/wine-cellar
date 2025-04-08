@@ -15,6 +15,8 @@
            :selected-wine-id nil
            :show-out-of-stock? false
            :show-wine-form? false
+           :show-stats? false
+           :show-filters? false
            :tasting-notes []
            :new-tasting-note {}
            :sort {:field nil :direction :asc}

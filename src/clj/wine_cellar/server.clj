@@ -3,23 +3,29 @@
             [wine-cellar.routes :refer [app]]
             [wine-cellar.db.setup :as db-setup]
             [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.middleware.params :refer [wrap-params]]))
-
-(defonce server (atom nil))
-
-(defn stop-server! []
-  (when @server
-    (@server)
-    (reset! server nil)))
+            [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.session :refer [wrap-session]]
+            [ring.middleware.session.cookie :refer [cookie-store]]
+            [wine-cellar.config-utils :as config-utils]
+            [mount.core :as mount :refer [defstate]]))
 
 (defn start-server! [port]
-  (stop-server!)
   (db-setup/initialize-db)
-  (let [wrapped-app (-> app
+  (let [session-store (cookie-store
+                       {:key (.getBytes
+                              (config-utils/get-password-from-pass
+                               "wine-cellar/cookie-store-key"))})
+        wrapped-app (-> app
                         wrap-cookies
-                        wrap-params)]
-    (reset! server (http-kit/run-server wrapped-app {:port port}))
-    (println (str "Server running on port " port))))
+                        wrap-params
+                        (wrap-session {:store session-store
+                                       :cookie-attrs {:http-only true
+                                                      :same-site :lax
+                                                      :path "/"}}))
+
+        server (http-kit/run-server wrapped-app {:port port})]
+    (println "Started http server on port:" port)
+    server))
 
 (defn get-port []
   (if-let [port-str (System/getenv "PORT")]
@@ -28,9 +34,11 @@
 
 (defn -main [& _]
   (let [port (get-port)]
-    (start-server! port)))
+    (mount/start (mount/with-args {:port port}))))
 
-(comment
-  (start-server! 3000)
-  (stop-server!))
+(defstate server
+  :start (start-server! (:port (mount/args)))
+  :stop (server))
 
+#_(mount/start (mount/with-args {:port 3000}))
+#_(mount/stop)
