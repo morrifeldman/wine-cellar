@@ -8,7 +8,7 @@ primary_region = 'iad'
 
 [env]
   PORT = 3000
-  CLOJURE_ENV = production
+  CLOJURE_ENV = "production"
 
 [http_service]
   internal_port = 3000
