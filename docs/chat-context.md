@@ -98,7 +98,8 @@ experience.  Nonetheless, I don't generally need any code comments.
 
 ## General
 
-* Manage/Edit Classifications
+* Manage/Edit Classifications + remove classification form code
 * Add a picture field
 * Use AI to fill add wine based on the label picture
-
+* Make the wines in the list more like cards
+* Condense the filters to a long sliding row
