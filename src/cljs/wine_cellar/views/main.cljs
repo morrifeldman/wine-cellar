@@ -17,7 +17,7 @@
     {:app-state app-state
      :path [:show-wine-form?]
      :show-text "Add New Wine"
-     :hide-text "Hide Wine Form"}]
+     :hide-text "Show Wine List"}]
 
    [button
     {:variant "outlined"

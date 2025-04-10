@@ -48,22 +48,24 @@
     [:communal_aoc :varchar]
     [:classification :varchar]
     [:vineyard :varchar]
-    [:level :wine_level]  ; nullable by default
+    [:level :wine_level]
     [:name :varchar]
     [:vintage :integer]
-    [:style :wine_style]  ; Changed from styles (array) to style (single value)
+    [:style :wine_style]
     [:location :varchar]
-    [:purveyor :varchar]  ; New field for tracking where the wine was purchased
+    [:purveyor :varchar]
     [:quantity :integer [:not nil] [:default 0]]
     [:price :decimal [10 2]]
-    [:drink_from_year :integer]  ; When the wine is ready to drink (year)
-    [:drink_until_year :integer] ; When the wine should be consumed by (year)
+    [:drink_from_year :integer]
+    [:drink_until_year :integer]
+    [:label_image :bytea]
+    [:label_thumbnail :bytea]
     [[:constraint :valid_tasting_window]
      [:check
       [:or
-      [:= :drink_from_year]
-      [:= :drink_until_year]
-      [:<= :drink_from_year :drink_until_year]]]]
+       [:= :drink_from_year]
+       [:= :drink_until_year]
+       [:<= :drink_from_year :drink_until_year]]]]
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]]})
 #_(sql/format wines-table-schema)
@@ -72,7 +74,7 @@
    :with-columns
    [[:id :serial :primary-key]
     [:wine_id :integer [:not nil]]
-    [:tasting_date :date] 
+    [:tasting_date :date]
     [:notes :text [:not nil]]
     [:rating :integer [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
     [:is_external :boolean [:default false]]

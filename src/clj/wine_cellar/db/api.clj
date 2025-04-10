@@ -1,9 +1,13 @@
 (ns wine-cellar.db.api
-  (:require [honey.sql :as sql]
-            [next.jdbc :as jdbc]
-            [wine-cellar.db.schema :as schema]
-            [wine-cellar.db.setup :refer [ds db-opts]])
-  (:import [java.sql Date]))
+  (:require
+   [clojure.string :as str]
+   [honey.sql :as sql]
+   [next.jdbc :as jdbc]
+   [wine-cellar.db.schema :as schema]
+   [wine-cellar.db.setup :refer [db-opts ds]])
+  (:import
+   [java.sql Date]
+   [java.util Base64]))
 
 ;; Helper functions
 (defn- ->sql-date [^String date-string]
@@ -13,6 +17,17 @@
   (-> wine
       (update :style (partial schema/sql-cast :wine_style))
       (update :level (partial schema/sql-cast :wine_level))))
+
+(defn base64->bytes [^String base64-string]
+  (when base64-string
+    (let [base64-content (str/replace base64-string #"^data:image/[^;]+;base64," "")
+          decoder (Base64/getDecoder)]
+      (.decode decoder (.getBytes base64-content "UTF-8")))))
+
+(defn bytes->base64 [bytes]
+  (when bytes
+    (str "data:image/jpeg;base64,"
+         (String. (.encode (Base64/getEncoder) bytes) "UTF-8"))))
 
 (defn ping-db
   "Simple function to test database connectivity"
@@ -28,28 +43,34 @@
                      db-opts))
 
 (defn get-wine [id]
-  (jdbc/execute-one! @ds
-                     (sql/format
-                      {:select :*
-                       :from :wines
-                       :where [:= :id id]})
-                     db-opts))
+  (let [wine (jdbc/execute-one! @ds
+                               (sql/format
+                                {:select :*
+                                 :from :wines
+                                 :where [:= :id id]})
+                               db-opts)]
+    (when wine
+      (-> wine
+          (update :label_image bytes->base64)
+          (update :label_thumbnail bytes->base64)))))
 
 (defn get-all-wines []
-  (jdbc/execute! @ds
-                 (sql/format
-                  {:select :*
-                   :from :wines
-                   :order-by [[:created_at :desc]]})
-                 db-opts))
+  (let [wines (jdbc/execute! @ds
+                            (sql/format
+                             {:select :*
+                              :from :wines
+                              :order-by [[:created_at :desc]]})
+                            db-opts)]
+    (map #(update % :label_thumbnail bytes->base64) wines)))
 
 (defn get-all-wines-with-ratings []
-  (jdbc/execute! @ds
-                 (sql/format
-                  {:select :*
-                   :from :wines_with_ratings
-                   :order-by [[:created_at :desc]]})
-                 db-opts))
+  (let [wines (jdbc/execute! @ds
+                            (sql/format
+                             {:select :*
+                              :from :wines_with_ratings
+                              :order-by [[:created_at :desc]]})
+                            db-opts)]
+    (mapv #(update % :label_thumbnail bytes->base64) wines)))
 
 (defn update-wine! [id wine]
   (jdbc/execute-one! @ds
@@ -57,6 +78,17 @@
                       {:update :wines
                        :set (assoc (wine->db-wine wine)
                                    :updated_at [:now])
+                       :where [:= :id id]
+                       :returning :*})
+                     db-opts))
+
+(defn update-wine-image! [id image-data]
+  (jdbc/execute-one! @ds
+                     (sql/format
+                      {:update :wines
+                       :set {:label_image (base64->bytes (:full_image image-data))
+                             :label_thumbnail (base64->bytes (:thumbnail image-data))
+                             :updated_at [:now]}
                        :where [:= :id id]
                        :returning :*})
                      db-opts))

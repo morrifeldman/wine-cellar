@@ -41,6 +41,10 @@
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source string?)
+(s/def ::full_image string?)
+(s/def ::thumbnail string?)
+(s/def ::image-data
+  (s/nilable (s/keys :req-un [::full_image ::thumbnail])))
 
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer)
@@ -57,6 +61,7 @@
                    ::location
                    ::level
                    ::purveyor
+                   ::image-data
                    ::drink_from_year
                    ::drink_until_year]))
 
@@ -77,6 +82,7 @@
                     ::quantity
                     ::price
                     ::purveyor
+                    ::image-data
                     ::drink_from_year
                     ::drink_until_year)]
           :opt-un [::producer
@@ -94,6 +100,7 @@
                    ::quantity
                    ::price
                    ::purveyor
+                   ::image-data
                    ::drink_from_year
                    ::drink_until_year]))
 
@@ -234,6 +241,15 @@
                          404 {:body map?}
                          500 {:body map?}}
              :handler handlers/adjust-quantity}}]
+
+    ["/wines/:id/image"
+     {:parameters {:path {:id int?}}
+      :put {:summary "Upload wine label image"
+            :parameters {:body ::image-data}
+            :responses {200 {:body map?}
+                        404 {:body map?}
+                        500 {:body map?}}
+            :handler handlers/upload-wine-image}}]
 
    ;; Tasting Notes Routes
     ["/wines/:id/tasting-notes"

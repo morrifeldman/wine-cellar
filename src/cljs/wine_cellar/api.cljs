@@ -38,7 +38,7 @@
     (go
       (let [request-opts (merge default-opts
                                 (when params {:json-params params}))
-            _ (prn  api-base-url url request-opts)
+            _ (tap> [api-base-url url request-opts])
             response (<! (method (str api-base-url url) request-opts))
             result (handle-api-response response error-msg)]
         (put! result-chan result)))
@@ -191,4 +191,17 @@
           (swap! app-state update :wines
                  (fn [wines]
                    (map #(if (= (:id %) id) updated-wine %) wines))))
+        (swap! app-state assoc :error (:error result))))))
+
+(defn update-wine-image [app-state wine-id image-data]
+  (go
+    (let [result (<! (PUT (str "/api/wines/" wine-id "/image")
+                       image-data
+                       "Failed to update wine image"))]
+      (if (:success result)
+        (let [updated-wine (:data result)]
+          ;; Update the wine in the list
+          (swap! app-state update :wines
+                 (fn [wines]
+                   (map #(if (= (:id %) wine-id) updated-wine %) wines))))
         (swap! app-state assoc :error (:error result))))))

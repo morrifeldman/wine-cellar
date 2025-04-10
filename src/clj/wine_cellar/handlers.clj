@@ -111,6 +111,18 @@
     (catch Exception e
       (server-error e))))
 
+(defn upload-wine-image [{{:keys [id]} :path-params
+                          {:keys [body]} :parameters}]
+  (tap> ["upload-wine-image" body])
+  (try
+    (if (api/get-wine (parse-long id))
+      (let [updated (api/update-wine-image! (parse-long id) body)]
+        (tap> ["updated wine image"])
+        (response/response updated))
+      (response/not-found {:error "Wine not found"}))
+    (catch Exception e
+      (server-error e))))
+
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine [{{:keys [id]} :path-params}]
   (try
