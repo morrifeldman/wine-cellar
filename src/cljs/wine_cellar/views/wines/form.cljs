@@ -6,6 +6,7 @@
             form-divider text-field currency-field
             number-field select-field
             smart-select-field year-field]]
+   [wine-cellar.views.components.image-upload :refer [image-upload]]
    [wine-cellar.utils.formatting
     :refer [valid-name-producer? unique-countries
             regions-for-country aocs-for-region
@@ -199,6 +200,15 @@
      [form-row
       [drink-from-year app-state new-wine]
       [drink-until-year app-state new-wine]]
+
+     ;; Wine Label Image Section
+     [form-divider "Wine Label Image"]
+
+     [form-row
+      [image-upload
+       {:image-data (get-in new-wine [:image-data :thumbnail])
+        :on-image-change #(swap! app-state assoc-in [:new-wine :image-data] %)
+        :on-image-remove #(swap! app-state update :new-wine dissoc :image-data)}]]
 
         ;; Additional Information Section
      [form-divider "Additional Information"]

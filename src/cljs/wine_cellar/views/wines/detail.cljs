@@ -8,6 +8,7 @@
                      editable-autocomplete-field
                      editable-classification-field
                      quantity-control]]
+            [wine-cellar.views.components.image-upload :refer [image-upload]]
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
             [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
             [wine-cellar.api :as api]
@@ -246,6 +247,18 @@
       [editable-region app-state wine]]]]
 
    [grid {:container true :spacing 3 :sx {:mb 4}}
+      ;; Wine Label Image
+    [grid {:item true :xs 12 :md 6}
+     [paper {:elevation 0
+             :sx {:p 2
+                  :bgcolor "rgba(0,0,0,0.02)"
+                  :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Wine Label"]
+      [image-upload
+       {:image-data (:label_thumbnail wine)
+        :on-image-change #(api/update-wine-image app-state (:id wine) %)
+        :on-image-remove #(api/update-wine-image app-state (:id wine) nil)}]]]
+
       ;; AOC/AVA
     [grid {:item true :xs 12 :md 6}
      [paper {:elevation 0
