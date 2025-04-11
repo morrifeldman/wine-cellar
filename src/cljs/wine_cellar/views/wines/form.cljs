@@ -206,9 +206,13 @@
 
      [form-row
       [image-upload
-       {:image-data (get-in new-wine [:image-data :thumbnail])
-        :on-image-change #(swap! app-state assoc-in [:new-wine :image-data] %)
-        :on-image-remove #(swap! app-state update :new-wine dissoc :image-data)}]]
+       {:image-data (:label_thumbnail new-wine)
+        :on-image-change #(swap! app-state update :new-wine merge %)
+        :on-image-remove #(swap! app-state update :new-wine
+                                 (fn [wine]
+                                   (-> wine
+                                       (dissoc :label_image)
+                                       (dissoc :label_thumbnail))))}]]
 
         ;; Additional Information Section
      [form-divider "Additional Information"]

@@ -146,8 +146,8 @@
                                    (create-thumbnail
                                     data-url
                                     (fn [thumbnail]
-                                      (on-capture {:full_image data-url
-                                                   :thumbnail thumbnail})))))))
+                                      (on-capture {:label_image data-url
+                                                   :label_thumbnail thumbnail})))))))
                   :sx {:mb 2}}
           "Take Photo"]])})))
 

@@ -41,10 +41,10 @@
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source string?)
-(s/def ::full_image string?)
-(s/def ::thumbnail string?)
+(s/def ::label_image string?)
+(s/def ::label_thumbnail string?)
 (s/def ::image-data
-  (s/nilable (s/keys :req-un [::full_image ::thumbnail])))
+  (s/nilable (s/keys :req-un [::label_image ::label_thumbnail])))
 
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer)
@@ -61,7 +61,8 @@
                    ::location
                    ::level
                    ::purveyor
-                   ::image-data
+                   ::label_image
+                   ::label_thumbnail
                    ::drink_from_year
                    ::drink_until_year]))
 
@@ -82,7 +83,8 @@
                     ::quantity
                     ::price
                     ::purveyor
-                    ::image-data
+                    ::label_image
+                    ::label_thumbnail
                     ::drink_from_year
                     ::drink_until_year)]
           :opt-un [::producer
@@ -100,7 +102,8 @@
                    ::quantity
                    ::price
                    ::purveyor
-                   ::image-data
+                   ::label_image
+                   ::label_thumbnail
                    ::drink_from_year
                    ::drink_until_year]))
 
@@ -170,7 +173,7 @@
                                                              :http-only true
                                                              :same-site :lax
                                                              :path "/"})))}}]
-   
+
    ["/api"
     {:middleware [auth/require-authentication]}
    ;; Wine Classification Routes
