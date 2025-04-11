@@ -236,8 +236,8 @@
 
 (defn wine-thumbnail [wine]
   [box {:sx {:mr 2
-             :width 100
-             :height 100
+             :width 120
+             :height 120
              :display "flex"
              :alignItems "center"
              :justifyContent "center"
@@ -261,11 +261,11 @@
                 :component "h3"
                 :sx {:fontSize "1rem"
                      :fontWeight "bold"
-                     :mb 0.5
-                     :lineHeight 1.2}}
+                     :mb 0.3  ;; Reduced margin
+                     :lineHeight 1.1}}  ;; Reduced line height
     (:producer wine)]
    [typography {:variant "body1"
-                :sx {:mb 0.5}}
+                :sx {:mb 0.3}}  ;; Reduced margin
     (:name wine)]
    [typography {:variant "body2"
                 :color "text.secondary"}
@@ -273,7 +273,7 @@
 
 (defn wine-header [wine]
   [box {:sx {:display "flex"
-             :mb 2}}
+             :mb 0}}  ;; Removed margin completely
    [wine-thumbnail wine]
    [wine-basic-info wine]])
 
@@ -281,7 +281,7 @@
   [grid {:item true :xs 12}
    [box {:sx {:display "flex"
               :alignItems "center"
-              :mb 0.5}}
+              :mb 0.3}}  ;; Reduced margin
     [typography {:variant "body2"
                  :color "text.secondary"
                  :sx {:mr 1
@@ -340,7 +340,7 @@
      (gstring/format "$%.2f" (or (:price wine) 0))]]])
 
 (defn wine-details-grid [wine]
-  [grid {:container true :spacing 1}
+  [grid {:container true :spacing 0.5}  ;; Reduced spacing
    [wine-region-info wine]
    [wine-style-info wine]
    [wine-classification-info wine]
@@ -392,7 +392,7 @@
 
 (defn wine-bottom-info [wine status drink-from-year drink-until-year]
   [box {:sx {:mt "auto"
-             :pt 1
+             :pt 0.5  ;; Reduced padding
              :borderTop "1px solid rgba(0,0,0,0.08)"
              :display "flex"
              :justifyContent "space-between"
@@ -433,7 +433,7 @@
   [box {:sx {:display "flex"
              :justifyContent "space-between"
              :alignItems "center"
-             :mt 2}}
+             :mt 1}}  ;; Reduced margin
    [wine-quantity-display app-state wine]
    [wine-action-buttons app-state wine]])
 
@@ -446,7 +446,7 @@
                              (when-let [date (:drink_until wine)]
                                (.getFullYear (js/Date. date))))]
     [paper {:elevation 2
-            :sx {:p 2
+            :sx {:p 1.5  ;; Reduced padding
                  :mb 2
                  :borderRadius 2
                  :position "relative"
@@ -466,7 +466,7 @@
      [wine-header wine]
      
      ;; Wine details
-     [box {:sx {:mb 2}}
+     [box {:sx {:mb 0}}  ;; Removed margin completely
       [wine-details-grid wine]
       
       ;; Bottom section with rating, tasting window
@@ -474,4 +474,3 @@
       
       ;; Quantity control and action buttons
       [wine-controls app-state wine]]]))
-
