@@ -1,138 +1,72 @@
 (ns wine-cellar.views.wines.list
-  (:require [goog.string :as gstring]
-            [goog.string.format]
-            [wine-cellar.views.components :refer [sortable-header quantity-control]]
+  (:require [goog.string.format]
+            [wine-cellar.views.components :refer
+             [wine-card get-rating-color]]
             [wine-cellar.views.wines.filters :refer [filter-bar]]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
-            [wine-cellar.api :as api]
-            [wine-cellar.utils.vintage :refer
-             [tasting-window-status
-              tasting-window-color]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
-            [reagent-mui.material.table :refer [table]]
-            [reagent-mui.material.table-container :refer [table-container]]
-            [reagent-mui.material.table-head :refer [table-head]]
-            [reagent-mui.material.table-body :refer [table-body]]
-            [reagent-mui.material.table-row :refer [table-row]]
-            [reagent-mui.material.table-cell :refer [table-cell]]
             [reagent-mui.material.collapse :refer [collapse]]
             [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.material.select :refer [select]]
+            [reagent-mui.material.menu-item :refer [menu-item]]
+            [reagent-mui.material.form-control :refer [form-control]]
             [reagent-mui.icons.expand-more :refer [expand-more]]
-            [reagent-mui.icons.expand-less :refer [expand-less]]))
+            [reagent-mui.icons.expand-less :refer [expand-less]]
+            [reagent-mui.icons.arrow-drop-up :refer [arrow-drop-up]]
+            [reagent-mui.icons.arrow-drop-down :refer [arrow-drop-down]]))
 
-(defn get-rating-color [rating]
-  (cond
-    (>= rating 90) "rating.high"
-    (>= rating 80) "rating.medium"
-    :else "rating.low"))
+;; Wine card components have been moved to components namespace
 
-(defn wine-table-row [app-state wine]
-  [table-row {:hover true
-              :sx {"&:last-child td, &:last-child th" {:border 0}}}
-   [table-cell 
-    [box {:sx {:display "flex" :alignItems "center"}}
-     (when (:label_thumbnail wine)
-       [box {:component "img"
-             :src (:label_thumbnail wine)
-             :sx {:width 40
-                  :height 40
-                  :mr 1
-                  :objectFit "contain"
-                  :borderRadius 1}}])
-     (:producer wine)]]
-   [table-cell (:name wine)]
-   [table-cell (:region wine)]
-   [table-cell (:aoc wine)]
-   [table-cell (:classification wine)]
-   [table-cell (:vintage wine)]
-   [table-cell (:style wine)]
-   [table-cell (:level wine)]
-   [table-cell
-    (if-let [rating (:latest_rating wine)]
-      [typography {:sx {:color (get-rating-color rating)
-                        :fontWeight "bold"}}
-       (str rating "/100")]
-      "-")]
-   [table-cell
-    (let [status (tasting-window-status wine)
-          drink-from-year (or (:drink_from_year wine)
-                              (when-let [date (:drink_from wine)]
-                                (.getFullYear (js/Date. date))))
-          drink-until-year (or (:drink_until_year wine)
-                               (when-let [date (:drink_until wine)]
-                                 (.getFullYear (js/Date. date))))]
-      [box {:sx {:color (tasting-window-color status)
-                 :fontWeight "medium"
-                 :display "flex"
-                 :flexDirection "column"
-                 :alignItems "center"}}
-       (when drink-from-year
-         [typography {:variant "body2"
-                      :sx {:lineHeight 1.2}}
-          (str drink-from-year)])
-       (when (and drink-from-year drink-until-year)
-         [typography {:variant "body2"
-                      :sx {:lineHeight 1.2}}
-          "—"])
-       (when drink-until-year
-         [typography {:variant "body2"
-                      :sx {:lineHeight 1.2}}
-          (str drink-until-year)])])]
-   [table-cell (:location wine)]
-   [table-cell
-    [quantity-control app-state (:id wine) (:quantity wine)]]
-   [table-cell (gstring/format "$%.2f" (or (:price wine) 0))]
-   [table-cell
-    {:align "right"}
-    [box {:display "flex"
-          :flexDirection "column"
-          :alignItems "flex-end"}
+(defn sort-control [app-state]
+  (let [sort-state (:sort @app-state)
+        current-field (:field sort-state)
+        current-direction (:direction sort-state)]
+    [box {:sx {:mb 2 :display "flex" :alignItems "center"}}
+     [typography {:variant "body2" :color "text.secondary" :sx {:mr 2}}
+      "Sort by:"]
+     [form-control {:size "small" :sx {:minWidth 120 :mr 2}}
+      [select
+       {:value (or current-field "producer")
+        :size "small"
+        :onChange #(swap! app-state update :sort
+                          (fn [sort]
+                            (let [new-field (keyword (.. % -target -value))]
+                              (if (= new-field (:field sort))
+                                sort
+                                {:field new-field :direction :asc}))))}
+       [menu-item {:value "producer"} "Producer"]
+       [menu-item {:value "name"} "Name"]
+       [menu-item {:value "vintage"} "Vintage"]
+       [menu-item {:value "region"} "Region"]
+       [menu-item {:value "latest_rating"} "Rating"]
+       [menu-item {:value "quantity"} "Quantity"]
+       [menu-item {:value "price"} "Price"]]]
+     
      [button
       {:variant "outlined"
-       :color "primary"
        :size "small"
-       :sx {:mb 1}
-       :onClick #(do
-                   (swap! app-state assoc :selected-wine-id (:id wine))
-                   (swap! app-state assoc :new-tasting-note {})
-                   (api/fetch-tasting-notes app-state (:id wine))
-                   (api/fetch-wine-details app-state (:id wine)))}
-      "View"]
-     [button
-      {:variant "outlined"
-       :color "error"
-       :size "small"
-       :onClick #(api/delete-wine app-state (:id wine))}
-      "Delete"]]]])
+       :onClick #(swap! app-state update-in [:sort :direction]
+                        (fn [dir] (if (= :asc dir) :desc :asc)))}
+      (if (= :asc current-direction)
+        [box {:sx {:display "flex" :alignItems "center"}}
+         "Ascending " [arrow-drop-up {:sx {:ml 0.5}}]]
+        [box {:sx {:display "flex" :alignItems "center"}}
+         "Descending " [arrow-drop-down {:sx {:ml 0.5}}]])]]))
 
-(defn wine-table [app-state wines]
-  [table-container
-   [table {:sx {:min-width 1200}}
-    [table-head
-     [table-row
-      [sortable-header app-state "Producer" :producer]
-      [sortable-header app-state "Name" :name]
-      [sortable-header app-state "Region" :region]
-      [sortable-header app-state "AOC" :aoc]
-      [sortable-header app-state "Classification" :classification]
-      [sortable-header app-state "Vintage" :vintage]
-      [table-cell "Style"]
-      [sortable-header app-state "Level" :level]
-      [sortable-header app-state "Last Rating" :latest_rating]
-      [table-cell "Tasting Window"]
-      [sortable-header app-state "Location" :location]
-      [sortable-header app-state "Quantity" :quantity]
-      [sortable-header app-state "Price" :price]
-      [table-cell {:align "right"} "Actions"]]]
-    [table-body
-     (for [wine wines]
-       ^{:key (:id wine)}
-       [wine-table-row app-state wine])]]])
+(defn wine-card-grid [app-state wines]
+  [box
+   [sort-control app-state]
+   [grid {:container true 
+          :spacing 2}
+    (for [wine wines]
+      ^{:key (:id wine)}
+      [grid {:item true :xs 12 :sm 6 :md 4 :lg 3}
+       [wine-card app-state wine]])]])
 
 (defn wine-stats [app-state]
   (let [wines (:wines @app-state)
@@ -199,10 +133,10 @@
        [box
         [wine-stats app-state]
 
-        ;; Wine details view or table with filtering
+        ;; Wine details view or card grid with filtering
         (if (:selected-wine-id @app-state)
           [:div] ;; Wine details are rendered separately
           [paper {:elevation 3 :sx {:p 2 :mb 3}}
            [filter-bar app-state]
-           [wine-table app-state (filtered-sorted-wines app-state)]])]))])
+           [wine-card-grid app-state (filtered-sorted-wines app-state)]])]))])
 
