@@ -5,7 +5,6 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
-            [reagent-mui.icons.upload :refer [upload]]
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.close :refer [close]]))
 
@@ -174,8 +173,8 @@
               :startIcon (r/as-element [delete])}
       "Remove Image"])])
 
-;; Upload controls component
-(defn render-upload-controls [file-input-id uploading show-camera disabled]
+;; Camera controls component
+(defn render-camera-controls [uploading show-camera disabled]
   [box {:sx {:display "flex"
              :flexDirection "column"
              :alignItems "center"
@@ -189,26 +188,14 @@
                      :textAlign "center"}}
     "Add a wine label image"]
 
-   [box {:sx {:display "flex"
-              :gap 2}}
-
-    ;; Camera button
-    [button {:variant "outlined"
-             :color "primary"
-             :disabled (or disabled @uploading)
-             :onClick #(reset! show-camera true)
-             :startIcon (r/as-element [camera-alt])
-             :size "small"}
-     "Take Photo"]
-
-    ;; Upload button
-    [button {:variant "outlined"
-             :color "primary"
-             :disabled (or disabled @uploading)
-             :onClick #(.click (.getElementById js/document file-input-id))
-             :startIcon (r/as-element [upload])
-             :size "small"}
-     "Upload Image"]]
+   ;; Camera button
+   [button {:variant "contained"
+            :color "primary"
+            :disabled (or disabled @uploading)
+            :onClick #(reset! show-camera true)
+            :startIcon (r/as-element [camera-alt])
+            :size "medium"}
+    "Take Photo"]
 
    ;; Loading indicator
    (when @uploading
@@ -229,8 +216,7 @@
    - disabled: Whether the upload controls should be disabled"
   [{:keys [image-data on-image-change on-image-remove disabled]}]
   (let [show-camera (r/atom false)
-        uploading (r/atom false)
-        file-input-id (str "file-input-" (gensym))]
+        uploading (r/atom false)]
 
     (fn [{:keys [image-data on-image-change on-image-remove disabled]}]
       [box {:sx {:width "100%"}}
@@ -243,28 +229,11 @@
             (on-image-change image-data))
           #(reset! show-camera false)])
 
-       ;; Image preview or upload controls
+       ;; Image preview or camera controls
        (if image-data
          ;; Show image with remove button
          [render-image-preview image-data on-image-remove disabled]
 
-         ;; Show upload controls
-         [box
-          ;; Hidden file input
-          [:input {:type "file"
-                   :id file-input-id
-                   :accept "image/*"
-                   :style {:display "none"}
-                   :disabled disabled
-                   :on-change (fn [e]
-                                (let [file (-> e .-target .-files (aget 0))]
-                                  (when file
-                                    (reset! uploading true)
-                                    (process-file
-                                     file
-                                     (fn [image-data]
-                                       (reset! uploading false)
-                                       (on-image-change image-data))))))}]
-
-          [render-upload-controls file-input-id uploading show-camera disabled]])])))
+         ;; Show camera controls
+         [render-camera-controls uploading show-camera disabled])])))
 

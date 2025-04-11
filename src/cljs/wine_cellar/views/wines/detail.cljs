@@ -255,7 +255,7 @@
                   :borderRadius 1}}
       [typography {:variant "body2" :color "text.secondary"} "Wine Label"]
       [image-upload
-       {:image-data (:label_thumbnail wine)
+       {:image-data (:label_image wine)
         :on-image-change #(api/update-wine-image app-state (:id wine) %)
         :on-image-remove #(api/update-wine-image app-state (:id wine) nil)}]]]
 
@@ -356,19 +356,28 @@
      [tasting-notes-list app-state (:id wine)]
      [tasting-note-form app-state (:id wine)]]]])
 
-(defn wine-details-section [app-state]
+(defn wine-details-section
+  [app-state]
   (when-let [selected-wine-id (:selected-wine-id @app-state)]
     (when-let [selected-wine (first (filter #(= (:id %) selected-wine-id)
-                                            (:wines @app-state)))]
-      [box {:sx {:mb 3}}
-       [wine-detail app-state selected-wine]
+                                      (:wines @app-state)))]
+      ;; No longer fetch wine details here - it should be done when clicking the "View" button
+      [box {:sx {:mb 3}} [wine-detail app-state selected-wine]
        [button
-        {:variant "contained"
-         :color "primary"
-         :start-icon (r/as-element [arrow-back])
-         :sx {:mt 2}
-         :onClick #(do
+        {:variant "contained",
+         :color "primary",
+         :start-icon (r/as-element [arrow-back]),
+         :sx {:mt 2},
+         :onClick #(do 
+                     ;; Clean up the selected wine's image data when navigating away
+                     (swap! app-state update :wines
+                            (fn [wines]
+                              (map (fn [wine]
+                                     (if (= (:id wine) selected-wine-id)
+                                       (dissoc wine :label_image)
+                                       wine))
+                                   wines)))
+                     ;; Remove selected wine ID and tasting notes
                      (swap! app-state dissoc :selected-wine-id :tasting-notes)
                      (swap! app-state assoc :new-tasting-note {}))}
-        "Back to List"]])))
-
+        "Back to List"]]))))

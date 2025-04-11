@@ -34,7 +34,17 @@
 (defn wine-table-row [app-state wine]
   [table-row {:hover true
               :sx {"&:last-child td, &:last-child th" {:border 0}}}
-   [table-cell (:producer wine)]
+   [table-cell 
+    [box {:sx {:display "flex" :alignItems "center"}}
+     (when (:label_thumbnail wine)
+       [box {:component "img"
+             :src (:label_thumbnail wine)
+             :sx {:width 40
+                  :height 40
+                  :mr 1
+                  :objectFit "contain"
+                  :borderRadius 1}}])
+     (:producer wine)]]
    [table-cell (:name wine)]
    [table-cell (:region wine)]
    [table-cell (:aoc wine)]
@@ -90,7 +100,8 @@
        :onClick #(do
                    (swap! app-state assoc :selected-wine-id (:id wine))
                    (swap! app-state assoc :new-tasting-note {})
-                   (api/fetch-tasting-notes app-state (:id wine)))}
+                   (api/fetch-tasting-notes app-state (:id wine))
+                   (api/fetch-wine-details app-state (:id wine)))}
       "View"]
      [button
       {:variant "outlined"

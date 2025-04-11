@@ -206,7 +206,7 @@
 
      [form-row
       [image-upload
-       {:image-data (:label_thumbnail new-wine)
+       {:image-data (:label_image new-wine)
         :on-image-change #(swap! app-state update :new-wine merge %)
         :on-image-remove #(swap! app-state update :new-wine
                                  (fn [wine]

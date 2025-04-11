@@ -35,14 +35,6 @@
     (catch Exception e
       (server-error e))))
 
-;; Wine Handlers
-(defn get-all-wines [_]
-  (try
-    (let [wines (api/get-all-wines)]
-      (response/response wines))
-    (catch Exception e
-      (server-error e))))
-
 (defn get-all-wines-with-ratings [_]
   (try
     (let [wines (api/get-all-wines-with-ratings)]

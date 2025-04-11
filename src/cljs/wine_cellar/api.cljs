@@ -96,6 +96,19 @@
                  :error (:error result)
                  :loading? false))))))
 
+(defn fetch-wine-details [app-state wine-id]
+  (go
+    (let [result (<! (GET (str "/api/wines/" wine-id) "Failed to fetch wine details"))]
+      (if (:success result)
+        (let [wine-with-details (:data result)]
+          ;; Update the wine in the list with full details including the full image
+          (swap! app-state update :wines
+                 (fn [wines]
+                   (map #(if (= (:id %) wine-id) wine-with-details %) wines)))
+          ;; Set as selected wine
+          (swap! app-state assoc :selected-wine-id wine-id))
+        (swap! app-state assoc :error (:error result))))))
+
 (defn create-wine [app-state wine]
   (js/console.log "Sending wine data:" (clj->js wine))
   (go
