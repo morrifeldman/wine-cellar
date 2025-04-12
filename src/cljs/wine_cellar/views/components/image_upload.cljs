@@ -77,7 +77,7 @@
      {:component-did-mount
       (fn []
         (-> (js/navigator.mediaDevices.getUserMedia
-             #js {:video true})
+             #js {:video #js {:facingMode "environment"}})  ;; Use rear camera
             (.then
              (fn [stream]
                (reset! stream-ref stream)
