@@ -7,39 +7,37 @@
             [reagent-mui.styles :refer [theme-provider]]))
 
 (defonce app-state
-  (r/atom {:wines []
-           :classifications []
-           :new-wine {}
-           :error nil
-           :loading? false
-           :selected-wine-id nil
-           :show-out-of-stock? false
-           :show-wine-form? false
-           :show-stats? false
-           :show-filters? false
-           :tasting-notes []
-           :new-tasting-note {}
-           :sort {:field nil :direction :asc}
-           :filters {:search "" :country nil :region nil :style nil}}))
+  (r/atom {:wines [],
+           :classifications [],
+           :new-wine {},
+           :error nil,
+           :loading? false,
+           :selected-wine-id nil,
+           :show-out-of-stock? false,
+           :show-wine-form? false,
+           :show-stats? false,
+           :show-filters? false,
+           :tasting-notes [],
+           :new-tasting-note {},
+           :sort {:field nil, :direction :asc},
+           :filters {:search "", :country nil, :region nil, :style nil}}))
 
-(add-watch app-state :tap
-           (fn [_ _ _ new-state]
-             (tap> new-state)))
+(add-watch app-state :tap (fn [_ _ _ new-state] (tap> new-state)))
 
 (defonce root (atom nil))
 
 ;; Initialize app
-(defn init []
+(defn init
+  []
   (js/console.log "Initializing app...")
   (api/fetch-wines app-state)
-  (api/fetch-classifications app-state)  ;; Load classifications at startup
+  (api/fetch-classifications app-state) ;; Load classifications at startup
   (when-let [container (.getElementById js/document "app")]
-    (when (nil? @root)
-      (reset! root (createRoot container)))
-    (.render @root (r/as-element [theme-provider wine-theme
-                                  [views/main-app app-state]]))))
+    (when (nil? @root) (reset! root (createRoot container)))
+    (.render @root
+             (r/as-element [theme-provider wine-theme
+                            [views/main-app app-state]]))))
 
 ;; Start the app when loaded
-(defn ^:export main []
-  (init))
+(defn ^:export main [] (init))
 
