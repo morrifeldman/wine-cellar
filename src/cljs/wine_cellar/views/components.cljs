@@ -19,6 +19,7 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.grid :refer [grid]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
             [wine-cellar.utils.formatting :as formatting]
             [wine-cellar.utils.vintage :refer
              [tasting-window-status tasting-window-color]]
@@ -83,7 +84,8 @@
     :or {empty-text "Not specified"}}]
   (let [editing (r/atom false)
         field-value (r/atom value)
-        field-error (r/atom nil)]
+        field-error (r/atom nil)
+        saving (r/atom false)]
     (fn [{:keys [value on-save validate-fn empty-text render-input-fn],
           :or {empty-text "Not specified"}}]
       (if @editing
@@ -99,17 +101,28 @@
           [icon-button
            {:color "primary",
             :size "small",
-            :disabled (boolean @field-error),
+            :disabled (or (boolean @field-error) @saving),
             :onClick
               (fn []
                 (let [error (when validate-fn (validate-fn @field-value))]
                   (if error
                     (reset! field-error error)
-                    (do (on-save @field-value) (reset! editing false)))))}
-           [save]]
+                    (do 
+                      (reset! saving true)
+                      (-> (on-save @field-value)
+                          (.then #(do
+                                    (reset! saving false)
+                                    (reset! editing false)))
+                          (.catch #(do
+                                     (reset! saving false)
+                                     (reset! field-error "Save failed"))))))))}
+           (if @saving
+             [reagent-mui.material.circular-progress {:size 20}]
+             [save])]
           [icon-button
            {:color "secondary",
             :size "small",
+            :disabled @saving,
             :onClick (fn []
                        (reset! field-value value)
                        (reset! field-error nil)
@@ -124,7 +137,7 @@
           (if (or (nil? value) (str/blank? value)) empty-text value)]
          [icon-button
           {:color "primary", :size "small", :onClick #(reset! editing true)}
-          [edit]]]))))
+          [edit]]])))
 
 ;; Specific field implementations
 (defn editable-text-field
@@ -441,4 +454,4 @@
       ;; Bottom section with rating, tasting window
       [wine-bottom-info wine status drink-from-year drink-until-year]
       ;; Quantity control and action buttons
-      [wine-controls app-state wine]]]))
+      [wine-controls app-state wine]]])))

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Pre-commit hook to format Clojure files
+# Place this file in .git/hooks/pre-commit and make it executable
+
+# Get all staged Clojure files
+files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(clj|cljs|cljc)$')
+
+if [ -n "$files" ]; then
+  echo "Formatting Clojure files..."
+  
+  # Format each file
+  for file in $files; do
+    ./scripts/format-clj.sh "$file"
+    git add "$file"
+  done
+fi
+
+exit 0

@@ -1,0 +1,8 @@
+{:style :community
+ :map {:comma? false}
+ :width 80
+ :fn-map {"defroutes" [:arg1-body [[:arg1-body {:list {:hang? false}}] :flow]]}
+ :binding {:justify? true}
+ :pair {:justify? true}
+ :vector {:respect-nl? true}
+ :list {:respect-nl? true}}

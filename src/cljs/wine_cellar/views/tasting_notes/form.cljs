@@ -15,7 +15,8 @@
   (let [wine (first (filter #(= (:id %) wine-id) (:wines @app-state)))
         current-drink-from (:drink_from_year wine)
         current-drink-until (:drink_until_year wine)
-        new-note (:new-tasting-note @app-state)]
+        new-note (:new-tasting-note @app-state)
+        submitting? (:submitting-note? @app-state)]
     ;; Initialize or update the tasting window fields with current values
     ;; from the wine. We need to update in these cases:
     ;; 1. First time initialization (fields are nil)
@@ -42,6 +43,7 @@
        {:title "Add Tasting Note",
         :on-submit
           #(do
+             (swap! app-state assoc :submitting-note? true)
              ;; First update the tasting window if changed
              (when (or (not= (:drink_from_year updated-note) current-drink-from)
                        (not= (:drink_until_year updated-note)
@@ -177,5 +179,6 @@
                                                          (js/parseInt % 10)))
                               (assoc :form-edited true))))}]]
        ;; Submit button
-       [form-actions {:submit-text "Add Note"}]])))
+       [form-actions {:submit-text "Add Note"
+                      :loading? submitting?}]])))
 

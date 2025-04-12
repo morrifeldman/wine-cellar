@@ -18,6 +18,7 @@
     [reagent-mui.material.slider :refer [slider]]
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.autocomplete :refer [autocomplete]]
+    [reagent-mui.material.circular-progress :refer [circular-progress]]
     [reagent-mui.util :refer [react-component]]))
 
 ;; Form container components
@@ -62,7 +63,7 @@
 
 (defn form-actions
   "Standard form action buttons (submit, cancel) with consistent styling"
-  [{:keys [on-submit on-cancel submit-text cancel-text disabled]}]
+  [{:keys [on-submit on-cancel submit-text cancel-text disabled loading?]}]
   [grid
    {:item true,
     :xs 12,
@@ -76,6 +77,7 @@
       {:variant "outlined",
        :color "secondary",
        :onClick on-cancel,
+       :disabled loading?,
        :size "small", ;; Added small size
        :sx {:mr 1.5, ;; Reduced from mr 2
             :px 2}}  ;; Reduced from px 3
@@ -85,9 +87,15 @@
      :variant "contained",
      :color "primary",
      :size "small", ;; Added small size
-     :disabled disabled,
+     :disabled (or disabled loading?),
      :sx {:px 2}, ;; Reduced from px 3
-     :onClick (when on-submit on-submit)} (or submit-text "Submit")]])
+     :startIcon (when loading? 
+                  (r/as-element 
+                    [circular-progress 
+                     {:size 16 
+                      :color "inherit"}])),
+     :onClick (when on-submit on-submit)} 
+    (if loading? "Submitting..." (or submit-text "Submit"))]])
 
 (defn form-row
   "A row in a form with consistent spacing"

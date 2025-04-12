@@ -113,8 +113,12 @@
           (do (fetch-wines app-state)
               (fetch-classifications app-state) ;; Refresh classifications
                                                 ;; after adding a wine
-              (swap! app-state assoc :new-wine {}))
-          (swap! app-state assoc :error (:error result))))))
+              (swap! app-state assoc 
+                     :new-wine {}
+                     :submitting-wine? false))
+          (swap! app-state assoc 
+                 :error (:error result)
+                 :submitting-wine? false)))))
 
 (defn delete-wine
   [app-state id]
@@ -141,8 +145,12 @@
                              "Failed to create tasting note"))]
         (if (:success result)
           (do (swap! app-state update :tasting-notes conj (:data result))
-              (swap! app-state assoc :new-tasting-note {}))
-          (swap! app-state assoc :error (:error result))))))
+              (swap! app-state assoc 
+                     :new-tasting-note {}
+                     :submitting-note? false))
+          (swap! app-state assoc 
+                 :error (:error result)
+                 :submitting-note? false)))))
 
 (defn update-tasting-note
   [app-state wine-id note-id note]
@@ -195,15 +203,24 @@
 
 (defn update-wine
   [app-state id updates]
-  (go (let [result
-              (<! (PUT (str "/api/wines/" id) updates "Failed to update wine"))]
-        (if (:success result)
-          (let [updated-wine (:data result)]
-            ;; Update the wine in the list
-            (swap! app-state update
-              :wines
-              (fn [wines] (map #(if (= (:id %) id) updated-wine %) wines))))
-          (swap! app-state assoc :error (:error result))))))
+  (let [promise (js/Promise. 
+                  (fn [resolve reject]
+                    (go 
+                      (let [result (<! (PUT (str "/api/wines/" id) 
+                                            updates 
+                                            "Failed to update wine"))]
+                        (if (:success result)
+                          (let [updated-wine (:data result)]
+                            ;; Update the wine in the list
+                            (swap! app-state update
+                              :wines
+                              (fn [wines] 
+                                (map #(if (= (:id %) id) updated-wine %) wines)))
+                            (resolve updated-wine))
+                          (do
+                            (swap! app-state assoc :error (:error result))
+                            (reject (:error result))))))))]
+    promise))
 
 (defn update-wine-image
   [app-state wine-id image-data]

@@ -72,6 +72,7 @@
   [app-state]
   (let [new-wine (:new-wine @app-state)
         classifications (:classifications @app-state)
+        submitting? (:submitting-wine? @app-state)
         validate-wine
           (fn []
             (cond (not (valid-name-producer? new-wine))
@@ -96,14 +97,16 @@
         submit-handler (fn []
                          (if-let [error (validate-wine)]
                            (swap! app-state assoc :error error)
-                           (api/create-wine
-                             app-state
-                             (-> new-wine
-                                 (update :price js/parseFloat)
-                                 (update :vintage (fn [v] (js/parseInt v 10)))
-                                 (update :quantity (fn [q] (js/parseInt q 10)))
-                                 (assoc :create-classification-if-needed
-                                          true)))))]
+                           (do
+                             (swap! app-state assoc :submitting-wine? true)
+                             (api/create-wine
+                               app-state
+                               (-> new-wine
+                                   (update :price js/parseFloat)
+                                   (update :vintage (fn [v] (js/parseInt v 10)))
+                                   (update :quantity (fn [q] (js/parseInt q 10)))
+                                   (assoc :create-classification-if-needed
+                                            true))))))]
     [form-container {:title "Add New Wine", :on-submit submit-handler}
      ;; Basic Information Section
      [form-divider "Basic Information"]
@@ -215,4 +218,5 @@
      [form-actions
       {:submit-text "Add Wine",
        :cancel-text "Cancel",
+       :loading? submitting?,
        :on-cancel #(swap! app-state assoc :show-wine-form? false)}]]))
