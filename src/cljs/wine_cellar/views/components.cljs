@@ -266,7 +266,7 @@
    [typography {:variant "body1", :sx {:mb 0.3}} ;; Reduced margin
     (:name wine)]
    [typography {:variant "body2", :color "text.secondary"}
-    (str (:vintage wine))]])
+    (if (:vintage wine) (str (:vintage wine)) "NV")]])
 
 (defn wine-header
   [wine]

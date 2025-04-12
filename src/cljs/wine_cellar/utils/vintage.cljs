@@ -90,12 +90,14 @@
     (map #(str (+ 1900 (* % 10))) (range 9 -1 -1))))
 
 (defn valid-vintage?
-  "Vailidates that a vintage is a valid year (between 1800 and current year)"
+  "Validates that a vintage is a valid year (between 1800 and current year) or nil for NV"
   [year]
-  (cond (js/isNaN year) "Vintage must be a valid year"
-        (< year 1800) "Vintage must be after 1800"
-        (> year (current-year)) "Vintage cannot be in the future"
-        :else nil))
+  (cond 
+    (nil? year) nil  ; nil is valid for NV wines
+    (js/isNaN year) "Vintage must be a valid year or NV"
+    (< year 1800) "Vintage must be after 1800"
+    (> year (current-year)) "Vintage cannot be in the future"
+    :else nil))
 
 (defn valid-tasting-year?
   [year]

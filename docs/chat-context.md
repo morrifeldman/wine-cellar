@@ -22,9 +22,9 @@ experience.  Nonetheless, I don't generally need any code comments.
 
 # Source Code Structure
 
+
 .
 ├── automation
-│   ├── deploy-to-fly.sh
 │   └── postgresql.yml
 ├── deps.edn
 ├── dev
@@ -39,7 +39,14 @@ experience.  Nonetheless, I don't generally need any code comments.
 ├── package.json
 ├── package-lock.json
 ├── public
-│   └── index.html
+│   ├── apple-touch-icon.png
+│   ├── favicon-96x96.png
+│   ├── favicon.ico
+│   ├── favicon.svg
+│   ├── index.html
+│   ├── site.webmanifest
+│   ├── web-app-manifest-192x192.png
+│   └── web-app-manifest-512x512.png
 ├── README.md
 ├── resources
 │   └── wine-classifications.edn
@@ -47,6 +54,10 @@ experience.  Nonetheless, I don't generally need any code comments.
 └── src
     ├── clj
     │   └── wine_cellar
+    │       ├── auth
+    │       │   ├── config.clj
+    │       │   └── core.clj
+    │       ├── config_utils.clj
     │       ├── db
     │       │   ├── api.clj
     │       │   ├── schema.clj
@@ -71,7 +82,8 @@ experience.  Nonetheless, I don't generally need any code comments.
                 ├── classifications
                 │   └── form.cljs
                 ├── components
-                │   └── form.cljs
+                │   ├── form.cljs
+                │   └── image_upload.cljs
                 ├── components.cljs
                 ├── main.cljs
                 ├── tasting_notes
@@ -83,7 +95,7 @@ experience.  Nonetheless, I don't generally need any code comments.
                     ├── form.cljs
                     └── list.cljs
 
-20 directories, 40 files
+21 directories, 50 files
 
 ## Technical Stack
 - Backend: Clojure
@@ -93,6 +105,9 @@ experience.  Nonetheless, I don't generally need any code comments.
 - Build Tool: Shadow-cljs
 - Clojure: tools.deps
 - Editor: Neovim
+
+## Deployment
+- Fly.io with "unmanaged" postgres
 
 # Next tasks
 

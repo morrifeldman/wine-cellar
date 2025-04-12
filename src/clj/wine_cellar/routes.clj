@@ -26,7 +26,7 @@
 (s/def ::classification string?)
 (s/def ::vineyard string?)
 (s/def ::name string?)
-(s/def ::vintage int?)
+(s/def ::vintage (s/nilable int?))
 (s/def ::style (set common/wine-styles))
 (s/def ::level (s/nilable (set common/wine-levels)))
 (s/def ::levels (s/coll-of (set common/wine-levels)))
@@ -47,11 +47,11 @@
   (s/nilable (s/keys :req-un [::label_image ::label_thumbnail])))
 
 (def wine-schema
-  (s/keys :req-un [(or ::name ::producer) ::country ::region ::vintage ::style
+  (s/keys :req-un [(or ::name ::producer) ::country ::region ::style
                    ::quantity ::price]
           :opt-un [::aoc ::communal_aoc ::classification ::vineyard ::location
                    ::level ::purveyor ::label_image ::label_thumbnail
-                   ::drink_from_year ::drink_until_year]))
+                   ::drink_from_year ::drink_until_year ::vintage]))
 
 (def wine-update-schema
   (s/keys :req-un [(or ::producer

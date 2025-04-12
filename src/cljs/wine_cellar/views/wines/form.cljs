@@ -16,16 +16,21 @@
   [app-state new-wine]
   [year-field
    {:label "Vintage",
-    :required true,
+    :required false,
     :free-solo true,
     :value (:vintage new-wine),
-    :error (boolean (vintage/valid-vintage? (:vintage new-wine))),
-    :helper-text (some-> (:vintage new-wine)
-                         (vintage/valid-vintage?)),
-    :options (vintage/default-vintage-years),
+    :error (when (:vintage new-wine) 
+             (boolean (vintage/valid-vintage? (:vintage new-wine)))),
+    :helper-text (if (:vintage new-wine)
+                   (vintage/valid-vintage? (:vintage new-wine))
+                   "Leave empty for non-vintage (NV) wines"),
+    :options (concat ["NV"] (vintage/default-vintage-years)),
     :on-change #(swap! app-state assoc-in
                   [:new-wine :vintage]
-                  (when-not (empty? %) (js/parseInt % 10)))}])
+                  (cond
+                    (empty? %) nil
+                    (= % "NV") nil
+                    :else (js/parseInt % 10)))}])
 
 (defn drink-from-year
   [app-state new-wine]
@@ -73,7 +78,8 @@
                     "Either Wine Name or Producer must be provided"
                   (empty? (:country new-wine)) "Country is required"
                   (empty? (:region new-wine)) "Region is required"
-                  (not (nil? (vintage/valid-vintage? (:vintage new-wine))))
+                  (and (:vintage new-wine) 
+                       (not (nil? (vintage/valid-vintage? (:vintage new-wine)))))
                     (vintage/valid-vintage? (:vintage new-wine))
                   (empty? (:style new-wine)) "Style is required"
                   (nil? (:quantity new-wine)) "Quantity is required"

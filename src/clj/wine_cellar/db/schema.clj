@@ -37,7 +37,7 @@
                   [:country :varchar [:not nil]] [:region :varchar [:not nil]]
                   [:aoc :varchar] [:communal_aoc :varchar]
                   [:classification :varchar] [:vineyard :varchar]
-                  [:level :wine_level] [:name :varchar] [:vintage :integer]
+                  [:level :wine_level] [:name :varchar] [:vintage :integer :null]
                   [:style :wine_style] [:location :varchar] [:purveyor :varchar]
                   [:quantity :integer [:not nil] [:default 0]]
                   [:price :decimal [10 2]] [:drink_from_year :integer]

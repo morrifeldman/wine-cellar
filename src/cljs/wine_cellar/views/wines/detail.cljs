@@ -83,18 +83,24 @@
 
 (defn editable-vintage
   [app-state wine]
-  [editable-text-field
-   {:value (str (:vintage wine)),
+  [editable-autocomplete-field
+   {:value (if (:vintage wine) (str (:vintage wine)) "NV"),
+    :options (concat ["NV"] (vintage/default-vintage-years)),
+    :free-solo true,
     :on-save
       (fn [new-value]
-        (let [parsed-vintage (js/parseInt new-value 10)]
-          (when-not (vintage/valid-vintage? parsed-vintage)
-            (api/update-wine app-state (:id wine) {:vintage parsed-vintage})))),
+        (let [vintage-value (cond
+                              (empty? new-value) nil
+                              (= new-value "NV") nil
+                              :else (js/parseInt new-value 10))]
+          (api/update-wine app-state (:id wine) {:vintage vintage-value}))),
     :validate-fn (fn [value]
-                   (let [parsed (js/parseInt value 10)]
-                     (vintage/valid-vintage? parsed))),
-    :empty-text "Add vintage",
-    :text-field-props {:type "number"}}])
+                   (cond
+                     (empty? value) nil
+                     (= value "NV") nil
+                     :else (let [parsed (js/parseInt value 10)]
+                             (vintage/valid-vintage? parsed)))),
+    :empty-text "Add vintage"}])
 
 (defn editable-country
   [app-state wine]
