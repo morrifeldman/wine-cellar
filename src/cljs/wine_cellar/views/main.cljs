@@ -11,33 +11,31 @@
 
 (defn control-buttons
   [app-state]
-  [box {:sx {:display "flex", :justifyContent "space-between", :mb 2}}
+  [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
    [toggle-button
-    {:app-state app-state,
-     :path [:show-wine-form?],
-     :show-text "Add New Wine",
+    {:app-state app-state
+     :path [:show-wine-form?]
+     :show-text "Add New Wine"
      :hide-text "Show Wine List"}]
-   [button {:variant "outlined", :color "secondary", :onClick #(api/logout)}
+   [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
     "Logout"]])
 
 (defn main-app
   [app-state]
-  [box {:sx {:p 3, :maxWidth "1200px", :mx "auto"}}
+  [box {:sx {:p 3 :maxWidth "1200px" :mx "auto"}}
    [box
-    {:sx {:textAlign "center",
-          :mb 4,
-          :pb 3,
+    {:sx {:textAlign "center"
+          :mb 4
+          :pb 3
           :borderBottom "1px solid rgba(0,0,0,0.08)"}}
     [typography
-     {:variant "h2",
-      :component "h1",
-      :sx {:fontWeight 300, :color "primary.main"}} "Wine Cellar"]
-    [typography {:variant "subtitle1", :color "text.secondary", :sx {:mt 1}}
+     {:variant "h2" :component "h1" :sx {:fontWeight 300 :color "primary.main"}}
+     "Wine Cellar"]
+    [typography {:variant "subtitle1" :color "text.secondary" :sx {:mt 1}}
      "Track your collection, tastings, and memories"]]
    (when-let [error (:error @app-state)]
      [paper
-      {:elevation 3,
-       :sx {:p 2, :mb 3, :bgcolor "error.light", :color "error.dark"}}
+      {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
       [typography {:variant "body1"} error]])
    (cond
      ;; If a wine is selected, show the details section

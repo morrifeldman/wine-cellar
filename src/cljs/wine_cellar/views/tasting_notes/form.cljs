@@ -40,10 +40,9 @@
     (let [updated-note (:new-tasting-note @app-state)
           is-external (boolean (:is_external updated-note))]
       [form-container
-       {:title "Add Tasting Note",
+       {:title "Add Tasting Note"
         :on-submit
-          #(do
-             (swap! app-state assoc :submitting-note? true)
+        #(do (swap! app-state assoc :submitting-note? true)
              ;; First update the tasting window if changed
              (when (or (not= (:drink_from_year updated-note) current-drink-from)
                        (not= (:drink_until_year updated-note)
@@ -55,21 +54,21 @@
                                               :drink_until_year])))
              ;; Then create the tasting note
              (api/create-tasting-note
-               app-state
-               wine-id
-               (-> updated-note
-                   (update :rating (fn [r] (if (string? r) (js/parseInt r) r)))
-                   (dissoc :drink_from_year
-                           :drink_until_year
-                           :wine-id
-                           :form-edited
-                           :last-known-drink-from
-                           :last-known-drink-until))))}
+              app-state
+              wine-id
+              (-> updated-note
+                  (update :rating (fn [r] (if (string? r) (js/parseInt r) r)))
+                  (dissoc :drink_from_year
+                          :drink_until_year
+                          :wine-id
+                          :form-edited
+                          :last-known-drink-from
+                          :last-known-drink-until))))}
        ;; External note toggle
        [form-row
         [checkbox-field
-         {:label "External Tasting Note",
-          :checked is-external,
+         {:label "External Tasting Note"
+          :checked is-external
           :on-change #(swap! app-state update-in
                         [:new-tasting-note]
                         (fn [note]
@@ -80,105 +79,104 @@
                                 ;; external and no date set
                                 (cond-> (and new-is-external
                                              (nil? (:tasting_date note)))
-                                          (assoc :tasting_date nil))))))}]]
+                                        (assoc :tasting_date nil))))))}]]
        ;; Source field (only shown for external notes)
        (when is-external
          [form-row
           [text-field
-           {:label "Source",
-            :required true,
-            :value (:source updated-note),
-            :helper-text "e.g., Decanter, Wine Spectator, Vivino",
+           {:label "Source"
+            :required true
+            :value (:source updated-note)
+            :helper-text "e.g., Decanter, Wine Spectator, Vivino"
             :on-change
-              #(swap! app-state assoc-in [:new-tasting-note :source] %)}]])
+            #(swap! app-state assoc-in [:new-tasting-note :source] %)}]])
        ;; Date input (required only for personal notes)
        [form-row
         [date-field
-         {:label "Tasting Date",
-          :required (not is-external),
-          :value (:tasting_date updated-note),
-          :helper-text (when is-external "Optional for external notes"),
+         {:label "Tasting Date"
+          :required (not is-external)
+          :value (:tasting_date updated-note)
+          :helper-text (when is-external "Optional for external notes")
           :on-change
-            #(swap! app-state assoc-in [:new-tasting-note :tasting_date] %)}]]
+          #(swap! app-state assoc-in [:new-tasting-note :tasting_date] %)}]]
        ;; Tasting notes textarea
-       [grid {:item true, :xs 12}
+       [grid {:item true :xs 12}
         [text-area-field
-         {:label "Notes",
-          :required true,
-          :value (:notes updated-note),
+         {:label "Notes"
+          :required true
+          :value (:notes updated-note)
           :on-change #(swap! app-state assoc-in [:new-tasting-note :notes] %)}]]
        ;; Rating input
        [form-row
         [number-field
-         {:label "Rating (1-100)",
-          :required true,
-          :min 1,
-          :max 100,
-          :value (:rating updated-note),
+         {:label "Rating (1-100)"
+          :required true
+          :min 1
+          :max 100
+          :value (:rating updated-note)
           :on-change #(swap! app-state assoc-in
                         [:new-tasting-note :rating]
                         (js/parseInt %))}]]
        ;; Tasting Window Section
        [form-divider "Update Tasting Window"]
        [box {:sx {:mb 2}}
-        [typography {:variant "body2", :color "text.secondary"}
+        [typography {:variant "body2" :color "text.secondary"}
          "You can update the wine's tasting window based on this tasting"]]
        [form-row
         [year-field
-         {:label "Drink From Year",
-          :free-solo true,
-          :options (vintage/default-drink-from-years),
-          :value (:drink_from_year updated-note),
+         {:label "Drink From Year"
+          :free-solo true
+          :options (vintage/default-drink-from-years)
+          :value (:drink_from_year updated-note)
           :error (boolean (or (vintage/valid-tasting-year? (:drink_from_year
-                                                             updated-note))
+                                                            updated-note))
                               (and (:drink_from_year updated-note)
                                    (:drink_until_year updated-note)
                                    (> (:drink_from_year updated-note)
-                                      (:drink_until_year updated-note))))),
+                                      (:drink_until_year updated-note)))))
           :helper-text
-            (or
-              (vintage/valid-tasting-year? (:drink_from_year updated-note))
-              (when (and (:drink_from_year updated-note)
-                         (:drink_until_year updated-note)
-                         (> (:drink_from_year updated-note)
-                            (:drink_until_year updated-note)))
-                "Drink from year must be less than or equal to drink until year")
-              "Year when the wine will be ready to drink"),
+          (or
+           (vintage/valid-tasting-year? (:drink_from_year updated-note))
+           (when (and (:drink_from_year updated-note)
+                      (:drink_until_year updated-note)
+                      (> (:drink_from_year updated-note)
+                         (:drink_until_year updated-note)))
+             "Drink from year must be less than or equal to drink until year")
+           "Year when the wine will be ready to drink")
           :on-change #(swap! app-state update
                         :new-tasting-note
                         (fn [note]
                           (-> note
-                              (assoc :drink_from_year (when-not (empty? %)
-                                                        (js/parseInt % 10)))
+                              (assoc :drink_from_year
+                                     (when-not (empty? %) (js/parseInt % 10)))
                               (assoc :form-edited true))))}]
         [year-field
-         {:label "Drink Until Year",
-          :free-solo true,
-          :options (vintage/default-drink-until-years),
-          :value (:drink_until_year updated-note),
+         {:label "Drink Until Year"
+          :free-solo true
+          :options (vintage/default-drink-until-years)
+          :value (:drink_until_year updated-note)
           :error (boolean (or (vintage/valid-tasting-year? (:drink_until_year
-                                                             updated-note))
+                                                            updated-note))
                               (and (:drink_from_year updated-note)
                                    (:drink_until_year updated-note)
                                    (< (:drink_until_year updated-note)
-                                      (:drink_from_year updated-note))))),
+                                      (:drink_from_year updated-note)))))
           :helper-text
-            (or
-              (vintage/valid-tasting-year? (:drink_until_year updated-note))
-              (when (and (:drink_from_year updated-note)
-                         (:drink_until_year updated-note)
-                         (< (:drink_until_year updated-note)
-                            (:drink_from_year updated-note)))
-                "Drink until year must be greater than or equal to drink from year")
-              "Year when the wine should be consumed by"),
+          (or
+           (vintage/valid-tasting-year? (:drink_until_year updated-note))
+           (when (and (:drink_from_year updated-note)
+                      (:drink_until_year updated-note)
+                      (< (:drink_until_year updated-note)
+                         (:drink_from_year updated-note)))
+             "Drink until year must be greater than or equal to drink from year")
+           "Year when the wine should be consumed by")
           :on-change #(swap! app-state update
                         :new-tasting-note
                         (fn [note]
                           (-> note
-                              (assoc :drink_until_year (when-not (empty? %)
-                                                         (js/parseInt % 10)))
+                              (assoc :drink_until_year
+                                     (when-not (empty? %) (js/parseInt % 10)))
                               (assoc :form-edited true))))}]]
        ;; Submit button
-       [form-actions {:submit-text "Add Note"
-                      :loading? submitting?}]])))
+       [form-actions {:submit-text "Add Note" :loading? submitting?}]])))
 

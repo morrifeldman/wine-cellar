@@ -39,9 +39,8 @@
 (defn classifications-for-aoc
   [classifications country region aoc]
   (->> classifications
-       (filter #(and (= country (:country %))
-                     (= region (:region %))
-                     (= aoc (:aoc %))))
+       (filter
+        #(and (= country (:country %)) (= region (:region %)) (= aoc (:aoc %))))
        (map :classification)
        (remove nil?)
        distinct

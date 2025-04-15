@@ -22,8 +22,10 @@ if [[ ! "$FILE" =~ \.(clj|cljs|cljc)$ ]]; then
   exit 1
 fi
 
+echo "Formatting $FILE"
+
 # Format the file using zprint
-cd "$(dirname "$0")/.." && clojure -M:zprint "{:style :community :map {:comma? false} :width 80}" "$FILE" > "$FILE.tmp"
+cd "$(dirname "$0")/.." && clojure -M:zprint '{:style :community :map {:comma? false} :width 80}' < "$FILE" > "$FILE.tmp"
 
 # Check if zprint succeeded
 if [ $? -ne 0 ]; then

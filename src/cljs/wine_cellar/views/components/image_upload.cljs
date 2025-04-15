@@ -56,9 +56,9 @@
                 (fn [label_image]
                   (create-thumbnail label_image
                                     (fn [label_thumbnail]
-                                      (on-image-ready {:label_image label_image,
+                                      (on-image-ready {:label_image label_image
                                                        :label_thumbnail
-                                                         label_thumbnail}))))))
+                                                       label_thumbnail}))))))
 
 ;; Camera capture component
 (defn camera-capture
@@ -67,127 +67,123 @@
         stream-ref (r/atom nil)
         camera-active (r/atom false)]
     (r/create-class
-      {:component-did-mount
-         (fn []
-           (-> (js/navigator.mediaDevices.getUserMedia
-                 #js {:video #js {:facingMode "environment"}}) ;; Use rear
-                                                               ;; camera
-               (.then (fn [stream]
-                        (reset! stream-ref stream)
-                        (reset! camera-active true)
-                        (when-let [video @video-ref]
-                          (set! (.-srcObject video) stream)
-                          (.play video))))
-               (.catch (fn [err]
-                         (js/console.error "Error accessing camera:" err))))),
-       :component-will-unmount (fn []
-                                 (when-let [stream @stream-ref]
-                                   (doseq [track (.getTracks stream)]
-                                     (.stop track)))),
-       :reagent-render
-         (fn [on-capture on-cancel]
-           [box
-            {:sx {:position "fixed",
-                  :top 0,
-                  :left 0,
-                  :right 0,
-                  :bottom 0,
-                  :bgcolor "rgba(0,0,0,0.9)",
-                  :zIndex 9999,
-                  :display "flex",
-                  :flexDirection "column",
-                  :alignItems "center",
-                  :justifyContent "center"}}
-            [icon-button
-             {:onClick on-cancel,
-              :sx {:position "absolute", :top 16, :right 16, :color "white"}}
-             [close]]
-            [box
-             {:sx {:position "relative",
-                   :maxWidth "100%",
-                   :maxHeight "70vh",
-                   :overflow "hidden",
-                   :borderRadius 2,
-                   :mb 2,
-                   :border "1px solid rgba(255,255,255,0.3)"}}
-             [:video
-              {:ref #(reset! video-ref %),
-               :autoPlay true,
-               :playsInline true,
-               :muted true,
-               :style
-                 {:maxWidth "100%", :maxHeight "70vh", :background "black"}}]]
-            [button
-             {:variant "contained",
-              :color "primary",
-              :disabled (not @camera-active),
-              :onClick
-                (fn []
-                  (when-let [video @video-ref]
-                    (let [canvas (js/document.createElement "canvas")
-                          ctx (.getContext canvas "2d")]
-                      (set! (.-width canvas) (.-videoWidth video))
-                      (set! (.-height canvas) (.-videoHeight video))
-                      (.drawImage ctx video 0 0)
-                      (let [data-url (.toDataURL canvas "image/jpeg" 0.85)]
-                        (create-thumbnail data-url
-                                          (fn [thumbnail]
-                                            (on-capture {:label_image data-url,
-                                                         :label_thumbnail
-                                                           thumbnail}))))))),
-              :sx {:mb 2}} "Take Photo"]])})))
+     {:component-did-mount
+      (fn []
+        (-> (js/navigator.mediaDevices.getUserMedia
+             #js {:video #js {:facingMode "environment"}}) ;; Use rear
+                                                           ;; camera
+            (.then (fn [stream]
+                     (reset! stream-ref stream)
+                     (reset! camera-active true)
+                     (when-let [video @video-ref]
+                       (set! (.-srcObject video) stream)
+                       (.play video))))
+            (.catch (fn [err]
+                      (js/console.error "Error accessing camera:" err)))))
+      :component-will-unmount (fn []
+                                (when-let [stream @stream-ref]
+                                  (doseq [track (.getTracks stream)]
+                                    (.stop track))))
+      :reagent-render
+      (fn [on-capture on-cancel]
+        [box
+         {:sx {:position "fixed"
+               :top 0
+               :left 0
+               :right 0
+               :bottom 0
+               :bgcolor "rgba(0,0,0,0.9)"
+               :zIndex 9999
+               :display "flex"
+               :flexDirection "column"
+               :alignItems "center"
+               :justifyContent "center"}}
+         [icon-button
+          {:onClick on-cancel
+           :sx {:position "absolute" :top 16 :right 16 :color "white"}} [close]]
+         [box
+          {:sx {:position "relative"
+                :maxWidth "100%"
+                :maxHeight "70vh"
+                :overflow "hidden"
+                :borderRadius 2
+                :mb 2
+                :border "1px solid rgba(255,255,255,0.3)"}}
+          [:video
+           {:ref #(reset! video-ref %)
+            :autoPlay true
+            :playsInline true
+            :muted true
+            :style {:maxWidth "100%" :maxHeight "70vh" :background "black"}}]]
+         [button
+          {:variant "contained"
+           :color "primary"
+           :disabled (not @camera-active)
+           :onClick (fn []
+                      (when-let [video @video-ref]
+                        (let [canvas (js/document.createElement "canvas")
+                              ctx (.getContext canvas "2d")]
+                          (set! (.-width canvas) (.-videoWidth video))
+                          (set! (.-height canvas) (.-videoHeight video))
+                          (.drawImage ctx video 0 0)
+                          (let [data-url (.toDataURL canvas "image/jpeg" 0.85)]
+                            (create-thumbnail
+                             data-url
+                             (fn [thumbnail]
+                               (on-capture {:label_image data-url
+                                            :label_thumbnail thumbnail})))))))
+           :sx {:mb 2}} "Take Photo"]])})))
 
 ;; Image preview component
 (defn render-image-preview
   [image-data on-image-remove disabled]
   [box
-   {:sx {:position "relative",
-         :width "100%",
-         :display "flex",
-         :flexDirection "column",
+   {:sx {:position "relative"
+         :width "100%"
+         :display "flex"
+         :flexDirection "column"
          :alignItems "center"}}
    [box
-    {:component "img",
-     :src image-data,
-     :sx {:maxWidth "100%",
-          :maxHeight "300px",
-          :objectFit "contain",
-          :borderRadius 1,
+    {:component "img"
+     :src image-data
+     :sx {:maxWidth "100%"
+          :maxHeight "300px"
+          :objectFit "contain"
+          :borderRadius 1
           :mb 1}}]
    (when (not disabled)
      [button
-      {:variant "outlined",
-       :color "secondary",
-       :size "small",
-       :onClick #(on-image-remove),
+      {:variant "outlined"
+       :color "secondary"
+       :size "small"
+       :onClick #(on-image-remove)
        :startIcon (r/as-element [delete])} "Remove Image"])])
 
 ;; Camera controls component
 (defn render-camera-controls
   [uploading show-camera disabled]
   [box
-   {:sx {:display "flex",
-         :flexDirection "column",
-         :alignItems "center",
-         :p 2,
-         :border "1px dashed rgba(0,0,0,0.2)",
+   {:sx {:display "flex"
+         :flexDirection "column"
+         :alignItems "center"
+         :p 2
+         :border "1px dashed rgba(0,0,0,0.2)"
          :borderRadius 1}}
    [typography
-    {:variant "body2",
-     :color "text.secondary",
-     :sx {:mb 2, :textAlign "center"}} "Add a wine label image"]
+    {:variant "body2" :color "text.secondary" :sx {:mb 2 :textAlign "center"}}
+    "Add a wine label image"]
    ;; Camera button
    [button
-    {:variant "contained",
-     :color "primary",
-     :disabled (or disabled @uploading),
-     :onClick #(reset! show-camera true),
-     :startIcon (r/as-element [camera-alt]),
+    {:variant "contained"
+     :color "primary"
+     :disabled (or disabled @uploading)
+     :onClick #(reset! show-camera true)
+     :startIcon (r/as-element [camera-alt])
      :size "medium"} "Take Photo"]
    ;; Loading indicator
    (when @uploading
-     [box {:sx {:mt 2, :display "flex", :justifyContent "center"}}
-      [typography {:variant "body2", :color "text.secondary"}
+     [box {:sx {:mt 2 :display "flex" :justifyContent "center"}}
+      [typography {:variant "body2" :color "text.secondary"}
        "Processing image..."]])])
 
 ;; Main image upload component

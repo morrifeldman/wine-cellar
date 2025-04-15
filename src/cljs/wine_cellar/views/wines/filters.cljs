@@ -23,63 +23,62 @@
   (let [filters (:filters @app-state)
         classifications (:classifications @app-state)]
     [paper
-     {:elevation 1,
-      :sx {:p 3, :mb 3, :borderRadius 2, :bgcolor "background.paper"}}
+     {:elevation 1 :sx {:p 3 :mb 3 :borderRadius 2 :bgcolor "background.paper"}}
      ;; Header row with buttons aligned to the right
      [box
-      {:sx {:display "flex",
-            :justifyContent "space-between",
-            :alignItems "center",
+      {:sx {:display "flex"
+            :justifyContent "space-between"
+            :alignItems "center"
             :mb 2}}
-      [box {:sx {:display "flex", :alignItems "center", :gap 1}}
-       [typography {:variant "subtitle1", :sx {:fontWeight "medium"}}
+      [box {:sx {:display "flex" :alignItems "center" :gap 1}}
+       [typography {:variant "subtitle1" :sx {:fontWeight "medium"}}
         "Filter Wines"]
        [icon-button
-        {:onClick #(swap! app-state update :show-filters? not), :size "small"}
+        {:onClick #(swap! app-state update :show-filters? not) :size "small"}
         (if (:show-filters? @app-state) [expand-less] [expand-more])]]
       ;; Button container
-      [box {:sx {:display "flex", :gap 1}}
+      [box {:sx {:display "flex" :gap 1}}
        ;; In Cellar/All History button
        [button
-        {:variant "outlined",
-         :size "small",
-         :color (if (:show-out-of-stock? @app-state) "secondary" "primary"),
+        {:variant "outlined"
+         :size "small"
+         :color (if (:show-out-of-stock? @app-state) "secondary" "primary")
          :onClick #(swap! app-state update :show-out-of-stock? not)}
         (if (:show-out-of-stock? @app-state) "In Cellar Only" "All History")]
        ;; Clear Filters button
        [button
-        {:variant "outlined",
-         :size "small",
-         :color "secondary",
+        {:variant "outlined"
+         :size "small"
+         :color "secondary"
          :onClick #(swap! app-state assoc
                      :filters
-                     {:search "",
-                      :country nil,
-                      :region nil,
-                      :style nil,
+                     {:search ""
+                      :country nil
+                      :region nil
+                      :style nil
                       :tasting-window nil})} "Clear Filters"]]]
-     [collapse {:in (:show-filters? @app-state), :timeout "auto"}
-      [grid {:container true, :spacing 3}
+     [collapse {:in (:show-filters? @app-state) :timeout "auto"}
+      [grid {:container true :spacing 3}
        ;; Search field - increased width
-       [grid {:item true, :xs 12, :md 4}
+       [grid {:item true :xs 12 :md 4}
         [text-field
-         {:fullWidth true,
-          :label "Search",
-          :variant "outlined",
-          :size "small",
-          :placeholder "Name, producer, region...",
-          :value (:search filters),
+         {:fullWidth true
+          :label "Search"
+          :variant "outlined"
+          :size "small"
+          :placeholder "Name, producer, region..."
+          :value (:search filters)
           :onChange #(swap! app-state assoc-in
                        [:filters :search]
                        (.. % -target -value))}]]
        ;; Country dropdown - increased width
-       [grid {:item true, :xs 12, :md 2}
+       [grid {:item true :xs 12 :md 2}
         [form-control
-         {:variant "outlined", :fullWidth true, :size "small", :sx {:mt 0}}
+         {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
          [input-label "Country"]
          [select
-          {:value (or (:country filters) ""),
-           :label "Country",
+          {:value (or (:country filters) "")
+           :label "Country"
            :onChange #(swap! app-state assoc-in
                         [:filters :country]
                         (let [v (.. % -target -value)]
@@ -88,16 +87,16 @@
           (for [country (unique-countries classifications)]
             ^{:key country} [menu-item {:value country} country])]]]
        ;; Region dropdown - increased width
-       [grid {:item true, :xs 12, :md 2}
+       [grid {:item true :xs 12 :md 2}
         [form-control
-         {:variant "outlined",
-          :fullWidth true,
-          :size "small",
-          :disabled (empty? (:country filters)),
+         {:variant "outlined"
+          :fullWidth true
+          :size "small"
+          :disabled (empty? (:country filters))
           :sx {:mt 0}} [input-label "Region"]
          [select
-          {:value (or (:region filters) ""),
-           :label "Region",
+          {:value (or (:region filters) "")
+           :label "Region"
            :onChange #(swap! app-state assoc-in
                         [:filters :region]
                         (let [v (.. % -target -value)]
@@ -106,13 +105,13 @@
           (for [region (regions-for-country classifications (:country filters))]
             ^{:key region} [menu-item {:value region} region])]]]
        ;; Style dropdown - increased width
-       [grid {:item true, :xs 12, :md 2}
+       [grid {:item true :xs 12 :md 2}
         [form-control
-         {:variant "outlined", :fullWidth true, :size "small", :sx {:mt 0}}
+         {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
          [input-label "Style"]
          [select
-          {:value (or (:style filters) ""),
-           :label "Style",
+          {:value (or (:style filters) "")
+           :label "Style"
            :onChange #(swap! app-state assoc-in
                         [:filters :style]
                         (let [v (.. % -target -value)]
@@ -121,13 +120,13 @@
           (for [style common/wine-styles]
             ^{:key style} [menu-item {:value style} style])]]]
        ;; Tasting Window dropdown - increased width
-       [grid {:item true, :xs 12, :md 2}
+       [grid {:item true :xs 12 :md 2}
         [form-control
-         {:variant "outlined", :fullWidth true, :size "small", :sx {:mt 0}}
+         {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
          [input-label {:sx {:lineHeight 1.2}} "Tasting\nWindow"]
          [select
-          {:value (or (:tasting-window filters) ""),
-           :label "Tasting Window",
+          {:value (or (:tasting-window filters) "")
+           :label "Tasting Window"
            :onChange #(swap! app-state assoc-in
                         [:filters :tasting-window]
                         (let [v (.. % -target -value)]

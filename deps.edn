@@ -25,8 +25,11 @@
                          "--middleware" "[cider.nrepl/cider-middleware]"
                          "--interactive"]}
            :zprint
+           ;; Use in commit hook
            {:extra-deps {zprint/zprint {:mvn/version "1.2.9"}}
-            :main-opts ["-m" "zprint.main"]}
+            :main-opts ["--main" "zprint.main"]}
            :format
+           ;; Format all files in project
            {:extra-deps {zprint/zprint {:mvn/version "1.2.9"}}
-            :main-opts ["-m" "wine-cellar.scripts.format"]}}}
+            :extra-paths ["scripts"]
+            :main-opts ["-m" "format-zprint"]}}}

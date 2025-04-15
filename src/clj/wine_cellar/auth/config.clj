@@ -7,13 +7,13 @@
   []
   (try
     (let [result (config-utils/get-password-from-pass
-                   "wine-cellar/google-oath-json")
+                  "wine-cellar/google-oath-json")
           web-credentials (-> result
                               (json/read-value json/keyword-keys-object-mapper)
                               :web)]
-      {:client-id (:client_id web-credentials),
-       :client-secret (:client_secret web-credentials),
-       :redirect-uris (:redirect_uris web-credentials),
+      {:client-id (:client_id web-credentials)
+       :client-secret (:client_secret web-credentials)
+       :redirect-uris (:redirect_uris web-credentials)
        :javascript-origins (:javascript_origins web-credentials)})
     (catch Exception e
       (println "Error retrieving Google credentials from pass:" (.getMessage e))
@@ -23,10 +23,10 @@
   "Returns the OAuth configuration, either from environment variables or pass"
   []
   (if (config-utils/production?)
-    {:client-id (System/getenv "GOOGLE_CLIENT_ID"),
-     :client-secret (System/getenv "GOOGLE_CLIENT_SECRET"),
+    {:client-id (System/getenv "GOOGLE_CLIENT_ID")
+     :client-secret (System/getenv "GOOGLE_CLIENT_SECRET")
      :redirect-uri (System/getenv "OAUTH_REDIRECT_URI")}
-    (let [{:keys [redirect-uris], :as creds} (get-google-credentials-from-pass)]
+    (let [{:keys [redirect-uris] :as creds} (get-google-credentials-from-pass)]
       (assoc creds :redirect-uri (first redirect-uris)))))
 
 (defn get-jwt-secret

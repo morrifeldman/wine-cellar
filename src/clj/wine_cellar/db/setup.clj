@@ -10,18 +10,18 @@
 
 ;; Protocol extension for PostgreSQL arrays
 (extend-protocol rs/ReadableColumn
-  PgArray
-    (read-column-by-label [^PgArray v _] (.getArray v))
-  PgArray
-    (read-column-by-index [^PgArray v _2 _3] (.getArray v)))
+ PgArray
+   (read-column-by-label [^PgArray v _] (.getArray v))
+ PgArray
+   (read-column-by-index [^PgArray v _2 _3] (.getArray v)))
 
 (defn get-db-config
   []
   (if-let [jdbc-url (System/getenv "DATABASE_URL")]
     {:jdbcUrl jdbc-url}
-    {:dbtype "postgresql",
-     :dbname "wine_cellar",
-     :user "wine_cellar",
+    {:dbtype "postgresql"
+     :dbname "wine_cellar"
+     :user "wine_cellar"
      :password (config-utils/get-password-from-pass "wine-cellar/db")}))
 
 (def ds (delay (jdbc/get-datasource (get-db-config))))
@@ -34,9 +34,9 @@
 (defn seed-classifications!
   []
   (let [wine-classifications
-          (edn/read-string (slurp (or (io/resource "wine-classifications.edn")
-                                      (io/file (str "resources/"
-                                                    classifications-file)))))]
+        (edn/read-string (slurp (or (io/resource "wine-classifications.edn")
+                                    (io/file (str "resources/"
+                                                  classifications-file)))))]
     (doseq [c wine-classifications]
       (require 'wine-cellar.db.api)
       ((resolve 'wine-cellar.db.api/create-or-update-classification) c))))
@@ -45,7 +45,7 @@
   "Check if any classifications exist in the database"
   []
   (pos? (:count (jdbc/execute-one! @ds
-                                   (sql/format {:select [[[:count :*]]],
+                                   (sql/format {:select [[[:count :*]]]
                                                 :from :wine_classifications})
                                    db-opts))))
 

@@ -15,22 +15,21 @@
 (defn vintage
   [app-state new-wine]
   [year-field
-   {:label "Vintage",
-    :required false,
-    :free-solo true,
-    :value (:vintage new-wine),
-    :error (when (:vintage new-wine) 
-             (boolean (vintage/valid-vintage? (:vintage new-wine)))),
+   {:label "Vintage"
+    :required false
+    :free-solo true
+    :value (:vintage new-wine)
+    :error (when (:vintage new-wine)
+             (boolean (vintage/valid-vintage? (:vintage new-wine))))
     :helper-text (if (:vintage new-wine)
                    (vintage/valid-vintage? (:vintage new-wine))
-                   "Leave empty for non-vintage (NV) wines"),
-    :options (concat ["NV"] (vintage/default-vintage-years)),
+                   "Leave empty for non-vintage (NV) wines")
+    :options (concat ["NV"] (vintage/default-vintage-years))
     :on-change #(swap! app-state assoc-in
                   [:new-wine :vintage]
-                  (cond
-                    (empty? %) nil
-                    (= % "NV") nil
-                    :else (js/parseInt % 10)))}])
+                  (cond (empty? %) nil
+                        (= % "NV") nil
+                        :else (js/parseInt % 10)))}])
 
 (defn drink-from-year
   [app-state new-wine]
@@ -40,12 +39,12 @@
                    (vintage/valid-tasting-window? drink-from-year
                                                   drink-until-year))]
     [year-field
-     {:label "Drink From Year",
-      :free-solo true,
-      :value drink-from-year,
-      :options (vintage/default-drink-from-years),
-      :error (boolean invalid?),
-      :helper-text (or invalid? "Year when the wine is/was ready to drink"),
+     {:label "Drink From Year"
+      :free-solo true
+      :value drink-from-year
+      :options (vintage/default-drink-from-years)
+      :error (boolean invalid?)
+      :helper-text (or invalid? "Year when the wine is/was ready to drink")
       :on-change #(swap! app-state assoc-in
                     [:new-wine :drink_from_year]
                     (when-not (empty? %) (js/parseInt % 10)))}]))
@@ -58,12 +57,12 @@
                    (vintage/valid-tasting-window? drink-from-year
                                                   drink-until-year))]
     [year-field
-     {:label "Drink Until Year",
-      :free-solo true,
-      :value drink-until-year,
-      :options (vintage/default-drink-until-years),
-      :error (boolean invalid?),
-      :helper-text (or invalid? "Year when the wine should be consumed by"),
+     {:label "Drink Until Year"
+      :free-solo true
+      :value drink-until-year
+      :options (vintage/default-drink-until-years)
+      :error (boolean invalid?)
+      :helper-text (or invalid? "Year when the wine should be consumed by")
       :on-change #(swap! app-state assoc-in
                     [:new-wine :drink_until_year]
                     (when-not (empty? %) (js/parseInt % 10)))}]))
@@ -74,59 +73,58 @@
         classifications (:classifications @app-state)
         submitting? (:submitting-wine? @app-state)
         validate-wine
-          (fn []
-            (cond (not (valid-name-producer? new-wine))
-                    "Either Wine Name or Producer must be provided"
-                  (empty? (:country new-wine)) "Country is required"
-                  (empty? (:region new-wine)) "Region is required"
-                  (and (:vintage new-wine) 
-                       (not (nil? (vintage/valid-vintage? (:vintage new-wine)))))
-                    (vintage/valid-vintage? (:vintage new-wine))
-                  (empty? (:style new-wine)) "Style is required"
-                  (nil? (:quantity new-wine)) "Quantity is required"
-                  (nil? (:price new-wine)) "Price is required"
-                  (or (empty? (:location new-wine))
-                      (not (common/valid-location? (:location new-wine))))
-                    common/format-location-error
-                  (and (:level new-wine)
-                       (seq (:level new-wine))
-                       (not (contains? common/wine-levels (:level new-wine))))
-                    (str "Level must be one of: "
-                         (str/join ", " (sort common/wine-levels)))
-                  :else nil))
-        submit-handler (fn []
-                         (if-let [error (validate-wine)]
-                           (swap! app-state assoc :error error)
-                           (do
-                             (swap! app-state assoc :submitting-wine? true)
-                             (api/create-wine
-                               app-state
-                               (-> new-wine
-                                   (update :price js/parseFloat)
-                                   (update :vintage (fn [v] (js/parseInt v 10)))
-                                   (update :quantity (fn [q] (js/parseInt q 10)))
-                                   (assoc :create-classification-if-needed
-                                            true))))))]
-    [form-container {:title "Add New Wine", :on-submit submit-handler}
+        (fn []
+          (cond (not (valid-name-producer? new-wine))
+                "Either Wine Name or Producer must be provided"
+                (empty? (:country new-wine)) "Country is required"
+                (empty? (:region new-wine)) "Region is required"
+                (and (:vintage new-wine)
+                     (not (nil? (vintage/valid-vintage? (:vintage new-wine)))))
+                (vintage/valid-vintage? (:vintage new-wine))
+                (empty? (:style new-wine)) "Style is required"
+                (nil? (:quantity new-wine)) "Quantity is required"
+                (nil? (:price new-wine)) "Price is required"
+                (or (empty? (:location new-wine))
+                    (not (common/valid-location? (:location new-wine))))
+                common/format-location-error
+                (and (:level new-wine)
+                     (seq (:level new-wine))
+                     (not (contains? common/wine-levels (:level new-wine))))
+                (str "Level must be one of: "
+                     (str/join ", " (sort common/wine-levels)))
+                :else nil))
+        submit-handler
+        (fn []
+          (if-let [error (validate-wine)]
+            (swap! app-state assoc :error error)
+            (do (swap! app-state assoc :submitting-wine? true)
+                (api/create-wine
+                 app-state
+                 (-> new-wine
+                     (update :price js/parseFloat)
+                     (update :vintage (fn [v] (js/parseInt v 10)))
+                     (update :quantity (fn [q] (js/parseInt q 10)))
+                     (assoc :create-classification-if-needed true))))))]
+    [form-container {:title "Add New Wine" :on-submit submit-handler}
      ;; Basic Information Section
      [form-divider "Basic Information"]
      [form-row
       [text-field
-       {:label "Producer",
-        :value (:producer new-wine),
-        :helper-text "Either Name or Producer required",
+       {:label "Producer"
+        :value (:producer new-wine)
+        :helper-text "Either Name or Producer required"
         :on-change #(swap! app-state assoc-in [:new-wine :producer] %)}]
       [text-field
-       {:label "Name",
-        :value (:name new-wine),
-        :helper-text "Either Name or Producer required",
+       {:label "Name"
+        :value (:name new-wine)
+        :helper-text "Either Name or Producer required"
         :on-change #(swap! app-state assoc-in [:new-wine :name] %)}]
       [select-field
-       {:label "Style",
-        :value (:style new-wine),
-        :required true,
-        :multiple false,
-        :options common/wine-styles,
+       {:label "Style"
+        :value (:style new-wine)
+        :required true
+        :multiple false
+        :options common/wine-styles
         :on-change #(swap! app-state assoc-in [:new-wine :style] %)}]]
      ;; Wine Classification Section
      [form-divider "Wine Classification"]
@@ -174,8 +172,8 @@
      [form-divider "Wine Label Image"]
      [form-row
       [image-upload
-       {:image-data (:label_image new-wine),
-        :on-image-change #(swap! app-state update :new-wine merge %),
+       {:image-data (:label_image new-wine)
+        :on-image-change #(swap! app-state update :new-wine merge %)
         :on-image-remove #(swap! app-state update
                             :new-wine
                             (fn [wine]
@@ -186,37 +184,37 @@
      [form-divider "Additional Information"]
      [form-row
       [text-field
-       {:label "Location",
-        :required true,
-        :value (:location new-wine),
-        :helper-text common/format-location-error,
+       {:label "Location"
+        :required true
+        :value (:location new-wine)
+        :helper-text common/format-location-error
         :error (and (:location new-wine)
-                    (not (common/valid-location? (:location new-wine)))),
-        :on-change #(swap! app-state assoc-in [:new-wine :location] %),
+                    (not (common/valid-location? (:location new-wine))))
+        :on-change #(swap! app-state assoc-in [:new-wine :location] %)
         :on-blur
-          #(when (and (:location new-wine)
-                      (not (common/valid-location? (:location new-wine))))
-             (swap! app-state assoc :error common/format-location-error))}]
+        #(when (and (:location new-wine)
+                    (not (common/valid-location? (:location new-wine))))
+           (swap! app-state assoc :error common/format-location-error))}]
       [number-field
-       {:label "Quantity",
-        :required true,
-        :min 0,
-        :value (:quantity new-wine),
+       {:label "Quantity"
+        :required true
+        :min 0
+        :value (:quantity new-wine)
         :on-change
-          #(swap! app-state assoc-in [:new-wine :quantity] (js/parseInt %))}]
+        #(swap! app-state assoc-in [:new-wine :quantity] (js/parseInt %))}]
       [currency-field
-       {:label "Price",
-        :required true,
+       {:label "Price"
+        :required true
         :value (if (string? (:price new-wine))
                  (:price new-wine)
-                 (str (:price new-wine))),
+                 (str (:price new-wine)))
         :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]]
      [form-row
       [smart-select-field app-state [:new-wine :purveyor] :free-solo true :label
        "Purchased From" :options (unique-purveyors (:wines @app-state))]]
      ;; Form actions
      [form-actions
-      {:submit-text "Add Wine",
-       :cancel-text "Cancel",
-       :loading? submitting?,
+      {:submit-text "Add Wine"
+       :cancel-text "Cancel"
+       :loading? submitting?
        :on-cancel #(swap! app-state assoc :show-wine-form? false)}]]))

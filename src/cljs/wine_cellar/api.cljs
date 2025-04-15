@@ -11,15 +11,15 @@
   [response error-msg]
   (cond
     ;; If the response is successful, return the body
-    (:success response) {:success true, :data (:body response)}
+    (:success response) {:success true :data (:body response)}
     ;; If we got a 401 Unauthorized, redirect to login
     (= 401 (:status response))
-      (do (js/console.log "Authentication required, redirecting to login")
-          ;; Don't try to parse the response body if it's not valid JSON
-          (js/setTimeout #(set! (.-location js/window)
-                                (str api-base-url "/auth/google"))
-                         100)
-          {:success false, :error "Authentication required"})
+    (do (js/console.log "Authentication required, redirecting to login")
+        ;; Don't try to parse the response body if it's not valid JSON
+        (js/setTimeout #(set! (.-location js/window)
+                              (str api-base-url "/auth/google"))
+                       100)
+        {:success false :error "Authentication required"})
     ;; Otherwise, handle the error
     :else (let [error-message (try
                                 ;; Try to get the error from the response
@@ -28,7 +28,7 @@
                                 ;; If that fails, use the default error
                                 ;; message
                                 (catch js/Error _ error-msg))]
-            {:success false, :error error-message})))
+            {:success false :error error-message})))
 
 ;; Generic API request function
 (defn api-request
@@ -113,21 +113,18 @@
           (do (fetch-wines app-state)
               (fetch-classifications app-state) ;; Refresh classifications
                                                 ;; after adding a wine
-              (swap! app-state assoc 
-                     :new-wine {}
-                     :submitting-wine? false))
-          (swap! app-state assoc 
-                 :error (:error result)
-                 :submitting-wine? false)))))
+              (swap! app-state assoc :new-wine {} :submitting-wine? false))
+          (swap! app-state assoc
+            :error (:error result)
+            :submitting-wine? false)))))
 
 (defn delete-wine
   [app-state id]
-  (go (let [result (<! (DELETE (str "/api/wines/" id) "Failed to delete wine"))]
-        (if (:success result)
-          (swap! app-state update
-            :wines
-            #(remove (fn [wine] (= (:id wine) id)) %))
-          (swap! app-state assoc :error (:error result))))))
+  (go
+   (let [result (<! (DELETE (str "/api/wines/" id) "Failed to delete wine"))]
+     (if (:success result)
+       (swap! app-state update :wines #(remove (fn [wine] (= (:id wine) id)) %))
+       (swap! app-state assoc :error (:error result))))))
 
 ;; Tasting Notes endpoints
 (defn fetch-tasting-notes
@@ -140,17 +137,16 @@
 
 (defn create-tasting-note
   [app-state wine-id note]
-  (go (let [result (<! (POST (str "/api/wines/" wine-id "/tasting-notes")
-                             note
-                             "Failed to create tasting note"))]
-        (if (:success result)
-          (do (swap! app-state update :tasting-notes conj (:data result))
-              (swap! app-state assoc 
-                     :new-tasting-note {}
-                     :submitting-note? false))
-          (swap! app-state assoc 
-                 :error (:error result)
-                 :submitting-note? false)))))
+  (go
+   (let [result (<! (POST (str "/api/wines/" wine-id "/tasting-notes")
+                          note
+                          "Failed to create tasting note"))]
+     (if (:success result)
+       (do (swap! app-state update :tasting-notes conj (:data result))
+           (swap! app-state assoc :new-tasting-note {} :submitting-note? false))
+       (swap! app-state assoc
+         :error (:error result)
+         :submitting-note? false)))))
 
 (defn update-tasting-note
   [app-state wine-id note-id note]
@@ -185,7 +181,7 @@
             :wines
             (fn [wines]
               (map #(if (= (:id %) wine-id) (update % :quantity + adjustment) %)
-                wines)))
+                   wines)))
           (swap! app-state assoc :error (:error result))))))
 
 (defn create-classification
@@ -203,23 +199,22 @@
 
 (defn update-wine
   [app-state id updates]
-  (let [promise (js/Promise. 
-                  (fn [resolve reject]
-                    (go 
-                      (let [result (<! (PUT (str "/api/wines/" id) 
-                                            updates 
-                                            "Failed to update wine"))]
-                        (if (:success result)
-                          (let [updated-wine (:data result)]
-                            ;; Update the wine in the list
-                            (swap! app-state update
-                              :wines
-                              (fn [wines] 
-                                (map #(if (= (:id %) id) updated-wine %) wines)))
-                            (resolve updated-wine))
-                          (do
-                            (swap! app-state assoc :error (:error result))
-                            (reject (:error result))))))))]
+  (let [promise (js/Promise.
+                 (fn [resolve reject]
+                   (go (let [result (<! (PUT (str "/api/wines/" id)
+                                             updates
+                                             "Failed to update wine"))]
+                         (if (:success result)
+                           (let [updated-wine (:data result)]
+                             ;; Update the wine in the list
+                             (swap! app-state update
+                               :wines
+                               (fn [wines]
+                                 (map #(if (= (:id %) id) updated-wine %)
+                                      wines)))
+                             (resolve updated-wine))
+                           (do (swap! app-state assoc :error (:error result))
+                               (reject (:error result))))))))]
     promise))
 
 (defn update-wine-image

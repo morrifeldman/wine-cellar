@@ -12,14 +12,14 @@
 (defn start-server!
   [port]
   (db-setup/initialize-db)
-  (let [session-store (cookie-store
-                        {:key (.getBytes (auth-config/get-cookie-store-key))})
+  (let [session-store (cookie-store {:key (.getBytes
+                                           (auth-config/get-cookie-store-key))})
         wrapped-app (-> app
                         wrap-cookies
                         wrap-params
-                        (wrap-session {:store session-store,
-                                       :cookie-attrs {:http-only true,
-                                                      :same-site :lax,
+                        (wrap-session {:store session-store
+                                       :cookie-attrs {:http-only true
+                                                      :same-site :lax
                                                       :path "/"}}))
         server (http-kit/run-server wrapped-app {:port port})]
     (println "Started http server on port:" port)

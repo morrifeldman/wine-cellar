@@ -13,11 +13,11 @@
   []
   (let [oauth-config (config/get-oauth-config)]
     (when oauth-config
-      {:authorization-uri "https://accounts.google.com/o/oauth2/v2/auth",
-       :token-uri "https://oauth2.googleapis.com/token",
-       :client-id (:client-id oauth-config),
-       :client-secret (:client-secret oauth-config),
-       :redirect-uri (:redirect-uri oauth-config),
+      {:authorization-uri "https://accounts.google.com/o/oauth2/v2/auth"
+       :token-uri "https://oauth2.googleapis.com/token"
+       :client-id (:client-id oauth-config)
+       :client-secret (:client-secret oauth-config)
+       :redirect-uri (:redirect-uri oauth-config)
        :scope ["email" "profile"]})))
 
 (defn create-auth-uri
@@ -33,8 +33,8 @@
              (java.net.URLEncoder/encode (:redirect-uri oauth-client) "UTF-8")
              "&response_type=code"
              "&scope=" (java.net.URLEncoder/encode
-                         (str/join " " (:scope oauth-client))
-                         "UTF-8")
+                        (str/join " " (:scope oauth-client))
+                        "UTF-8")
              "&state=" state)))))
 
 (defn redirect-to-google
@@ -52,18 +52,17 @@
   (tap> ["exchange-code-for-token" code])
   (let [oauth-client (create-oauth-client)]
     (when oauth-client
-      (try (let [request-params
-                   {:form-params {:code code,
-                                  :client_id (:client-id oauth-client),
-                                  :client_secret (:client-secret oauth-client),
-                                  :redirect_uri (:redirect-uri oauth-client),
-                                  :grant_type "authorization_code"},
-                    :as :text}
+      (try (let [request-params {:form-params
+                                 {:code code
+                                  :client_id (:client-id oauth-client)
+                                  :client_secret (:client-secret oauth-client)
+                                  :redirect_uri (:redirect-uri oauth-client)
+                                  :grant_type "authorization_code"}
+                                 :as :text}
                  _ (tap> ["token-request" request-params])
                  {:keys [status body error]}
-                   @(http/post (:token-uri oauth-client) request-params)]
-             (tap> ["token-response"
-                    {:status status, :error error, :body body}])
+                 @(http/post (:token-uri oauth-client) request-params)]
+             (tap> ["token-response" {:status status :error error :body body}])
              (if (or error (not= status 200))
                (do (println "Error exchanging code for token:"
                             (or error (str "HTTP " status)))
@@ -77,31 +76,31 @@
 (defn get-user-info
   [access-token]
   (tap> ["get-user-info" (boolean access-token)])
-  (try
-    (let [{:keys [status body error]}
-            @(http/get "https://www.googleapis.com/oauth2/v3/userinfo"
-                       {:headers {"Authorization" (str "Bearer " access-token)},
-                        :as :text})]
-      (tap> ["user-info-response" {:status status, :error error}])
-      (if (or error (not= status 200))
-        (do (println "Error getting user info:" (or error (str "HTTP " status)))
-            nil)
-        (json/read-value body)))
-    (catch Exception e
-      (println "Exception getting user info:" (.getMessage e))
-      (tap> ["user-info-exception" (.getMessage e)])
-      nil)))
+  (try (let [{:keys [status body error]}
+             @(http/get "https://www.googleapis.com/oauth2/v3/userinfo"
+                        {:headers {"Authorization" (str "Bearer " access-token)}
+                         :as :text})]
+         (tap> ["user-info-response" {:status status :error error}])
+         (if (or error (not= status 200))
+           (do (println "Error getting user info:"
+                        (or error (str "HTTP " status)))
+               nil)
+           (json/read-value body)))
+       (catch Exception e
+         (println "Exception getting user info:" (.getMessage e))
+         (tap> ["user-info-exception" (.getMessage e)])
+         nil)))
 
 (defn create-jwt-token
   [user-info]
   (tap> ["create-jwt-token" user-info])
   (let [jwt-secret (config/get-jwt-secret)
         now (Instant/now)
-        claims {:sub (:sub user-info),
-                :email (:email user-info),
-                :name (:name user-info),
-                :picture (:picture user-info),
-                :iat (inst-ms now),
+        claims {:sub (:sub user-info)
+                :email (:email user-info)
+                :name (:name user-info)
+                :picture (:picture user-info)
+                :iat (inst-ms now)
                 :exp (inst-ms (.plus now 7 ChronoUnit/DAYS))}]
     (jwt/sign claims jwt-secret {:alg :hs256})))
 
@@ -130,10 +129,10 @@
                     jwt-token (create-jwt-token user-info)]
                 (-> (response/redirect "/")
                     (assoc-in [:cookies "auth-token"]
-                              {:value jwt-token,
-                               :http-only true,
-                               :max-age (* 7 24 60 60), ; 7 days
-                               :same-site :lax,
+                              {:value jwt-token
+                               :http-only true
+                               :max-age (* 7 24 60 60) ; 7 days
+                               :same-site :lax
                                :path "/"})
                     ;; Clear the oauth state from session
                     (assoc :session (dissoc (:session request) :oauth-state))))
@@ -141,7 +140,7 @@
                   (response/bad-request "Failed to authenticate with Google"))))
         ;; Invalid state - possible CSRF attack
         (do (tap> ["invalid-state"
-                   {:received state, :session-state session-state}])
+                   {:received state :session-state session-state}])
             (response/bad-request "Invalid authentication state"))))))
 
 (defn verify-token
@@ -168,17 +167,16 @@
       ;; Check if this is an API request
       (if (str/starts-with? (:uri request) "/api")
         ;; For API requests, return 401 with proper JSON and CORS headers
-        (let [json-body (json/write-value-as-string
-                          {:error "Authentication required"})
-              response (-> (response/response json-body)
-                           (response/status 401)
-                           (response/content-type "application/json")
-                           (update :headers
-                                   merge
-                                   {"Access-Control-Allow-Origin"
-                                      "http://localhost:8080",
-                                    "Access-Control-Allow-Credentials"
-                                      "true"}))]
+        (let [json-body (json/write-value-as-string {:error
+                                                     "Authentication required"})
+              response
+              (-> (response/response json-body)
+                  (response/status 401)
+                  (response/content-type "application/json")
+                  (update :headers
+                          merge
+                          {"Access-Control-Allow-Origin" "http://localhost:8080"
+                           "Access-Control-Allow-Credentials" "true"}))]
           response)
         ;; For browser requests, redirect to login
         (response/redirect "/login")))))
@@ -187,9 +185,9 @@
   [request]
   (-> (response/redirect "/")
       (assoc-in [:cookies "auth-token"]
-                {:value "",
-                 :http-only true,
-                 :max-age 0, ; Expire immediately
-                 :same-site :lax,
+                {:value ""
+                 :http-only true
+                 :max-age 0 ; Expire immediately
+                 :same-site :lax
                  :path "/"})))
 

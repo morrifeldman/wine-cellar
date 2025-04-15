@@ -47,7 +47,7 @@
   [app-state]
   (let [wines (:wines @app-state)
         {:keys [search country region style tasting-window]} (:filters
-                                                               @app-state)
+                                                              @app-state)
         {:keys [field direction]} (:sort @app-state)
         show-out-of-stock? (:show-out-of-stock? @app-state)]
     (as-> wines w

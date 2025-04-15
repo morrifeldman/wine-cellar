@@ -62,18 +62,18 @@
 (defn default-drink-from-years
   []
   (concat
-    ;; Current year and future years for aging potential (show these first)
-    (map str (range (current-year) (+ (current-year) drink-from-future-years)))
-    ;; Add past years for already-drinkable wines
-    (map str
-      (range (- (current-year) 1)
-             (- (current-year) (inc drink-from-past-years))
-             -1))))
+   ;; Current year and future years for aging potential (show these first)
+   (map str (range (current-year) (+ (current-year) drink-from-future-years)))
+   ;; Add past years for already-drinkable wines
+   (map str
+        (range (- (current-year) 1)
+               (- (current-year) (inc drink-from-past-years))
+               -1))))
 
 (defn default-drink-until-years
   []
   (concat (map str
-            (range (current-year) (+ (current-year) drink-until-years)))))
+               (range (current-year) (+ (current-year) drink-until-years)))))
 
 (def vintage-range-years 10)  ;; How many recent years to show
 (def vintage-range-offset 2)  ;; How many years back from current year to start
@@ -81,23 +81,22 @@
 (defn default-vintage-years
   []
   (concat
-    ;; Recent years starting a few years back
-    (map str
-      (range (- (current-year) vintage-range-offset)
-             (- (- (current-year) vintage-range-offset) vintage-range-years)
-             -1))
-    ;; Then decades for older wines
-    (map #(str (+ 1900 (* % 10))) (range 9 -1 -1))))
+   ;; Recent years starting a few years back
+   (map str
+        (range (- (current-year) vintage-range-offset)
+               (- (- (current-year) vintage-range-offset) vintage-range-years)
+               -1))
+   ;; Then decades for older wines
+   (map #(str (+ 1900 (* % 10))) (range 9 -1 -1))))
 
 (defn valid-vintage?
   "Validates that a vintage is a valid year (between 1800 and current year) or nil for NV"
   [year]
-  (cond 
-    (nil? year) nil  ; nil is valid for NV wines
-    (js/isNaN year) "Vintage must be a valid year or NV"
-    (< year 1800) "Vintage must be after 1800"
-    (> year (current-year)) "Vintage cannot be in the future"
-    :else nil))
+  (cond (nil? year) nil ; nil is valid for NV wines
+        (js/isNaN year) "Vintage must be a valid year or NV"
+        (< year 1800) "Vintage must be after 1800"
+        (> year (current-year)) "Vintage cannot be in the future"
+        :else nil))
 
 (defn valid-tasting-year?
   [year]
@@ -113,7 +112,7 @@
     (or (valid-tasting-year? drink-from-year)
         (valid-tasting-year? drink-until-year)
         (cond (> drink-from-year drink-until-year)
-                "Drink from year must be less than or equal to drink until year"
+              "Drink from year must be less than or equal to drink until year"
               :else nil))))
 
 (defn format-tasting-window-text

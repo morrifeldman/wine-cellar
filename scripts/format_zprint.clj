@@ -1,6 +1,5 @@
-(ns wine-cellar.scripts.format
+(ns format-zprint
   (:require [clojure.java.io :as io]
-            [clojure.string :as str]
             [zprint.core :as zp]))
 
 (def default-options
@@ -29,7 +28,7 @@
   (let [path (.getPath file)]
     (try
       (println "Formatting" path)
-      (zp/zprint-file path path options)
+      (zp/zprint-file path path path options)
       (println "✓ Successfully formatted" path)
       true
       (catch Exception e
@@ -50,7 +49,7 @@
 
 (defn -main
   "Format all Clojure files in the project."
-  [& args]
+  [& _]
   (let [options default-options
         src-dirs ["src/clj" "src/cljc" "src/cljs" "dev"]]
     (println "Starting formatting with zprint...")
