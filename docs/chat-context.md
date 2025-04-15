@@ -107,7 +107,7 @@ experience.  Nonetheless, I don't generally need any code comments.
 - Editor: Neovim
 
 ## Deployment
-- Fly.io with "unmanaged" postgres
+- Fly.io
 
 # Next tasks
 
