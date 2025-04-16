@@ -1,6 +1,7 @@
 (ns wine-cellar.views.wines.list
   (:require [goog.string.format]
-            [wine-cellar.views.components :refer [wine-card get-rating-color]]
+            [wine-cellar.views.components.wine-card :refer
+             [wine-card get-rating-color]]
             [wine-cellar.views.wines.filters :refer [filter-bar]]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
             [reagent-mui.material.grid :refer [grid]]
@@ -18,8 +19,6 @@
             [reagent-mui.icons.expand-less :refer [expand-less]]
             [reagent-mui.icons.arrow-drop-up :refer [arrow-drop-up]]
             [reagent-mui.icons.arrow-drop-down :refer [arrow-drop-down]]))
-
-;; Wine card components have been moved to components namespace
 
 (defn sort-control
   [app-state]
