@@ -24,8 +24,14 @@ fi
 
 echo "Formatting $FILE"
 
-# Format the file using zprint
-cd "$(dirname "$0")/.." && clojure -M:zprint '{:style :community :map {:comma? false} :width 80}' < "$FILE" > "$FILE.tmp"
+# Check if command-line zprint is available
+if command -v zprint &> /dev/null; then
+  echo "Using command-line zprint"
+  zprint '{:style :community :map {:comma? false} :width 80}' < "$FILE" > "$FILE.tmp"
+else
+  echo "Using Clojure-based zprint (installing command-line zprint could speed up this step)"
+  cd "$(dirname "$0")/.." && clojure -M:zprint '{:style :community :map {:comma? false} :width 80}' < "$FILE" > "$FILE.tmp"
+fi
 
 # Check if zprint succeeded
 if [ $? -ne 0 ]; then
