@@ -20,7 +20,8 @@
            :tasting-notes []
            :new-tasting-note {}
            :sort {:field nil :direction :asc}
-           :filters {:search "" :country nil :region nil :style nil}}))
+           :filters {:search "" :country nil :region nil :style nil}
+           :view nil}))
 
 (add-watch app-state :tap (fn [_ _ _ new-state] (tap> new-state)))
 

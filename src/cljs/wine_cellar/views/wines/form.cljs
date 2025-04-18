@@ -168,11 +168,12 @@
      [form-divider "Vintage"] [form-row [vintage app-state new-wine]]
      [form-row [drink-from-year app-state new-wine]
       [drink-until-year app-state new-wine]]
-     ;; Wine Label Image Section
-     [form-divider "Wine Label Image"]
+     ;; Wine Label Images Section
+     [form-divider "Wine Label Images"]
      [form-row
       [image-upload
        {:image-data (:label_image new-wine)
+        :label-type "front"
         :on-image-change #(swap! app-state update :new-wine merge %)
         :on-image-remove #(swap! app-state update
                             :new-wine
@@ -180,6 +181,14 @@
                               (-> wine
                                   (dissoc :label_image)
                                   (dissoc :label_thumbnail))))}]]
+     [form-row
+      [image-upload
+       {:image-data (:back_label_image new-wine)
+        :label-type "back"
+        :on-image-change #(swap! app-state update :new-wine merge %)
+        :on-image-remove #(swap! app-state update
+                            :new-wine
+                            (fn [wine] (dissoc wine :back_label_image)))}]]
      ;; Additional Information Section
      [form-divider "Additional Information"]
      [form-row

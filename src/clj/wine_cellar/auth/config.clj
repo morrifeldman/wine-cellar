@@ -39,3 +39,9 @@
   []
   (or (System/getenv "COOKIE_STORE_KEY")
       (config-utils/get-password-from-pass "wine-cellar/cookie-store-key")))
+
+(defn get-admin-email
+  "Gets the admin email address from environment or pass"
+  []
+  (or (System/getenv "ADMIN_EMAIL")
+      (config-utils/get-password-from-pass "wine-cellar/admin-email")))

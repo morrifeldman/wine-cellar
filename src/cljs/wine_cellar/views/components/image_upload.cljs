@@ -1,5 +1,6 @@
 (ns wine-cellar.views.components.image-upload
   (:require [reagent.core :as r]
+            [clojure.string :as str]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.typography :refer [typography]]
@@ -159,32 +160,9 @@
        :onClick #(on-image-remove)
        :startIcon (r/as-element [delete])} "Remove Image"])])
 
-;; Camera controls component
-(defn render-camera-controls
-  [uploading show-camera disabled]
-  [box
-   {:sx {:display "flex"
-         :flexDirection "column"
-         :alignItems "center"
-         :p 2
-         :border "1px dashed rgba(0,0,0,0.2)"
-         :borderRadius 1}}
-   [typography
-    {:variant "body2" :color "text.secondary" :sx {:mb 2 :textAlign "center"}}
-    "Add a wine label image"]
-   ;; Camera button
-   [button
-    {:variant "contained"
-     :color "primary"
-     :disabled (or disabled @uploading)
-     :onClick #(reset! show-camera true)
-     :startIcon (r/as-element [camera-alt])
-     :size "medium"} "Take Photo"]
-   ;; Loading indicator
-   (when @uploading
-     [box {:sx {:mt 2 :display "flex" :justifyContent "center"}}
-      [typography {:variant "body2" :color "text.secondary"}
-       "Processing image..."]])])
+;; Camera controls component - we've moved this functionality directly into the
+;; image-upload component
+;; to handle the label type parameter
 
 ;; Main image upload component
 (defn image-upload
@@ -193,22 +171,53 @@
    - image-data: Current image data (base64 string) or nil
    - on-image-change: Function to call when image changes (receives image data object)
    - on-image-remove: Function to call when image is removed
-   - disabled: Whether the upload controls should be disabled"
-  [{:keys [image-data on-image-change on-image-remove disabled]}]
+   - disabled: Whether the upload controls should be disabled
+   - label-type: Type of label ('front' or 'back')"
+  [{:keys [image-data on-image-change on-image-remove disabled label-type]}]
   (let [show-camera (r/atom false)
-        uploading (r/atom false)]
-    (fn [{:keys [image-data on-image-change on-image-remove disabled]}]
+        uploading (r/atom false)
+        label-text (if (= label-type "back") "back" "front")]
+    (fn [{:keys [image-data on-image-change on-image-remove disabled
+                 label-type]}]
       [box {:sx {:width "100%"}}
        ;; Show camera modal if active
        (when @show-camera
          [camera-capture
           (fn [image-data]
             (reset! show-camera false)
-            (on-image-change image-data)) #(reset! show-camera false)])
+            (if (= label-type "back")
+              ;; For back label, we don't need a thumbnail
+              (on-image-change {:back_label_image (:label_image image-data)})
+              ;; For front label, we keep the existing behavior
+              (on-image-change image-data))) #(reset! show-camera false)])
        ;; Image preview or camera controls
        (if image-data
          ;; Show image with remove button
          [render-image-preview image-data on-image-remove disabled]
          ;; Show camera controls
-         [render-camera-controls uploading show-camera disabled])])))
+         [box
+          {:sx {:display "flex"
+                :flexDirection "column"
+                :alignItems "center"
+                :p 2
+                :border "1px dashed rgba(0,0,0,0.2)"
+                :borderRadius 1}}
+          [typography
+           {:variant "body2"
+            :color "text.secondary"
+            :sx {:mb 2 :textAlign "center"}}
+           (str "Add " label-text " label image")]
+          ;; Camera button
+          [button
+           {:variant "contained"
+            :color "primary"
+            :disabled (or disabled @uploading)
+            :onClick #(reset! show-camera true)
+            :startIcon (r/as-element [camera-alt])
+            :size "medium"} (str "Take " (str/capitalize label-text) " Photo")]
+          ;; Loading indicator
+          (when @uploading
+            [box {:sx {:mt 2 :display "flex" :justifyContent "center"}}
+             [typography {:variant "body2" :color "text.secondary"}
+              "Processing image..."]])])])))
 

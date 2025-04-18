@@ -1,5 +1,6 @@
 (ns wine-cellar.handlers
   (:require [wine-cellar.db.api :as api]
+            [wine-cellar.db.setup :as db-setup]
             [ring.util.response :as response]))
 
 (defn- no-content [] {:status 204 :headers {} :body nil})
@@ -53,7 +54,9 @@
                                :levels (when (:level wine) [(:level wine)])}]
            ;; Only create if all required fields are present
            (when (and (:country classification) (:region classification))
+             (tap> ["Creating classification" classification])
              (api/create-or-update-classification classification)))
+         (tap> ["Now Creating wine" wine])
          ;; Now create the wine
          (let [created-wine (api/create-wine wine)]
            {:status 201 :body created-wine})
@@ -85,16 +88,6 @@
          (response/not-found {:error "Wine not found"}))
        (catch Exception e (server-error e))))
 
-(defn upload-wine-image
-  [{{:keys [id]} :path-params {:keys [body]} :parameters}]
-  (tap> ["upload-wine-image" body])
-  (try (if (api/get-wine (parse-long id))
-         (let [updated (api/update-wine-image! (parse-long id) body)]
-           (tap> ["updated wine image"])
-           (response/response updated))
-         (response/not-found {:error "Wine not found"}))
-       (catch Exception e (server-error e))))
-
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine
   [{{:keys [id]} :path-params}]
@@ -103,7 +96,7 @@
        (catch Exception e (server-error e))))
 
 (defn get-tasting-note
-  [{{:keys [id note-id]} :path-params}]
+  [{{:keys [note-id]} :path-params}]
   (try (if-let [note (api/get-tasting-note (parse-long note-id))]
          (response/response note)
          (response/not-found {:error "Tasting note not found"}))
@@ -167,3 +160,12 @@
               :database "disconnected"
               :error (.getMessage e)
               :timestamp (str (java.time.Instant/now))}})))
+
+;; Admin Handlers
+(defn reset-schema
+  [_]
+  (try (db-setup/reset-schema!)
+       (response/response {:status "success"
+                           :message "Database schema reset successfully"
+                           :timestamp (str (java.time.Instant/now))})
+       (catch Exception e (server-error e))))
