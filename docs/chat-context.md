@@ -119,6 +119,7 @@ experience.  Nonetheless, I don't generally need any code comments.
 * Manage/Edit Classifications + remove classification form code
 * Use AI to fill add wine based on the label picture
 * Use app-state :view state more broadly
+* Extend wine db export to write out to object storage or local machine storage
 
 ## Bugs
 
