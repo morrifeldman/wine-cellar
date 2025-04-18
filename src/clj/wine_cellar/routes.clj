@@ -41,9 +41,9 @@
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source string?)
-(s/def ::label_image string?)
-(s/def ::label_thumbnail string?)
-(s/def ::back_label_image string?)
+(s/def ::label_image (s/nilable string?))
+(s/def ::label_thumbnail (s/nilable string?))
+(s/def ::back_label_image (s/nilable string?))
 (s/def ::image-data
   (s/nilable (s/keys :opt-un [::label_image ::label_thumbnail
                               ::back_label_image])))

@@ -262,10 +262,11 @@
        {:image-data (:label_image wine)
         :label-type "front"
         :on-image-change #(api/update-wine-image app-state (:id wine) %)
-        :on-image-remove #(api/update-wine-image
-                           app-state
-                           (:id wine)
-                           (dissoc wine :label_image :label_thumbnail))}]]]
+        :on-image-remove
+        #(api/update-wine-image
+          app-state
+          (:id wine)
+          (assoc wine :label_image nil :label_thumbnail nil))}]]]
     ;; Back Wine Label Image
     [grid {:item true :xs 12 :md 6}
      [paper
@@ -275,10 +276,10 @@
        {:image-data (:back_label_image wine)
         :label-type "back"
         :on-image-change #(api/update-wine-image app-state (:id wine) %)
-        :on-image-remove #(api/update-wine-image app-state
-                                                 (:id wine)
-                                                 (dissoc wine
-                                                  :back_label_image))}]]]
+        :on-image-remove #(api/update-wine-image
+                           app-state
+                           (:id wine)
+                           (assoc wine :back_label_image nil))}]]]
     ;; AOC/AVA
     [grid {:item true :xs 12 :md 6}
      [paper
