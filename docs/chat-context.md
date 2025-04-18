@@ -5,14 +5,17 @@ with back end Clojure and am using Clojurescript for the front end. I currently
 use Viveno, but I'm a bit frustrated with Viveno. Too many ads and difficult to
 do the simple tracking that I want. I've made some good progress so far.
 
-Please follow these instructions as we work together. Please
-consider this context but don't jump right into the task till I focus you.
-Sometimes I will want to have short conversations focused on tooling setup. I
-use nvim. Please do not give an answer if you want more information or files --
-I'd rather just give you the data.  Don't bother using shell tools -- just ask
-me and I will be happy to provide any files directly.  It is really important
-that we work incrementally, so please only suggest one change at a time to give
-me a chance to test it before we move on.
+Please follow these instructions as we work together. Please consider this
+context but don't jump right into the task till I focus you. Sometimes I will
+want to have short conversations focused on tooling setup. I use nvim. Please do
+not give start answering if you want more information or files -- I'd rather
+just give you the data.  Don't bother using shell tools -- just ask me and I
+will be happy to provide any files directly.  It is really important that we
+work incrementally, so please only suggest one change at a time to give me a
+chance to test it before we move on.
+
+I'd like you to be a pair programmer with me -- so while you should suggest
+changes, don't get too far ahead of me and let's stay together collaboratively.
 
 I strongly favor a declarative approach to code, and I like to minimize
 duplication and create reusable abstractions when it makes sense.
@@ -114,7 +117,11 @@ experience.  Nonetheless, I don't generally need any code comments.
 ## General
 
 * Manage/Edit Classifications + remove classification form code
-* Add a picture field
 * Use AI to fill add wine based on the label picture
-* Make the wines in the list more like cards
-* Condense the filters to a long sliding row
+* Use app-state :view state more broadly
+* Extend wine db export to write out to object storage or local machine storage
+
+## Bugs
+
+* Rating disappears when going back to wine list, but only for selected wine
+* Update tasting window fields in tasting note doesn't work

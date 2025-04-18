@@ -22,25 +22,28 @@
 (def classifications-table-schema
   {:create-table [:wine_classifications :if-not-exists]
    :with-columns
-   [[:id :serial :primary-key] [:country :varchar [:not nil]]
-    [:region :varchar [:not nil]] [:aoc :varchar] [:communal_aoc :varchar]
-    [:classification :varchar] [:vineyard :varchar] [:levels :wine_level :array]
-    [:created_at :timestamp [:default [:now]]]
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:country :varchar [:not nil]] [:region :varchar [:not nil]] [:aoc :varchar]
+    [:communal_aoc :varchar] [:classification :varchar] [:vineyard :varchar]
+    [:levels :wine_level :array] [:created_at :timestamp [:default [:now]]]
     [[:constraint :wine_classifications_natural_key] :unique-nulls-not-distinct
      [:composite :country :region :aoc :communal_aoc :classification
       :vineyard]]]})
 
+#_(sql/format classifications-table-schema)
+
 (def wines-table-schema
   {:create-table [:wines :if-not-exists]
    :with-columns
-   [[:id :serial :primary-key] [:producer :varchar]
-    [:country :varchar [:not nil]] [:region :varchar [:not nil]] [:aoc :varchar]
-    [:communal_aoc :varchar] [:classification :varchar] [:vineyard :varchar]
-    [:level :wine_level] [:name :varchar] [:vintage :integer :null]
-    [:style :wine_style] [:location :varchar] [:purveyor :varchar]
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:producer :varchar] [:country :varchar [:not nil]]
+    [:region :varchar [:not nil]] [:aoc :varchar] [:communal_aoc :varchar]
+    [:classification :varchar] [:vineyard :varchar] [:level :wine_level]
+    [:name :varchar] [:vintage :integer :null] [:style :wine_style]
+    [:location :varchar] [:purveyor :varchar]
     [:quantity :integer [:not nil] [:default 0]] [:price :decimal [10 2]]
     [:drink_from_year :integer] [:drink_until_year :integer]
-    [:label_image :bytea] [:label_thumbnail :bytea]
+    [:label_image :bytea] [:label_thumbnail :bytea] [:back_label_image :bytea]
     [[:constraint :valid_tasting_window]
      [:check
       [:or [:= :drink_from_year] [:= :drink_until_year]
@@ -48,9 +51,11 @@
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]]})
 #_(sql/format wines-table-schema)
+
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]
-   :with-columns [[:id :serial :primary-key] [:wine_id :integer [:not nil]]
+   :with-columns [[:id :integer :generated :by-default :as :identity
+                   :primary-key] [:wine_id :integer [:not nil]]
                   [:tasting_date :date] [:notes :text [:not nil]]
                   [:rating :integer
                    [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
@@ -77,8 +82,4 @@
               :limit [:inline 1]} :latest_rating]]
    :from [[:wines :w]]})
 
-;; Helper functions for SQL generation
-(defn ->pg-array [coll] {:raw (str "'{" (str/join "," coll) "}'")})
-
-(defn sql-cast [sql-type field] [:cast field sql-type])
 

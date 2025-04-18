@@ -2,12 +2,15 @@
   (:require [clojure.string :as str]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [wine-cellar.db.schema :as schema]
-            [wine-cellar.db.setup :refer [db-opts ds]])
+            [wine-cellar.db.connection :refer [db-opts ds]])
   (:import [java.sql Date]
            [java.util Base64]))
 
-;; Helper functions
+;; Helper functions for SQL generation
+(defn ->pg-array [coll] {:raw (str "'{" (str/join "," coll) "}'")})
+
+(defn sql-cast [sql-type field] [:cast field sql-type])
+
 (defn- ->sql-date
   [^String date-string]
   (some-> date-string
@@ -28,18 +31,20 @@
          (String. (.encode (Base64/getEncoder) bytes) "UTF-8"))))
 
 (defn wine->db-wine
-  [wine]
-  (-> wine
-      (update :style (partial schema/sql-cast :wine_style))
-      (update :level (partial schema/sql-cast :wine_level))
-      (update :label_image base64->bytes)
-      (update :label_thumbnail base64->bytes)))
+  [{:keys [style level label_image label_thumbnail back_label_image] :as wine}]
+  (cond-> wine
+    style (update :style (partial sql-cast :wine_style))
+    level (update :level (partial sql-cast :wine_level))
+    label_image (update :label_image base64->bytes)
+    label_thumbnail (update :label_thumbnail base64->bytes)
+    back_label_image (update :back_label_image base64->bytes)))
 
 (defn db-wine->wine
-  [db-wine]
-  (some-> db-wine
-          (update :label_image bytes->base64)
-          (update :label_thumbnail bytes->base64)))
+  [{:keys [label_image label_thumbnail back_label_image] :as db-wine}]
+  (cond-> db-wine
+    label_image (update :label_image bytes->base64)
+    label_thumbnail (update :label_thumbnail bytes->base64)
+    back_label_image (update :back_label_image bytes->base64)))
 
 (defn ping-db
   "Simple function to test database connectivity"
@@ -48,11 +53,13 @@
 
 ;; Wine operations
 (defn create-wine
-  [wine]
-  (jdbc/execute-one! @ds
-                     (sql/format {:insert-into :wines
-                                  :values [(wine->db-wine wine)]})
-                     db-opts))
+  ([wine] (create-wine @ds wine))
+  ([tx-or-ds wine]
+   (jdbc/execute-one! tx-or-ds
+                      (sql/format {:insert-into :wines
+                                   :values [(wine->db-wine wine)]
+                                   :returning :*})
+                      db-opts)))
 
 (defn get-wine
   [id]
@@ -66,6 +73,8 @@
   []
   (let [wines (jdbc/execute!
                @ds
+               ;; Listing columns explicitly since the only image we are
+               ;; getting is the label_thumbnail
                (sql/format {:select [:id :producer :country :region :aoc
                                      :communal_aoc :classification :vineyard
                                      :level :name :vintage :style :location
@@ -88,21 +97,6 @@
                          db-opts)
       db-wine->wine))
 
-(defn update-wine-image!
-  [id image-data]
-  (some-> (jdbc/execute-one!
-           @ds
-           (sql/format {:update :wines
-                        :set {:label_image (base64->bytes (:label_image
-                                                           image-data))
-                              :label_thumbnail (base64->bytes (:label_thumbnail
-                                                               image-data))
-                              :updated_at [:now]}
-                        :where [:= :id id]
-                        :returning :*})
-           db-opts)
-          db-wine->wine))
-
 (defn adjust-quantity
   [id adjustment]
   (jdbc/execute-one! @ds
@@ -121,9 +115,10 @@
 ;; Classification operations
 (defn create-or-update-classification
   "Creates a new classification or updates an existing one by combining levels"
-  [classification]
-  (jdbc/with-transaction
-   [tx @ds]
+  ([classification]
+   (jdbc/with-transaction [tx @ds]
+                          (create-or-update-classification tx classification)))
+  ([tx classification]
    (let [existing-query
          {:select :*
           :from :wine_classifications
@@ -136,22 +131,24 @@
                    [:coalesce (:classification classification) ""]]
                   [:= [:coalesce :vineyard ""]
                    [:coalesce (:vineyard classification) ""]]]}
+         _ (tap> ["existing-query" existing-query])
          existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
+     (tap> ["existing" existing])
      (if existing
        ;; Update existing classification - merge levels
        (let [levels1 (or (:levels existing) [])
              levels2 (or (:levels classification) [])
              combined-levels (vec (distinct (concat levels1 levels2)))
              update-query {:update :wine_classifications
-                           :set {:levels (schema/->pg-array combined-levels)}
+                           :set {:levels (->pg-array combined-levels)}
                            :where [:= :id (:id existing)]
                            :returning :*}]
          (jdbc/execute-one! tx (sql/format update-query) db-opts))
        ;; Create new classification
        (let [insert-query {:insert-into :wine_classifications
-                           :values
-                           [(update classification :levels schema/->pg-array)]
+                           :values [(update classification :levels ->pg-array)]
                            :returning :*}]
+         (tap> ["insert-query" insert-query])
          (jdbc/execute-one! tx (sql/format insert-query) db-opts))))))
 
 (defn get-classifications
@@ -183,14 +180,16 @@
 
 ;; Tasting Notes Operations
 (defn create-tasting-note
-  [note]
-  (jdbc/execute-one! @ds
-                     (sql/format {:insert-into :tasting_notes
-                                  :values [(-> note
-                                               (update :tasting_date ->sql-date)
-                                               (assoc :updated_at [:now]))]
-                                  :returning :*})
-                     db-opts))
+  ([note] (create-tasting-note @ds note))
+  ([ds-or-tx note]
+   (jdbc/execute-one! ds-or-tx
+                      (sql/format {:insert-into :tasting_notes
+                                   :values [(-> note
+                                                (update :tasting_date
+                                                        ->sql-date)
+                                                (assoc :updated_at [:now]))]
+                                   :returning :*})
+                      db-opts)))
 
 (defn update-tasting-note!
   [id note]

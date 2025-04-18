@@ -253,15 +253,33 @@
       [typography {:variant "body2" :color "text.secondary"} "Region"]
       [editable-region app-state wine]]]]
    [grid {:container true :spacing 3 :sx {:mb 4}}
-    ;; Wine Label Image
+    ;; Front Wine Label Image
     [grid {:item true :xs 12 :md 6}
      [paper
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Wine Label"]
+      [typography {:variant "body2" :color "text.secondary"} "Front Label"]
       [image-upload
        {:image-data (:label_image wine)
+        :label-type "front"
         :on-image-change #(api/update-wine-image app-state (:id wine) %)
-        :on-image-remove #(api/update-wine-image app-state (:id wine) nil)}]]]
+        :on-image-remove
+        #(api/update-wine-image
+          app-state
+          (:id wine)
+          (assoc wine :label_image nil :label_thumbnail nil))}]]]
+    ;; Back Wine Label Image
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Back Label"]
+      [image-upload
+       {:image-data (:back_label_image wine)
+        :label-type "back"
+        :on-image-change #(api/update-wine-image app-state (:id wine) %)
+        :on-image-remove #(api/update-wine-image
+                           app-state
+                           (:id wine)
+                           (assoc wine :back_label_image nil))}]]]
     ;; AOC/AVA
     [grid {:item true :xs 12 :md 6}
      [paper
@@ -357,7 +375,9 @@
                        (fn [wines]
                          (map (fn [wine]
                                 (if (= (:id wine) selected-wine-id)
-                                  (dissoc wine :label_image)
+                                  (-> wine
+                                      (dissoc :label_image)
+                                      (dissoc :back_label_image))
                                   wine))
                               wines)))
                      ;; Remove selected wine ID and tasting notes

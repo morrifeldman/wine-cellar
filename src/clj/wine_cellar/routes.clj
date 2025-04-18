@@ -41,33 +41,37 @@
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source string?)
-(s/def ::label_image string?)
-(s/def ::label_thumbnail string?)
+(s/def ::label_image (s/nilable string?))
+(s/def ::label_thumbnail (s/nilable string?))
+(s/def ::back_label_image (s/nilable string?))
 (s/def ::image-data
-  (s/nilable (s/keys :req-un [::label_image ::label_thumbnail])))
+  (s/nilable (s/keys :opt-un [::label_image ::label_thumbnail
+                              ::back_label_image])))
 
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer) ::country ::region ::style ::quantity
                    ::price]
           :opt-un [::aoc ::communal_aoc ::classification ::vineyard ::location
                    ::level ::purveyor ::label_image ::label_thumbnail
-                   ::drink_from_year ::drink_until_year ::vintage]))
+                   ::back_label_image ::drink_from_year ::drink_until_year
+                   ::vintage]))
 
 (def wine-update-schema
-  (s/keys :req-un [(or ::producer
-                       ::country ::region
-                       ::aoc ::communal_aoc
-                       ::classification ::vineyard
-                       ::name ::vintage
-                       ::style ::level
-                       ::location ::quantity
-                       ::price ::purveyor
-                       ::label_image ::label_thumbnail
+  (s/keys :req-un [(or ::producer ::country
+                       ::region ::aoc
+                       ::communal_aoc ::classification
+                       ::vineyard ::name
+                       ::vintage ::style
+                       ::level ::location
+                       ::quantity ::price
+                       ::purveyor ::label_image
+                       ::label_thumbnail ::back_label_image
                        ::drink_from_year ::drink_until_year)]
           :opt-un [::producer ::country ::region ::aoc ::communal_aoc
                    ::classification ::vineyard ::name ::vintage ::style ::level
                    ::location ::quantity ::price ::purveyor ::label_image
-                   ::label_thumbnail ::drink_from_year ::drink_until_year]))
+                   ::label_thumbnail ::back_label_image ::drink_from_year
+                   ::drink_until_year]))
 
 (def classification-schema
   (s/keys :req-un [::country ::region]
@@ -91,7 +95,8 @@
     {:name ::cors :wrap identity}))  ;; No-op middleware in production
 
 (def wine-routes
-  [["/swagger.json"
+  [;; Public routes - no authentication required
+   ["/swagger.json"
     {:get {:no-doc true
            :swagger {:info {:title "Wine Cellar API"
                             :description
@@ -114,17 +119,19 @@
    ["/auth/google/callback"
     {:get {:summary "Handle Google OAuth callback"
            :handler auth/handle-google-callback}}]
-   ["/auth/logout"
-    {:get {:summary "Logout user"
-           :handler (fn [_]
-                      (-> (response/redirect "/")
-                          (assoc-in [:cookies "auth-token"]
-                                    {:value ""
-                                     :max-age 0
-                                     :http-only true
-                                     :same-site :lax
-                                     :path "/"})))}}]
+   ["/auth/logout" {:get {:summary "Logout user" :handler auth/logout}}]
+   ;; Protected API routes - require authentication
    ["/api" {:middleware [auth/require-authentication]}
+    ;; Admin Routes
+    ["/admin" {:middleware [auth/require-admin]}
+     ["/schema"
+      {:post
+       {:summary "Reset database schema while preserving data"
+        :description
+        "This endpoint exports all data, drops all tables, recreates the schema, and imports the data back. Use this to apply schema changes without migrations."
+        :tags ["Admin"]
+        :responses {200 {:body map?} 500 {:body map?}}
+        :handler handlers/reset-schema}}]]
     ;; Wine Classification Routes
     ["/classifications"
      {:get {:summary "Get all wine classifications"
@@ -176,7 +183,7 @@
       :put {:summary "Upload wine label image"
             :parameters {:body ::image-data}
             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/upload-wine-image}}]
+            :handler handlers/update-wine}}]
     ;; Tasting Notes Routes
     ["/wines/:id/tasting-notes"
      {:parameters {:path {:id int?}}
@@ -231,7 +238,6 @@
       :middleware
       [cors-middleware ;; Move CORS middleware to be
                        ;; first in the chain
-       auth/wrap-auth  ;; Add authentication middleware
        (exception/create-exception-middleware
         (merge exception/default-handlers
                {:reitit.coercion/request-coercion (coercion-error-handler 400)
@@ -240,7 +246,7 @@
        parameters/parameters-middleware muuntaja/format-negotiate-middleware
        muuntaja/format-response-middleware muuntaja/format-request-middleware
        coercion/coerce-request-middleware coercion/coerce-response-middleware
-       swagger/swagger-feature]}})
+       swagger/swagger-feature auth/wrap-auth]}})
    ; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
    (ring/routes (ring/create-file-handler {:path "/"})
                 (ring/create-default-handler))))

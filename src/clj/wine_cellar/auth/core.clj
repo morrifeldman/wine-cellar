@@ -75,7 +75,7 @@
 
 (defn get-user-info
   [access-token]
-  (tap> ["get-user-info" (boolean access-token)])
+  (tap> ["get-user-info" access-token])
   (try (let [{:keys [status body error]}
              @(http/get "https://www.googleapis.com/oauth2/v3/userinfo"
                         {:headers {"Authorization" (str "Bearer " access-token)}
@@ -96,12 +96,9 @@
   (tap> ["create-jwt-token" user-info])
   (let [jwt-secret (config/get-jwt-secret)
         now (Instant/now)
-        claims {:sub (:sub user-info)
-                :email (:email user-info)
-                :name (:name user-info)
-                :picture (:picture user-info)
-                :iat (inst-ms now)
-                :exp (inst-ms (.plus now 7 ChronoUnit/DAYS))}]
+        claims (assoc user-info
+                      "iat" (inst-ms now)
+                      "exp" (inst-ms (.plus now 7 ChronoUnit/DAYS)))]
     (jwt/sign claims jwt-secret {:alg :hs256})))
 
 (defn handle-google-callback
@@ -122,11 +119,13 @@
         (do (tap> ["state-verified" state])
             ;; Exchange code for token
             (if-let [token-response (exchange-code-for-token code)]
-              (let [access-token (:access_token token-response)
-                    _ (tap> ["access-token-received" (boolean access-token)])
+              (let [_ (tap> ["token-response" token-response])
+                    access-token (get token-response "access_token")
+                    _ (tap> ["access-token-received" access-token])
                     user-info (get-user-info access-token)
-                    _ (tap> ["user-info-received" (boolean user-info)])
+                    _ (tap> ["user-info-received" user-info])
                     jwt-token (create-jwt-token user-info)]
+                (tap> ["jwt-token" jwt-token])
                 (-> (response/redirect "/")
                     (assoc-in [:cookies "auth-token"]
                               {:value jwt-token
@@ -145,8 +144,10 @@
 
 (defn verify-token
   [token]
-  (try (jwt/unsign token (config/get-jwt-secret) {:alg :hs256})
-       (catch Exception _ nil)))
+  (try (let [decoded (jwt/unsign token (config/get-jwt-secret) {:alg :hs256})]
+         (tap> ["verify-token" "decoded" decoded])
+         decoded)
+       (catch Exception e (tap> ["verify-token" "error" (.getMessage e)]) nil)))
 
 (defn wrap-auth
   [handler]
@@ -154,9 +155,18 @@
     (let [token (get-in request [:cookies "auth-token" :value])
           user-info (when token (verify-token token))
           authenticated-request (assoc request :user user-info)]
+      (tap> ["authenticated-request" authenticated-request])
       (handler authenticated-request))))
 
 (defn authenticated? [request] (boolean (:user request)))
+
+(defn admin?
+  "Check if the user is an admin based on their email"
+  [request]
+  (tap> ["admin?" request])
+  (let [admin-email (config/get-admin-email)]
+    (and (authenticated? request)
+         (= (get-in request [:user :email]) admin-email))))
 
 (defn require-authentication
   [handler]
@@ -180,6 +190,26 @@
           response)
         ;; For browser requests, redirect to login
         (response/redirect "/login")))))
+
+(defn require-admin
+  "Middleware that ensures the user is an admin"
+  [handler]
+  (fn [request]
+    (tap> ["require-admin" (:uri request)])
+    (if (admin? request)
+      (handler request)
+      ;; Return 403 Forbidden with proper JSON and CORS headers
+      (let [json-body (json/write-value-as-string {:error
+                                                   "Admin access required"})
+            response (-> (response/response json-body)
+                         (response/status 403)
+                         (response/content-type "application/json")
+                         (update :headers
+                                 merge
+                                 {"Access-Control-Allow-Origin"
+                                  "http://localhost:8080"
+                                  "Access-Control-Allow-Credentials" "true"}))]
+        response))))
 
 (defn logout
   [request]
