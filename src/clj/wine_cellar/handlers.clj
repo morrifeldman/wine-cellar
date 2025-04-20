@@ -174,6 +174,7 @@
 ;; AI Analysis Handlers
 (defn analyze-wine-label
   [{{:keys [label_image back_label_image]} :body-params}]
+  (tap> "analyze-wine-label")
   (try (if (nil? label_image)
          {:status 400 :body {:error "Label image is required"}}
          (let [result (anthropic/analyze-wine-label label_image
@@ -185,4 +186,4 @@
             :body {:error "AI analysis failed"
                    :details (.getMessage e)
                    :response (:response data)}}))
-       (catch Exception e (server-error e))))
+       (catch Exception e (tap> e) (server-error e))))

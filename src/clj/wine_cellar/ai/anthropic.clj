@@ -46,7 +46,8 @@
    Returns a map of extracted wine information."
   [label-image back-label-image]
   (if-let [api-key (config-utils/get-anthropic-api-key)]
-    (let [images (filterv
+    (let [_ (tap> ["anthropic-api-key-exists" (boolean api-key)])
+          images (filterv
                   some?
                   [(when label-image
                      {:type "image"
@@ -70,29 +71,49 @@
                         :max_tokens 1000
                         :messages [{:role "user"
                                     :content (into [{:type "text" :text prompt}]
-                                                   images)}]}
-          response (http/post api-url
-                              {:body (json/generate-string request-body)
-                               :headers {"x-api-key" api-key
-                                         "anthropic-version" "2023-06-01"
-                                         "content-type" "application/json"}
-                               :as :json})]
-      (if (= 200 (:status response))
-        (let [content (get-in response [:body :content 0 :text])
-              ;; Extract JSON from the response
-              json-str (or (second (re-find #"(?s)```json\s*(.*?)\s*```"
-                                            content))
-                           (second (re-find #"(?s)\{(.*)\}" content))
-                           content)]
-          (try
-            ;; Parse the JSON response
-            (json/parse-string (if (str/starts-with? json-str "{")
-                                 json-str
-                                 (str "{" json-str "}"))
-                               true)
-            (catch Exception e
-              (throw (ex-info "Failed to parse AI response as JSON"
-                              {:error (.getMessage e) :response content})))))
-        (throw (ex-info "Anthropic API request failed"
-                        {:status (:status response) :body (:body response)}))))
+                                                   images)}]}]
+      (tap> ["anthropic-request-body-structure" (keys request-body)])
+      (try (let [response (http/post api-url
+                                     {:body (json/generate-string request-body)
+                                      :headers {"x-api-key" api-key
+                                                "anthropic-version" "2023-06-01"
+                                                "content-type"
+                                                "application/json"}
+                                      :as :json
+                                      :throw-exceptions true
+                                      :socket-timeout 30000
+                                      :conn-timeout 30000})]
+             (tap> ["anthropic-response-status" (:status response)])
+             (if (= 200 (:status response))
+               (let [content (get-in response [:body :content 0 :text])
+                     ;; Extract JSON from the response
+                     json-str (or (second (re-find #"(?s)```json\s*(.*?)\s*```"
+                                                   content))
+                                  (second (re-find #"(?s)\{(.*)\}" content))
+                                  content)]
+                 (try
+                   ;; Parse the JSON response
+                   (json/parse-string (if (str/starts-with? json-str "{")
+                                        json-str
+                                        (str "{" json-str "}"))
+                                      true)
+                   (catch Exception e
+                     (throw (ex-info "Failed to parse AI response as JSON"
+                                     {:error (.getMessage e)
+                                      :response content})))))
+               (throw (ex-info "Anthropic API request failed"
+                               {:status (:status response)
+                                :body (:body response)}))))
+           (catch java.net.SocketTimeoutException e
+             (tap> ["anthropic-timeout-error" (.getMessage e)])
+             (throw (ex-info "Anthropic API request timed out"
+                             {:error (.getMessage e)})))
+           (catch java.net.ConnectException e
+             (tap> ["anthropic-connection-error" (.getMessage e)])
+             (throw (ex-info "Failed to connect to Anthropic API"
+                             {:error (.getMessage e)})))
+           (catch Exception e
+             (tap> ["anthropic-unexpected-error" (.getMessage e) (type e)])
+             (throw (ex-info "Unexpected error calling Anthropic API"
+                             {:error (.getMessage e)})))))
     (throw (ex-info "ANTHROPIC_API_KEY environment variable not set" {}))))
