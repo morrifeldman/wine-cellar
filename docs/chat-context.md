@@ -120,8 +120,6 @@ experience.  Nonetheless, I don't generally need any code comments.
 * Use AI to fill add wine based on the label picture
 * Use app-state :view state more broadly
 * Extend wine db export to write out to object storage or local machine storage
+* Add admin function to erase db and reset to initial state.
 
 ## Bugs
-
-* Rating disappears when going back to wine list, but only for selected wine
-* Update tasting window fields in tasting note doesn't work

@@ -165,28 +165,25 @@
   [app-state wine]
   [editable-text-field
    {:value (when-let [year (:drink_from_year wine)] (str year))
-    :on-save
-    (fn [new-value]
-      (let [parsed-year (when-not (str/blank? new-value)
-                          (js/parseInt new-value 10))
-            drink-until-year (:drink_until_year wine)]
-        ;; Check cross-field validation
-        (if (and parsed-year drink-until-year (> parsed-year drink-until-year))
-          (js/alert
-           "Drink from year must be less than or equal to drink until year")
-          (api/update-wine app-state
-                           (:id wine)
-                           {:drink_from_year parsed-year}))))
-    :validate-fn
-    (fn [value]
-      (if (str/blank? value)
-        nil ;; Allow empty value
-        (let [parsed (js/parseInt value 10)
-              drink-until-year (:drink_until_year wine)]
-          (or
-           (vintage/valid-tasting-year? parsed)
-           (when (and parsed drink-until-year (> parsed drink-until-year))
-             "Drink from year must be less than or equal to drink until year")))))
+    :on-save (fn [new-value]
+               (let [parsed-year (when-not (str/blank? new-value)
+                                   (js/parseInt new-value 10))
+                     drink-until-year (:drink_until_year wine)]
+                 ;; Check cross-field validation
+                 (if-let [window-error (vintage/valid-tasting-window?
+                                        parsed-year
+                                        drink-until-year)]
+                   (js/alert window-error)
+                   (api/update-wine app-state
+                                    (:id wine)
+                                    {:drink_from_year parsed-year}))))
+    :validate-fn (fn [value]
+                   (if (str/blank? value)
+                     nil ;; Allow empty value
+                     (let [parsed (js/parseInt value 10)
+                           drink-until-year (:drink_until_year wine)]
+                       (vintage/valid-tasting-window? parsed
+                                                      drink-until-year))))
     :empty-text "Add drink from year"
     :text-field-props
     {:type "number" :helperText "Year when the wine is/was ready to drink"}}])
@@ -195,28 +192,24 @@
   [app-state wine]
   [editable-text-field
    {:value (when-let [year (:drink_until_year wine)] (str year))
-    :on-save
-    (fn [new-value]
-      (let [parsed-year (when-not (str/blank? new-value)
-                          (js/parseInt new-value 10))
-            drink-from-year (:drink_from_year wine)]
-        ;; Check cross-field validation
-        (if (and parsed-year drink-from-year (< parsed-year drink-from-year))
-          (js/alert
-           "Drink until year must be greater than or equal to drink from year")
-          (api/update-wine app-state
-                           (:id wine)
-                           {:drink_until_year parsed-year}))))
-    :validate-fn
-    (fn [value]
-      (if (str/blank? value)
-        nil ;; Allow empty value
-        (let [parsed (js/parseInt value 10)
-              drink-from-year (:drink_from_year wine)]
-          (or
-           (vintage/valid-tasting-year? parsed)
-           (when (and parsed drink-from-year (< parsed drink-from-year))
-             "Drink until year must be greater than or equal to drink from year")))))
+    :on-save (fn [new-value]
+               (let [parsed-year (when-not (str/blank? new-value)
+                                   (js/parseInt new-value 10))
+                     drink-from-year (:drink_from_year wine)]
+                 ;; Check cross-field validation
+                 (if-let [window-error (vintage/valid-tasting-window?
+                                        drink-from-year
+                                        parsed-year)]
+                   (js/alert window-error)
+                   (api/update-wine app-state
+                                    (:id wine)
+                                    {:drink_until_year parsed-year}))))
+    :validate-fn (fn [value]
+                   (if (str/blank? value)
+                     nil ;; Allow empty value
+                     (let [parsed (js/parseInt value 10)
+                           drink-from-year (:drink_from_year wine)]
+                       (vintage/valid-tasting-window? drink-from-year parsed))))
     :empty-text "Add drink until year"
     :text-field-props
     {:type "number" :helperText "Year when the wine should be consumed by"}}])

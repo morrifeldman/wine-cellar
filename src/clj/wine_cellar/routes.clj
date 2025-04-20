@@ -36,8 +36,8 @@
 (s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::notes string?)
 (s/def ::rating (s/int-in 1 101)) ;; Ratings from 1-100
-(s/def ::drink_from_year int?)
-(s/def ::drink_until_year int?)
+(s/def ::drink_from_year (s/nilable int?))
+(s/def ::drink_until_year (s/nilable int?))
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source string?)

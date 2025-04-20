@@ -19,15 +19,20 @@
         submitting? (:submitting-note? @app-state)]
     ;; Initialize or update the tasting window fields with current values
     ;; from the wine. We need to update in these cases:
-    ;; 1. First time initialization (fields are nil)
+    ;; 1. First time initialization (no wine-id set yet)
     ;; 2. Switching to a different wine
-    ;; 3. Wine values have changed (always update to reflect external
-    ;; changes)
-    (when (or (nil? (:drink_from_year new-note))
-              (nil? (:drink_until_year new-note))
-              (not= (:wine-id new-note) wine-id)
-              (not= (:last-known-drink-from new-note) current-drink-from)
-              (not= (:last-known-drink-until new-note) current-drink-until))
+    ;; 3. Wine values have changed (only update to reflect external
+    ;;    changes if the user hasn't edited the fields)
+    (tap> ["wine-id" wine-id "new note" new-note "wine" wine])
+    (when (or
+           ;; Case 1 & 2: First initialization or switching wines
+           (not= (:wine-id new-note) wine-id)
+           ;; Case 3: External changes to the wine's tasting window
+           ;; Only update if the user hasn't edited the form
+           (and (not (:form-edited new-note))
+                (or (not= (:last-known-drink-from new-note) current-drink-from)
+                    (not= (:last-known-drink-until new-note)
+                          current-drink-until))))
       (swap! app-state update
         :new-tasting-note
         #(-> %
@@ -35,18 +40,23 @@
              (assoc :drink_until_year current-drink-until)
              (assoc :wine-id wine-id)
              (assoc :last-known-drink-from current-drink-from)
-             (assoc :last-known-drink-until current-drink-until))))
+             (assoc :last-known-drink-until current-drink-until)
+             (assoc :form-edited false))))
     ;; Get the latest version of new-note after potential updates
-    (let [updated-note (:new-tasting-note @app-state)
-          is-external (boolean (:is_external updated-note))]
+    (let [{drink-from-year :drink_from_year
+           drink-until-year :drink_until_year
+           :as updated-note}
+          (:new-tasting-note @app-state)
+          is-external (boolean (:is_external updated-note))
+          valid-tasting-window?
+          (vintage/valid-tasting-window? drink-from-year drink-until-year)]
       [form-container
        {:title "Add Tasting Note"
         :on-submit
         #(do (swap! app-state assoc :submitting-note? true)
              ;; First update the tasting window if changed
-             (when (or (not= (:drink_from_year updated-note) current-drink-from)
-                       (not= (:drink_until_year updated-note)
-                             current-drink-until))
+             (when (or (not= drink-from-year current-drink-from)
+                       (not= drink-until-year current-drink-until))
                (api/update-wine app-state
                                 wine-id
                                 (select-keys updated-note
@@ -127,25 +137,13 @@
          {:label "Drink From Year"
           :free-solo true
           :options (vintage/default-drink-from-years)
-          :value (:drink_from_year updated-note)
-          :error (boolean (or (vintage/valid-tasting-year? (:drink_from_year
-                                                            updated-note))
-                              (and (:drink_from_year updated-note)
-                                   (:drink_until_year updated-note)
-                                   (> (:drink_from_year updated-note)
-                                      (:drink_until_year updated-note)))))
-          :helper-text
-          (or
-           (vintage/valid-tasting-year? (:drink_from_year updated-note))
-           (when (and (:drink_from_year updated-note)
-                      (:drink_until_year updated-note)
-                      (> (:drink_from_year updated-note)
-                         (:drink_until_year updated-note)))
-             "Drink from year must be less than or equal to drink until year")
-           "Year when the wine will be ready to drink")
+          :value drink-from-year
+          :error (boolean valid-tasting-window?)
+          :helper-text valid-tasting-window?
           :on-change #(swap! app-state update
                         :new-tasting-note
                         (fn [note]
+                          (tap> ["drink from value" %])
                           (-> note
                               (assoc :drink_from_year
                                      (when-not (empty? %) (js/parseInt % 10)))
@@ -155,24 +153,12 @@
           :free-solo true
           :options (vintage/default-drink-until-years)
           :value (:drink_until_year updated-note)
-          :error (boolean (or (vintage/valid-tasting-year? (:drink_until_year
-                                                            updated-note))
-                              (and (:drink_from_year updated-note)
-                                   (:drink_until_year updated-note)
-                                   (< (:drink_until_year updated-note)
-                                      (:drink_from_year updated-note)))))
-          :helper-text
-          (or
-           (vintage/valid-tasting-year? (:drink_until_year updated-note))
-           (when (and (:drink_from_year updated-note)
-                      (:drink_until_year updated-note)
-                      (< (:drink_until_year updated-note)
-                         (:drink_from_year updated-note)))
-             "Drink until year must be greater than or equal to drink from year")
-           "Year when the wine should be consumed by")
+          :error (boolean valid-tasting-window?)
+          :helper-text valid-tasting-window?
           :on-change #(swap! app-state update
                         :new-tasting-note
                         (fn [note]
+                          (tap> ["drink until value" %])
                           (-> note
                               (assoc :drink_until_year
                                      (when-not (empty? %) (js/parseInt % 10)))
