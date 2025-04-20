@@ -236,7 +236,19 @@
                 (map #(if (= (:id %) wine-id) updated-wine %) wines))))
           (swap! app-state assoc :error (:error result))))))
 
-;; Admin endpoints
+(defn analyze-wine-label
+  [app-state image-data]
+  (swap! app-state assoc :analyzing-label? true)
+  (js/Promise. (fn [resolve reject]
+                 (go (let [result (<! (POST "/api/wines/analyze-label"
+                                            image-data
+                                            "Failed to analyze wine label"))]
+                       (swap! app-state assoc :analyzing-label? false)
+                       (if (:success result)
+                         (resolve (:data result))
+                         (do (swap! app-state assoc :error (:error result))
+                             (reject (:error result)))))))))
+
 (defn reset-schema
   []
   (js/Promise. (fn [resolve reject]

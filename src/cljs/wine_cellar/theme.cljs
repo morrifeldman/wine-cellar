@@ -3,19 +3,28 @@
 
 (def wine-theme
   (create-theme
-   {:palette {:primary {:main "#722F37" ;; Burgundy wine color
-                        :light "#9A4F57"
-                        :dark "#4A1F24"}
-              :secondary {:main "#8A9A5B" ;; Olive green (vineyard)
-                          :light "#A8B47D"
-                          :dark "#5C6A3D"}
-              :background {:default "#FFFBF5" ;; Cream/parchment
-                           :paper "#FFFFFF"}
+   {:palette {:primary {:main "#E8C3C8" ;; Lighter burgundy for primary on
+                                        ;; dark background
+                        :light "#F5D6DB"
+                        :dark "#B89095"}
+              :secondary {:main "#A8B47D" ;; Brighter olive green for
+                                          ;; contrast
+                          :light "#C6D19B"
+                          :dark "#8A9A5B"}
+              :text {:primary "#F5F5F5" ;; Light text for dark background
+                     :secondary "#D0D0D0"} ;; Slightly darker for secondary
+                                           ;; text
+              :background {:default "#150A0C" ;; Even deeper burgundy/wine
+                                              ;; background (like aged wine
+                                              ;; in a dark cellar)
+                           :paper "#3A1F23"} ;; Rich wine-colored cards
+                                             ;; (like Merlot)
               :success {:main "#2E7D32"}
               :error {:main "#B71C1C"}
-              :rating {:high "#722F37" ;; Wine color for high ratings
-                       :medium "#FFA000" ;; Amber for medium
-                       :low "#757575"} ;; Gray for low
+              :rating {:high "#E8C3C8" ;; Lighter wine color for high
+                                       ;; ratings on dark background
+                       :medium "#FFC107" ;; Brighter amber for medium
+                       :low "#BDBDBD"} ;; Lighter gray for low
               :tasting-window {:ready "#2E7D32" ;; Green for ready to
                                                 ;; drink
                                :young "#1976D2" ;; Blue for too young
@@ -42,7 +51,8 @@
                                       :body1 {:fontSize "0.95rem"}
                                       :body2 {:fontSize "0.85rem"}}}
      :MuiPaper {:styleOverrides {:root {:boxShadow
-                                        "0px 3px 15px rgba(0,0,0,0.05)"}}}
+                                        "0px 3px 15px rgba(0,0,0,0.3)"
+                                        :color "#F5F5F5"}}}
      :MuiButton {:styleOverrides {:root {:textTransform "none"
                                          :fontWeight 500
                                          :borderRadius "8px"}
@@ -71,12 +81,11 @@
                                                                  ;; padding
                                      :head {:fontWeight 600
                                             :backgroundColor
-                                            "rgba(114,47,55,0.05)"}}}
+                                            "rgba(114,47,55,0.2)"}}}
      :MuiChip {:styleOverrides {:root {:borderRadius "4px"}
                                 :filled {:backgroundColor
-                                         "rgba(114,47,55,0.1)"}}}
+                                         "rgba(232,195,200,0.2)"}}}
      :MuiCard {:styleOverrides {:root {:borderRadius "8px" ;; Reduced from
                                                            ;; 12px
                                        :overflow "hidden"}}}}
     :shape {:borderRadius 6}})) ;; Reduced from 8
-

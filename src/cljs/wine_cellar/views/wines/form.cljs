@@ -1,16 +1,23 @@
 (ns wine-cellar.views.wines.form
-  (:require
-    [clojure.string :as str]
-    [wine-cellar.views.components.form :refer
-     [form-container form-actions form-row form-divider text-field
-      currency-field number-field select-field smart-select-field year-field]]
-    [wine-cellar.views.components.image-upload :refer [image-upload]]
-    [wine-cellar.utils.formatting :refer
-     [valid-name-producer? unique-countries regions-for-country aocs-for-region
-      classifications-for-aoc levels-for-classification unique-purveyors]]
-    [wine-cellar.utils.vintage :as vintage]
-    [wine-cellar.api :as api]
-    [wine-cellar.common :as common]))
+  (:require [clojure.string :as str]
+            [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
+            [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [reagent-mui.material.typography :refer [typography]]
+            [reagent.core :as r]
+            [wine-cellar.api :as api]
+            [wine-cellar.common :as common]
+            [wine-cellar.utils.formatting :refer
+             [aocs-for-region classifications-for-aoc levels-for-classification
+              regions-for-country unique-countries unique-purveyors
+              valid-name-producer?]]
+            [wine-cellar.utils.vintage :as vintage]
+            [wine-cellar.views.components.form :refer
+             [currency-field form-actions form-container form-divider form-row
+              number-field select-field smart-select-field text-field
+              year-field]]
+            [wine-cellar.views.components.image-upload :refer [image-upload]]))
 
 (defn vintage
   [app-state new-wine]
@@ -171,16 +178,42 @@
      ;; Wine Label Images Section
      [form-divider "Wine Label Images"]
      [form-row
-      [image-upload
-       {:image-data (:label_image new-wine)
-        :label-type "front"
-        :on-image-change #(swap! app-state update :new-wine merge %)
-        :on-image-remove #(swap! app-state update
-                            :new-wine
-                            (fn [wine]
-                              (-> wine
-                                  (dissoc :label_image)
-                                  (dissoc :label_thumbnail))))}]]
+      [box {:sx {:width "100%" :display "flex" :flexDirection "column" :gap 2}}
+       [image-upload
+        {:image-data (:label_image new-wine)
+         :label-type "front"
+         :on-image-change #(swap! app-state update :new-wine merge %)
+         :on-image-remove #(swap! app-state update
+                             :new-wine
+                             (fn [wine]
+                               (-> wine
+                                   (dissoc :label_image)
+                                   (dissoc :label_thumbnail))))}]
+       (when (and (:label_image new-wine) (not (:analyzing-label? @app-state)))
+         [button
+          {:variant "contained"
+           :color "secondary"
+           :size "small"
+           :disabled (or submitting? (not (:label_image new-wine)))
+           :onClick
+           (fn []
+             (let [image-data {:label_image (:label_image new-wine)
+                               :back_label_image (:back_label_image new-wine)}]
+               (-> (api/analyze-wine-label app-state image-data)
+                   (.then (fn [result]
+                            (swap! app-state update :new-wine merge result)
+                            (swap! app-state assoc
+                              :success
+                              "Wine label analyzed successfully!")))
+                   (.catch (fn [error]
+                             (swap! app-state assoc
+                               :error
+                               (str "Failed to analyze label: " error)))))))
+           :startIcon (r/as-element [auto-awesome])} "Analyze Label"])
+       (when (:analyzing-label? @app-state)
+         [box {:sx {:display "flex" :alignItems "center" :mt 1}}
+          [circular-progress {:size 24 :sx {:mr 1}}]
+          [typography {:variant "body2"} "Analyzing label..."]])]]
      [form-row
       [image-upload
        {:image-data (:back_label_image new-wine)

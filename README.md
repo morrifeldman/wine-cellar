@@ -2,11 +2,68 @@
 
 A personal wine cellar tracking application built with Clojure and ClojureScript.
 
+## Features
+
+- Track your wine collection with detailed information
+- Upload and store wine label images
+- AI-powered label analysis to automatically extract wine details
+- Record tasting notes and ratings
+- Filter and search your collection
+- Track consumption history
+
 ## Local Setup
 
 Use the Ansible playbook to setup postgresql.
 
 `ansible-playbook postgresql.yml`
+
+### Credentials Management
+
+#### Local Development
+
+For local development, this application uses the [`pass`](https://www.passwordstore.org/) password manager to securely store credentials instead of environment variables. This approach provides better security by avoiding plain text storage of sensitive information.
+
+Required credentials in `pass`:
+
+```
+wine-cellar/anthropic-api-key
+wine-cellar/jwt-secret
+wine-cellar/cookie-store-key
+wine-cellar/admin-email
+wine-cellar/google-oath-json
+```
+
+To set up `pass` for local development:
+
+1. Install `pass` if you haven't already:
+   ```
+   # On Debian/Ubuntu
+   sudo apt-get install pass
+   
+   # On macOS with Homebrew
+   brew install pass
+   ```
+
+2. Initialize `pass` if you haven't already:
+   ```
+   pass init your-gpg-id
+   ```
+
+3. Store your credentials:
+   ```
+   pass insert wine-cellar/anthropic-api-key
+   pass insert wine-cellar/jwt-secret
+   pass insert wine-cellar/cookie-store-key
+   pass insert wine-cellar/admin-email
+   ```
+
+4. For Google OAuth credentials, store them as a JSON string:
+   ```
+   pass insert wine-cellar/google-oath-json
+   ```
+   The JSON should have the format provided by Google OAuth.
+
+See [environment-variables.md](docs/environment-variables.md) for a complete list of required credentials.
 
 ## Deployment to Fly.io
 

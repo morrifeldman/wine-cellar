@@ -1,6 +1,7 @@
 (ns wine-cellar.handlers
   (:require [wine-cellar.db.api :as api]
             [wine-cellar.db.setup :as db-setup]
+            [wine-cellar.ai.anthropic :as anthropic]
             [ring.util.response :as response]))
 
 (defn- no-content [] {:status 204 :headers {} :body nil})
@@ -168,4 +169,20 @@
        (response/response {:status "success"
                            :message "Database schema reset successfully"
                            :timestamp (str (java.time.Instant/now))})
+       (catch Exception e (server-error e))))
+
+;; AI Analysis Handlers
+(defn analyze-wine-label
+  [{{:keys [label_image back_label_image]} :body-params}]
+  (try (if (nil? label_image)
+         {:status 400 :body {:error "Label image is required"}}
+         (let [result (anthropic/analyze-wine-label label_image
+                                                    back_label_image)]
+           (response/response result)))
+       (catch clojure.lang.ExceptionInfo e
+         (let [data (ex-data e)]
+           {:status 500
+            :body {:error "AI analysis failed"
+                   :details (.getMessage e)
+                   :response (:response data)}}))
        (catch Exception e (server-error e))))

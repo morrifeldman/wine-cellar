@@ -13,3 +13,9 @@
                       {:type :password-retrieval-error :path password-path})))))
 
 (defn production? [] (= (System/getenv "CLOJURE_ENV") "production"))
+
+(defn get-anthropic-api-key
+  "Gets the admin email address from environment or pass"
+  []
+  (or (System/getenv "ANTHROPIC_API_KEY")
+      (get-password-from-pass "wine-cellar/anthropic-api-key")))

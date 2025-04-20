@@ -41,13 +41,9 @@
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source string?)
-(s/def ::label_image (s/nilable string?))
-(s/def ::label_thumbnail (s/nilable string?))
-(s/def ::back_label_image (s/nilable string?))
-(s/def ::image-data
-  (s/nilable (s/keys :opt-un [::label_image ::label_thumbnail
-                              ::back_label_image])))
-
+(s/def ::label_image string?)
+(s/def ::label_thumbnail string?)
+(s/def ::back_label_image string?)
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer) ::country ::region ::style ::quantity
                    ::price]
@@ -72,6 +68,15 @@
                    ::location ::quantity ::price ::purveyor ::label_image
                    ::label_thumbnail ::back_label_image ::drink_from_year
                    ::drink_until_year]))
+
+(s/def ::nilable-label_image (s/nilable ::label_image))
+(s/def ::nilable-label_thumbnail (s/nilable ::label_thumbnail))
+(s/def ::nilable-back_label_image (s/nilable ::back_label_image))
+
+(def image-update-schema
+  (s/nilable (s/keys :opt-un
+                     [::nilable-label_image ::nilable-label_thumbnail
+                      ::nilable-back_label_image])))
 
 (def classification-schema
   (s/keys :req-un [::country ::region]
@@ -160,56 +165,63 @@
              :parameters {:body wine-schema}
              :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/create-wine}}]
-    ["/wines/:id"
-     {:parameters {:path {:id int?}}
-      :get {:summary "Get wine by ID"
-            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/get-wine}
-      :put {:summary "Update wine"
-            :parameters {:body wine-update-schema}
-            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/update-wine}
-      :delete {:summary "Delete wine"
-               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
-               :handler handlers/delete-wine}}]
-    ["/wines/:id/adjust-quantity"
-     {:parameters {:path {:id int?}}
-      :post {:summary "Adjust wine quantity"
-             :parameters {:body {:adjustment int?}}
+    ["/wines/analyze-label"
+     {:post {:summary "Analyze wine label images with AI"
+             :parameters {:body (s/keys :req-un [::label_image]
+                                        :opt-un [::back_label_image])}
+             :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/analyze-wine-label}}]
+    ["/wines/by-id"
+     ["/:id"
+      {:parameters {:path {:id int?}}
+       :get {:summary "Get wine by ID"
              :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-             :handler handlers/adjust-quantity}}]
-    ["/wines/:id/image"
-     {:parameters {:path {:id int?}}
-      :put {:summary "Upload wine label image"
-            :parameters {:body ::image-data}
-            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/update-wine}}]
-    ;; Tasting Notes Routes
-    ["/wines/:id/tasting-notes"
-     {:parameters {:path {:id int?}}
-      :get {:summary "Get all tasting notes for a wine"
-            :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/get-tasting-notes-by-wine}
-      :post
-      {:summary "Create a tasting note for a wine"
-       :parameters {:body tasting-note-schema}
-       :responses
-       {201 {:body map?} 404 {:body map?} 400 {:body map?} 500 {:body map?}}
-       :handler handlers/create-tasting-note}}]
-    ["/wines/:id/tasting-notes/:note-id"
-     {:parameters {:path {:id int? :note-id int?}}
-      :get {:summary "Get tasting note by ID"
-            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/get-tasting-note}
-      :put
-      {:summary "Update tasting note"
-       :parameters {:body tasting-note-schema}
-       :responses
-       {200 {:body map?} 404 {:body map?} 400 {:body map?} 500 {:body map?}}
-       :handler handlers/update-tasting-note}
-      :delete {:summary "Delete tasting note"
-               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
-               :handler handlers/delete-tasting-note}}]]])
+             :handler handlers/get-wine}
+       :put {:summary "Update wine"
+             :parameters {:body wine-update-schema}
+             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/update-wine}
+       :delete {:summary "Delete wine"
+                :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+                :handler handlers/delete-wine}}]
+     ["/:id/adjust-quantity"
+      {:parameters {:path {:id int?}}
+       :post {:summary "Adjust wine quantity"
+              :parameters {:body {:adjustment int?}}
+              :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+              :handler handlers/adjust-quantity}}]
+     ["/:id/image"
+      {:parameters {:path {:id int?}}
+       :put {:summary "Upload wine label image"
+             :parameters {:body image-update-schema}
+             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/update-wine}}]
+     ;; Tasting Notes Routes
+     ["/:id/tasting-notes"
+      {:parameters {:path {:id int?}}
+       :get {:summary "Get all tasting notes for a wine"
+             :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/get-tasting-notes-by-wine}
+       :post
+       {:summary "Create a tasting note for a wine"
+        :parameters {:body tasting-note-schema}
+        :responses
+        {201 {:body map?} 404 {:body map?} 400 {:body map?} 500 {:body map?}}
+        :handler handlers/create-tasting-note}}]
+     ["/:id/tasting-notes/:note-id"
+      {:parameters {:path {:id int? :note-id int?}}
+       :get {:summary "Get tasting note by ID"
+             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/get-tasting-note}
+       :put
+       {:summary "Update tasting note"
+        :parameters {:body tasting-note-schema}
+        :responses
+        {200 {:body map?} 404 {:body map?} 400 {:body map?} 500 {:body map?}}
+        :handler handlers/update-tasting-note}
+       :delete {:summary "Delete tasting note"
+                :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+                :handler handlers/delete-tasting-note}}]]]])
 
 (defn coercion-error-handler
   [status]

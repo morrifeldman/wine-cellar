@@ -23,6 +23,13 @@ duplication and create reusable abstractions when it makes sense.
 I'm an experience back end data developer but I have little front end
 experience.  Nonetheless, I don't generally need any code comments.
 
+After suggesting code, give only a very minimal summary of the changes or no
+summary at all.
+
+Just suggest the changes directly if you get the "Failed to find the old
+string" error when using the str_replace_editor tool
+
+
 # Source Code Structure
 
 
