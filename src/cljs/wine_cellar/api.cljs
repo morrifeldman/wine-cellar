@@ -65,14 +65,6 @@
           (swap! app-state assoc :classifications (:data result))
           (swap! app-state assoc :error (:error result))))))
 
-(defn fetch-regions
-  [app-state country]
-  (go (let [result (<! (GET (str "/api/classifications/regions/" country)
-                            "Failed to fetch regions"))]
-        (if (:success result)
-          (swap! app-state assoc :regions (:data result))
-          (swap! app-state assoc :error (:error result))))))
-
 ;; Wine endpoints
 (defn fetch-wines
   [app-state]
@@ -92,7 +84,7 @@
 (defn fetch-wine-details
   [app-state wine-id]
   (go
-   (let [result (<! (GET (str "/api/wines/" wine-id)
+   (let [result (<! (GET (str "/api/wines/by-id/" wine-id)
                          "Failed to fetch wine details"))]
      (if (:success result)
        (let [wine-with-details (:data result)]
@@ -126,7 +118,8 @@
 (defn delete-wine
   [app-state id]
   (go
-   (let [result (<! (DELETE (str "/api/wines/" id) "Failed to delete wine"))]
+   (let [result (<! (DELETE (str "/api/wines/by-id/" id)
+                            "Failed to delete wine"))]
      (if (:success result)
        (swap! app-state update :wines #(remove (fn [wine] (= (:id wine) id)) %))
        (swap! app-state assoc :error (:error result))))))
@@ -134,7 +127,7 @@
 ;; Tasting Notes endpoints
 (defn fetch-tasting-notes
   [app-state wine-id]
-  (go (let [result (<! (GET (str "/api/wines/" wine-id "/tasting-notes")
+  (go (let [result (<! (GET (str "/api/wines/by-id/" wine-id "/tasting-notes")
                             "Failed to fetch tasting notes"))]
         (if (:success result)
           (swap! app-state assoc :tasting-notes (:data result))
@@ -143,7 +136,7 @@
 (defn create-tasting-note
   [app-state wine-id note]
   (go
-   (let [result (<! (POST (str "/api/wines/" wine-id "/tasting-notes")
+   (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/tasting-notes")
                           note
                           "Failed to create tasting note"))]
      (if (:success result)
@@ -153,21 +146,9 @@
          :error (:error result)
          :submitting-note? false)))))
 
-(defn update-tasting-note
-  [app-state wine-id note-id note]
-  (go (let [result (<! (PUT (str "/api/wines/" wine-id
-                                 "/tasting-notes/" note-id)
-                            note
-                            "Failed to update tasting note"))]
-        (if (:success result)
-          (swap! app-state update
-            :tasting-notes
-            (fn [notes] (map #(if (= (:id %) note-id) (:data result) %) notes)))
-          (swap! app-state assoc :error (:error result))))))
-
 (defn delete-tasting-note
   [app-state wine-id note-id]
-  (go (let [result (<! (DELETE (str "/api/wines/" wine-id
+  (go (let [result (<! (DELETE (str "/api/wines/by-id/" wine-id
                                     "/tasting-notes/" note-id)
                                "Failed to delete tasting note"))]
         (if (:success result)
@@ -178,9 +159,10 @@
 
 (defn adjust-wine-quantity
   [app-state wine-id adjustment]
-  (go (let [result (<! (POST (str "/api/wines/" wine-id "/adjust-quantity")
-                             {:adjustment adjustment}
-                             "Failed to update wine quantity"))]
+  (go (let [result (<! (POST
+                        (str "/api/wines/by-id/" wine-id "/adjust-quantity")
+                        {:adjustment adjustment}
+                        "Failed to update wine quantity"))]
         (if (:success result)
           (swap! app-state update
             :wines
@@ -206,7 +188,7 @@
   [app-state id updates]
   (let [promise (js/Promise.
                  (fn [resolve reject]
-                   (go (let [result (<! (PUT (str "/api/wines/" id)
+                   (go (let [result (<! (PUT (str "/api/wines/by-id/" id)
                                              updates
                                              "Failed to update wine"))]
                          (if (:success result)
@@ -224,7 +206,7 @@
 
 (defn update-wine-image
   [app-state wine-id image-data]
-  (go (let [result (<! (PUT (str "/api/wines/" wine-id "/image")
+  (go (let [result (<! (PUT (str "/api/wines/by-id/" wine-id "/image")
                             image-data
                             "Failed to update wine image"))]
         (if (:success result)

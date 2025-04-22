@@ -116,6 +116,11 @@ string" error when using the str_replace_editor tool
 - Clojure: tools.deps
 - Editor: Neovim
 
+### Libraries
+- Jsonista for JSON
+- metosin/reitit for routing
+- http-kit for http client and server
+
 ## Deployment
 - Fly.io
 

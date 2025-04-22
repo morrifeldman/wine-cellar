@@ -49,5 +49,3 @@ The feature requires an Anthropic API key to be set in the environment variable 
 ## Dependencies
 
 - Anthropic Claude API (requires an API key)
-- clj-http for making HTTP requests
-- cheshire for JSON parsing

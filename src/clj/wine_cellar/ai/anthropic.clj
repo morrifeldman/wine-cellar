@@ -1,11 +1,13 @@
 (ns wine-cellar.ai.anthropic
-  (:require [clj-http.client :as http]
-            [cheshire.core :as json]
-            [clojure.string :as str]
-            [wine-cellar.config-utils :as config-utils]
-            [wine-cellar.common :as common]))
+  (:require [clojure.string :as str]
+            [jsonista.core :as json]
+            [mount.core :refer [defstate]]
+            [org.httpkit.client :as http]
+            [wine-cellar.common :as common]
+            [wine-cellar.config-utils :as config-utils]))
 
-(def ^:private api-url "https://api.anthropic.com/v1/messages")
+(def api-url "https://api.anthropic.com/v1/messages")
+(defstate api-key :start (config-utils/get-anthropic-api-key))
 
 (defn- create-prompt
   "Creates a prompt for wine label analysis"
@@ -45,75 +47,61 @@
   "Analyzes wine label images using Anthropic's Claude API.
    Returns a map of extracted wine information."
   [label-image back-label-image]
-  (if-let [api-key (config-utils/get-anthropic-api-key)]
-    (let [_ (tap> ["anthropic-api-key-exists" (boolean api-key)])
-          images (filterv
-                  some?
-                  [(when label-image
-                     {:type "image"
-                      :source
-                      {:type "base64"
-                       :media_type "image/jpeg"
-                       :data (-> label-image
+  (let [images (filterv
+                some?
+                [(when label-image
+                   {:type "image"
+                    :source {:type "base64"
+                             :media_type "image/jpeg"
+                             :data
+                             (-> label-image
                                  (str/replace #"^data:image/jpeg;base64," "")
                                  (str/replace #"^data:image/png;base64," ""))}})
-                   (when back-label-image
-                     {:type "image"
-                      :source {:type "base64"
-                               :media_type "image/jpeg"
-                               :data
-                               (-> back-label-image
-                                   (str/replace #"^data:image/jpeg;base64," "")
-                                   (str/replace #"^data:image/png;base64,"
-                                                ""))}})])
-          prompt (create-prompt label-image back-label-image)
-          request-body {:model "claude-3-opus-20240229"
-                        :max_tokens 1000
-                        :messages [{:role "user"
-                                    :content (into [{:type "text" :text prompt}]
-                                                   images)}]}]
-      (tap> ["anthropic-request-body-structure" (keys request-body)])
-      (try (let [response (http/post api-url
-                                     {:body (json/generate-string request-body)
-                                      :headers {"x-api-key" api-key
-                                                "anthropic-version" "2023-06-01"
-                                                "content-type"
-                                                "application/json"}
-                                      :as :json
-                                      :throw-exceptions true
-                                      :socket-timeout 30000
-                                      :conn-timeout 30000})]
-             (tap> ["anthropic-response-status" (:status response)])
-             (if (= 200 (:status response))
-               (let [content (get-in response [:body :content 0 :text])
-                     ;; Extract JSON from the response
-                     json-str (or (second (re-find #"(?s)```json\s*(.*?)\s*```"
-                                                   content))
-                                  (second (re-find #"(?s)\{(.*)\}" content))
-                                  content)]
-                 (try
-                   ;; Parse the JSON response
-                   (json/parse-string (if (str/starts-with? json-str "{")
-                                        json-str
-                                        (str "{" json-str "}"))
-                                      true)
-                   (catch Exception e
-                     (throw (ex-info "Failed to parse AI response as JSON"
-                                     {:error (.getMessage e)
-                                      :response content})))))
-               (throw (ex-info "Anthropic API request failed"
-                               {:status (:status response)
-                                :body (:body response)}))))
-           (catch java.net.SocketTimeoutException e
-             (tap> ["anthropic-timeout-error" (.getMessage e)])
-             (throw (ex-info "Anthropic API request timed out"
-                             {:error (.getMessage e)})))
-           (catch java.net.ConnectException e
-             (tap> ["anthropic-connection-error" (.getMessage e)])
-             (throw (ex-info "Failed to connect to Anthropic API"
-                             {:error (.getMessage e)})))
-           (catch Exception e
-             (tap> ["anthropic-unexpected-error" (.getMessage e) (type e)])
-             (throw (ex-info "Unexpected error calling Anthropic API"
-                             {:error (.getMessage e)})))))
-    (throw (ex-info "ANTHROPIC_API_KEY environment variable not set" {}))))
+                 (when back-label-image
+                   {:type "image"
+                    :source
+                    {:type "base64"
+                     :media_type "image/jpeg"
+                     :data (-> back-label-image
+                               (str/replace #"^data:image/jpeg;base64," "")
+                               (str/replace #"^data:image/png;base64," ""))}})])
+        prompt (create-prompt label-image back-label-image)
+        request-body {:model "claude-3-opus-20240229"
+                      :max_tokens 1000
+                      :messages [{:role "user"
+                                  :content (into [{:type "text" :text prompt}]
+                                                 images)}]}]
+    (tap> ["anthropic-request-body-structure" (keys request-body)])
+    (try
+      (let [{:keys [status body error] :as response}
+            (deref (http/post api-url
+                              {:body (json/write-value-as-string request-body)
+                               :headers {"x-api-key" api-key
+                                         "anthropic-version" "2023-06-01"
+                                         "content-type" "application/json"}
+                               :as :text
+                               :keepalive 30000
+                               :timeout 30000}))
+            parsed-body (json/read-value body json/keyword-keys-object-mapper)]
+        (tap> ["anthropic-response" "status" status "body" body "parsed-body"
+               parsed-body "error" error])
+        (if (= 200 status)
+          (try (-> (get-in parsed-body [:content 0 :text])
+                   (json/read-value json/keyword-keys-object-mapper))
+               (catch Exception e
+                 (throw (ex-info "Failed to parse AI response as JSON"
+                                 {:error (.getMessage e) :response response}))))
+          (throw (ex-info "Anthropic API request failed"
+                          {:status status :body body}))))
+      (catch java.net.SocketTimeoutException e
+        (tap> ["anthropic-timeout-error" (.getMessage e)])
+        (throw (ex-info "Anthropic API request timed out"
+                        {:error (.getMessage e)})))
+      (catch java.net.ConnectException e
+        (tap> ["anthropic-connection-error" (.getMessage e)])
+        (throw (ex-info "Failed to connect to Anthropic API"
+                        {:error (.getMessage e)})))
+      (catch Exception e
+        (tap> ["anthropic-unexpected-error" (.getMessage e) (type e)])
+        (throw (ex-info "Unexpected error calling Anthropic API"
+                        {:error (.getMessage e)}))))))

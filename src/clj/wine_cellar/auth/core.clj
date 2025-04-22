@@ -67,7 +67,7 @@
                (do (println "Error exchanging code for token:"
                             (or error (str "HTTP " status)))
                    nil)
-               (json/read-value body)))
+               (json/read-value body json/keyword-keys-object-mapper)))
            (catch Exception e
              (println "Exception exchanging code for token:" (.getMessage e))
              (tap> ["token-exception" (.getMessage e)])
@@ -85,7 +85,7 @@
            (do (println "Error getting user info:"
                         (or error (str "HTTP " status)))
                nil)
-           (json/read-value body)))
+           (json/read-value body json/keyword-keys-object-mapper)))
        (catch Exception e
          (println "Exception getting user info:" (.getMessage e))
          (tap> ["user-info-exception" (.getMessage e)])
@@ -97,8 +97,8 @@
   (let [jwt-secret (config/get-jwt-secret)
         now (Instant/now)
         claims (assoc user-info
-                      "iat" (inst-ms now)
-                      "exp" (inst-ms (.plus now 7 ChronoUnit/DAYS)))]
+                      :iat (inst-ms now)
+                      :exp (inst-ms (.plus now 7 ChronoUnit/DAYS)))]
     (jwt/sign claims jwt-secret {:alg :hs256})))
 
 (defn handle-google-callback
@@ -120,7 +120,7 @@
             ;; Exchange code for token
             (if-let [token-response (exchange-code-for-token code)]
               (let [_ (tap> ["token-response" token-response])
-                    access-token (get token-response "access_token")
+                    access-token (:access_token token-response)
                     _ (tap> ["access-token-received" access-token])
                     user-info (get-user-info access-token)
                     _ (tap> ["user-info-received" user-info])
