@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Pre-commit hook to format Clojure files and update source code structure
+# Place this file in .git/hooks/pre-commit and make it executable
+
+# Get all staged Clojure files
+files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(clj|cljs|cljc)$')
+
+if [ -n "$files" ]; then
+  echo "Formatting Clojure files..."
+  
+  # Format each file
+  for file in $files; do
+    ./scripts/format-clj.sh "$file"
+    git add "$file"
+  done
+fi
+
+# Update source code structure in chat-context.md
+echo "Updating source code structure in docs/chat-context.md..."
+
+# Generate the current source code structure
+structure=$(tree --gitignore)
+
+# Define the markers for the source code structure section
+start_marker="# Source Code Structure"
+end_marker="## Technical Stack"
+
+# Create a temporary file
+temp_file=$(mktemp)
+
+# Extract the content before the source code structure section
+sed -n "1,/$start_marker/p" docs/chat-context.md > "$temp_file"
+
+# Append the new structure
+echo "" >> "$temp_file"
+echo "" >> "$temp_file"
+echo "$structure" >> "$temp_file"
+echo "" >> "$temp_file"
+
+# Extract the content after the source code structure section
+sed -n "/$end_marker/,\$p" docs/chat-context.md >> "$temp_file"
+
+# Replace the original file with the updated content
+mv "$temp_file" docs/chat-context.md
+
+# Add the updated file to the commit
+git add docs/chat-context.md
+
+exit 0
