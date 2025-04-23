@@ -129,9 +129,7 @@ string" error when using the str_replace_editor tool
 ## General
 
 * Manage/Edit Classifications + remove classification form code
-* Use AI to fill add wine based on the label picture
 * Use app-state :view state more broadly
 * Extend wine db export to write out to object storage or local machine storage
-* Add admin function to erase db and reset to initial state.
 
 ## Bugs
