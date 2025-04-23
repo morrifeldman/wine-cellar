@@ -43,13 +43,13 @@
                  :body1 {:fontSize "0.95rem"}
                  :body2 {:fontSize "0.85rem"}}
     :components
-    {:MuiTypography {:styleOverrides {;; Define default styles for each
-                                      ;; variant
-                                      :h2 {:fontWeight 400 :fontSize "1.75rem"}
-                                      :subtitle1 {:fontSize "0.95rem"
-                                                  :fontWeight 500}
-                                      :body1 {:fontSize "0.95rem"}
-                                      :body2 {:fontSize "0.85rem"}}}
+    {:MuiTypography {:styleOverrides
+                     {;; Define default styles for each variant
+                      :h2 {:fontWeight 400 :fontSize "1.75rem"}
+                      :h4 {:fontWeight 500 :fontSize "1.25rem" :color "#E8C3C8"}
+                      :subtitle1 {:fontSize "0.95rem" :fontWeight 500}
+                      :body1 {:fontSize "0.95rem"}
+                      :body2 {:fontSize "0.85rem"}}}
      :MuiPaper {:styleOverrides {:root {:boxShadow
                                         "0px 3px 15px rgba(0,0,0,0.3)"
                                         :color "#F5F5F5"}}}
