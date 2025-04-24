@@ -22,26 +22,21 @@
 (defn get-oauth-config
   "Returns the OAuth configuration, either from environment variables or pass"
   []
-  (if (config-utils/production?)
-    {:client-id (System/getenv "GOOGLE_CLIENT_ID")
-     :client-secret (System/getenv "GOOGLE_CLIENT_SECRET")
-     :redirect-uri (System/getenv "OAUTH_REDIRECT_URI")}
+  (if config-utils/production?
+    {:client-id (config-utils/get-config "GOOGLE_CLIENT_ID")
+     :client-secret (config-utils/get-config "GOOGLE_CLIENT_SECRET")
+     :redirect-uri (config-utils/get-config "OAUTH_REDIRECT_URI")}
     (let [{:keys [redirect-uris] :as creds} (get-google-credentials-from-pass)]
       (assoc creds :redirect-uri (first redirect-uris)))))
 
 (defn get-jwt-secret
   "Gets the JWT secret for signing tokens, either from environment or a default"
   []
-  (or (System/getenv "JWT_SECRET")
-      (config-utils/get-password-from-pass "wine-cellar/jwt-secret")))
+  (config-utils/get-config "JWT_SECRET"))
 
-(defn get-cookie-store-key
-  []
-  (or (System/getenv "COOKIE_STORE_KEY")
-      (config-utils/get-password-from-pass "wine-cellar/cookie-store-key")))
+(defn get-cookie-store-key [] (config-utils/get-config "COOKIE_STORE_KEY"))
 
 (defn get-admin-email
   "Gets the admin email address from environment or pass"
   []
-  (or (System/getenv "ADMIN_EMAIL")
-      (config-utils/get-password-from-pass "wine-cellar/admin-email")))
+  (config-utils/get-config "ADMIN_EMAIL"))

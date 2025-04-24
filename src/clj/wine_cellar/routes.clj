@@ -87,7 +87,7 @@
           :opt-un [::tasting_date ::is_external ::source]))
 
 (def cors-middleware
-  (if-not (config-utils/production?)
+  (if-not config-utils/production?
     {:name ::cors
      :wrap (fn [handler]
              (wrap-cors handler

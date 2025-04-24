@@ -1,5 +1,6 @@
 (ns wine-cellar.db.connection
-  (:require [next.jdbc :as jdbc]
+  (:require [mount.core :refer [defstate]]
+            [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [wine-cellar.config-utils :as config-utils])
   (:import [org.postgresql.jdbc PgArray]))
@@ -19,6 +20,6 @@
      :user "wine_cellar"
      :password (config-utils/get-password-from-pass "wine-cellar/db")}))
 
-(def ds (delay (jdbc/get-datasource (get-db-config))))
+(defstate ds :start (jdbc/get-datasource (get-db-config)))
 
 (def db-opts {:builder-fn rs/as-unqualified-maps})

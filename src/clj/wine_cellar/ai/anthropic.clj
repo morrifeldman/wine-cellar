@@ -7,7 +7,8 @@
             [wine-cellar.config-utils :as config-utils]))
 
 (def api-url "https://api.anthropic.com/v1/messages")
-(defstate api-key :start (config-utils/get-anthropic-api-key))
+
+(defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
 
 (defn- create-prompt
   "Creates a prompt for wine label analysis"
