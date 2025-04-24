@@ -49,11 +49,11 @@
 (defn ping-db
   "Simple function to test database connectivity"
   []
-  (jdbc/execute-one! @ds ["SELECT 1 as result"] db-opts))
+  (jdbc/execute-one! ds ["SELECT 1 as result"] db-opts))
 
 ;; Wine operations
 (defn create-wine
-  ([wine] (create-wine @ds wine))
+  ([wine] (create-wine ds wine))
   ([tx-or-ds wine]
    (jdbc/execute-one! tx-or-ds
                       (sql/format {:insert-into :wines
@@ -63,7 +63,7 @@
 
 (defn get-wine
   [id]
-  (-> (jdbc/execute-one! @ds
+  (-> (jdbc/execute-one! ds
                          (sql/format
                           {:select :* :from :wines :where [:= :id id]})
                          db-opts)
@@ -72,7 +72,7 @@
 (defn get-all-wines-with-ratings
   []
   (let [wines (jdbc/execute!
-               @ds
+               ds
                ;; Listing columns explicitly since the only image we are
                ;; getting is the label_thumbnail
                (sql/format {:select [:id :producer :country :region :aoc
@@ -88,7 +88,7 @@
 
 (defn update-wine!
   [id wine]
-  (-> (jdbc/execute-one! @ds
+  (-> (jdbc/execute-one! ds
                          (sql/format
                           {:update :wines
                            :set (assoc (wine->db-wine wine) :updated_at [:now])
@@ -99,7 +99,7 @@
 
 (defn adjust-quantity
   [id adjustment]
-  (jdbc/execute-one! @ds
+  (jdbc/execute-one! ds
                      (sql/format {:update :wines
                                   :set {:quantity [:+ :quantity adjustment]
                                         :updated_at [:now]}
@@ -108,7 +108,7 @@
 
 (defn delete-wine!
   [id]
-  (jdbc/execute-one! @ds
+  (jdbc/execute-one! ds
                      (sql/format {:delete-from :wines :where [:= :id id]})
                      db-opts))
 
@@ -116,7 +116,7 @@
 (defn create-or-update-classification
   "Creates a new classification or updates an existing one by combining levels"
   ([classification]
-   (jdbc/with-transaction [tx @ds]
+   (jdbc/with-transaction [tx ds]
                           (create-or-update-classification tx classification)))
   ([tx classification]
    (let [existing-query
@@ -153,7 +153,7 @@
 
 (defn get-classifications
   []
-  (jdbc/execute! @ds
+  (jdbc/execute! ds
                  (sql/format {:select :*
                               :from :wine_classifications
                               :order-by [:country :region :aoc :communal_aoc]})
@@ -161,7 +161,7 @@
 
 (defn get-regions-by-country
   [country]
-  (jdbc/execute! @ds
+  (jdbc/execute! ds
                  (sql/format {:select [:distinct :region]
                               :from :wine_classifications
                               :where [:= :country country]
@@ -170,7 +170,7 @@
 
 (defn get-aocs-by-region
   [country region]
-  (jdbc/execute! @ds
+  (jdbc/execute! ds
                  (sql/format {:select [:distinct :aoc]
                               :from :wine_classifications
                               :where [:and [:= :country country]
@@ -180,7 +180,7 @@
 
 ;; Tasting Notes Operations
 (defn create-tasting-note
-  ([note] (create-tasting-note @ds note))
+  ([note] (create-tasting-note ds note))
   ([ds-or-tx note]
    (jdbc/execute-one! ds-or-tx
                       (sql/format {:insert-into :tasting_notes
@@ -193,7 +193,7 @@
 
 (defn update-tasting-note!
   [id note]
-  (jdbc/execute-one! @ds
+  (jdbc/execute-one! ds
                      (sql/format {:update :tasting_notes
                                   :set (-> note
                                            (update :tasting_date ->sql-date)
@@ -204,14 +204,14 @@
 
 (defn get-tasting-note
   [id]
-  (jdbc/execute-one! @ds
+  (jdbc/execute-one! ds
                      (sql/format
                       {:select :* :from :tasting_notes :where [:= :id id]})
                      db-opts))
 
 (defn get-tasting-notes-by-wine
   [wine-id]
-  (jdbc/execute! @ds
+  (jdbc/execute! ds
                  (sql/format {:select :*
                               :from :tasting_notes
                               :where [:= :wine_id wine-id]
@@ -220,7 +220,7 @@
 
 (defn delete-tasting-note!
   [id]
-  (jdbc/execute-one! @ds
+  (jdbc/execute-one! ds
                      (sql/format {:delete-from :tasting_notes
                                   :where [:= :id id]})
                      db-opts))

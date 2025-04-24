@@ -41,8 +41,11 @@ string" error when using the str_replace_editor tool
 │   └── user.clj
 ├── Dockerfile
 ├── docs
+│   ├── ai-form-fill-feature.md
+│   ├── ai-form-fill-implementation.md
 │   ├── chat-context.md
 │   ├── chat-summary.md
+│   ├── environment-variables.md
 │   ├── ideal-taxonomy.md
 │   └── schema-unification-datomic.md
 ├── fly.toml
@@ -60,16 +63,23 @@ string" error when using the str_replace_editor tool
 ├── README.md
 ├── resources
 │   └── wine-classifications.edn
+├── scripts
+│   ├── format-clj.sh
+│   ├── format_zprint.clj
+│   └── pre-commit
 ├── shadow-cljs.edn
 └── src
     ├── clj
     │   └── wine_cellar
+    │       ├── ai
+    │       │   └── anthropic.clj
     │       ├── auth
     │       │   ├── config.clj
     │       │   └── core.clj
     │       ├── config_utils.clj
     │       ├── db
     │       │   ├── api.clj
+    │       │   ├── connection.clj
     │       │   ├── schema.clj
     │       │   └── setup.clj
     │       ├── handlers.clj
@@ -89,11 +99,14 @@ string" error when using the str_replace_editor tool
             │   ├── formatting.cljs
             │   └── vintage.cljs
             └── views
+                ├── admin
+                │   └── schema.cljs
                 ├── classifications
                 │   └── form.cljs
                 ├── components
                 │   ├── form.cljs
-                │   └── image_upload.cljs
+                │   ├── image_upload.cljs
+                │   └── wine_card.cljs
                 ├── components.cljs
                 ├── main.cljs
                 ├── tasting_notes
@@ -105,7 +118,7 @@ string" error when using the str_replace_editor tool
                     ├── form.cljs
                     └── list.cljs
 
-21 directories, 50 files
+24 directories, 60 files
 
 ## Technical Stack
 - Backend: Clojure

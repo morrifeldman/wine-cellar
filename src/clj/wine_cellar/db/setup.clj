@@ -1,7 +1,6 @@
 (ns wine-cellar.db.setup
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.pprint :as pprint]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [wine-cellar.db.api :as db-api]
@@ -23,7 +22,7 @@
 (defn classifications-exist?
   "Check if any classifications exist in the database"
   []
-  (pos? (:count (jdbc/execute-one! @ds
+  (pos? (:count (jdbc/execute-one! ds
                                    (sql/format {:select [[[:count :*]]]
                                                 :from :wine_classifications})
                                    db-opts))))
@@ -44,7 +43,7 @@
     (println "DB Response:" (jdbc/execute-one! tx sql db-opts))))
 
 (defn- ensure-tables
-  ([] (jdbc/with-transaction [tx @ds] (ensure-tables tx)))
+  ([] (jdbc/with-transaction [tx ds] (ensure-tables tx)))
   ([tx]
    (sql-execute-helper tx schema/create-wine-style-type)
    (sql-execute-helper tx schema/create-wine-level-type)
@@ -58,7 +57,7 @@
 #_(initialize-db)
 
 (defn- drop-tables
-  ([] (jdbc/with-transaction [tx @ds] (drop-tables tx)))
+  ([] (jdbc/with-transaction [tx ds] (drop-tables tx)))
   ([tx]
    (sql-execute-helper tx {:drop-view [:if-exists :wines-with-ratings]})
    (sql-execute-helper tx {:drop-table [:if-exists :tasting_notes]})
@@ -82,7 +81,7 @@
   []
   (->> (for [[table {:keys [serialization-fn] :or {serialization-fn identity}}]
              table-export-specs
-             :let [data (jdbc/execute! @ds
+             :let [data (jdbc/execute! ds
                                        (sql/format {:select :*
                                                     :from table
                                                     ;; Order by ID to ensure
@@ -100,7 +99,7 @@
   "Import data from a map structure back into the database"
   [serialized-data]
   (jdbc/with-transaction
-   [tx @ds]
+   [tx ds]
    (doseq [[table table-data] serialized-data
            :let [{:keys [deserialization-fn primary-key]
                   :or {deserialization-fn identity}}

@@ -31,11 +31,9 @@
     (Integer/parseInt port-str)
     3000))
 
-(defn -main
-  [& _]
-  (let [port (get-port)] (mount/start (mount/with-args {:port port}))))
+(defstate server :start (start-server! (get-port)) :stop (server))
 
-(defstate server :start (start-server! (:port (mount/args))) :stop (server))
+(defn -main [& _] (mount/start))
 
-#_(mount/start (mount/with-args {:port 3000}))
+#_(mount/start)
 #_(mount/stop)
