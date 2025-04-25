@@ -307,4 +307,5 @@
       {:submit-text "Add Wine"
        :cancel-text "Cancel"
        :loading? submitting?
-       :on-cancel #(swap! app-state assoc :show-wine-form? false)}]]))
+       :on-cancel
+       #(swap! app-state assoc :show-wine-form? false :new-wine {})}]]))
