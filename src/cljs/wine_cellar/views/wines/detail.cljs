@@ -461,5 +461,6 @@
                               wines)))
                      ;; Remove selected wine ID and tasting notes
                      (swap! app-state dissoc :selected-wine-id :tasting-notes)
-                     (swap! app-state assoc :new-tasting-note {}))}
+                     (swap! app-state assoc :new-tasting-note {})
+                     (swap! app-state dissoc :window-suggestion))}
         "Back to List"]])))

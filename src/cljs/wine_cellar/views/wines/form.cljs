@@ -177,7 +177,8 @@
       [drink-until-year app-state new-wine]]
      [form-row
       [box
-       {:sx {:width "100%" :display "flex" :justifyContent "flex-start" :mt 1}}
+       {:sx {:sx {:mt 2}}
+        #_{:width "100%" :display "flex" :justifyContent "flex-start" :mt 1}}
        [button
         {:variant "outlined"
          :color "secondary"
@@ -201,7 +202,7 @@
                               :drink_until_year (:drink_until_year result)})
                            ;; Show success message with reasoning
                            (swap! app-state assoc
-                             :success
+                             :window-reason
                              (str "Drinking window suggested: "
                                   (:drink_from_year result)
                                   " to " (:drink_until_year result)
@@ -215,7 +216,8 @@
         (if (:suggesting-drinking-window? @app-state)
           [box {:sx {:display "flex" :alignItems "center"}}
            [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
-          "Suggest Drinking Window")]]]
+          "Suggest Drinking Window")]
+       [typography {:variant "body2" :sx {:mt 1}} (:window-reason @app-state)]]]
      ;; Wine Label Images Section
      [form-divider "Wine Label Images"]
      [form-row
@@ -242,10 +244,7 @@
                                :back_label_image (:back_label_image new-wine)}]
                (-> (api/analyze-wine-label app-state image-data)
                    (.then (fn [result]
-                            (swap! app-state update :new-wine merge result)
-                            (swap! app-state assoc
-                              :success
-                              "Wine label analyzed successfully!")))
+                            (swap! app-state update :new-wine merge result)))
                    (.catch (fn [error]
                              (swap! app-state assoc
                                :error
