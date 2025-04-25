@@ -13,7 +13,8 @@
             [reagent.core :as r]
             [wine-cellar.api :as api]
             [wine-cellar.common :as common]
-            [wine-cellar.utils.formatting :refer [valid-name-producer?]]
+            [wine-cellar.utils.formatting :refer
+             [format-date valid-name-producer?]]
             [wine-cellar.utils.vintage :as vintage]
             [wine-cellar.views.components :refer
              [editable-autocomplete-field editable-classification-field
@@ -40,6 +41,16 @@
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:purveyor new-value}))
     :empty-text "Not specified"}])
+
+(defn editable-purchase-date
+  [app-state wine]
+  [editable-text-field
+   {:value (when-let [date (format-date (:purchase_date wine))] date)
+    :on-save
+    (fn [new-value]
+      (api/update-wine app-state (:id wine) {:purchase_date new-value}))
+    :empty-text "Add purchase date"
+    :text-field-props {:type "date"}}])
 
 (defn editable-price
   [app-state wine]
@@ -138,6 +149,18 @@
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:aoc new-value}))
     :empty-text "Add AOC/AVA"}])
+
+(defn editable-vineyard
+  [app-state wine]
+  [editable-classification-field
+   {:value (:vineyard wine)
+    :field-type :vineyard
+    :app-state app-state
+    :wine wine
+    :classifications (:classifications @app-state)
+    :on-save (fn [new-value]
+               (api/update-wine app-state (:id wine) {:vineyard new-value}))
+    :empty-text "Add vineyard"}])
 
 (defn editable-classification
   [app-state wine]
@@ -281,6 +304,12 @@
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
       [typography {:variant "body2" :color "text.secondary"} "AOC/AVA"]
       [editable-aoc app-state wine]]]
+    ;; Vineyard
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Vineyard"]
+      [editable-vineyard app-state wine]]]
     ;; Classification
     [grid {:item true :xs 12 :md 6}
      [paper
@@ -319,6 +348,12 @@
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
       [typography {:variant "body2" :color "text.secondary"} "Purchased From"]
       [editable-purveyor app-state wine]]]
+    ;; Purchase Date
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Purchase Date"]
+      [editable-purchase-date app-state wine]]]
     ;; Tasting Window
     [grid {:item true :xs 12 :md 6}
      [paper

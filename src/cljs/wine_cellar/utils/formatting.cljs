@@ -36,6 +36,15 @@
        distinct
        sort))
 
+(defn vineyards-for-region
+  [classifications country region]
+  (->> classifications
+       (filter #(and (= country (:country %)) (= region (:region %))))
+       (map :vineyard)
+       (remove nil?)
+       distinct
+       sort))
+
 (defn classifications-for-aoc
   [classifications country region aoc]
   (->> classifications

@@ -22,7 +22,6 @@
 (s/def ::country string?)
 (s/def ::region string?)
 (s/def ::aoc (s/nilable string?))
-(s/def ::communal_aoc string?)
 (s/def ::classification (s/nilable string?))
 (s/def ::vineyard (s/nilable string?))
 (s/def ::name string?)
@@ -33,6 +32,7 @@
 (s/def ::location (s/and string? #(common/valid-location? %)))
 (s/def ::quantity int?)
 (s/def ::price number?)
+(s/def ::purchase_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::notes string?)
 (s/def ::rating (s/int-in 1 101)) ;; Ratings from 1-100
@@ -47,27 +47,27 @@
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer) ::country ::region ::style ::quantity
                    ::price]
-          :opt-un [::aoc ::communal_aoc ::classification ::vineyard ::location
-                   ::level ::purveyor ::label_image ::label_thumbnail
-                   ::back_label_image ::drink_from_year ::drink_until_year
-                   ::vintage]))
+          :opt-un [::aoc ::classification ::vineyard ::location ::level
+                   ::purveyor ::label_image ::label_thumbnail ::back_label_image
+                   ::drink_from_year ::drink_until_year ::vintage
+                   ::purchase_date]))
 
 (def wine-update-schema
   (s/keys :req-un [(or ::producer ::country
                        ::region ::aoc
-                       ::communal_aoc ::classification
-                       ::vineyard ::name
-                       ::vintage ::style
-                       ::level ::location
-                       ::quantity ::price
-                       ::purveyor ::label_image
-                       ::label_thumbnail ::back_label_image
-                       ::drink_from_year ::drink_until_year)]
-          :opt-un [::producer ::country ::region ::aoc ::communal_aoc
-                   ::classification ::vineyard ::name ::vintage ::style ::level
-                   ::location ::quantity ::price ::purveyor ::label_image
-                   ::label_thumbnail ::back_label_image ::drink_from_year
-                   ::drink_until_year]))
+                       ::classification ::vineyard
+                       ::name ::vintage
+                       ::style ::level
+                       ::location ::quantity
+                       ::price ::purveyor
+                       ::label_image ::label_thumbnail
+                       ::back_label_image ::drink_from_year
+                       ::drink_until_year ::purchase_date)]
+          :opt-un [::producer ::country ::region ::aoc ::classification
+                   ::vineyard ::name ::vintage ::style ::level ::location
+                   ::quantity ::price ::purveyor ::label_image ::label_thumbnail
+                   ::back_label_image ::drink_from_year ::drink_until_year
+                   ::purchase_date]))
 
 (s/def ::nilable-label_image (s/nilable ::label_image))
 (s/def ::nilable-label_thumbnail (s/nilable ::label_thumbnail))
@@ -80,7 +80,7 @@
 
 (def classification-schema
   (s/keys :req-un [::country ::region]
-          :opt-un [::aoc ::communal_aoc ::classification ::vineyard ::levels]))
+          :opt-un [::aoc ::classification ::vineyard ::levels]))
 
 (def tasting-note-schema
   (s/keys :req-un [::notes ::rating]

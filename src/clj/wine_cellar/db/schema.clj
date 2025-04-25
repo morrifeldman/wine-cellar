@@ -24,11 +24,10 @@
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:country :varchar [:not nil]] [:region :varchar [:not nil]] [:aoc :varchar]
-    [:communal_aoc :varchar] [:classification :varchar] [:vineyard :varchar]
-    [:levels :wine_level :array] [:created_at :timestamp [:default [:now]]]
+    [:classification :varchar] [:vineyard :varchar] [:levels :wine_level :array]
+    [:created_at :timestamp [:default [:now]]]
     [[:constraint :wine_classifications_natural_key] :unique-nulls-not-distinct
-     [:composite :country :region :aoc :communal_aoc :classification
-      :vineyard]]]})
+     [:composite :country :region :aoc :classification :vineyard]]]})
 
 #_(sql/format classifications-table-schema)
 
@@ -37,13 +36,13 @@
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:producer :varchar] [:country :varchar [:not nil]]
-    [:region :varchar [:not nil]] [:aoc :varchar] [:communal_aoc :varchar]
-    [:classification :varchar] [:vineyard :varchar] [:level :wine_level]
-    [:name :varchar] [:vintage :integer :null] [:style :wine_style]
-    [:location :varchar] [:purveyor :varchar]
-    [:quantity :integer [:not nil] [:default 0]] [:price :decimal [10 2]]
-    [:drink_from_year :integer] [:drink_until_year :integer]
-    [:label_image :bytea] [:label_thumbnail :bytea] [:back_label_image :bytea]
+    [:region :varchar [:not nil]] [:aoc :varchar] [:classification :varchar]
+    [:vineyard :varchar] [:level :wine_level] [:name :varchar]
+    [:vintage :integer :null] [:style :wine_style] [:location :varchar]
+    [:purveyor :varchar] [:quantity :integer [:not nil] [:default 0]]
+    [:price :decimal [10 2]] [:purchase_date :date] [:drink_from_year :integer]
+    [:drink_until_year :integer] [:label_image :bytea] [:label_thumbnail :bytea]
+    [:back_label_image :bytea]
     [[:constraint :valid_tasting_window]
      [:check
       [:or [:= :drink_from_year] [:= :drink_until_year]

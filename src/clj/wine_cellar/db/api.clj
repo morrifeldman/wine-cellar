@@ -31,8 +31,11 @@
          (String. (.encode (Base64/getEncoder) bytes) "UTF-8"))))
 
 (defn wine->db-wine
-  [{:keys [style level label_image label_thumbnail back_label_image] :as wine}]
+  [{:keys [style level label_image label_thumbnail back_label_image
+           purchase_date]
+    :as wine}]
   (cond-> wine
+    purchase_date (update :purchase_date ->sql-date)
     style (update :style (partial sql-cast :wine_style))
     level (update :level (partial sql-cast :wine_level))
     label_image (update :label_image base64->bytes)
@@ -73,14 +76,14 @@
   []
   (let [wines (jdbc/execute!
                ds
-               ;; Listing columns explicitly since the only image we are
-               ;; getting is the label_thumbnail
-               (sql/format {:select [:id :producer :country :region :aoc
-                                     :communal_aoc :classification :vineyard
-                                     :level :name :vintage :style :location
-                                     :purveyor :quantity :price :drink_from_year
-                                     :drink_until_year :label_thumbnail
-                                     :created_at :updated_at :latest_rating]
+               ;; Listing columns explicitly since the only
+               ;; image we are getting is the label_thumbnail
+               (sql/format {:select
+                            [:id :producer :country :region :aoc :classification
+                             :vineyard :level :name :vintage :style :location
+                             :purveyor :quantity :price :drink_from_year
+                             :drink_until_year :label_thumbnail :created_at
+                             :updated_at :purchase_date :latest_rating]
                             :from :wines_with_ratings
                             :order-by [[:created_at :desc]]})
                db-opts)]
@@ -125,8 +128,6 @@
           :where [:and [:= :country (:country classification)]
                   [:= :region (:region classification)]
                   [:= [:coalesce :aoc ""] [:coalesce (:aoc classification) ""]]
-                  [:= [:coalesce :communal_aoc ""]
-                   [:coalesce (:communal_aoc classification) ""]]
                   [:= [:coalesce :classification ""]
                    [:coalesce (:classification classification) ""]]
                   [:= [:coalesce :vineyard ""]
@@ -156,7 +157,7 @@
   (jdbc/execute! ds
                  (sql/format {:select :*
                               :from :wine_classifications
-                              :order-by [:country :region :aoc :communal_aoc]})
+                              :order-by [:country :region :aoc]})
                  db-opts))
 
 (defn get-regions-by-country
