@@ -110,7 +110,7 @@ We implemented a complete solution by:
    ```clojure
    [[:constraint :wine_classifications_natural_key]
     :unique-nulls-not-distinct
-    [:composite :country :region :aoc :communal_aoc
+    [:composite :country :region :aoc
      :classification :vineyard]]
    ```
 

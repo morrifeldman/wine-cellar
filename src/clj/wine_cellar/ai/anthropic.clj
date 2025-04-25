@@ -32,6 +32,7 @@
      "- country: The country of origin\n"
      "- region: The wine region within the country\n"
      "- aoc: The appellation or controlled designation of origin (if applicable)\n"
+     "- vineyard: The specific vineyard name (if mentioned)\n"
      "- classification: Any classification or quality designation\n"
      "- style: The wine style. Must be one of: "
      style-options
@@ -46,7 +47,7 @@
   "Creates a prompt for suggesting a drinking window for a wine"
   [wine]
   (let [{:keys [producer name vintage country region style classification
-                level]}
+                vineyard aoc level]}
         wine
         current-year (.getValue (java.time.Year/now))]
     (str
@@ -58,6 +59,8 @@
      (when vintage (str "- Vintage: " vintage "\n"))
      (when country (str "- Country: " country "\n"))
      (when region (str "- Region: " region "\n"))
+     (when aoc (str "- AOC/AVA: " aoc "\n"))
+     (when vineyard (str "- Vineyard: " vineyard "\n"))
      (when style (str "- Style: " style "\n"))
      (when classification (str "- Classification: " classification "\n"))
      (when level (str "- Level: " level "\n"))

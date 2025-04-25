@@ -11,11 +11,11 @@
             [wine-cellar.utils.formatting :refer
              [aocs-for-region classifications-for-aoc levels-for-classification
               regions-for-country unique-countries unique-purveyors
-              valid-name-producer?]]
+              valid-name-producer? vineyards-for-region]]
             [wine-cellar.utils.vintage :as vintage]
             [wine-cellar.views.components.form :refer
-             [currency-field form-actions form-container form-divider form-row
-              number-field select-field smart-select-field text-field
+             [currency-field date-field form-actions form-container form-divider
+              form-row number-field select-field smart-select-field text-field
               year-field]]
             [wine-cellar.views.components.image-upload :refer [image-upload]]))
 
@@ -149,6 +149,12 @@
                         (:country new-wine)
                         (:region new-wine))]]
      [form-row
+      [smart-select-field app-state [:new-wine :vineyard] :free-solo true
+       :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
+       :options
+       (vineyards-for-region classifications
+                             (:country new-wine)
+                             (:region new-wine)) :label "Vineyard"]
       [smart-select-field app-state [:new-wine :classification] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
        :options
@@ -176,9 +182,7 @@
      [form-row [drink-from-year app-state new-wine]
       [drink-until-year app-state new-wine]]
      [form-row
-      [box
-       {:sx {:sx {:mt 2}}
-        #_{:width "100%" :display "flex" :justifyContent "flex-start" :mt 1}}
+      [box {:sx {:sx {:mt 2}}}
        [button
         {:variant "outlined"
          :color "secondary"
@@ -293,7 +297,11 @@
         :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]]
      [form-row
       [smart-select-field app-state [:new-wine :purveyor] :free-solo true :label
-       "Purchased From" :options (unique-purveyors (:wines @app-state))]]
+       "Purchased From" :options (unique-purveyors (:wines @app-state))]
+      [date-field
+       {:label "Purchase Date"
+        :value (:purchase_date new-wine)
+        :on-change #(swap! app-state assoc-in [:new-wine :purchase_date] %)}]]
      ;; Form actions
      [form-actions
       {:submit-text "Add Wine"
