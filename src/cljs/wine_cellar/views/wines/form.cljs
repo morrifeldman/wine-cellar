@@ -175,6 +175,49 @@
      [form-divider "Vintage"] [form-row [vintage app-state new-wine]]
      [form-row [drink-from-year app-state new-wine]
       [drink-until-year app-state new-wine]]
+     [form-row
+      [box
+       {:sx {:sx {:mt 2}}
+        #_{:width "100%" :display "flex" :justifyContent "flex-start" :mt 1}}
+       [button
+        {:variant "outlined"
+         :color "secondary"
+         :size "small"
+         :disabled (or (:suggesting-drinking-window? @app-state)
+                       (not (and (:producer new-wine)
+                                 (:country new-wine)
+                                 (:region new-wine)
+                                 (:style new-wine))))
+         :startIcon (r/as-element [auto-awesome])
+         :onClick (fn []
+                    (-> (api/suggest-drinking-window app-state new-wine)
+                        (.then
+                         (fn [result]
+                           ;; Update the new wine with the suggested
+                           ;; drinking window
+                           (swap! app-state update
+                             :new-wine
+                             merge
+                             {:drink_from_year (:drink_from_year result)
+                              :drink_until_year (:drink_until_year result)})
+                           ;; Show success message with reasoning
+                           (swap! app-state assoc
+                             :window-reason
+                             (str "Drinking window suggested: "
+                                  (:drink_from_year result)
+                                  " to " (:drink_until_year result)
+                                  " (" (:confidence result)
+                                  " confidence)\n\n" (:reasoning result)))))
+                        (.catch (fn [error]
+                                  (swap! app-state assoc
+                                    :error
+                                    (str "Failed to suggest drinking window: "
+                                         error))))))}
+        (if (:suggesting-drinking-window? @app-state)
+          [box {:sx {:display "flex" :alignItems "center"}}
+           [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
+          "Suggest Drinking Window")]
+       [typography {:variant "body2" :sx {:mt 1}} (:window-reason @app-state)]]]
      ;; Wine Label Images Section
      [form-divider "Wine Label Images"]
      [form-row
@@ -201,10 +244,7 @@
                                :back_label_image (:back_label_image new-wine)}]
                (-> (api/analyze-wine-label app-state image-data)
                    (.then (fn [result]
-                            (swap! app-state update :new-wine merge result)
-                            (swap! app-state assoc
-                              :success
-                              "Wine label analyzed successfully!")))
+                            (swap! app-state update :new-wine merge result)))
                    (.catch (fn [error]
                              (swap! app-state assoc
                                :error

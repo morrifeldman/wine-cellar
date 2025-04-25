@@ -42,36 +42,43 @@
      "Return ONLY a valid JSON object with these fields. If you cannot determine a value, use null for that field. "
      "Do not include any explanatory text outside the JSON object.")))
 
-#_(create-prompt 1 2)
+(defn- create-drinking-window-prompt
+  "Creates a prompt for suggesting a drinking window for a wine"
+  [wine]
+  (let [{:keys [producer name vintage country region style classification
+                level]}
+        wine
+        current-year (.getValue (java.time.Year/now))]
+    (str
+     "You are a wine expert tasked with suggesting an optimal drinking window for a wine. "
+     "Based on the following characteristics, suggest when this wine will be ready to drink and when it might be past its prime.\n\n"
+     "Wine details:\n"
+     (when producer (str "- Producer: " producer "\n"))
+     (when name (str "- Name: " name "\n"))
+     (when vintage (str "- Vintage: " vintage "\n"))
+     (when country (str "- Country: " country "\n"))
+     (when region (str "- Region: " region "\n"))
+     (when style (str "- Style: " style "\n"))
+     (when classification (str "- Classification: " classification "\n"))
+     (when level (str "- Level: " level "\n"))
+     "\n"
+     "The current year is "
+     current-year
+     ".\n\n"
+     "Return your response in JSON format with the following fields:\n"
+     "- drink_from_year: (integer) The year when the wine will start to be enjoyable\n"
+     "- drink_until_year: (integer) The year when the wine might be past its prime\n"
+     "- confidence: (string) \"high\", \"medium\", or \"low\" based on how confident you are in this assessment\n"
+     "- reasoning: (string) A brief explanation of your recommendation\n\n"
+     "Only return valid JSON without any additional text.")))
 
-(defn analyze-wine-label
-  "Analyzes wine label images using Anthropic's Claude API.
-   Returns a map of extracted wine information."
-  [label-image back-label-image]
-  (let [images (filterv
-                some?
-                [(when label-image
-                   {:type "image"
-                    :source {:type "base64"
-                             :media_type "image/jpeg"
-                             :data
-                             (-> label-image
-                                 (str/replace #"^data:image/jpeg;base64," "")
-                                 (str/replace #"^data:image/png;base64," ""))}})
-                 (when back-label-image
-                   {:type "image"
-                    :source
-                    {:type "base64"
-                     :media_type "image/jpeg"
-                     :data (-> back-label-image
-                               (str/replace #"^data:image/jpeg;base64," "")
-                               (str/replace #"^data:image/png;base64," ""))}})])
-        prompt (create-prompt label-image back-label-image)
-        request-body {:model "claude-3-opus-20240229"
+(defn- call-anthropic-api
+  "Makes a request to the Anthropic API with the given content.
+   Returns the parsed JSON response."
+  [content]
+  (let [request-body {:model "claude-3-opus-20240229"
                       :max_tokens 1000
-                      :messages [{:role "user"
-                                  :content (into [{:type "text" :text prompt}]
-                                                 images)}]}]
+                      :messages [{:role "user" :content content}]}]
     (tap> ["anthropic-request-body-structure" (keys request-body)])
     (try
       (let [{:keys [status body error] :as response}
@@ -106,3 +113,37 @@
         (tap> ["anthropic-unexpected-error" (.getMessage e) (type e)])
         (throw (ex-info "Unexpected error calling Anthropic API"
                         {:error (.getMessage e)}))))))
+
+(defn suggest-drinking-window
+  "Suggests an optimal drinking window for a wine using Anthropic's Claude API.
+   Returns a map with drink_from_year, drink_until_year, confidence, and reasoning."
+  [wine]
+  (let [prompt (create-drinking-window-prompt wine)
+        content [{:type "text" :text prompt}]]
+    (call-anthropic-api content)))
+
+(defn analyze-wine-label
+  "Analyzes wine label images using Anthropic's Claude API.
+   Returns a map of extracted wine information."
+  [label-image back-label-image]
+  (let [images (filterv
+                some?
+                [(when label-image
+                   {:type "image"
+                    :source {:type "base64"
+                             :media_type "image/jpeg"
+                             :data
+                             (-> label-image
+                                 (str/replace #"^data:image/jpeg;base64," "")
+                                 (str/replace #"^data:image/png;base64," ""))}})
+                 (when back-label-image
+                   {:type "image"
+                    :source
+                    {:type "base64"
+                     :media_type "image/jpeg"
+                     :data (-> back-label-image
+                               (str/replace #"^data:image/jpeg;base64," "")
+                               (str/replace #"^data:image/png;base64," ""))}})])
+        prompt (create-prompt label-image back-label-image)
+        content (into [{:type "text" :text prompt}] images)]
+    (call-anthropic-api content)))

@@ -21,10 +21,10 @@
 (s/def ::producer string?)
 (s/def ::country string?)
 (s/def ::region string?)
-(s/def ::aoc string?)
+(s/def ::aoc (s/nilable string?))
 (s/def ::communal_aoc string?)
-(s/def ::classification string?)
-(s/def ::vineyard string?)
+(s/def ::classification (s/nilable string?))
+(s/def ::vineyard (s/nilable string?))
 (s/def ::name string?)
 (s/def ::vintage (s/nilable int?))
 (s/def ::style (set common/wine-styles))
@@ -171,6 +171,11 @@
                                         :opt-un [::back_label_image])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/analyze-wine-label}}]
+    ["/wines/suggest-drinking-window"
+     {:post {:summary "Suggest optimal drinking window for a wine using AI"
+             :parameters {:body {:wine map?}}
+             :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/suggest-drinking-window}}]
     ["/wines/by-id"
      ["/:id"
       {:parameters {:path {:id int?}}
