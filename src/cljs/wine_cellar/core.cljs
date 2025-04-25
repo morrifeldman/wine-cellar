@@ -11,7 +11,6 @@
            :classifications []
            :new-wine {}
            :error nil
-           :success nil
            :loading? false
            :selected-wine-id nil
            :show-out-of-stock? false

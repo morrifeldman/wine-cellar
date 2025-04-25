@@ -344,33 +344,83 @@
           :size "small"
           :disabled (:suggesting-drinking-window? @app-state)
           :startIcon (r/as-element [auto-awesome])
-          :onClick
-          (fn []
-            (-> (api/suggest-drinking-window app-state wine)
-                (.then (fn [result]
-                         ;; Update the wine with the suggested drinking
-                         ;; window
-                         (let [updates
-                               {:drink_from_year (:drink_from_year result)
-                                :drink_until_year (:drink_until_year result)}]
-                           (api/update-wine app-state (:id wine) updates)
-                           ;; Show success message with reasoning
-                           (swap! app-state assoc
-                             :success
-                             (str "Drinking window suggested: "
-                                  (:drink_from_year result)
-                                  " to " (:drink_until_year result)
-                                  " (" (:confidence result)
-                                  " confidence)\n\n" (:reasoning result))))))
-                (.catch (fn [error]
-                          (swap! app-state assoc
-                            :error
-                            (str "Failed to suggest drinking window: "
-                                 error))))))}
+          :onClick (fn []
+                     (-> (api/suggest-drinking-window app-state wine)
+                         (.then (fn [{:keys [drink_from_year drink_until_year
+                                             confidence reasoning]
+                                      :as suggestion}]
+                                  ;; Update the wine with the suggested
+                                  ;; drinking window
+                                  (swap! app-state assoc
+                                    :window-suggestion
+                                    (assoc suggestion
+                                           :message
+                                           (str "Drinking window suggested: "
+                                                drink_from_year
+                                                " to " drink_until_year
+                                                " (" confidence
+                                                " confidence)\n\n"
+                                                reasoning)))))
+                         (.catch (fn [error]
+                                   (swap! app-state assoc
+                                     :error
+                                     (str "Failed to suggest drinking window: "
+                                          error))))))}
          (if (:suggesting-drinking-window? @app-state)
            [box {:sx {:display "flex" :alignItems "center"}}
             [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
-           "Suggest Drinking Window")]]]]]
+           "Suggest Drinking Window")]
+        [typography {:variant "body2" :sx {:mt 1}}
+         (get-in @app-state [:window-suggestion :message])]
+        ;; Buttons to apply the suggestion
+        (when-let [suggestion (get @app-state :window-suggestion)]
+          [box {:sx {:mt 2 :display "flex" :gap 1 :flexWrap "wrap"}}
+           [button
+            {:variant "contained"
+             :color "secondary"
+             :size "small"
+             :onClick (fn []
+                        (let [{:keys [drink_from_year drink_until_year]}
+                              suggestion]
+                          (api/update-wine app-state
+                                           (:id wine)
+                                           {:drink_from_year drink_from_year
+                                            :drink_until_year drink_until_year})
+                          ;; Clear the suggestion after applying
+                          (swap! app-state dissoc :window-suggestion)))}
+            "Apply Suggestion"]
+           [button
+            {:variant "outlined"
+             :color "secondary"
+             :size "small"
+             :onClick (fn []
+                        (let [{:keys [drink_from_year]} suggestion]
+                          (api/update-wine app-state
+                                           (:id wine)
+                                           {:drink_from_year drink_from_year})
+                          ;; Keep the suggestion in case they want to apply
+                          ;; the until year later
+                        ))} "Apply From Year"]
+           [button
+            {:variant "outlined"
+             :color "secondary"
+             :size "small"
+             :onClick (fn []
+                        (let [{:keys [drink_until_year]} suggestion]
+                          (api/update-wine app-state
+                                           (:id wine)
+                                           {:drink_until_year drink_until_year})
+                          ;; Keep the suggestion in case they want to apply
+                          ;; the from year later
+                        ))} "Apply Until Year"]
+           [button
+            {:variant "text"
+             :color "secondary"
+             :size "small"
+             :onClick (fn []
+                        ;; Clear the suggestion without applying
+                        (swap! app-state dissoc :window-suggestion))}
+            "Dismiss"]])]]]]
     ;; Tasting notes section
     [box {:sx {:mt 4}}
      [typography
