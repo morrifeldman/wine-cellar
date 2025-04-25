@@ -231,6 +231,20 @@
                          (do (swap! app-state assoc :error (:error result))
                              (reject (:error result)))))))))
 
+(defn suggest-drinking-window
+  [app-state wine]
+  (swap! app-state assoc :suggesting-drinking-window? true)
+  (js/Promise. (fn [resolve reject]
+                 (go
+                  (let [result (<! (POST "/api/wines/suggest-drinking-window"
+                                         {:wine wine}
+                                         "Failed to suggest drinking window"))]
+                    (swap! app-state assoc :suggesting-drinking-window? false)
+                    (if (:success result)
+                      (resolve (:data result))
+                      (do (swap! app-state assoc :error (:error result))
+                          (reject (:error result)))))))))
+
 (defn reset-schema
   []
   (js/Promise. (fn [resolve reject]

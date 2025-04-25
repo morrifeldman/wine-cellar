@@ -1,24 +1,26 @@
 (ns wine-cellar.views.wines.detail
-  (:require [reagent.core :as r]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [goog.string :as gstring]
             [goog.string.format]
-            [wine-cellar.views.components :refer
-             [editable-text-field editable-autocomplete-field
-              editable-classification-field quantity-control]]
-            [wine-cellar.views.components.image-upload :refer [image-upload]]
-            [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
-            [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
-            [wine-cellar.api :as api]
-            [wine-cellar.utils.vintage :as vintage]
+            [reagent-mui.icons.arrow-back :refer [arrow-back]]
+            [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
+            [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.icons.arrow-back :refer [arrow-back]]
+            [reagent.core :as r]
+            [wine-cellar.api :as api]
             [wine-cellar.common :as common]
-            [wine-cellar.utils.formatting :refer [valid-name-producer?]]))
+            [wine-cellar.utils.formatting :refer [valid-name-producer?]]
+            [wine-cellar.utils.vintage :as vintage]
+            [wine-cellar.views.components :refer
+             [editable-autocomplete-field editable-classification-field
+              editable-text-field quantity-control]]
+            [wine-cellar.views.components.image-upload :refer [image-upload]]
+            [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
+            [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]))
 
 (defn editable-location
   [app-state wine]
@@ -334,7 +336,41 @@
           {:variant "body2"
            :color (vintage/tasting-window-color status)
            :sx {:mt 1 :fontStyle "italic"}}
-          (vintage/format-tasting-window-text wine)])]]]
+          (vintage/format-tasting-window-text wine)])
+       [box {:sx {:mt 2}}
+        [button
+         {:variant "outlined"
+          :color "secondary"
+          :size "small"
+          :disabled (:suggesting-drinking-window? @app-state)
+          :startIcon (r/as-element [auto-awesome])
+          :onClick
+          (fn []
+            (-> (api/suggest-drinking-window app-state wine)
+                (.then (fn [result]
+                         ;; Update the wine with the suggested drinking
+                         ;; window
+                         (let [updates
+                               {:drink_from_year (:drink_from_year result)
+                                :drink_until_year (:drink_until_year result)}]
+                           (api/update-wine app-state (:id wine) updates)
+                           ;; Show success message with reasoning
+                           (swap! app-state assoc
+                             :success
+                             (str "Drinking window suggested: "
+                                  (:drink_from_year result)
+                                  " to " (:drink_until_year result)
+                                  " (" (:confidence result)
+                                  " confidence)\n\n" (:reasoning result))))))
+                (.catch (fn [error]
+                          (swap! app-state assoc
+                            :error
+                            (str "Failed to suggest drinking window: "
+                                 error))))))}
+         (if (:suggesting-drinking-window? @app-state)
+           [box {:sx {:display "flex" :alignItems "center"}}
+            [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
+           "Suggest Drinking Window")]]]]]
     ;; Tasting notes section
     [box {:sx {:mt 4}}
      [typography

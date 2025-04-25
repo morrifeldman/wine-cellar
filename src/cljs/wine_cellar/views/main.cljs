@@ -60,6 +60,11 @@
      [paper
       {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
       [typography {:variant "body1"} error]])
+   (when-let [success (:success @app-state)]
+     [paper
+      {:elevation 3
+       :sx {:p 2 :mb 3 :bgcolor "success.light" :color "success.dark"}}
+      [typography {:variant "body1"} success]])
    (cond
      ;; Admin views
      (= (:view @app-state) :admin-schema) [:div [schema-admin-page]

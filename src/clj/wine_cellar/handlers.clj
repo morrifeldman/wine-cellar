@@ -187,3 +187,18 @@
                    :details (.getMessage e)
                    :response (:response data)}}))
        (catch Exception e (tap> e) (server-error e))))
+
+(defn suggest-drinking-window
+  [{{:keys [wine]} :body-params}]
+  (tap> "suggest-drinking-window")
+  (try (if (nil? wine)
+         {:status 400 :body {:error "Wine details are required"}}
+         (let [result (anthropic/suggest-drinking-window wine)]
+           (response/response result)))
+       (catch clojure.lang.ExceptionInfo e
+         (let [data (ex-data e)]
+           {:status 500
+            :body {:error "AI analysis failed"
+                   :details (.getMessage e)
+                   :response (:response data)}}))
+       (catch Exception e (tap> e) (server-error e))))

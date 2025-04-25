@@ -171,6 +171,11 @@
                                         :opt-un [::back_label_image])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/analyze-wine-label}}]
+    ["/wines/suggest-drinking-window"
+     {:post {:summary "Suggest optimal drinking window for a wine using AI"
+             :parameters {:body {:wine map?}}
+             :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/suggest-drinking-window}}]
     ["/wines/by-id"
      ["/:id"
       {:parameters {:path {:id int?}}

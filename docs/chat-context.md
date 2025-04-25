@@ -41,6 +41,7 @@ string" error when using the str_replace_editor tool
 │   └── user.clj
 ├── Dockerfile
 ├── docs
+│   ├── ai-drinking-window-feature.md
 │   ├── ai-form-fill-feature.md
 │   ├── ai-form-fill-implementation.md
 │   ├── chat-context.md
@@ -118,7 +119,7 @@ string" error when using the str_replace_editor tool
                     ├── form.cljs
                     └── list.cljs
 
-24 directories, 60 files
+24 directories, 61 files
 
 ## Technical Stack
 - Backend: Clojure

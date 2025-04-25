@@ -175,6 +175,47 @@
      [form-divider "Vintage"] [form-row [vintage app-state new-wine]]
      [form-row [drink-from-year app-state new-wine]
       [drink-until-year app-state new-wine]]
+     [form-row
+      [box
+       {:sx {:width "100%" :display "flex" :justifyContent "flex-start" :mt 1}}
+       [button
+        {:variant "outlined"
+         :color "secondary"
+         :size "small"
+         :disabled (or (:suggesting-drinking-window? @app-state)
+                       (not (and (:producer new-wine)
+                                 (:country new-wine)
+                                 (:region new-wine)
+                                 (:style new-wine))))
+         :startIcon (r/as-element [auto-awesome])
+         :onClick (fn []
+                    (-> (api/suggest-drinking-window app-state new-wine)
+                        (.then
+                         (fn [result]
+                           ;; Update the new wine with the suggested
+                           ;; drinking window
+                           (swap! app-state update
+                             :new-wine
+                             merge
+                             {:drink_from_year (:drink_from_year result)
+                              :drink_until_year (:drink_until_year result)})
+                           ;; Show success message with reasoning
+                           (swap! app-state assoc
+                             :success
+                             (str "Drinking window suggested: "
+                                  (:drink_from_year result)
+                                  " to " (:drink_until_year result)
+                                  " (" (:confidence result)
+                                  " confidence)\n\n" (:reasoning result)))))
+                        (.catch (fn [error]
+                                  (swap! app-state assoc
+                                    :error
+                                    (str "Failed to suggest drinking window: "
+                                         error))))))}
+        (if (:suggesting-drinking-window? @app-state)
+          [box {:sx {:display "flex" :alignItems "center"}}
+           [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
+          "Suggest Drinking Window")]]]
      ;; Wine Label Images Section
      [form-divider "Wine Label Images"]
      [form-row
