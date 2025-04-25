@@ -74,19 +74,19 @@
 
 (defn get-all-wines-with-ratings
   []
-  (let [wines (jdbc/execute! ds
-                             ;; Listing columns explicitly since the only
-                             ;; image we are getting is the label_thumbnail
-                             (sql/format
-                              {:select [:id :producer :country :region :aoc
-                                        :classification :vineyard :level :name
-                                        :vintage :style :location :purveyor
-                                        :quantity :price :drink_from_year
-                                        :drink_until_year :label_thumbnail
-                                        :created_at :updated_at :latest_rating]
-                               :from :wines_with_ratings
-                               :order-by [[:created_at :desc]]})
-                             db-opts)]
+  (let [wines (jdbc/execute!
+               ds
+               ;; Listing columns explicitly since the only
+               ;; image we are getting is the label_thumbnail
+               (sql/format {:select
+                            [:id :producer :country :region :aoc :classification
+                             :vineyard :level :name :vintage :style :location
+                             :purveyor :quantity :price :drink_from_year
+                             :drink_until_year :label_thumbnail :created_at
+                             :updated_at :purchase_date :latest_rating]
+                            :from :wines_with_ratings
+                            :order-by [[:created_at :desc]]})
+               db-opts)]
     (mapv db-wine->wine wines)))
 
 (defn update-wine!
