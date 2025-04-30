@@ -79,7 +79,7 @@
   "Makes a request to the Anthropic API with the given content.
    Returns the parsed JSON response."
   [content]
-  (let [request-body {:model "claude-3-opus-20240229"
+  (let [request-body {:model "claude-3-5-haiku-20241022"
                       :max_tokens 1000
                       :messages [{:role "user" :content content}]}]
     (tap> ["anthropic-request-body-structure" (keys request-body)])

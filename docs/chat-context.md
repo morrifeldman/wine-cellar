@@ -26,8 +26,9 @@ experience.  Nonetheless, I don't generally need any code comments.
 After suggesting code, give only a very minimal summary of the changes or no
 summary at all.
 
-Just suggest the changes directly if you get the "Failed to find the old
-string" error when using the str_replace_editor tool
+If you hit the error: "Failed to find the old string" when using the
+str_replace_editor tool, please start just suggesting changes into the chat
+response itself and I will apply them directly
 
 
 # Source Code Structure
@@ -142,6 +143,8 @@ string" error when using the str_replace_editor tool
 
 ## General
 
+* Track wine alcohol percentage
+* Track wine grape varietals
 * Manage/Edit Classifications + remove classification form code
 * Use app-state :view state more broadly
 * Extend wine db export to write out to object storage or local machine storage
