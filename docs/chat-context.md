@@ -143,6 +143,7 @@ response itself and I will apply them directly
 
 ## General
 
+* Editable tasting notes
 * Track wine alcohol percentage
 * Track wine grape varietals
 * Manage/Edit Classifications + remove classification form code

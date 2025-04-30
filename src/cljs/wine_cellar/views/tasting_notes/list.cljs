@@ -1,12 +1,13 @@
 (ns wine-cellar.views.tasting-notes.list
-  (:require [wine-cellar.utils.formatting :refer [format-date]]
-            [wine-cellar.api :as api]
+  (:require [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.chip :refer [chip]]))
+            [wine-cellar.api :as api]
+            [wine-cellar.utils.formatting :refer [format-date]]
+            [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]))
 
 (defn get-rating-color
   [rating]
@@ -51,8 +52,16 @@
       [grid {:item true :xs 12 :sx {:mt 1 :mb 1}}
        [typography {:variant "body1" :sx {:whiteSpace "pre-wrap"}}
         (:notes note)]]
-      ;; Delete button
-      [grid {:item true :xs 12 :sx {:display "flex" :justifyContent "flex-end"}}
+      ;; Action buttons
+      [grid
+       {:item true
+        :xs 12
+        :sx {:display "flex" :justifyContent "flex-end" :gap 1}}
+       [button
+        {:size "small"
+         :color "primary"
+         :variant "outlined"
+         :onClick #(swap! app-state assoc :editing-note-id (:id note))} "Edit"]
        [button
         {:size "small"
          :color "error"
@@ -63,6 +72,7 @@
 (defn tasting-notes-list
   [app-state wine-id]
   (let [notes (:tasting-notes @app-state)
+        editing-note-id (:editing-note-id @app-state)
         personal-notes (filter #(not (:is_external %)) notes)
         external-notes (filter :is_external notes)]
     [box {:sx {:mb 3}}
@@ -77,7 +87,12 @@
            [typography {:variant "subtitle1" :component "h4" :sx {:mb 1}}
             "Your Notes"]
            (for [note personal-notes]
-             ^{:key (:id note)} [tasting-note-item app-state wine-id note])])
+             ^{:key (:id note)}
+             (if (= (:id note) editing-note-id)
+               ;; Show the edit form for this note
+               [tasting-note-form app-state wine-id]
+               ;; Show the note item
+               [tasting-note-item app-state wine-id note]))])
         ;; External notes section
         (when (seq external-notes)
           [box
@@ -85,4 +100,8 @@
             "External Reviews"]
            (for [note external-notes]
              ^{:key (:id note)}
-             [tasting-note-item app-state wine-id note])])])]))
+             (if (= (:id note) editing-note-id)
+               ;; Show the edit form for this note
+               [tasting-note-form app-state wine-id]
+               ;; Show the note item
+               [tasting-note-item app-state wine-id note]))])])]))

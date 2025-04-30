@@ -146,6 +146,23 @@
          :error (:error result)
          :submitting-note? false)))))
 
+(defn update-tasting-note
+  [app-state wine-id note-id note]
+  (go
+   (let [result (<! (PUT (str "/api/wines/by-id/" wine-id
+                              "/tasting-notes/" note-id)
+                         note
+                         "Failed to update tasting note"))]
+     (if (:success result)
+       (do (swap! app-state update
+             :tasting-notes
+             (fn [notes]
+               (map #(if (= (:id %) note-id) (:data result) %) notes)))
+           (swap! app-state assoc :editing-note-id nil :submitting-note? false))
+       (swap! app-state assoc
+         :error (:error result)
+         :submitting-note? false)))))
+
 (defn delete-tasting-note
   [app-state wine-id note-id]
   (go (let [result (<! (DELETE (str "/api/wines/by-id/" wine-id

@@ -15,24 +15,42 @@
   (let [wine (first (filter #(= (:id %) wine-id) (:wines @app-state)))
         current-drink-from (:drink_from_year wine)
         current-drink-until (:drink_until_year wine)
+        editing-note-id (:editing-note-id @app-state)
+        editing? (boolean editing-note-id)
+        editing-note (when editing?
+                       (first (filter #(= (:id %) editing-note-id)
+                                      (:tasting-notes @app-state))))
         new-note (:new-tasting-note @app-state)
         submitting? (:submitting-note? @app-state)]
+    ;; Initialize form for editing if we have an editing-note-id
+    (when (and editing? (not= (:note-id new-note) editing-note-id))
+      (swap! app-state assoc
+        :new-tasting-note
+        (-> editing-note
+            (assoc :note-id editing-note-id)
+            (assoc :wine-id wine-id)
+            (assoc :drink_from_year current-drink-from)
+            (assoc :drink_until_year current-drink-until)
+            (assoc :last-known-drink-from current-drink-from)
+            (assoc :last-known-drink-until current-drink-until)
+            (assoc :form-edited false))))
     ;; Initialize or update the tasting window fields with current values
     ;; from the wine. We need to update in these cases:
     ;; 1. First time initialization (no wine-id set yet)
     ;; 2. Switching to a different wine
     ;; 3. Wine values have changed (only update to reflect external
     ;;    changes if the user hasn't edited the fields)
-    (tap> ["wine-id" wine-id "new note" new-note "wine" wine])
-    (when (or
-           ;; Case 1 & 2: First initialization or switching wines
-           (not= (:wine-id new-note) wine-id)
-           ;; Case 3: External changes to the wine's tasting window
-           ;; Only update if the user hasn't edited the form
-           (and (not (:form-edited new-note))
-                (or (not= (:last-known-drink-from new-note) current-drink-from)
-                    (not= (:last-known-drink-until new-note)
-                          current-drink-until))))
+    (when (and (not editing?)
+               (or
+                ;; Case 1 & 2: First initialization or switching wines
+                (not= (:wine-id new-note) wine-id)
+                ;; Case 3: External changes to the wine's tasting window
+                ;; Only update if the user hasn't edited the form
+                (and (not (:form-edited new-note))
+                     (or (not= (:last-known-drink-from new-note)
+                               current-drink-from)
+                         (not= (:last-known-drink-until new-note)
+                               current-drink-until)))))
       (swap! app-state update
         :new-tasting-note
         #(-> %
@@ -51,7 +69,7 @@
           valid-tasting-window?
           (vintage/valid-tasting-window? drink-from-year drink-until-year)]
       [form-container
-       {:title "Add Tasting Note"
+       {:title (if editing? "Edit Tasting Note" "Add Tasting Note")
         :on-submit
         #(do (swap! app-state assoc :submitting-note? true)
              ;; First update the tasting window if changed
@@ -62,18 +80,24 @@
                                 (select-keys updated-note
                                              [:drink_from_year
                                               :drink_until_year])))
-             ;; Then create the tasting note
-             (api/create-tasting-note
-              app-state
-              wine-id
-              (-> updated-note
-                  (update :rating (fn [r] (if (string? r) (js/parseInt r) r)))
-                  (dissoc :drink_from_year
-                          :drink_until_year
-                          :wine-id
-                          :form-edited
-                          :last-known-drink-from
-                          :last-known-drink-until))))}
+             ;; Then create or update the tasting note
+             (let [note-data (-> updated-note
+                                 (update :rating
+                                         (fn [r]
+                                           (if (string? r) (js/parseInt r) r)))
+                                 (dissoc :drink_from_year
+                                         :drink_until_year
+                                         :wine-id
+                                         :note-id
+                                         :form-edited
+                                         :last-known-drink-from
+                                         :last-known-drink-until))]
+               (if editing?
+                 (api/update-tasting-note app-state
+                                          wine-id
+                                          editing-note-id
+                                          note-data)
+                 (api/create-tasting-note app-state wine-id note-data))))}
        ;; External note toggle
        [form-row
         [checkbox-field
@@ -143,7 +167,6 @@
           :on-change #(swap! app-state update
                         :new-tasting-note
                         (fn [note]
-                          (tap> ["drink from value" %])
                           (-> note
                               (assoc :drink_from_year
                                      (when-not (empty? %) (js/parseInt % 10)))
@@ -158,11 +181,17 @@
           :on-change #(swap! app-state update
                         :new-tasting-note
                         (fn [note]
-                          (tap> ["drink until value" %])
                           (-> note
                               (assoc :drink_until_year
                                      (when-not (empty? %) (js/parseInt % 10)))
                               (assoc :form-edited true))))}]]
-       ;; Submit button
-       [form-actions {:submit-text "Add Note" :loading? submitting?}]])))
+       ;; Submit and Cancel buttons
+       [form-actions
+        {:submit-text (if editing? "Update Note" "Add Note")
+         :loading? submitting?
+         :cancel-text (when editing? "Cancel")
+         :on-cancel (when editing?
+                      #(swap! app-state assoc
+                         :editing-note-id nil
+                         :new-tasting-note {}))}]])))
 
