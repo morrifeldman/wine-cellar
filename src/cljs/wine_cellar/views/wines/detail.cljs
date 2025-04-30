@@ -466,7 +466,8 @@
             :borderBottom "1px solid rgba(0,0,0,0.08)"
             :color "primary.main"}} "Tasting Notes"]
      [tasting-notes-list app-state (:id wine)]
-     [tasting-note-form app-state (:id wine)]]]])
+     (when-not (:editing-note-id @app-state)
+       [tasting-note-form app-state (:id wine)])]]])
 
 (defn wine-details-section
   [app-state]
@@ -495,7 +496,8 @@
                                   wine))
                               wines)))
                      ;; Remove selected wine ID and tasting notes
-                     (swap! app-state dissoc :selected-wine-id :tasting-notes)
-                     (swap! app-state assoc :new-tasting-note {})
-                     (swap! app-state dissoc :window-suggestion))}
+                     (swap! app-state dissoc
+                       :selected-wine-id :tasting-notes
+                       :editing-note-id :window-suggestion)
+                     (swap! app-state assoc :new-tasting-note {}))}
         "Back to List"]])))

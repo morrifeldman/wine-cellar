@@ -40,7 +40,7 @@
 (s/def ::drink_until_year (s/nilable int?))
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
-(s/def ::source string?)
+(s/def ::source (s/nilable string?))
 (s/def ::label_image string?)
 (s/def ::label_thumbnail string?)
 (s/def ::back_label_image string?)
