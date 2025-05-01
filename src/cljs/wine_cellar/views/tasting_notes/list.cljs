@@ -87,11 +87,12 @@
            [typography {:variant "subtitle1" :component "h4" :sx {:mb 1}}
             "Your Notes"]
            (for [note personal-notes]
-             ^{:key (:id note)}
              (if (= (:id note) editing-note-id)
                ;; Show the edit form for this note
+               ^{:key (str "personal-edit-form-" (:id note))}
                [tasting-note-form app-state wine-id]
                ;; Show the note item
+               ^{:key (str "personal-note-" (:id note))}
                [tasting-note-item app-state wine-id note]))])
         ;; External notes section
         (when (seq external-notes)
@@ -99,9 +100,10 @@
            [typography {:variant "subtitle1" :component "h4" :sx {:mb 1}}
             "External Reviews"]
            (for [note external-notes]
-             ^{:key (:id note)}
              (if (= (:id note) editing-note-id)
                ;; Show the edit form for this note
+               ^{:key (str "external-edit-form-" (:id note))}
                [tasting-note-form app-state wine-id]
                ;; Show the note item
+               ^{:key (str "external-note-" (:id note))}
                [tasting-note-item app-state wine-id note]))])])]))

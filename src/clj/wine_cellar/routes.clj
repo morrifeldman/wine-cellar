@@ -87,17 +87,17 @@
           :opt-un [::tasting_date ::is_external ::source]))
 
 (def cors-middleware
-  (if-not config-utils/production?
-    {:name ::cors
-     :wrap (fn [handler]
+  {:name ::cors
+   :wrap (fn [handler]
+           (if-not config-utils/production?
              (wrap-cors handler
                         :access-control-allow-origin [#"http://localhost:8080"]
                         :access-control-allow-methods [:get :put :post :delete
                                                        :options]
                         :access-control-allow-headers ["Content-Type" "Accept"
                                                        "Authorization"]
-                        :access-control-allow-credentials true))}
-    {:name ::cors :wrap identity}))  ;; No-op middleware in production
+                        :access-control-allow-credentials true)
+             handler))})
 
 (def wine-routes
   [;; Public routes - no authentication required
