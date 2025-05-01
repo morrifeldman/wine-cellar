@@ -14,7 +14,7 @@
             [wine-cellar.api :as api]
             [wine-cellar.common :as common]
             [wine-cellar.utils.formatting :refer
-             [format-date valid-name-producer?]]
+             [format-date-iso valid-name-producer?]]
             [wine-cellar.utils.vintage :as vintage]
             [wine-cellar.views.components :refer
              [editable-autocomplete-field editable-classification-field
@@ -45,7 +45,7 @@
 (defn editable-purchase-date
   [app-state wine]
   [editable-text-field
-   {:value (when-let [date (format-date (:purchase_date wine))] date)
+   {:value (format-date-iso (:purchase_date wine))
     :on-save
     (fn [new-value]
       (api/update-wine app-state (:id wine) {:purchase_date new-value}))

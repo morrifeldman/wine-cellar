@@ -11,6 +11,16 @@
           day (last parts)]
       (str month "/" day "/" year))))
 
+(defn format-date-iso
+  [date-string]
+  (if (str/blank? date-string)
+    ""
+    (let [parts (str/split (first (str/split date-string #"T")) #"-")
+          year (first parts)
+          month (second parts)
+          day (last parts)]
+      (str year "-" month "-" day))))
+
 ;; Data transformation helpers
 (defn unique-countries
   [classifications]

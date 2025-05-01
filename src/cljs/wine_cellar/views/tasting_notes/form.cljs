@@ -1,13 +1,13 @@
 (ns wine-cellar.views.tasting-notes.form
-  (:require [wine-cellar.views.components.form :refer
-             [form-container form-actions text-area-field number-field
-              year-field form-row form-divider date-field text-field
-              checkbox-field]]
-            [wine-cellar.api :as api]
+  (:require [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.box :refer [box]]
-            [wine-cellar.utils.vintage :as vintage]))
+            [wine-cellar.api :as api]
+            [wine-cellar.utils.formatting :refer [format-date-iso]]
+            [wine-cellar.utils.vintage :as vintage]
+            [wine-cellar.views.components.form :refer
+             [checkbox-field date-field form-actions form-container form-divider
+              form-row number-field text-area-field text-field year-field]]))
 
 ;; TODO -- add type for external tasting notes
 (defn tasting-note-form
@@ -24,6 +24,7 @@
         submitting? (:submitting-note? @app-state)]
     ;; Initialize form for editing if we have an editing-note-id
     (when (and editing? (not= (:note-id new-note) editing-note-id))
+      (tap> ["editing note" editing-note])
       (swap! app-state assoc
         :new-tasting-note
         (-> editing-note
@@ -129,7 +130,7 @@
         [date-field
          {:label "Tasting Date"
           :required (not is-external)
-          :value (:tasting_date updated-note)
+          :value (format-date-iso (:tasting_date updated-note))
           :helper-text (when is-external "Optional for external notes")
           :on-change
           #(swap! app-state assoc-in [:new-tasting-note :tasting_date] %)}]]
