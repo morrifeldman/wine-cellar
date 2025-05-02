@@ -13,7 +13,6 @@
 
 (defn- ->sql-date
   [^String date-string]
-  (tap> ["date-for-sql-date" date-string])
   (some-> date-string
           (subs 0 10)
           (Date/valueOf)))
