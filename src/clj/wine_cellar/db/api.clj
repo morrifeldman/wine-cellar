@@ -13,7 +13,9 @@
 
 (defn- ->sql-date
   [^String date-string]
+  (tap> ["date-for-sql-date" date-string])
   (some-> date-string
+          (subs 0 10)
           (Date/valueOf)))
 
 (defn base64->bytes
@@ -41,6 +43,10 @@
     label_image (update :label_image base64->bytes)
     label_thumbnail (update :label_thumbnail base64->bytes)
     back_label_image (update :back_label_image base64->bytes)))
+
+(defn tasting-note->db-tasting-note
+  [{:keys [tasting_date] :as note}]
+  (cond-> note tasting_date (update :tasting_date ->sql-date)))
 
 (defn db-wine->wine
   [{:keys [label_image label_thumbnail back_label_image] :as db-wine}]
@@ -186,18 +192,18 @@
    (jdbc/execute-one! ds-or-tx
                       (sql/format {:insert-into :tasting_notes
                                    :values [(-> note
-                                                (update :tasting_date
-                                                        ->sql-date)
+                                                tasting-note->db-tasting-note
                                                 (assoc :updated_at [:now]))]
                                    :returning :*})
                       db-opts)))
 
 (defn update-tasting-note!
   [id note]
+  (tap> ["update-tasting-note!" id note])
   (jdbc/execute-one! ds
                      (sql/format {:update :tasting_notes
                                   :set (-> note
-                                           (update :tasting_date ->sql-date)
+                                           tasting-note->db-tasting-note
                                            (assoc :updated_at [:now]))
                                   :where [:= :id id]
                                   :returning :*})

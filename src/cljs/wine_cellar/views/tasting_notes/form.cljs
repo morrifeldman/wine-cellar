@@ -104,17 +104,8 @@
         [checkbox-field
          {:label "External Tasting Note"
           :checked is-external
-          :on-change #(swap! app-state update-in
-                        [:new-tasting-note]
-                        (fn [note]
-                          (let [new-is-external (not is-external)]
-                            (-> note
-                                (assoc :is_external new-is-external)
-                                ;; Clear tasting date if switching to
-                                ;; external and no date set
-                                (cond-> (and new-is-external
-                                             (nil? (:tasting_date note)))
-                                        (assoc :tasting_date nil))))))}]]
+          :on-change
+          #(swap! app-state update-in [:new-tasting-note :is_external] not)}]]
        ;; Source field (only shown for external notes)
        (when is-external
          [form-row

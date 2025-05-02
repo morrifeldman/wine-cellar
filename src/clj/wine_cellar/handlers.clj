@@ -8,6 +8,7 @@
 
 (defn- server-error
   [e]
+  (tap> e)
   {:status 500
    :headers {}
    :body {:error "Internal server error" :details (.getMessage e)}})
@@ -55,10 +56,7 @@
                                :levels (when (:level wine) [(:level wine)])}]
            ;; Only create if all required fields are present
            (when (and (:country classification) (:region classification))
-             (tap> ["Creating classification" classification])
              (api/create-or-update-classification classification)))
-         (tap> ["Now Creating wine" wine])
-         ;; Now create the wine
          (let [created-wine (api/create-wine wine)]
            {:status 201 :body created-wine})
          (catch Exception e (server-error e)))))
@@ -174,7 +172,6 @@
 ;; AI Analysis Handlers
 (defn analyze-wine-label
   [{{:keys [label_image back_label_image]} :body-params}]
-  (tap> "analyze-wine-label")
   (try (if (nil? label_image)
          {:status 400 :body {:error "Label image is required"}}
          (let [result (anthropic/analyze-wine-label label_image
@@ -186,11 +183,10 @@
             :body {:error "AI analysis failed"
                    :details (.getMessage e)
                    :response (:response data)}}))
-       (catch Exception e (tap> e) (server-error e))))
+       (catch Exception e (server-error e))))
 
 (defn suggest-drinking-window
   [{{:keys [wine]} :body-params}]
-  (tap> "suggest-drinking-window")
   (try (if (nil? wine)
          {:status 400 :body {:error "Wine details are required"}}
          (let [result (anthropic/suggest-drinking-window wine)]
@@ -201,4 +197,4 @@
             :body {:error "AI analysis failed"
                    :details (.getMessage e)
                    :response (:response data)}}))
-       (catch Exception e (tap> e) (server-error e))))
+       (catch Exception e (server-error e))))

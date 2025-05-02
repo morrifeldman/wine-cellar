@@ -89,7 +89,7 @@
            (for [note personal-notes]
              (if (= (:id note) editing-note-id)
                ;; Show the edit form for this note
-               ^{:key (str "personal-edit-form-" (:id note))}
+               ^{:key (str "edit-form-" (:id note))}
                [tasting-note-form app-state wine-id]
                ;; Show the note item
                ^{:key (str "personal-note-" (:id note))}
@@ -102,7 +102,7 @@
            (for [note external-notes]
              (if (= (:id note) editing-note-id)
                ;; Show the edit form for this note
-               ^{:key (str "external-edit-form-" (:id note))}
+               ^{:key (str "edit-form-" (:id note))}
                [tasting-note-form app-state wine-id]
                ;; Show the note item
                ^{:key (str "external-note-" (:id note))}
