@@ -45,7 +45,8 @@
        [menu-item {:value "region"} "Region"]
        [menu-item {:value "latest_rating"} "Rating"]
        [menu-item {:value "quantity"} "Quantity"]
-       [menu-item {:value "price"} "Price"]]]
+       [menu-item {:value "price"} "Price"]
+       [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]]]
      [button
       {:variant "outlined"
        :size "small"

@@ -105,12 +105,22 @@
     [typography {:variant "body2"}
      (gstring/format "$%.2f" (or (:price wine) 0))]]])
 
+(defn wine-alcohol-info
+  [wine]
+  [grid {:item true :xs 6}
+   [box {:sx {:display "flex" :alignItems "center"}}
+    [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}} "ABV:"]
+    [typography {:variant "body2"}
+     (if-let [abv (:alcohol_percentage wine)]
+       (str abv "%")
+       "-")]]])
+
 (defn wine-details-grid
   [wine]
   [grid {:container true :spacing 0.5} ;; Reduced spacing
    [wine-region-info wine] [wine-style-info wine]
    [wine-classification-info wine] [wine-location-info wine]
-   [wine-price-info wine]])
+   [wine-price-info wine] [wine-alcohol-info wine]])
 
 (defn wine-rating-display
   [wine]

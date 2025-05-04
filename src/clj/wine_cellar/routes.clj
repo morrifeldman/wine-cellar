@@ -63,7 +63,7 @@
                        ::price ::purveyor
                        ::label_image ::label_thumbnail
                        ::back_label_image ::drink_from_year
-                       ::drink_until_year ::purchase_date)]
+                       ::drink_until_year ::purchase_date ::alcohol_percentage)]
           :opt-un [::producer ::country ::region ::aoc ::classification
                    ::vineyard ::name ::vintage ::style ::level ::location
                    ::quantity ::price ::purveyor ::label_image ::label_thumbnail
