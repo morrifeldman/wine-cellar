@@ -38,6 +38,7 @@
 (s/def ::rating (s/int-in 1 101)) ;; Ratings from 1-100
 (s/def ::drink_from_year (s/nilable int?))
 (s/def ::drink_until_year (s/nilable int?))
+(s/def ::alcohol_percentage (s/nilable number?))
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source (s/nilable string?))
@@ -50,7 +51,7 @@
           :opt-un [::aoc ::classification ::vineyard ::location ::level
                    ::purveyor ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::vintage
-                   ::purchase_date]))
+                   ::purchase_date ::alcohol_percentage]))
 
 (def wine-update-schema
   (s/keys :req-un [(or ::producer ::country
@@ -67,7 +68,7 @@
                    ::vineyard ::name ::vintage ::style ::level ::location
                    ::quantity ::price ::purveyor ::label_image ::label_thumbnail
                    ::back_label_image ::drink_from_year ::drink_until_year
-                   ::purchase_date]))
+                   ::purchase_date ::alcohol_percentage]))
 
 (s/def ::nilable-label_image (s/nilable ::label_image))
 (s/def ::nilable-label_thumbnail (s/nilable ::label_thumbnail))

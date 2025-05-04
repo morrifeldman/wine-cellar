@@ -296,6 +296,18 @@
                  (str (:price new-wine)))
         :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]]
      [form-row
+      [number-field
+       {:label "Alcohol %"
+        :required false
+        :min 0
+        :max 100
+        :step 0.1
+        :value (:alcohol_percentage new-wine)
+        :helper-text "e.g., 13.5 for 13.5% ABV"
+        :on-change #(swap! app-state assoc-in 
+                      [:new-wine :alcohol_percentage] 
+                      (when-not (empty? %) (js/parseFloat %)))}]]
+     [form-row
       [smart-select-field app-state [:new-wine :purveyor] :free-solo true :label
        "Purchased From" :options (unique-purveyors (:wines @app-state))]
       [date-field

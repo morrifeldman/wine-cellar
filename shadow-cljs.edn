@@ -11,6 +11,5 @@
                 :modules {:main {:init-fn wine-cellar.core/init}}
                 :build-hooks [(portal.shadow.remote/hook)]
                 :devtools {:preloads [portal.shadow.preload]}}}}
-;; npx shadow-cljs pom
 ;; npm install
 ;; npx shadow-cljs watch app

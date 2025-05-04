@@ -70,6 +70,29 @@
     :empty-text "Not specified"
     :text-field-props {:type "number" :InputProps {:startAdornment "$"}}}])
 
+(defn editable-alcohol-percentage
+  [app-state wine]
+  [editable-text-field
+   {:value (when-let [percentage (:alcohol_percentage wine)]
+             (gstring/format "%.1f" percentage))
+    :on-save
+    (fn [new-value]
+      (let [parsed-percentage (js/parseFloat new-value)]
+        (when-not (js/isNaN parsed-percentage)
+          (api/update-wine app-state (:id wine) {:alcohol_percentage parsed-percentage}))))
+    :validate-fn (fn [value]
+                   (let [parsed (js/parseFloat value)]
+                     (cond (str/blank? value) nil ;; Allow empty value
+                           (js/isNaN parsed) "Alcohol percentage must be a valid number"
+                           (< parsed 0) "Alcohol percentage cannot be negative"
+                           (> parsed 100) "Alcohol percentage cannot exceed 100"
+                           :else nil)))
+    :empty-text "Add alcohol percentage"
+    :text-field-props {:type "number" 
+                       :step "0.1"
+                       :InputProps {:endAdornment "%"}
+                       :helperText "e.g., 13.5 for 13.5% ABV"}}])
+
 (defn editable-name
   [app-state wine]
   [editable-text-field
@@ -342,6 +365,12 @@
         {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
         [typography {:variant "body2" :color "text.secondary"} "Price"]
         [editable-price app-state wine]]])
+    ;; Alcohol Percentage
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Alcohol Percentage"]
+      [editable-alcohol-percentage app-state wine]]]
     ;; Purveyor
     [grid {:item true :xs 12 :md 6}
      [paper

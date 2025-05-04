@@ -87,7 +87,7 @@
                             [:id :producer :country :region :aoc :classification
                              :vineyard :level :name :vintage :style :location
                              :purveyor :quantity :price :drink_from_year
-                             :drink_until_year :label_thumbnail :created_at
+                             :drink_until_year :alcohol_percentage :label_thumbnail :created_at
                              :updated_at :purchase_date :latest_rating]
                             :from :wines_with_ratings
                             :order-by [[:created_at :desc]]})
