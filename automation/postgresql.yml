@@ -7,7 +7,7 @@
     pg_databases:
       - name: wine_cellar
         owner: wine_cellar
-        pass_path: "wine_cellar/db"  # Path in your pass store
+        pass_path: "wine-cellar/db"  # Path in your pass store
 
     # OS-specific PostgreSQL connection parameters
     pg_params:
@@ -42,7 +42,7 @@
       become: "{{ pg_params[ansible_os_family].become }}"
       become_user: "{{ pg_params[ansible_os_family].become_user | default(omit) }}"
       loop: "{{ db_passwords.results }}"
-      # no_log: true
+      no_log: true
       loop_control:
         index_var: idx
 
