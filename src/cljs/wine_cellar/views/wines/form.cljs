@@ -134,6 +134,10 @@
         :options common/wine-styles
         :on-change #(swap! app-state assoc-in [:new-wine :style] %)}]]
      ;; Wine Classification Section
+     [form-divider "Grape Varieties"]
+     [form-row
+      [typography {:variant "body2" :color "text.secondary"}
+       "You can add grape varieties after creating the wine."]]
      [form-divider "Wine Classification"]
      ;; Classification dropdowns with free-solo mode
      [form-row
@@ -314,6 +318,7 @@
        {:label "Purchase Date"
         :value (:purchase_date new-wine)
         :on-change #(swap! app-state assoc-in [:new-wine :purchase_date] %)}]]
+
      ;; Form actions
      [form-actions
       {:submit-text "Add Wine"

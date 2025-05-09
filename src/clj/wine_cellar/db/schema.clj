@@ -80,5 +80,30 @@
               :order-by [[:tn.tasting_date :desc]]
               :limit [:inline 1]} :latest_rating]]
    :from [[:wines :w]]})
+#_(sql/format wines-with-ratings-view-schema)
 
+;; Grape varieties tables
+(def grape-varieties-table-schema
+  {:create-table [:grape_varieties :if-not-exists]
+   :with-columns
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:name :varchar [:not nil] :unique]
+    [:created_at :timestamp [:default [:now]]]]})
+#_(sql/format grape-varieties-table-schema)
+
+(def wine-grape-varieties-table-schema
+  {:create-table [:wine_grape_varieties :if-not-exists]
+   :with-columns
+   [[:wine_id :integer [:not nil]]
+    [:variety_id :integer [:not nil]]
+    [:percentage :decimal [5 2]]
+    [[:constraint :wine_grape_varieties_pkey] 
+     [:primary-key :wine_id :variety_id]]
+    [[:foreign-key :wine_id] :references [:wines :id] :on-delete :cascade]
+    [[:foreign-key :variety_id] :references [:grape_varieties :id] :on-delete :cascade]
+    [[:constraint :percentage_range] 
+     [:check [:or [:= :percentage nil] 
+              [:and [:>= :percentage 0] [:<= :percentage 100]]]]]
+    [:created_at :timestamp [:default [:now]]]]})
+#_(sql/format wine-grape-varieties-table-schema)
 

@@ -21,6 +21,7 @@
               editable-text-field quantity-control]]
             [wine-cellar.views.components.image-upload :refer [image-upload]]
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
+            [wine-cellar.views.wines.varieties :refer [wine-varieties-component]]
             [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]))
 
 (defn editable-location
@@ -345,6 +346,11 @@
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
       [typography {:variant "body2" :color "text.secondary"} "Style"]
       [editable-styles app-state wine]]]
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Grape Varieties"]
+      [wine-varieties-component app-state (:id wine)]]]
     ;; Location
     [grid {:item true :xs 12 :md 6}
      [paper

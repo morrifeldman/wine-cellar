@@ -233,8 +233,9 @@
 (defn select-field
   "A dropdown select field with autocomplete"
   [{:keys [label value options required on-change multiple disabled free-solo
-           helper-text on-blur]
-    :or {multiple false disabled false free-solo false}}]
+           helper-text on-blur is-option-equal-to-value]
+    :or {multiple false disabled false free-solo false
+         is-option-equal-to-value #(= (js->clj %1) (js->clj %2))}}]
   [form-control
    {:variant "outlined" :margin "dense" :required required :sx form-field-style}
    [autocomplete
@@ -242,11 +243,13 @@
      :disabled disabled
      :options options
      :freeSolo free-solo
+     :is-option-equal-to-value is-option-equal-to-value
      :size "small"
      :value (cond-> value multiple (or []))
      :get-option-label (fn [option]
                          (cond (nil? option) ""
                                (string? option) option
+                               (object? option) (or (.-label option) "")
                                :else (str option)))
      :render-input (react-component [props]
                                     [mui-text-field/text-field
