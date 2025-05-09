@@ -83,14 +83,14 @@
                ds
                ;; Listing columns explicitly since the only
                ;; image we are getting is the label_thumbnail
-               (sql/format {:select
-                            [:id :producer :country :region :aoc :classification
-                             :vineyard :level :name :vintage :style :location
-                             :purveyor :quantity :price :drink_from_year
-                             :drink_until_year :alcohol_percentage :label_thumbnail :created_at
-                             :updated_at :purchase_date :latest_rating]
-                            :from :wines_with_ratings
-                            :order-by [[:created_at :desc]]})
+               (sql/format
+                {:select [:id :producer :country :region :aoc :classification
+                          :vineyard :level :name :vintage :style :location
+                          :purveyor :quantity :price :drink_from_year
+                          :drink_until_year :alcohol_percentage :label_thumbnail
+                          :created_at :updated_at :purchase_date :latest_rating]
+                 :from :wines_with_ratings
+                 :order-by [[:created_at :desc]]})
                db-opts)]
     (mapv db-wine->wine wines)))
 
@@ -231,3 +231,73 @@
                                   :where [:= :id id]})
                      db-opts))
 
+;; Grape Varieties Operations
+(defn create-grape-variety
+  [name]
+  (jdbc/execute-one! ds
+                     (sql/format {:insert-into :grape_varieties
+                                  :values [{:name name}]
+                                  :returning :*})
+                     db-opts))
+
+(defn get-all-grape-varieties
+  []
+  (jdbc/execute! ds
+                 (sql/format
+                  {:select :* :from :grape_varieties :order-by [:name]})
+                 db-opts))
+
+(defn get-grape-variety
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:select :* :from :grape_varieties :where [:= :id id]})
+                     db-opts))
+
+(defn update-grape-variety!
+  [id name]
+  (jdbc/execute-one! ds
+                     (sql/format {:update :grape_varieties
+                                  :set {:name name}
+                                  :where [:= :id id]
+                                  :returning :*})
+                     db-opts))
+
+(defn delete-grape-variety!
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format {:delete-from :grape_varieties
+                                  :where [:= :id id]})
+                     db-opts))
+
+;; Wine Grape Varieties Operations
+(defn associate-grape-variety-with-wine
+  [wine-id variety-id percentage]
+  (jdbc/execute-one!
+   ds
+   (sql/format
+    {:insert-into :wine_grape_varieties
+     :values [{:wine_id wine-id :variety_id variety-id :percentage percentage}]
+     :on-conflict [:wine_id :variety_id]
+     :do-update-set {:percentage :excluded.percentage}
+     :returning :*})
+   db-opts))
+
+(defn get-wine-grape-varieties
+  [wine-id]
+  (jdbc/execute! ds
+                 (sql/format {:select [:wgv.* [:gv.name :variety_name]]
+                              :from [[:wine_grape_varieties :wgv]]
+                              :join [[:grape_varieties :gv]
+                                     [:= :wgv.variety_id :gv.id]]
+                              :where [:= :wgv.wine_id wine-id]
+                              :order-by [:gv.name]})
+                 db-opts))
+
+(defn remove-grape-variety-from-wine
+  [wine-id variety-id]
+  (jdbc/execute-one! ds
+                     (sql/format {:delete-from :wine_grape_varieties
+                                  :where [:and [:= :wine_id wine-id]
+                                          [:= :variety_id variety-id]]})
+                     db-opts))

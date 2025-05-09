@@ -134,6 +134,10 @@
         :options common/wine-styles
         :on-change #(swap! app-state assoc-in [:new-wine :style] %)}]]
      ;; Wine Classification Section
+     [form-divider "Grape Varieties"]
+     [form-row
+      [typography {:variant "body2" :color "text.secondary"}
+       "You can add grape varieties after creating the wine."]]
      [form-divider "Wine Classification"]
      ;; Classification dropdowns with free-solo mode
      [form-row
@@ -304,8 +308,8 @@
         :step 0.1
         :value (:alcohol_percentage new-wine)
         :helper-text "e.g., 13.5 for 13.5% ABV"
-        :on-change #(swap! app-state assoc-in 
-                      [:new-wine :alcohol_percentage] 
+        :on-change #(swap! app-state assoc-in
+                      [:new-wine :alcohol_percentage]
                       (when-not (empty? %) (js/parseFloat %)))}]]
      [form-row
       [smart-select-field app-state [:new-wine :purveyor] :free-solo true :label

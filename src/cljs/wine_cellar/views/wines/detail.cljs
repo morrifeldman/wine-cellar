@@ -1,27 +1,28 @@
 (ns wine-cellar.views.wines.detail
-  (:require [clojure.string :as str]
-            [goog.string :as gstring]
-            [goog.string.format]
-            [reagent-mui.icons.arrow-back :refer [arrow-back]]
-            [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.circular-progress :refer [circular-progress]]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent.core :as r]
-            [wine-cellar.api :as api]
-            [wine-cellar.common :as common]
-            [wine-cellar.utils.formatting :refer
-             [format-date-iso valid-name-producer?]]
-            [wine-cellar.utils.vintage :as vintage]
-            [wine-cellar.views.components :refer
-             [editable-autocomplete-field editable-classification-field
-              editable-text-field quantity-control]]
-            [wine-cellar.views.components.image-upload :refer [image-upload]]
-            [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
-            [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]))
+  (:require
+    [clojure.string :as str]
+    [goog.string :as gstring]
+    [goog.string.format]
+    [reagent-mui.icons.arrow-back :refer [arrow-back]]
+    [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
+    [reagent-mui.material.box :refer [box]]
+    [reagent-mui.material.button :refer [button]]
+    [reagent-mui.material.circular-progress :refer [circular-progress]]
+    [reagent-mui.material.grid :refer [grid]]
+    [reagent-mui.material.paper :refer [paper]]
+    [reagent-mui.material.typography :refer [typography]]
+    [reagent.core :as r]
+    [wine-cellar.api :as api]
+    [wine-cellar.common :as common]
+    [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
+    [wine-cellar.utils.vintage :as vintage]
+    [wine-cellar.views.components :refer
+     [editable-autocomplete-field editable-classification-field
+      editable-text-field quantity-control]]
+    [wine-cellar.views.components.image-upload :refer [image-upload]]
+    [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
+    [wine-cellar.views.wines.varieties :refer [wine-varieties-component]]
+    [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]))
 
 (defn editable-location
   [app-state wine]
@@ -75,20 +76,22 @@
   [editable-text-field
    {:value (when-let [percentage (:alcohol_percentage wine)]
              (gstring/format "%.1f" percentage))
-    :on-save
-    (fn [new-value]
-      (let [parsed-percentage (js/parseFloat new-value)]
-        (when-not (js/isNaN parsed-percentage)
-          (api/update-wine app-state (:id wine) {:alcohol_percentage parsed-percentage}))))
+    :on-save (fn [new-value]
+               (let [parsed-percentage (js/parseFloat new-value)]
+                 (when-not (js/isNaN parsed-percentage)
+                   (api/update-wine app-state
+                                    (:id wine)
+                                    {:alcohol_percentage parsed-percentage}))))
     :validate-fn (fn [value]
                    (let [parsed (js/parseFloat value)]
                      (cond (str/blank? value) nil ;; Allow empty value
-                           (js/isNaN parsed) "Alcohol percentage must be a valid number"
+                           (js/isNaN parsed)
+                           "Alcohol percentage must be a valid number"
                            (< parsed 0) "Alcohol percentage cannot be negative"
                            (> parsed 100) "Alcohol percentage cannot exceed 100"
                            :else nil)))
     :empty-text "Add alcohol percentage"
-    :text-field-props {:type "number" 
+    :text-field-props {:type "number"
                        :step "0.1"
                        :InputProps {:endAdornment "%"}
                        :helperText "e.g., 13.5 for 13.5% ABV"}}])
@@ -345,6 +348,11 @@
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
       [typography {:variant "body2" :color "text.secondary"} "Style"]
       [editable-styles app-state wine]]]
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Grape Varieties"]
+      [wine-varieties-component app-state (:id wine)]]]
     ;; Location
     [grid {:item true :xs 12 :md 6}
      [paper
@@ -369,8 +377,8 @@
     [grid {:item true :xs 12 :md 6}
      [paper
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Alcohol Percentage"]
-      [editable-alcohol-percentage app-state wine]]]
+      [typography {:variant "body2" :color "text.secondary"}
+       "Alcohol Percentage"] [editable-alcohol-percentage app-state wine]]]
     ;; Purveyor
     [grid {:item true :xs 12 :md 6}
      [paper

@@ -45,25 +45,34 @@
 (s/def ::label_image string?)
 (s/def ::label_thumbnail string?)
 (s/def ::back_label_image string?)
+(s/def ::variety_id int?)
+(s/def ::variety_name string?)
+(s/def ::percentage (s/nilable (s/and number? #(<= 0 % 100))))
+(s/def ::wine_variety (s/keys :req-un [::variety_id] :opt-un [::percentage]))
+(s/def ::wine_varieties (s/coll-of ::wine_variety))
+
+(def grape-variety-schema (s/keys :req-un [::variety_name]))
+
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer) ::country ::region ::style ::quantity
                    ::price]
           :opt-un [::aoc ::classification ::vineyard ::location ::level
                    ::purveyor ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::vintage
-                   ::purchase_date ::alcohol_percentage]))
+                   ::purchase_date ::alcohol_percentage ::wine_varieties]))
 
 (def wine-update-schema
-  (s/keys :req-un [(or ::producer ::country
-                       ::region ::aoc
-                       ::classification ::vineyard
-                       ::name ::vintage
-                       ::style ::level
-                       ::location ::quantity
-                       ::price ::purveyor
-                       ::label_image ::label_thumbnail
-                       ::back_label_image ::drink_from_year
-                       ::drink_until_year ::purchase_date ::alcohol_percentage)]
+  (s/keys :req-un [(or ::producer
+                       ::country ::region
+                       ::aoc ::classification
+                       ::vineyard ::name
+                       ::vintage ::style
+                       ::level ::location
+                       ::quantity ::price
+                       ::purveyor ::label_image
+                       ::label_thumbnail ::back_label_image
+                       ::drink_from_year ::drink_until_year
+                       ::purchase_date ::alcohol_percentage)]
           :opt-un [::producer ::country ::region ::aoc ::classification
                    ::vineyard ::name ::vintage ::style ::level ::location
                    ::quantity ::price ::purveyor ::label_image ::label_thumbnail
@@ -138,6 +147,27 @@
         :tags ["Admin"]
         :responses {200 {:body map?} 500 {:body map?}}
         :handler handlers/reset-schema}}]]
+    ;; Grape Varieties Routes
+    ["/grape-varieties"
+     {:get {:summary "Get all grape varieties"
+            :responses {200 {:body vector?} 500 {:body map?}}
+            :handler handlers/get-grape-varieties}
+      :post {:summary "Create a new grape variety"
+             :parameters {:body grape-variety-schema}
+             :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/create-grape-variety}}]
+    ["/grape-varieties/:id"
+     {:parameters {:path {:id int?}}
+      :get {:summary "Get grape variety by ID"
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/get-grape-variety}
+      :put {:summary "Update grape variety"
+            :parameters {:body grape-variety-schema}
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/update-grape-variety}
+      :delete {:summary "Delete grape variety"
+               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+               :handler handlers/delete-grape-variety}}]
     ;; Wine Classification Routes
     ["/classifications"
      {:get {:summary "Get all wine classifications"
@@ -190,6 +220,28 @@
        :delete {:summary "Delete wine"
                 :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
                 :handler handlers/delete-wine}}]
+     ["/:id/varieties"
+      {:parameters {:path {:id int?}}
+       :get {:summary "Get grape varieties for a wine"
+             :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/get-wine-varieties}
+       :post
+       {:summary "Add grape variety to wine"
+        :parameters {:body ::wine_variety}
+        :responses
+        {201 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
+        :handler handlers/add-variety-to-wine}}]
+     ["/:id/varieties/:variety-id"
+      {:parameters {:path {:id int? :variety-id int?}}
+       :put
+       {:summary "Update grape variety percentage for wine"
+        :parameters {:body {:percentage ::percentage}}
+        :responses
+        {200 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
+        :handler handlers/update-wine-variety-percentage}
+       :delete {:summary "Remove grape variety from wine"
+                :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+                :handler handlers/remove-variety-from-wine}}]
      ["/:id/adjust-quantity"
       {:parameters {:path {:id int?}}
        :post {:summary "Adjust wine quantity"
