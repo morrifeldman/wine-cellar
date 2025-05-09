@@ -254,13 +254,6 @@
                       {:select :* :from :grape_varieties :where [:= :id id]})
                      db-opts))
 
-(defn get-grape-variety-by-name
-  [name]
-  (jdbc/execute-one!
-   ds
-   (sql/format {:select :* :from :grape_varieties :where [:= :name name]})
-   db-opts))
-
 (defn update-grape-variety!
   [id name]
   (jdbc/execute-one! ds
@@ -308,11 +301,3 @@
                                   :where [:and [:= :wine_id wine-id]
                                           [:= :variety_id variety-id]]})
                      db-opts))
-
-(defn remove-all-grape-varieties-from-wine
-  [wine-id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :wine_grape_varieties
-                                  :where [:= :wine_id wine-id]})
-                     db-opts))
-
