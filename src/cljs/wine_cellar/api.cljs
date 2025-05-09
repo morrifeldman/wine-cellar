@@ -275,18 +275,18 @@
 (defn create-grape-variety
   [app-state variety]
   (js/console.log "Creating grape variety:" (clj->js variety))
-  (go (let [result (<! (POST "/api/grape-varieties" 
+  (go (let [result (<! (POST "/api/grape-varieties"
                              variety
                              "Failed to create grape variety"))]
         (if (:success result)
           (do (fetch-grape-varieties app-state)
               (swap! app-state assoc
-                     :new-grape-variety {}
-                     :submitting-variety? false
-                    :show-variety-form? false))
-          (swap! app-state assoc 
-                 :error (:error result)
-                 :submitting-variety? false)))))
+                :new-grape-variety {}
+                :submitting-variety? false
+                :show-variety-form? false))
+          (swap! app-state assoc
+            :error (:error result)
+            :submitting-variety? false)))))
 
 (defn update-grape-variety
   [app-state id updates]
@@ -296,19 +296,21 @@
         (if (:success result)
           (do (fetch-grape-varieties app-state)
               (swap! app-state assoc
-                     :editing-variety-id nil
-                     :submitting-variety? false
-                     :show-variety-form? false))
-          (swap! app-state assoc 
-                 :error (:error result)
-                 :submitting-variety? false)))))
+                :editing-variety-id nil
+                :submitting-variety? false
+                :show-variety-form? false))
+          (swap! app-state assoc
+            :error (:error result)
+            :submitting-variety? false)))))
 
 (defn delete-grape-variety
   [app-state id]
   (go (let [result (<! (DELETE (str "/api/grape-varieties/" id)
                                "Failed to delete grape variety"))]
         (if (:success result)
-          (swap! app-state update :grape-varieties #(remove (fn [variety] (= (:id variety) id)) %))
+          (swap! app-state update
+            :grape-varieties
+            #(remove (fn [variety] (= (:id variety) id)) %))
           (swap! app-state assoc :error (:error result))))))
 
 ;; Wine Varieties endpoints
@@ -328,34 +330,38 @@
         (if (:success result)
           (do (fetch-wine-varieties app-state wine-id)
               (swap! app-state assoc
-                     :new-wine-variety {}
-                     :submitting-wine-variety? false
-                     :show-wine-variety-form? false))
-          (swap! app-state assoc 
-                 :error (:error result)
-                 :submitting-wine-variety? false)))))
+                :new-wine-variety {}
+                :submitting-wine-variety? false
+                :show-wine-variety-form? false))
+          (swap! app-state assoc
+            :error (:error result)
+            :submitting-wine-variety? false)))))
 
 (defn update-wine-variety-percentage
   [app-state wine-id variety-id percentage]
-  (go (let [result (<! (PUT (str "/api/wines/by-id/" wine-id "/varieties/" variety-id)
+  (go (let [result (<! (PUT (str "/api/wines/by-id/" wine-id
+                                 "/varieties/" variety-id)
                             {:percentage percentage}
                             "Failed to update variety percentage"))]
         (if (:success result)
           (do (fetch-wine-varieties app-state wine-id)
               (swap! app-state assoc
-                     :editing-wine-variety-id nil
-                     :submitting-wine-variety? false
-                     :show-wine-variety-form? false))
-          (swap! app-state assoc 
-                 :error (:error result)
-                 :submitting-wine-variety? false)))))
+                :editing-wine-variety-id nil
+                :submitting-wine-variety? false
+                :show-wine-variety-form? false))
+          (swap! app-state assoc
+            :error (:error result)
+            :submitting-wine-variety? false)))))
 
 (defn remove-variety-from-wine
   [app-state wine-id variety-id]
-  (go (let [result (<! (DELETE (str "/api/wines/by-id/" wine-id "/varieties/" variety-id)
+  (go (let [result (<! (DELETE (str "/api/wines/by-id/" wine-id
+                                    "/varieties/" variety-id)
                                "Failed to remove variety from wine"))]
         (if (:success result)
-          (swap! app-state update :wine-varieties #(remove (fn [v] (= (:variety_id v) variety-id)) %))
+          (swap! app-state update
+            :wine-varieties
+            #(remove (fn [v] (= (:variety_id v) variety-id)) %))
           (swap! app-state assoc :error (:error result))))))
 
 ;; admin endpoints

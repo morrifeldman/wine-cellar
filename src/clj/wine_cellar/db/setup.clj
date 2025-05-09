@@ -61,10 +61,19 @@
 (defn- drop-tables
   ([] (jdbc/with-transaction [tx ds] (drop-tables tx)))
   ([tx]
-   (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS wines_with_ratings CASCADE"]})
+   (sql-execute-helper tx
+                       {:raw
+                        ["DROP VIEW IF EXISTS wines_with_ratings CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS tasting_notes CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS wines CASCADE"]})
-   (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS wine_classifications CASCADE"]})
+   (sql-execute-helper tx
+                       {:raw
+                        ["DROP TABLE IF EXISTS wine_classifications CASCADE"]})
+   (sql-execute-helper tx
+                       {:raw
+                        ["DROP TABLE IF EXISTS wine_grape_varieties CASCADE"]})
+   (sql-execute-helper tx
+                       {:raw ["DROP TABLE IF EXISTS grape_varieties CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_style CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_level CASCADE"]})))
 #_(drop-tables)

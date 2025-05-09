@@ -34,7 +34,8 @@
 
 (defn get-all-wines-with-ratings
   [_]
-  (try (let [wines (db-api/get-all-wines-with-ratings)] (response/response wines))
+  (try (let [wines (db-api/get-all-wines-with-ratings)]
+         (response/response wines))
        (catch Exception e (server-error e))))
 
 (defn get-wine
@@ -134,114 +135,102 @@
 ;; Grape Varieties Handlers
 (defn get-grape-varieties
   [_]
-  (try
-    (let [varieties (db-api/get-all-grape-varieties)]
-      {:status 200 :body varieties})
-    (catch Exception e
-      (server-error e))))
+  (try (let [varieties (db-api/get-all-grape-varieties)]
+         {:status 200 :body varieties})
+       (catch Exception e (server-error e))))
 
 (defn create-grape-variety
   [{:keys [body-params]}]
-  (try
-    (let [variety (db-api/create-grape-variety (:variety_name body-params))]
-      {:status 201 :body variety})
-    (catch Exception e
-      (server-error e))))
+  (try (let [variety (db-api/create-grape-variety (:variety_name body-params))]
+         {:status 201 :body variety})
+       (catch Exception e (server-error e))))
 
 (defn get-grape-variety
   [{:keys [path-params]}]
-  (try
-    (let [id (Integer/parseInt (:id path-params))
-          variety (db-api/get-grape-variety id)]
-      (if variety
-        {:status 200 :body variety}
-        {:status 404 :body {:error "Grape variety not found"}}))
-    (catch Exception e
-      (server-error e))))
+  (try (let [id (Integer/parseInt (:id path-params))
+             variety (db-api/get-grape-variety id)]
+         (if variety
+           {:status 200 :body variety}
+           {:status 404 :body {:error "Grape variety not found"}}))
+       (catch Exception e (server-error e))))
 
 (defn update-grape-variety
   [{:keys [path-params body-params]}]
-  (try
-    (let [id (Integer/parseInt (:id path-params))
-          variety (db-api/update-grape-variety! id (:variety_name body-params))]
-      (if variety
-        {:status 200 :body variety}
-        {:status 404 :body {:error "Grape variety not found"}}))
-    (catch Exception e
-      (server-error e))))
+  (try (let [id (Integer/parseInt (:id path-params))
+             variety (db-api/update-grape-variety! id
+                                                   (:variety_name body-params))]
+         (if variety
+           {:status 200 :body variety}
+           {:status 404 :body {:error "Grape variety not found"}}))
+       (catch Exception e (server-error e))))
 
 (defn delete-grape-variety
   [{:keys [path-params]}]
-  (try
-    (let [id (Integer/parseInt (:id path-params))]
-      (db-api/delete-grape-variety! id)
-      {:status 204})
-    (catch Exception e
-      (server-error e))))
+  (try (let [id (Integer/parseInt (:id path-params))]
+         (db-api/delete-grape-variety! id)
+         {:status 204})
+       (catch Exception e (server-error e))))
 
 ;; Wine Varieties Handlers
 (defn get-wine-varieties
   [{:keys [path-params]}]
-  (try
-    (let [wine-id (Integer/parseInt (:id path-params))
-          wine (db-api/get-wine wine-id)]
-      (if wine
-        (let [varieties (db-api/get-wine-grape-varieties wine-id)]
-          {:status 200 :body varieties})
-        {:status 404 :body {:error "Wine not found"}}))
-    (catch Exception e
-      (server-error e))))
+  (try (let [wine-id (Integer/parseInt (:id path-params))
+             wine (db-api/get-wine wine-id)]
+         (if wine
+           (let [varieties (db-api/get-wine-grape-varieties wine-id)]
+             {:status 200 :body varieties})
+           {:status 404 :body {:error "Wine not found"}}))
+       (catch Exception e (server-error e))))
 
 (defn add-variety-to-wine
   [{:keys [path-params body-params]}]
-  (try
-    (let [wine-id (Integer/parseInt (:id path-params))
-          variety-id (:variety_id body-params)
-          percentage (:percentage body-params)
-          wine (db-api/get-wine wine-id)]
-      (if wine
-        (let [variety (db-api/get-grape-variety variety-id)]
-          (if variety
-            (let [result (db-api/associate-grape-variety-with-wine wine-id variety-id percentage)]
-              {:status 201 :body result})
-            {:status 404 :body {:error "Grape variety not found"}}))
-        {:status 404 :body {:error "Wine not found"}}))
-    (catch Exception e
-      (server-error e))))
+  (try (let [wine-id (Integer/parseInt (:id path-params))
+             variety-id (:variety_id body-params)
+             percentage (:percentage body-params)
+             wine (db-api/get-wine wine-id)]
+         (if wine
+           (let [variety (db-api/get-grape-variety variety-id)]
+             (if variety
+               (let [result (db-api/associate-grape-variety-with-wine
+                             wine-id
+                             variety-id
+                             percentage)]
+                 {:status 201 :body result})
+               {:status 404 :body {:error "Grape variety not found"}}))
+           {:status 404 :body {:error "Wine not found"}}))
+       (catch Exception e (server-error e))))
 
 (defn update-wine-variety-percentage
   [{:keys [path-params body-params]}]
-  (try
-    (let [wine-id (Integer/parseInt (:id path-params))
-          variety-id (Integer/parseInt (:variety-id path-params))
-          percentage (:percentage body-params)
-          wine (db-api/get-wine wine-id)]
-      (if wine
-        (let [variety (db-api/get-grape-variety variety-id)]
-          (if variety
-            (let [result (db-api/associate-grape-variety-with-wine wine-id variety-id percentage)]
-              {:status 200 :body result})
-            {:status 404 :body {:error "Grape variety not found"}}))
-        {:status 404 :body {:error "Wine not found"}}))
-    (catch Exception e
-      (server-error e))))
+  (try (let [wine-id (Integer/parseInt (:id path-params))
+             variety-id (Integer/parseInt (:variety-id path-params))
+             percentage (:percentage body-params)
+             wine (db-api/get-wine wine-id)]
+         (if wine
+           (let [variety (db-api/get-grape-variety variety-id)]
+             (if variety
+               (let [result (db-api/associate-grape-variety-with-wine
+                             wine-id
+                             variety-id
+                             percentage)]
+                 {:status 200 :body result})
+               {:status 404 :body {:error "Grape variety not found"}}))
+           {:status 404 :body {:error "Wine not found"}}))
+       (catch Exception e (server-error e))))
 
 (defn remove-variety-from-wine
   [{:keys [path-params]}]
-  (try
-    (let [wine-id (Integer/parseInt (:id path-params))
-          variety-id (Integer/parseInt (:variety-id path-params))
-          wine (db-api/get-wine wine-id)]
-      (if wine
-        (let [variety (db-api/get-grape-variety variety-id)]
-          (if variety
-            (do
-              (db-api/remove-grape-variety-from-wine wine-id variety-id)
-              {:status 204})
-            {:status 404 :body {:error "Grape variety not found"}}))
-        {:status 404 :body {:error "Wine not found"}}))
-    (catch Exception e
-      (server-error e))))
+  (try (let [wine-id (Integer/parseInt (:id path-params))
+             variety-id (Integer/parseInt (:variety-id path-params))
+             wine (db-api/get-wine wine-id)]
+         (if wine
+           (let [variety (db-api/get-grape-variety variety-id)]
+             (if variety
+               (do (db-api/remove-grape-variety-from-wine wine-id variety-id)
+                   {:status 204})
+               {:status 404 :body {:error "Grape variety not found"}}))
+           {:status 404 :body {:error "Wine not found"}}))
+       (catch Exception e (server-error e))))
 
 (defn create-classification
   [request]
@@ -255,8 +244,7 @@
            {:status 400
             :body {:error "Invalid classification data"
                    :details (.getMessage e)}})
-         (catch Exception e
-           (server-error e)))))
+         (catch Exception e (server-error e)))))
 
 (defn health-check
   [_]
@@ -266,8 +254,7 @@
     (response/response {:status "healthy"
                         :database "connected"
                         :timestamp (str (java.time.Instant/now))})
-    (catch Exception e
-      (server-error e))))
+    (catch Exception e (server-error e))))
 
 ;; Admin Handlers
 (defn reset-schema

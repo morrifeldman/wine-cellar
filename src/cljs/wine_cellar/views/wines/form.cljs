@@ -308,8 +308,8 @@
         :step 0.1
         :value (:alcohol_percentage new-wine)
         :helper-text "e.g., 13.5 for 13.5% ABV"
-        :on-change #(swap! app-state assoc-in 
-                      [:new-wine :alcohol_percentage] 
+        :on-change #(swap! app-state assoc-in
+                      [:new-wine :alcohol_percentage]
                       (when-not (empty? %) (js/parseFloat %)))}]]
      [form-row
       [smart-select-field app-state [:new-wine :purveyor] :free-solo true :label
@@ -318,7 +318,6 @@
        {:label "Purchase Date"
         :value (:purchase_date new-wine)
         :on-change #(swap! app-state assoc-in [:new-wine :purchase_date] %)}]]
-
      ;; Form actions
      [form-actions
       {:submit-text "Add Wine"

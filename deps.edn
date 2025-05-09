@@ -29,6 +29,7 @@
             :main-opts ["--main" "zprint.main"]}
            :format
            ;; Format all files in project
+           ;; clj -M:format
            {:extra-deps {zprint/zprint {:mvn/version "1.2.9"}}
             :extra-paths ["scripts"]
             :main-opts ["-m" "format-zprint"]}}}
