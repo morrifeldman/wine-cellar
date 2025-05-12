@@ -14,6 +14,21 @@
    :body {:error "Internal server error" :details (.getMessage e)}})
 
 ;; Wine Classification Handlers
+
+(defn create-classification
+  [request]
+  (let [classification (-> request
+                           :parameters
+                           :body)]
+    (try (let [created-classification (db-api/create-or-update-classification
+                                       classification)]
+           {:status 201 :body created-classification})
+         (catch org.postgresql.util.PSQLException e
+           {:status 400
+            :body {:error "Invalid classification data"
+                   :details (.getMessage e)}})
+         (catch Exception e (server-error e)))))
+
 (defn get-classification
   [{{:keys [id]} :path-params}]
   (try (if-let [classification (db-api/get-classification (parse-long id))]
@@ -255,44 +270,7 @@
            {:status 404 :body {:error "Wine not found"}}))
        (catch Exception e (server-error e))))
 
-(defn create-classification
-  [request]
-  (let [classification (-> request
-                           :parameters
-                           :body)]
-    (try (let [created-classification (db-api/create-or-update-classification
-                                       classification)]
-           {:status 201 :body created-classification})
-         (catch org.postgresql.util.PSQLException e
-           {:status 400
-            :body {:error "Invalid classification data"
-                   :details (.getMessage e)}})
-         (catch Exception e (server-error e)))))
 
-(defn get-classification
-  [{{:keys [id]} :path-params}]
-  (try (if-let [classification (db-api/get-classification (parse-long id))]
-         (response/response classification)
-         (response/not-found {:error "Classification not found"}))
-       (catch Exception e (server-error e))))
-
-(defn update-classification
-  [{{:keys [id]} :path-params {:keys [body]} :parameters}]
-  (try (if-let [updated (db-api/update-classification! (parse-long id) body)]
-         (response/response updated)
-         (response/not-found {:error "Classification not found"}))
-       (catch org.postgresql.util.PSQLException e
-         {:status 400
-          :body {:error "Invalid classification data" :details (.getMessage e)}})
-       (catch Exception e (server-error e))))
-
-(defn delete-classification
-  [{{:keys [id]} :path-params}]
-  (tap> ["delete-classification" id])
-  (try (if (db-api/delete-classification! (parse-long id))
-         (no-content)
-         (response/not-found {:error "Classification not found"}))
-       (catch Exception e (server-error e))))
 
 ;; Admin Handlers
 (defn reset-schema
