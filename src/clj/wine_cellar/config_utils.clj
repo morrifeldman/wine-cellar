@@ -36,7 +36,7 @@
   ([env-var-name] (get-config env-var-name (env-var-to-pass-path env-var-name)))
   ([env-var-name pass-path]
    (try (let [env-value (System/getenv env-var-name)]
-          (tap> ["production?" production?])
+          (tap> ["get-config production?" production?])
           (if production?
             ;; In production, only use env vars
             (if env-value

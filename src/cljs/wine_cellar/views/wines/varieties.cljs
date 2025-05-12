@@ -20,74 +20,113 @@
 
 (defn grape-variety->option [gv] {"id" (:id gv) "label" (:name gv)})
 
+(defn get-variety-data [app-state]
+  (let [editing-id (:editing-wine-variety-id @app-state)]
+    {:editing-id editing-id
+     :variety (if editing-id
+                (:editing-wine-variety @app-state)
+                (:new-wine-variety @app-state))
+     :grape-varieties (:grape-varieties @app-state)
+     :current-varieties (:wine-varieties @app-state)
+     :submitting? (:submitting-wine-variety? @app-state)}))
+
+(defn get-available-varieties [{:keys [editing-id grape-varieties current-varieties]}]
+  (let [added-variety-ids (set (map :variety_id current-varieties))]
+    (if editing-id
+      grape-varieties
+      (filter #(not (contains? added-variety-ids (:id %))) grape-varieties))))
+
+(defn create-submit-handler [app-state wine-id {:keys [editing-id variety]}]
+  (fn []
+    (cond
+      ;; Case 1: Editing an existing variety (only percentage can be changed)
+      editing-id
+      (do (swap! app-state assoc :submitting-wine-variety? true)
+          (api/update-wine-variety-percentage app-state
+                                              wine-id
+                                              editing-id
+                                              (:percentage variety)))
+      
+      ;; Case 2: Selected an existing variety from dropdown
+      (:variety_id variety)
+      (do (swap! app-state assoc :submitting-wine-variety? true)
+          (api/add-variety-to-wine app-state wine-id variety))
+      
+      ;; Case 3: Entered a new variety name (free-solo)
+      (:variety_name variety)
+      (do (swap! app-state assoc :submitting-wine-variety? true)
+          ;; First create the new grape variety, then add it to the wine
+          (-> (api/create-grape-variety app-state {:name (:variety_name variety)})
+              (.then (fn [new-variety]
+                       ;; Now add the newly created variety to the wine
+                       (api/add-variety-to-wine 
+                         app-state 
+                         wine-id 
+                         (assoc variety :variety_id (:id new-variety)))))))
+      
+      ;; Case 4: No variety selected or entered
+      :else
+      (swap! app-state assoc :error "Grape variety is required"))))
+
+(defn variety-selector [app-state variety-data]
+  (let [{:keys [editing-id variety grape-varieties]} variety-data
+        available-varieties (get-available-varieties variety-data)]
+    (if editing-id
+      [typography {:variant "h6"} (:variety_name variety)]
+      [select-field
+       {:label "Grape Variety"
+        :required true
+        :free-solo true
+        :value (or (get-in @app-state [:new-wine-variety :variety_name])
+                   (when-let [gv (first (filter #(= (:id %) (:variety_id variety))
+                                            grape-varieties))]
+                 (clj->js (grape-variety->option gv))))
+        :options (clj->js (mapv grape-variety->option available-varieties))
+        :on-change
+        (fn [value]
+          (if (string? value)
+            ;; Handle free-solo text input - store the name directly
+            (swap! app-state assoc-in [:new-wine-variety :variety_name] value)
+            ;; Handle selection from dropdown - store the ID
+            (swap! app-state assoc-in [:new-wine-variety :variety_id] 
+                   (when value (.-id value)))))
+        :helper-text
+        "Select an existing variety or type a new one"}])))
+
+(defn percentage-field [app-state {:keys [editing-id variety]}]
+  [number-field
+   {:label "Percentage"
+    :required false
+    :min 0
+    :max 100
+    :value (:percentage variety)
+    :helper-text "Percentage of this grape in the wine blend (0-100)"
+    :on-change #(swap! app-state assoc-in
+                  [(if editing-id :editing-wine-variety :new-wine-variety)
+                   :percentage]
+                  (when-not (empty? %) (js/parseInt % 10)))}])
+
+(defn form-cancel-handler [app-state]
+  #(swap! app-state assoc
+     :show-wine-variety-form? false
+     :editing-wine-variety-id nil
+     :new-wine-variety {}))
+
 (defn wine-variety-form
   [app-state wine-id]
-  (let [editing-id (:editing-wine-variety-id @app-state)
-        variety (if editing-id
-                  (:editing-wine-variety @app-state)
-                  (:new-wine-variety @app-state))
-        ;; Get all grape varieties
-        grape-varieties (:grape-varieties @app-state)
-        ;; Get currently added varieties
-        current-varieties (:wine-varieties @app-state)
-        ;; Get IDs of varieties already added to this wine
-        added-variety-ids (set (map :variety_id current-varieties))
-        ;; Filter out varieties that are already added (unless we're
-        ;; editing)
-        available-varieties
-        (if editing-id
-          grape-varieties
-          (filter #(not (contains? added-variety-ids (:id %))) grape-varieties))
-        submitting? (:submitting-wine-variety? @app-state)
-        submit-handler
-        (fn []
-          (if (nil? (:variety_id variety))
-            (swap! app-state assoc :error "Grape variety is required")
-            (do (swap! app-state assoc :submitting-wine-variety? true)
-                (if editing-id
-                  (api/update-wine-variety-percentage app-state
-                                                      wine-id
-                                                      editing-id
-                                                      (:percentage variety))
-                  (api/add-variety-to-wine app-state wine-id variety)))))]
+  (let [variety-data (get-variety-data app-state)
+        {:keys [editing-id submitting?]} variety-data
+        submit-handler (create-submit-handler app-state wine-id variety-data)]
     [form-container
      {:title (if editing-id "Edit Grape Variety" "Add Grape Variety")
       :on-submit submit-handler}
-     [form-row
-      (if editing-id
-        [typography {:variant "h6"} (:variety_name variety)]
-        [select-field
-         {:label "Grape Variety"
-          :required true
-          :value (when-let [gv (first (filter #(= (:id %) (:variety_id variety))
-                                              grape-varieties))]
-                   (clj->js (grape-variety->option gv)))
-          :options (clj->js (mapv grape-variety->option available-varieties))
-          :on-change
-          #(swap! app-state assoc-in [:new-wine-variety :variety_id] (.-id %))
-          :helper-text
-          (when (empty? available-varieties)
-            "All available grape varieties have already been added to this wine")}])]
-     [form-row
-      [number-field
-       {:label "Percentage"
-        :required false
-        :min 0
-        :max 100
-        :value (:percentage variety)
-        :helper-text "Percentage of this grape in the wine blend (0-100)"
-        :on-change #(swap! app-state assoc-in
-                      [(if editing-id :editing-wine-variety :new-wine-variety)
-                       :percentage]
-                      (when-not (empty? %) (js/parseInt % 10)))}]]
+     [form-row [variety-selector app-state variety-data]]
+     [form-row [percentage-field app-state variety-data]]
      [form-actions
       {:submit-text (if editing-id "Update" "Add")
        :cancel-text "Cancel"
        :loading? submitting?
-       :on-cancel #(swap! app-state assoc
-                     :show-wine-variety-form? false
-                     :editing-wine-variety-id nil
-                     :new-wine-variety {})}]]))
+       :on-cancel (form-cancel-handler app-state)}]]))
 
 (defn delete-variety-confirmation-dialog
   [app-state wine-id]

@@ -14,10 +14,34 @@
    :body {:error "Internal server error" :details (.getMessage e)}})
 
 ;; Wine Classification Handlers
+(defn get-classification
+  [{{:keys [id]} :path-params}]
+  (try (if-let [classification (db-api/get-classification (parse-long id))]
+         (response/response classification)
+         (response/not-found {:error "Classification not found"}))
+       (catch Exception e (server-error e))))
+
 (defn get-classifications
   [_]
   (try (let [classifications (db-api/get-classifications)]
          (response/response classifications))
+       (catch Exception e (server-error e))))
+
+(defn update-classification
+  [{{:keys [id]} :path-params {:keys [body]} :parameters}]
+  (try (if-let [updated (db-api/update-classification! (parse-long id) body)]
+         (response/response updated)
+         (response/not-found {:error "Classification not found"}))
+       (catch org.postgresql.util.PSQLException e
+         {:status 400
+          :body {:error "Invalid classification data" :details (.getMessage e)}})
+       (catch Exception e (server-error e))))
+
+(defn delete-classification
+  [{{:keys [id]} :path-params}]
+  (try (if (db-api/delete-classification! (parse-long id))
+         (no-content)
+         (response/not-found {:error "Classification not found"}))
        (catch Exception e (server-error e))))
 
 (defn get-regions-by-country
@@ -167,8 +191,7 @@
 (defn delete-grape-variety
   [{:keys [path-params]}]
   (try (let [id (Integer/parseInt (:id path-params))]
-         (db-api/delete-grape-variety! id)
-         {:status 204})
+         (db-api/delete-grape-variety! id) (no-content))
        (catch Exception e (server-error e))))
 
 ;; Wine Varieties Handlers
@@ -227,7 +250,7 @@
            (let [variety (db-api/get-grape-variety variety-id)]
              (if variety
                (do (db-api/remove-grape-variety-from-wine wine-id variety-id)
-                   {:status 204})
+                   (no-content))
                {:status 404 :body {:error "Grape variety not found"}}))
            {:status 404 :body {:error "Wine not found"}}))
        (catch Exception e (server-error e))))
@@ -246,15 +269,30 @@
                    :details (.getMessage e)}})
          (catch Exception e (server-error e)))))
 
-(defn health-check
-  [_]
-  (try
-    ;; Try to connect to the database
-    (db-api/ping-db)
-    (response/response {:status "healthy"
-                        :database "connected"
-                        :timestamp (str (java.time.Instant/now))})
-    (catch Exception e (server-error e))))
+(defn get-classification
+  [{{:keys [id]} :path-params}]
+  (try (if-let [classification (db-api/get-classification (parse-long id))]
+         (response/response classification)
+         (response/not-found {:error "Classification not found"}))
+       (catch Exception e (server-error e))))
+
+(defn update-classification
+  [{{:keys [id]} :path-params {:keys [body]} :parameters}]
+  (try (if-let [updated (db-api/update-classification! (parse-long id) body)]
+         (response/response updated)
+         (response/not-found {:error "Classification not found"}))
+       (catch org.postgresql.util.PSQLException e
+         {:status 400
+          :body {:error "Invalid classification data" :details (.getMessage e)}})
+       (catch Exception e (server-error e))))
+
+(defn delete-classification
+  [{{:keys [id]} :path-params}]
+  (tap> ["delete-classification" id])
+  (try (if (db-api/delete-classification! (parse-long id))
+         (no-content)
+         (response/not-found {:error "Classification not found"}))
+       (catch Exception e (server-error e))))
 
 ;; Admin Handlers
 (defn reset-schema
@@ -294,3 +332,13 @@
                    :details (.getMessage e)
                    :response (:response data)}}))
        (catch Exception e (server-error e))))
+
+(defn health-check
+  [_]
+  (try
+    ;; Try to connect to the database
+    (db-api/ping-db)
+    (response/response {:status "healthy"
+                        :database "connected"
+                        :timestamp (str (java.time.Instant/now))})
+    (catch Exception e (server-error e))))

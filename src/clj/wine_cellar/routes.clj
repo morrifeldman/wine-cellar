@@ -15,7 +15,8 @@
             [ring.util.response :as response]
             [muuntaja.core :as m]
             [expound.alpha :as expound]
-            [wine-cellar.config-utils :as config-utils]))
+            [wine-cellar.config-utils :as config-utils]
+            [mount.core :refer [defstate]]))
 
 ;; Specs for individual fields
 (s/def ::producer string?)
@@ -96,7 +97,8 @@
   (s/keys :req-un [::notes ::rating]
           :opt-un [::tasting_date ::is_external ::source]))
 
-(def cors-middleware
+(defstate cors-middleware
+  :start
   {:name ::cors
    :wrap (fn [handler]
            (if-not config-utils/production?
@@ -109,7 +111,8 @@
                         :access-control-allow-credentials true)
              handler))})
 
-(def wine-routes
+(defstate wine-routes
+  :start
   [;; Public routes - no authentication required
    ["/swagger.json"
     {:get {:no-doc true
@@ -177,6 +180,18 @@
              :parameters {:body classification-schema}
              :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/create-classification}}]
+    ["/classifications/:id"
+     {:parameters {:path {:id int?}}
+      :get {:summary "Get classification by ID"
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/get-classification}
+      :put {:summary "Update classification"
+            :parameters {:body classification-schema}
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/update-classification}
+      :delete {:summary "Delete classification"
+               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+               :handler handlers/delete-classification}}]
     ["/classifications/regions/:country"
      {:parameters {:path {:country string?}}
       :get {:summary "Get regions for a country"
@@ -293,7 +308,8 @@
       ;; Return the expound output directly to the client
       {:status status :body human-readable-error})))
 
-(def app
+(defstate app
+  :start
   (ring/ring-handler
    (ring/router
     wine-routes

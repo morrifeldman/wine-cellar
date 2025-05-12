@@ -57,12 +57,46 @@
   (set! (.-href (.-location js/window)) (str api-base-url "/auth/logout")))
 
 ;; Classification endpoints
+
 (defn fetch-classifications
   [app-state]
   (go (let [result (<! (GET "/api/classifications"
                             "Failed to fetch classifications"))]
         (if (:success result)
           (swap! app-state assoc :classifications (:data result))
+          (swap! app-state assoc :error (:error result))))))
+
+(defn create-classification
+  [app-state classification]
+  (js/console.log "Sending classification data:" (clj->js classification))
+  (go (let [result (<! (POST "/api/classifications"
+                             classification
+                             "Failed to create classification"))]
+        (if (:success result)
+          (do (swap! app-state assoc
+                :creating-classification? false
+                :new-classification nil)
+              (fetch-classifications app-state))
+          (swap! app-state assoc :error (:error result))))))
+
+(defn update-classification
+  [app-state id updates]
+  (go (let [result (<! (PUT (str "/api/classifications/" id)
+                            updates
+                            "Failed to update classification"))]
+        (if (:success result)
+          (do (fetch-classifications app-state)
+              (swap! app-state assoc :editing-classification nil))
+          (swap! app-state assoc :error (:error result))))))
+
+(defn delete-classification
+  [app-state id]
+  (go (let [result (<! (DELETE (str "/api/classifications/" id)
+                               "Failed to delete classification"))]
+        (tap> ["delete-classification" id result])
+        (if (:success result)
+          (do (fetch-classifications app-state)
+              (swap! app-state dissoc :deleting-classification))
           (swap! app-state assoc :error (:error result))))))
 
 ;; Wine endpoints
@@ -190,18 +224,7 @@
                    wines)))
           (swap! app-state assoc :error (:error result))))))
 
-(defn create-classification
-  [app-state classification]
-  (js/console.log "Sending classification data:" (clj->js classification))
-  (go (let [result (<! (POST "/api/classifications"
-                             classification
-                             "Failed to create classification"))]
-        (if (:success result)
-          (do (swap! app-state assoc
-                :creating-classification? false
-                :new-classification nil)
-              (fetch-classifications app-state))
-          (swap! app-state assoc :error (:error result))))))
+
 
 (defn update-wine
   [app-state id updates]
@@ -275,18 +298,25 @@
 (defn create-grape-variety
   [app-state variety]
   (js/console.log "Creating grape variety:" (clj->js variety))
-  (go (let [result (<! (POST "/api/grape-varieties"
-                             variety
+  (js/Promise. 
+   (fn [resolve reject]
+     (go 
+      (let [result (<! (POST "/api/grape-varieties"
+                             {:variety_name (or (:name variety) (:variety_name variety))}
                              "Failed to create grape variety"))]
         (if (:success result)
-          (do (fetch-grape-varieties app-state)
+          (do 
+              (fetch-grape-varieties app-state)
               (swap! app-state assoc
                 :new-grape-variety {}
                 :submitting-variety? false
-                :show-variety-form? false))
-          (swap! app-state assoc
-            :error (:error result)
-            :submitting-variety? false)))))
+                :show-variety-form? false)
+              (resolve (:data result)))
+          (do
+              (swap! app-state assoc
+                :error (:error result)
+                :submitting-variety? false)
+              (reject (:error result)))))))))
 
 (defn update-grape-variety
   [app-state id updates]
@@ -336,6 +366,8 @@
           (swap! app-state assoc
             :error (:error result)
             :submitting-wine-variety? false)))))
+
+;; Function removed - using two-step approach instead
 
 (defn update-wine-variety-percentage
   [app-state wine-id variety-id percentage]
