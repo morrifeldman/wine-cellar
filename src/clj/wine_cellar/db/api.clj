@@ -165,6 +165,32 @@
                               :order-by [:country :region :aoc]})
                  db-opts))
 
+(defn get-classification
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:select :*
+                       :from :wine_classifications
+                       :where [:= :id id]})
+                     db-opts))
+
+(defn update-classification!
+  [id classification]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:update :wine_classifications
+                       :set (update classification :levels ->pg-array)
+                       :where [:= :id id]
+                       :returning :*})
+                     db-opts))
+
+(defn delete-classification!
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format {:delete-from :wine_classifications
+                                  :where [:= :id id]})
+                     db-opts))
+
 (defn get-regions-by-country
   [country]
   (jdbc/execute! ds
