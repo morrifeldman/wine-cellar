@@ -39,6 +39,8 @@
      "\n"
      "- level: The wine level. Must be one of: "
      level-options
+     "\n"
+     "- alcohol_percentage: The percentage of alcohol if it is visible"
      "\n\n"
      "Return ONLY a valid JSON object with these fields. If you cannot determine a value, use null for that field. "
      "Do not include any explanatory text outside the JSON object.")))

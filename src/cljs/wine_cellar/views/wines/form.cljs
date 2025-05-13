@@ -113,6 +113,51 @@
                      (update :quantity (fn [q] (js/parseInt q 10)))
                      (assoc :create-classification-if-needed true))))))]
     [form-container {:title "Add New Wine" :on-submit submit-handler}
+     ;; Wine Label Images Section
+     [form-divider "Wine Label Images"]
+     [form-row
+      [box {:sx {:width "100%" :display "flex" :flexDirection "column" :gap 2}}
+       [image-upload
+        {:image-data (:label_image new-wine)
+         :label-type "front"
+         :on-image-change #(swap! app-state update :new-wine merge %)
+         :on-image-remove #(swap! app-state update
+                                  :new-wine
+                                  (fn [wine]
+                                    (-> wine
+                                        (dissoc :label_image)
+                                        (dissoc :label_thumbnail))))}]
+       (when (and (:label_image new-wine) (not (:analyzing-label? @app-state)))
+         [button
+          {:variant "contained"
+           :color "secondary"
+           :size "small"
+           :disabled (or submitting? (not (:label_image new-wine)))
+           :onClick
+           (fn []
+             (let [image-data {:label_image (:label_image new-wine)
+                               :back_label_image (:back_label_image new-wine)}]
+               (-> (api/analyze-wine-label app-state image-data)
+                   (.then (fn [result]
+                            (swap! app-state update :new-wine merge result)))
+                   (.catch (fn [error]
+                             (swap! app-state assoc
+                                    :error
+                                    (str "Failed to analyze label: " error)))))))
+           :startIcon (r/as-element [auto-awesome])} "Analyze Label"])
+       (when (:analyzing-label? @app-state)
+         [box {:sx {:display "flex" :alignItems "center" :mt 1}}
+          [circular-progress {:size 24 :sx {:mr 1}}]
+          [typography {:variant "body2"} "Analyzing label..."]])]]
+     [form-row
+      [image-upload
+       {:image-data (:back_label_image new-wine)
+        :label-type "back"
+        :on-image-change #(swap! app-state update :new-wine merge %)
+        :on-image-remove #(swap! app-state update
+                                 :new-wine
+                                 (fn [wine] (dissoc wine :back_label_image)))}]]
+
      ;; Basic Information Section
      [form-divider "Basic Information"]
      [form-row
@@ -179,12 +224,23 @@
                    (seq (:level new-wine))
                    (not (contains? common/wine-levels (:level new-wine))))
           (swap! app-state assoc
-            :error
-            (str "Level must be one of: "
-                 (str/join ", " (sort common/wine-levels)))))]]
-     [form-divider "Vintage"] [form-row [vintage app-state new-wine]]
-     [form-row [drink-from-year app-state new-wine]
-      [drink-until-year app-state new-wine]]
+                 :error
+                 (str "Level must be one of: "
+                      (str/join ", " (sort common/wine-levels)))))]]
+     [form-row
+      [number-field
+       {:label "Alcohol %"
+        :required false
+        :min 0
+        :max 100
+        :step 0.1
+        :value (:alcohol_percentage new-wine)
+        :helper-text "e.g., 13.5 for 13.5% ABV"
+        :on-change #(swap! app-state assoc-in
+                           [:new-wine :alcohol_percentage]
+                           (when-not (empty? %) (js/parseFloat %)))}]]
+     [form-divider "Vintage"]
+     [form-row [vintage app-state new-wine]]
      [form-row
       [box {:sx {:sx {:mt 2}}}
        [button
@@ -200,76 +256,36 @@
          :onClick (fn []
                     (-> (api/suggest-drinking-window app-state new-wine)
                         (.then
-                         (fn [result]
-                           ;; Update the new wine with the suggested
-                           ;; drinking window
-                           (swap! app-state update
-                             :new-wine
-                             merge
-                             {:drink_from_year (:drink_from_year result)
-                              :drink_until_year (:drink_until_year result)})
-                           ;; Show success message with reasoning
-                           (swap! app-state assoc
-                             :window-reason
-                             (str "Drinking window suggested: "
-                                  (:drink_from_year result)
-                                  " to " (:drink_until_year result)
-                                  " (" (:confidence result)
-                                  " confidence)\n\n" (:reasoning result)))))
+                          (fn [result]
+                            ;; Update the new wine with the suggested
+                            ;; drinking window
+                            (swap! app-state update
+                                   :new-wine
+                                   merge
+                                   {:drink_from_year (:drink_from_year result)
+                                    :drink_until_year (:drink_until_year result)})
+                            ;; Show success message with reasoning
+                            (swap! app-state assoc
+                                   :window-reason
+                                   (str "Drinking window suggested: "
+                                        (:drink_from_year result)
+                                        " to " (:drink_until_year result)
+                                        " (" (:confidence result)
+                                        " confidence)\n\n" (:reasoning result)))))
                         (.catch (fn [error]
                                   (swap! app-state assoc
-                                    :error
-                                    (str "Failed to suggest drinking window: "
-                                         error))))))}
+                                         :error
+                                         (str "Failed to suggest drinking window: "
+                                              error))))))}
         (if (:suggesting-drinking-window? @app-state)
           [box {:sx {:display "flex" :alignItems "center"}}
            [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
           "Suggest Drinking Window")]
        [typography {:variant "body2" :sx {:mt 1}} (:window-reason @app-state)]]]
-     ;; Wine Label Images Section
-     [form-divider "Wine Label Images"]
      [form-row
-      [box {:sx {:width "100%" :display "flex" :flexDirection "column" :gap 2}}
-       [image-upload
-        {:image-data (:label_image new-wine)
-         :label-type "front"
-         :on-image-change #(swap! app-state update :new-wine merge %)
-         :on-image-remove #(swap! app-state update
-                             :new-wine
-                             (fn [wine]
-                               (-> wine
-                                   (dissoc :label_image)
-                                   (dissoc :label_thumbnail))))}]
-       (when (and (:label_image new-wine) (not (:analyzing-label? @app-state)))
-         [button
-          {:variant "contained"
-           :color "secondary"
-           :size "small"
-           :disabled (or submitting? (not (:label_image new-wine)))
-           :onClick
-           (fn []
-             (let [image-data {:label_image (:label_image new-wine)
-                               :back_label_image (:back_label_image new-wine)}]
-               (-> (api/analyze-wine-label app-state image-data)
-                   (.then (fn [result]
-                            (swap! app-state update :new-wine merge result)))
-                   (.catch (fn [error]
-                             (swap! app-state assoc
-                               :error
-                               (str "Failed to analyze label: " error)))))))
-           :startIcon (r/as-element [auto-awesome])} "Analyze Label"])
-       (when (:analyzing-label? @app-state)
-         [box {:sx {:display "flex" :alignItems "center" :mt 1}}
-          [circular-progress {:size 24 :sx {:mr 1}}]
-          [typography {:variant "body2"} "Analyzing label..."]])]]
-     [form-row
-      [image-upload
-       {:image-data (:back_label_image new-wine)
-        :label-type "back"
-        :on-image-change #(swap! app-state update :new-wine merge %)
-        :on-image-remove #(swap! app-state update
-                            :new-wine
-                            (fn [wine] (dissoc wine :back_label_image)))}]]
+      [drink-from-year app-state new-wine]
+      [drink-until-year app-state new-wine]]
+     
      ;; Additional Information Section
      [form-divider "Additional Information"]
      [form-row
@@ -299,18 +315,7 @@
                  (:price new-wine)
                  (str (:price new-wine)))
         :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]]
-     [form-row
-      [number-field
-       {:label "Alcohol %"
-        :required false
-        :min 0
-        :max 100
-        :step 0.1
-        :value (:alcohol_percentage new-wine)
-        :helper-text "e.g., 13.5 for 13.5% ABV"
-        :on-change #(swap! app-state assoc-in
-                      [:new-wine :alcohol_percentage]
-                      (when-not (empty? %) (js/parseFloat %)))}]]
+
      [form-row
       [smart-select-field app-state [:new-wine :purveyor] :free-solo true :label
        "Purchased From" :options (unique-purveyors (:wines @app-state))]
