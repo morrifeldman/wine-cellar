@@ -144,7 +144,11 @@
           (do (fetch-wines app-state)
               (fetch-classifications app-state) ;; Refresh classifications
                                                 ;; after adding a wine
-              (swap! app-state assoc :new-wine {} :submitting-wine? false))
+              (swap! app-state assoc
+                     :new-wine {}
+                     :window-reason nil
+                     :show-wine-form? false
+                     :submitting-wine? false))
           (swap! app-state assoc
             :error (:error result)
             :submitting-wine? false)))))
