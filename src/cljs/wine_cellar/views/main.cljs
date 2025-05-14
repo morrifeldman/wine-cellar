@@ -66,9 +66,7 @@
           :borderBottom "1px solid rgba(0,0,0,0.08)"}}
     [typography
      {:variant "h2" :component "h1" :sx {:fontWeight 300 :color "primary.main"}}
-     "Wine Cellar"]
-    [typography {:variant "subtitle1" :color "text.secondary" :sx {:mt 1}}
-     "Track your collection, tastings, and memories"]]
+     "Wine Cellar"]]
    (when-let [error (:error @app-state)]
      [paper
       {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
@@ -101,5 +99,5 @@
      (:selected-wine-id @app-state) [wine-details-section app-state]
      (:show-wine-form? @app-state) [:div [wine-form app-state]
                                     [control-buttons app-state]]
-     :else [:div [wine-list app-state] [control-buttons app-state]])])
+     :else [:div [control-buttons app-state] [wine-list app-state]])])
 
