@@ -296,11 +296,7 @@
         :helper-text common/format-location-error
         :error (and (:location new-wine)
                     (not (common/valid-location? (:location new-wine))))
-        :on-change #(swap! app-state assoc-in [:new-wine :location] %)
-        :on-blur
-        #(when (and (:location new-wine)
-                    (not (common/valid-location? (:location new-wine))))
-           (swap! app-state assoc :error common/format-location-error))}]
+        :on-change #(swap! app-state assoc-in [:new-wine :location] %)}]
       [number-field
        {:label "Quantity"
         :required true

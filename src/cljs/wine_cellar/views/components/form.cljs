@@ -291,25 +291,6 @@
                   [:label :value :on-change :required :options :multiple
                    :disabled :free-solo :helper-text :on-blur])]))
 
-;; Smart field components
-(defn smart-field
-  "A versatile form field that derives its label from the last part of the path"
-  [app-state path &
-   {:keys [label type required min max step component]
-    :or {type "text" component text-field}}]
-  (let [derived-label (format-label (last path))
-        field-label (or label derived-label)
-        field-value (get-in @app-state path)
-        props (cond-> {:label field-label
-                       :value field-value
-                       :on-change #(swap! app-state assoc-in path %)}
-                type (assoc :type type)
-                required (assoc :required required)
-                min (assoc :min min)
-                max (assoc :max max)
-                step (assoc :step step))]
-    [component props]))
-
 (defn smart-select-field
   "A smart select field that updates app-state on change"
   [app-state path &
