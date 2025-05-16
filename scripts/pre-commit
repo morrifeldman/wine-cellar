@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#ln -s -f ../.././scripts/pre-commit .git/hooks/pre-commit
+
 # Pre-commit hook to format Clojure files and update source code structure
 # Place this file in .git/hooks/pre-commit and make it executable
 

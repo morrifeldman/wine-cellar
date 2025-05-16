@@ -45,11 +45,14 @@ response itself and I will apply them directly
 │   ├── ai-drinking-window-feature.md
 │   ├── ai-form-fill-feature.md
 │   ├── ai-form-fill-implementation.md
+│   ├── alcohol-percentage-implementation.md
 │   ├── chat-context.md
 │   ├── chat-summary.md
 │   ├── environment-variables.md
 │   ├── ideal-taxonomy.md
-│   └── schema-unification-datomic.md
+│   ├── pairing-feature.md
+│   ├── schema-unification-datomic.md
+│   └── varieties-implementation.md
 ├── fly.toml
 ├── package.json
 ├── package-lock.json
@@ -104,12 +107,16 @@ response itself and I will apply them directly
                 ├── admin
                 │   └── schema.cljs
                 ├── classifications
-                │   └── form.cljs
+                │   ├── form.cljs
+                │   └── list.cljs
                 ├── components
+                │   ├── classification_fields.cljs
                 │   ├── form.cljs
                 │   ├── image_upload.cljs
                 │   └── wine_card.cljs
                 ├── components.cljs
+                ├── grape_varieties
+                │   └── list.cljs
                 ├── main.cljs
                 ├── tasting_notes
                 │   ├── form.cljs
@@ -118,9 +125,10 @@ response itself and I will apply them directly
                     ├── detail.cljs
                     ├── filters.cljs
                     ├── form.cljs
-                    └── list.cljs
+                    ├── list.cljs
+                    └── varieties.cljs
 
-24 directories, 61 files
+25 directories, 68 files
 
 ## Technical Stack
 - Backend: Clojure
