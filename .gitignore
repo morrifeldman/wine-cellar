@@ -1,7 +1,7 @@
 # Clojure development
 .clj-kondo/.cache/
 .cpcache/
-.lsp/
+.lsp/.cache
 .calva/
 .nrepl-port
 .lein-*
