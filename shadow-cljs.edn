@@ -4,7 +4,8 @@
                 [org.clojure/core.async "2.28.20"]
                 [arttuka/reagent-material-ui "5.11.12-0"]
                 [djblue/portal "0.58.5"]]
- :dev-http {8080 "public"}
+ :dev-http {8080 {:root "public"
+                  :host "0.0.0.0"}}
  :builds {:app {:target :browser
                 :output-dir "public/js"
                 :asset-path "/js"

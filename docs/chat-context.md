@@ -110,6 +110,7 @@ response itself and I will apply them directly
                 │   ├── form.cljs
                 │   └── list.cljs
                 ├── components
+                │   ├── barcode_scanner.cljs
                 │   ├── classification_fields.cljs
                 │   ├── form.cljs
                 │   ├── image_upload.cljs
@@ -128,7 +129,7 @@ response itself and I will apply them directly
                     ├── list.cljs
                     └── varieties.cljs
 
-25 directories, 68 files
+25 directories, 69 files
 
 ## Technical Stack
 - Backend: Clojure

@@ -136,6 +136,17 @@
          (swap! app-state assoc :selected-wine-id wine-id))
        (swap! app-state assoc :error (:error result))))))
 
+(defn get-wine-by-barcode
+  [app-state barcode]
+  (js/Promise. (fn [resolve reject]
+                 (go (let [result
+                           (<! (GET (str "/api/wines/barcode/" barcode)
+                                    "Failed to find wine with that barcode"))]
+                       (if (:success result)
+                         (let [wine (:data result)] (resolve wine))
+                         (do (swap! app-state assoc :error (:error result))
+                             (reject (:error result)))))))))
+
 (defn create-wine
   [app-state wine]
   (js/console.log "Sending wine data:" (clj->js wine))
@@ -145,10 +156,10 @@
               (fetch-classifications app-state) ;; Refresh classifications
                                                 ;; after adding a wine
               (swap! app-state assoc
-                     :new-wine {}
-                     :window-reason nil
-                     :show-wine-form? false
-                     :submitting-wine? false))
+                :new-wine {}
+                :window-reason nil
+                :show-wine-form? false
+                :submitting-wine? false))
           (swap! app-state assoc
             :error (:error result)
             :submitting-wine? false)))))
@@ -302,25 +313,23 @@
 (defn create-grape-variety
   [app-state variety]
   (js/console.log "Creating grape variety:" (clj->js variety))
-  (js/Promise. 
+  (js/Promise.
    (fn [resolve reject]
-     (go 
-      (let [result (<! (POST "/api/grape-varieties"
-                             {:variety_name (or (:name variety) (:variety_name variety))}
-                             "Failed to create grape variety"))]
-        (if (:success result)
-          (do 
-              (fetch-grape-varieties app-state)
-              (swap! app-state assoc
-                :new-grape-variety {}
-                :submitting-variety? false
-                :show-variety-form? false)
-              (resolve (:data result)))
-          (do
-              (swap! app-state assoc
-                :error (:error result)
-                :submitting-variety? false)
-              (reject (:error result)))))))))
+     (go (let [result (<! (POST "/api/grape-varieties"
+                                {:variety_name (or (:name variety)
+                                                   (:variety_name variety))}
+                                "Failed to create grape variety"))]
+           (if (:success result)
+             (do (fetch-grape-varieties app-state)
+                 (swap! app-state assoc
+                   :new-grape-variety {}
+                   :submitting-variety? false
+                   :show-variety-form? false)
+                 (resolve (:data result)))
+             (do (swap! app-state assoc
+                   :error (:error result)
+                   :submitting-variety? false)
+                 (reject (:error result)))))))))
 
 (defn update-grape-variety
   [app-state id updates]
