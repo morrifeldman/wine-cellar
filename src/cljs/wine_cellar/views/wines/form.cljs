@@ -299,15 +299,15 @@
         :min 0
         :value (:quantity new-wine)
         :on-change
-        #(swap! app-state assoc-in [:new-wine :quantity] (js/parseInt %))}]
+        #(swap! app-state assoc-in [:new-wine :quantity] (js/parseInt %))}]]
+     [form-row
       [currency-field
        {:label "Price"
         :required true
         :value (if (string? (:price new-wine))
                  (:price new-wine)
                  (str (:price new-wine)))
-        :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]]
-     [form-row
+        :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]
       [smart-select-field app-state [:new-wine :purveyor] :free-solo true :label
        "Purchased From" :options (unique-purveyors (:wines @app-state))]
       [date-field
