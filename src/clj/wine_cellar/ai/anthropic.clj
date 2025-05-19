@@ -8,6 +8,8 @@
 
 (def api-url "https://api.anthropic.com/v1/messages")
 
+(def model "claude-3-7-sonnet-20250219")
+
 (defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
 
 (defn- create-prompt
@@ -80,7 +82,7 @@
   "Makes a request to the Anthropic API with the given content.
    Returns the parsed JSON response."
   [content]
-  (let [request-body {:model "claude-3-5-haiku-20241022"
+  (let [request-body {:model model
                       :max_tokens 1000
                       :messages [{:role "user" :content content}]}]
     (tap> ["anthropic-request-body-structure" (keys request-body)])
