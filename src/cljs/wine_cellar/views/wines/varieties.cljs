@@ -20,7 +20,8 @@
 
 (defn grape-variety->option [gv] {"id" (:id gv) "label" (:name gv)})
 
-(defn get-variety-data [app-state]
+(defn get-variety-data
+  [app-state]
   (let [editing-id (:editing-wine-variety-id @app-state)]
     {:editing-id editing-id
      :variety (if editing-id
@@ -30,45 +31,45 @@
      :current-varieties (:wine-varieties @app-state)
      :submitting? (:submitting-wine-variety? @app-state)}))
 
-(defn get-available-varieties [{:keys [editing-id grape-varieties current-varieties]}]
+(defn get-available-varieties
+  [{:keys [editing-id grape-varieties current-varieties]}]
   (let [added-variety-ids (set (map :variety_id current-varieties))]
     (if editing-id
       grape-varieties
       (filter #(not (contains? added-variety-ids (:id %))) grape-varieties))))
 
-(defn create-submit-handler [app-state wine-id {:keys [editing-id variety]}]
+(defn create-submit-handler
+  [app-state wine-id {:keys [editing-id variety]}]
   (fn []
     (cond
-      ;; Case 1: Editing an existing variety (only percentage can be changed)
-      editing-id
-      (do (swap! app-state assoc :submitting-wine-variety? true)
-          (api/update-wine-variety-percentage app-state
-                                              wine-id
-                                              editing-id
-                                              (:percentage variety)))
-      
+      ;; Case 1: Editing an existing variety (only percentage can be
+      ;; changed)
+      editing-id (do (swap! app-state assoc :submitting-wine-variety? true)
+                     (api/update-wine-variety-percentage app-state
+                                                         wine-id
+                                                         editing-id
+                                                         (:percentage variety)))
       ;; Case 2: Selected an existing variety from dropdown
       (:variety_id variety)
       (do (swap! app-state assoc :submitting-wine-variety? true)
           (api/add-variety-to-wine app-state wine-id variety))
-      
       ;; Case 3: Entered a new variety name (free-solo)
       (:variety_name variety)
       (do (swap! app-state assoc :submitting-wine-variety? true)
           ;; First create the new grape variety, then add it to the wine
-          (-> (api/create-grape-variety app-state {:name (:variety_name variety)})
+          (-> (api/create-grape-variety app-state
+                                        {:name (:variety_name variety)})
               (.then (fn [new-variety]
                        ;; Now add the newly created variety to the wine
-                       (api/add-variety-to-wine 
-                         app-state 
-                         wine-id 
-                         (assoc variety :variety_id (:id new-variety)))))))
-      
+                       (api/add-variety-to-wine
+                        app-state
+                        wine-id
+                        (assoc variety :variety_id (:id new-variety)))))))
       ;; Case 4: No variety selected or entered
-      :else
-      (swap! app-state assoc :error "Grape variety is required"))))
+      :else (swap! app-state assoc :error "Grape variety is required"))))
 
-(defn variety-selector [app-state variety-data]
+(defn variety-selector
+  [app-state variety-data]
   (let [{:keys [editing-id variety grape-varieties]} variety-data
         available-varieties (get-available-varieties variety-data)]
     (if editing-id
@@ -78,9 +79,10 @@
         :required true
         :free-solo true
         :value (or (get-in @app-state [:new-wine-variety :variety_name])
-                   (when-let [gv (first (filter #(= (:id %) (:variety_id variety))
-                                            grape-varieties))]
-                 (clj->js (grape-variety->option gv))))
+                   (when-let [gv (first (filter #(= (:id %)
+                                                    (:variety_id variety))
+                                                grape-varieties))]
+                     (clj->js (grape-variety->option gv))))
         :options (clj->js (mapv grape-variety->option available-varieties))
         :on-change
         (fn [value]
@@ -88,12 +90,13 @@
             ;; Handle free-solo text input - store the name directly
             (swap! app-state assoc-in [:new-wine-variety :variety_name] value)
             ;; Handle selection from dropdown - store the ID
-            (swap! app-state assoc-in [:new-wine-variety :variety_id] 
-                   (when value (.-id value)))))
-        :helper-text
-        "Select an existing variety or type a new one"}])))
+            (swap! app-state assoc-in
+              [:new-wine-variety :variety_id]
+              (when value (.-id value)))))
+        :helper-text "Select an existing variety or type a new one"}])))
 
-(defn percentage-field [app-state {:keys [editing-id variety]}]
+(defn percentage-field
+  [app-state {:keys [editing-id variety]}]
   [number-field
    {:label "Percentage"
     :required false
@@ -106,7 +109,8 @@
                    :percentage]
                   (when-not (empty? %) (js/parseInt % 10)))}])
 
-(defn form-cancel-handler [app-state]
+(defn form-cancel-handler
+  [app-state]
   #(swap! app-state assoc
      :show-wine-variety-form? false
      :editing-wine-variety-id nil

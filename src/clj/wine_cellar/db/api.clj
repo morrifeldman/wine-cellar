@@ -167,21 +167,19 @@
 
 (defn get-classification
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:select :*
-                       :from :wine_classifications
-                       :where [:= :id id]})
-                     db-opts))
+  (jdbc/execute-one!
+   ds
+   (sql/format {:select :* :from :wine_classifications :where [:= :id id]})
+   db-opts))
 
 (defn update-classification!
   [id classification]
   (jdbc/execute-one! ds
-                     (sql/format
-                      {:update :wine_classifications
-                       :set (update classification :levels ->pg-array)
-                       :where [:= :id id]
-                       :returning :*})
+                     (sql/format {:update :wine_classifications
+                                  :set
+                                  (update classification :levels ->pg-array)
+                                  :where [:= :id id]
+                                  :returning :*})
                      db-opts))
 
 (defn delete-classification!

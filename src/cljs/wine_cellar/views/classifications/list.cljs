@@ -18,8 +18,10 @@
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.add :refer [add]]
             [wine-cellar.api :as api]
-            [wine-cellar.views.components.classification-fields :refer [classification-fields]]
-            [wine-cellar.views.classifications.form :refer [classification-form]]
+            [wine-cellar.views.components.classification-fields :refer
+             [classification-fields]]
+            [wine-cellar.views.classifications.form :refer
+             [classification-form]]
             [wine-cellar.common :as common]
             [wine-cellar.views.components.form :as form]))
 
@@ -28,11 +30,7 @@
   (let [classifications (:classifications @app-state)]
     [:<>
      ;; Use the shared classification fields component
-     [classification-fields 
-      app-state 
-      [:editing-classification] 
-      classifications]
-     
+     [classification-fields app-state [:editing-classification] classifications]
      ;; Allowed levels field
      [form/form-row
       [form/select-field
@@ -40,29 +38,24 @@
         :multiple true
         :value (get-in @app-state [:editing-classification :levels] [])
         :options common/wine-levels
-        :on-change #(swap! app-state assoc-in
-                           [:editing-classification :levels]
-                           %)}]]]))
+        :on-change
+        #(swap! app-state assoc-in [:editing-classification :levels] %)}]]]))
 
 (defn edit-classification-form
   [app-state]
   (let [classification (:editing-classification @app-state)]
-    [box
-     [dialog-title "Edit Classification"]
-     [dialog-content
-      [box {:sx {:mt 2}}
-       [edit-form-fields app-state]]]
+    [box [dialog-title "Edit Classification"]
+     [dialog-content [box {:sx {:mt 2}} [edit-form-fields app-state]]]
      [dialog-actions
       [button {:on-click #(swap! app-state dissoc :editing-classification)}
        "Cancel"]
-      [button {:on-click #(do
-                            (api/update-classification
-                             app-state
-                             (:id classification)
-                             (:editing-classification @app-state))
-                            (swap! app-state dissoc :editing-classification))
-               :color "primary"}
-       "Save"]]]))
+      [button
+       {:on-click #(do (api/update-classification app-state
+                                                  (:id classification)
+                                                  (:editing-classification
+                                                   @app-state))
+                       (swap! app-state dissoc :editing-classification))
+        :color "primary"} "Save"]]]))
 
 (defn delete-confirmation-dialog
   [app-state]
@@ -74,19 +67,19 @@
      [dialog-content
       [typography
        (str "Are you sure you want to delete the classification for "
-            (:country classification) " - " (:region classification)
-            (when-let [aoc (:aoc classification)]
-              (str " - " aoc))
+            (:country classification)
+            " - "
+            (:region classification)
+            (when-let [aoc (:aoc classification)] (str " - " aoc))
             "?")]]
      [dialog-actions
       [button {:on-click #(swap! app-state dissoc :deleting-classification)}
        "Cancel"]
       [button
- {:on-click #(api/delete-classification
-              app-state
-              (:id (:deleting-classification @app-state)))
-  :color "error"}
- "Delete"]]]))
+       {:on-click #(api/delete-classification app-state
+                                              (:id (:deleting-classification
+                                                    @app-state)))
+        :color "error"} "Delete"]]]))
 
 (defn classification-actions
   [classification app-state]
@@ -94,30 +87,24 @@
    [button
     {:size "small"
      :start-icon (r/as-element [edit])
-     :on-click #(swap! app-state assoc
-                       :editing-classification
-                       classification)}
+     :on-click #(swap! app-state assoc :editing-classification classification)}
     "Edit"]
    [button
     {:size "small"
      :color "error"
      :start-icon (r/as-element [delete])
-     :on-click #(swap! app-state assoc
-                       :deleting-classification
-                       classification)}
+     :on-click #(swap! app-state assoc :deleting-classification classification)}
     "Delete"]])
 
 (defn classification-level-chips
   [levels]
   [box {:sx {:display "flex" :flexWrap "wrap" :gap 0.5}}
    (for [level (or levels [])]
-     ^{:key level}
-     [chip {:label level :size "small" :variant "outlined"}])])
+     ^{:key level} [chip {:label level :size "small" :variant "outlined"}])])
 
 (defn classification-table-row
   [classification app-state]
-  [table-row
-   [table-cell (:country classification)]
+  [table-row [table-cell (:country classification)]
    [table-cell (:region classification)]
    [table-cell (or (:aoc classification) "")]
    [table-cell (or (:classification classification) "")]
@@ -130,14 +117,9 @@
   [paper
    [table
     [table-head
-     [table-row
-      [table-cell "Country"]
-      [table-cell "Region"]
-      [table-cell "AOC"]
-      [table-cell "Classification"]
-      [table-cell "Vineyard"]
-      [table-cell "Allowed Levels"]
-      [table-cell "Actions"]]]
+     [table-row [table-cell "Country"] [table-cell "Region"] [table-cell "AOC"]
+      [table-cell "Classification"] [table-cell "Vineyard"]
+      [table-cell "Allowed Levels"] [table-cell "Actions"]]]
     [table-body
      (if (empty? classifications)
        [table-row
@@ -163,22 +145,14 @@
   (let [classifications (:classifications @app-state)]
     [box
      [typography {:variant "h4" :component "h1" :sx {:mb 3}}
-      "Wine Classifications"]
-     
-     [add-classification-button app-state]
-     
+      "Wine Classifications"] [add-classification-button app-state]
      (when (:creating-classification? @app-state)
-       [paper {:sx {:p 3 :mb 3}}
-        [classification-form app-state]])
-     
+       [paper {:sx {:p 3 :mb 3}} [classification-form app-state]])
      (when (:editing-classification @app-state)
        [dialog
         {:open true
          :on-close #(swap! app-state dissoc :editing-classification)
          :max-width "md"
-         :full-width true}
-        [edit-classification-form app-state]])
-     
+         :full-width true} [edit-classification-form app-state]])
      [delete-confirmation-dialog app-state]
-     
      [classifications-table classifications app-state]]))

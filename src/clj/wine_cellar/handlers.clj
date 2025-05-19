@@ -49,7 +49,8 @@
          (response/not-found {:error "Classification not found"}))
        (catch org.postgresql.util.PSQLException e
          {:status 400
-          :body {:error "Invalid classification data" :details (.getMessage e)}})
+          :body {:error "Invalid classification data"
+                 :details (.getMessage e)}})
        (catch Exception e (server-error e))))
 
 (defn delete-classification
@@ -206,7 +207,8 @@
 (defn delete-grape-variety
   [{:keys [path-params]}]
   (try (let [id (Integer/parseInt (:id path-params))]
-         (db-api/delete-grape-variety! id) (no-content))
+         (db-api/delete-grape-variety! id)
+         (no-content))
        (catch Exception e (server-error e))))
 
 ;; Wine Varieties Handlers

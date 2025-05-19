@@ -15,13 +15,8 @@
      {:title "Add New Classification"
       :on-submit #(api/create-classification app-state
                                              (:new-classification @app-state))}
-     
      ;; Use the shared classification fields component
-     [classification-fields 
-      app-state 
-      [:new-classification] 
-      classifications]
-     
+     [classification-fields app-state [:new-classification] classifications]
      ;; Allowed levels field
      [form-row
       [select-field
@@ -31,7 +26,6 @@
         :options common/wine-levels
         :on-change
         #(swap! app-state assoc-in [:new-classification :levels] %)}]]
-     
      ;; Form buttons
      [form-actions
       {:on-submit #(api/create-classification app-state
