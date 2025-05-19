@@ -43,7 +43,9 @@
      level-options
      "\n"
      "- alcohol_percentage: The percentage of alcohol if it is visible" "\n\n"
-     "Return ONLY a valid JSON object with these fields. If you cannot determine a value, use null for that field. "
+     "Return ONLY a valid parseable JSON object with these fields. "
+     "If you cannot determine a value, use null for that field. "
+     "Do not nest the result in a markdown code block. "
      "Do not include any explanatory text outside the JSON object.")))
 
 (defn- create-drinking-window-prompt
@@ -68,15 +70,14 @@
      (when classification (str "- Classification: " classification "\n"))
      (when level (str "- Level: " level "\n"))
      "\n"
-     "The current year is "
-     current-year
-     ".\n\n"
-     "Return your response in JSON format with the following fields:\n"
+     "The current year is " current-year
+     ".\n\n" "Return your response in JSON format with the following fields:\n"
      "- drink_from_year: (integer) The year when the wine will start to be enjoyable\n"
      "- drink_until_year: (integer) The year when the wine might be past its prime\n"
      "- confidence: (string) \"high\", \"medium\", or \"low\" based on how confident you are in this assessment\n"
      "- reasoning: (string) A brief explanation of your recommendation\n\n"
-     "Only return valid JSON without any additional text.")))
+     "Only return a valid parseable JSON object without any additional text. "
+     "Do not nest the response in a markdown code block.")))
 
 (defn- call-anthropic-api
   "Makes a request to the Anthropic API with the given content.
@@ -100,8 +101,13 @@
         (tap> ["anthropic-response" "status" status "body" body "parsed-body"
                parsed-body "error" error])
         (if (= 200 status)
-          (try (-> (get-in parsed-body [:content 0 :text])
-                   (json/read-value json/keyword-keys-object-mapper))
+          (try (let [text-content (get-in parsed-body [:content 0 :text])
+                     _ (tap> ["anthropic-text-content" text-content])
+                     parsed-response (-> text-content
+                                         (json/read-value
+                                          json/keyword-keys-object-mapper))]
+                 (tap> ["anthropic-parsed-response" parsed-response])
+                 parsed-response)
                (catch Exception e
                  (throw (ex-info "Failed to parse AI response as JSON"
                                  {:error (.getMessage e) :response response}))))
@@ -126,6 +132,7 @@
   [wine]
   (let [prompt (create-drinking-window-prompt wine)
         content [{:type "text" :text prompt}]]
+    (tap> ["suggest-window-prompt" prompt])
     (call-anthropic-api content)))
 
 (defn analyze-wine-label
