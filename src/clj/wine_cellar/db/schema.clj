@@ -42,8 +42,7 @@
     [:purveyor :varchar] [:quantity :integer [:not nil] [:default 0]]
     [:price :decimal [10 2]] [:purchase_date :date] [:drink_from_year :integer]
     [:drink_until_year :integer] [:alcohol_percentage :decimal [4 2]]
-    [:barcode :varchar [:unique]] [:label_image :bytea]
-    [:label_thumbnail :bytea] [:back_label_image :bytea]
+    [:label_image :bytea] [:label_thumbnail :bytea] [:back_label_image :bytea]
     [[:constraint :valid_tasting_window]
      [:check
       [:or [:= :drink_from_year] [:= :drink_until_year]
