@@ -87,6 +87,7 @@ response itself and I will apply them directly
     │       │   ├── connection.clj
     │       │   ├── schema.clj
     │       │   └── setup.clj
+    │       ├── debug
     │       ├── handlers.clj
     │       ├── routes.clj
     │       └── server.clj
@@ -98,6 +99,7 @@ response itself and I will apply them directly
             ├── api.cljs
             ├── config.cljs
             ├── core.cljs
+            ├── debug.cljs
             ├── theme.cljs
             ├── utils
             │   ├── filters.cljs
@@ -128,7 +130,7 @@ response itself and I will apply them directly
                     ├── list.cljs
                     └── varieties.cljs
 
-25 directories, 68 files
+26 directories, 69 files
 
 ## Technical Stack
 - Backend: Clojure

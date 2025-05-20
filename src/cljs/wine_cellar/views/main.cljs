@@ -14,6 +14,7 @@
     [reagent-mui.material.menu :refer [menu]]
     [reagent-mui.material.menu-item :refer [menu-item]]
     [reagent.core :as r]
+    [wine-cellar.debug :refer [debug-button]]
     [wine-cellar.api :as api]))
 
 (defn admin-menu
@@ -52,7 +53,7 @@
      {:app-state app-state
       :path [:show-wine-form?]
       :show-text "Add New Wine"
-      :hide-text "Show Wine List"}] [admin-menu app-state]]
+      :hide-text "Show Wine List"}] [admin-menu app-state]] [debug-button]
    [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
     "Logout"]])
 
