@@ -14,7 +14,7 @@
     [reagent-mui.material.menu :refer [menu]]
     [reagent-mui.material.menu-item :refer [menu-item]]
     [reagent.core :as r]
-    [wine-cellar.debug :refer [debug-button]]
+    [wine-cellar.views.components.portal-debug :refer [debug-button]]
     [wine-cellar.api :as api]))
 
 (defn admin-menu

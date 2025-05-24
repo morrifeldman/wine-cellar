@@ -1,4 +1,4 @@
-(ns wine-cellar.debug
+(ns wine-cellar.portal-debug
   (:require [portal.web :as p]
             [reagent.core :as r]))
 
