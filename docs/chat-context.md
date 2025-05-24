@@ -67,6 +67,7 @@ response itself and I will apply them directly
 │   └── web-app-manifest-512x512.png
 ├── README.md
 ├── resources
+│   ├── sample-data.edn
 │   └── wine-classifications.edn
 ├── scripts
 │   ├── format-clj.sh
@@ -130,7 +131,7 @@ response itself and I will apply them directly
                     ├── list.cljs
                     └── varieties.cljs
 
-26 directories, 69 files
+26 directories, 70 files
 
 ## Technical Stack
 - Backend: Clojure
