@@ -100,7 +100,7 @@ response itself and I will apply them directly
             ├── api.cljs
             ├── config.cljs
             ├── core.cljs
-            ├── debug.cljs
+            ├── portal_debug.cljs
             ├── theme.cljs
             ├── utils
             │   ├── filters.cljs
@@ -114,8 +114,10 @@ response itself and I will apply them directly
                 │   └── list.cljs
                 ├── components
                 │   ├── classification_fields.cljs
+                │   ├── debug.cljs
                 │   ├── form.cljs
                 │   ├── image_upload.cljs
+                │   ├── portal_debug.cljs
                 │   └── wine_card.cljs
                 ├── components.cljs
                 ├── grape_varieties
@@ -131,7 +133,7 @@ response itself and I will apply them directly
                     ├── list.cljs
                     └── varieties.cljs
 
-26 directories, 70 files
+26 directories, 72 files
 
 ## Technical Stack
 - Backend: Clojure
