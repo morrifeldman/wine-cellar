@@ -15,12 +15,13 @@
     [reagent-mui.material.menu-item :refer [menu-item]]
     [reagent.core :as r]
     [wine-cellar.views.components.portal-debug :refer [debug-button]]
+    [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.api :as api]))
 
 (defn admin-menu
   [app-state]
   (let [anchor-el (r/atom nil)]
-    (fn [] [:div
+    (fn [] [box {:sx {:mb 2}}
             [button
              {:variant "outlined"
               :color "primary"
@@ -53,9 +54,10 @@
      {:app-state app-state
       :path [:show-wine-form?]
       :show-text "Add New Wine"
-      :hide-text "Show Wine List"}] [admin-menu app-state]] [debug-button]
-   [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
-    "Logout"]])
+      :hide-text "Show Wine List"}] [admin-menu app-state]
+    [box {:sx {:mb 2}}
+     [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
+      "Logout"]]]])
 
 (defn main-app
   [app-state]
@@ -99,5 +101,6 @@
      (:selected-wine-id @app-state) [wine-details-section app-state]
      (:show-wine-form? @app-state) [:div [wine-form app-state]
                                     [control-buttons app-state]]
-     :else [:div [control-buttons app-state] [wine-list app-state]])])
+     :else [:div [control-buttons app-state] [wine-list app-state]])
+   [debug-button] [debug-sidebar app-state]])
 

@@ -27,12 +27,15 @@
 
 (defonce root (atom nil))
 
-;; Initialize app
 (defn init
   []
   (js/console.log "Initializing app...")
-  (api/fetch-wines app-state)
-  (api/fetch-classifications app-state) ;; Load classifications at startup
+  ;; Only fetch data if we don't already have it and we're not in headless
+  ;; mode
+  (when (and (empty? (:wines @app-state)) (not @api/headless-mode?))
+    (api/fetch-wines app-state))
+  (when (and (empty? (:classifications @app-state)) (not @api/headless-mode?))
+    (api/fetch-classifications app-state))
   (when-let [container (.getElementById js/document "app")]
     (when (nil? @root) (reset! root (createRoot container)))
     (.render @root
@@ -42,3 +45,7 @@
 ;; Start the app when loaded
 (defn ^:export main [] (init))
 
+(defn ^:dev/after-load on-reload
+  []
+  (js/console.log "Code updated, re-rendering app...")
+  (init))

@@ -1,7 +1,21 @@
 (ns wine-cellar.api
-  (:require [cljs-http.client :as http]
+  (:require [reagent.core :as r]
+            [cljs-http.client :as http]
             [cljs.core.async :refer [<! go chan put!]]
             [wine-cellar.config :as config]))
+
+(def headless-mode? (r/atom false))
+
+(defn enable-headless-mode!
+  []
+  (reset! headless-mode? true)
+  (js/console.log "Headless mode enabled - API calls will be intercepted"))
+
+(defn disable-headless-mode!
+  []
+  (reset! headless-mode? false)
+  (js/console.log
+   "Headless mode disabled - API calls will be processed normally"))
 
 (def api-base-url (config/get-api-base-url))
 
@@ -30,16 +44,23 @@
                                 (catch js/Error _ error-msg))]
             {:success false :error error-message})))
 
-;; Generic API request function
 (defn api-request
   [method url params error-msg]
   (let [result-chan (chan)]
-    (go (let [request-opts (merge default-opts
-                                  (when params {:json-params params}))
-              _ (tap> [api-base-url url request-opts])
-              response (<! (method (str api-base-url url) request-opts))
-              result (handle-api-response response error-msg)]
-          (put! result-chan result)))
+    (if @headless-mode?
+      ;; In headless mode, just log the call and return success without
+      ;; doing anything
+      (do (js/console.log "API CALL INTERCEPTED (headless mode):"
+                          (name method)
+                          url
+                          (when params (clj->js params)))
+          (go (put! result-chan {:success true :data nil})))
+      ;; Normal mode - make the actual API call
+      (go (let [request-opts (merge default-opts
+                                    (when params {:json-params params}))
+                response (<! (method (str api-base-url url) request-opts))
+                result (handle-api-response response error-msg)]
+            (put! result-chan result))))
     result-chan))
 
 ;; Helper functions for common HTTP methods
