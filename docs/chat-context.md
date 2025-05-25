@@ -161,5 +161,8 @@ response itself and I will apply them directly
 * Manage/Edit Classifications + remove classification form code
 * Use app-state :view state more broadly
 * Extend wine db export to write out to object storage or local machine storage
+* Make an AI driven wine pairing feature, or enable AI conversations in the
+  context of my wine cellar.  Like, what wine should I take to this party or eat
+  with BBQ.
 
 ## Bugs
