@@ -46,8 +46,7 @@
     ;; since the backup state should come from the non-headless mode
     ;; or create a new backup from the current state
     (let [backup-state (or (:_headless_backup_state @app-state) @app-state)]
-      (reset! app-state new-state)
-      (swap! app-state assoc :_headless_backup_state backup-state))
+      (reset! app-state (assoc new-state :_headless_backup_state backup-state)))
     (api/enable-headless-mode!)
     (js/console.log "Debug state applied successfully")
     true
@@ -65,17 +64,7 @@
     (api/disable-headless-mode!)
     ;; If we have a backup state, restore it
     (when-let [backup-state (:_headless_backup_state @app-state)]
-      (swap! app-state (fn [current-state]
-                         (-> backup-state
-                             ;; Preserve current view state to avoid
-                             ;; jarring transitions
-                             (assoc :view (:view current-state))
-                             (assoc :selected-wine-id
-                                    (:selected-wine-id current-state))
-                             (assoc :show-wine-form?
-                                    (:show-wine-form? current-state)))))
-      ;; Trigger a reload of wines from the server
-      (api/fetch-wines app-state))
+      (reset! app-state backup-state))
     (js/console.log "Exited debug mode successfully")
     true
     (catch js/Error e (js/console.error "Error exiting debug mode:" e) false)))
