@@ -155,14 +155,23 @@ response itself and I will apply them directly
 
 ## General
 
-* Editable tasting notes
-* Track wine alcohol percentage
-* Track wine grape varietals
-* Manage/Edit Classifications + remove classification form code
+High Level
+* ~Editable tasting notes~
+* ~Track wine alcohol percentage~
+* ~Track wine grape varietals~
+* ~Manage/Edit Classifications~
 * Use app-state :view state more broadly
-* Extend wine db export to write out to object storage or local machine storage
+* ~Extend wine db export to write out to object storage or local machine
+  storage~
 * Make an AI driven wine pairing feature, or enable AI conversations in the
   context of my wine cellar.  Like, what wine should I take to this party or eat
   with BBQ.
+* Make editor a pretty print editor or more like portal.
+
+Small
+*Make buttons hide and slide up when I hover over them...
 
 ## Bugs
+
+* Grape varieties bug in headless.
+* Apply from editor window doesn't always work (is it related to the previous bug?)

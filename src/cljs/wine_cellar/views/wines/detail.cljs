@@ -1,28 +1,28 @@
 (ns wine-cellar.views.wines.detail
-  (:require
-    [clojure.string :as str]
-    [goog.string :as gstring]
-    [goog.string.format]
-    [reagent-mui.icons.arrow-back :refer [arrow-back]]
-    [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
-    [reagent-mui.material.box :refer [box]]
-    [reagent-mui.material.button :refer [button]]
-    [reagent-mui.material.circular-progress :refer [circular-progress]]
-    [reagent-mui.material.grid :refer [grid]]
-    [reagent-mui.material.paper :refer [paper]]
-    [reagent-mui.material.typography :refer [typography]]
-    [reagent.core :as r]
-    [wine-cellar.api :as api]
-    [wine-cellar.common :as common]
-    [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
-    [wine-cellar.utils.vintage :as vintage]
-    [wine-cellar.views.components :refer
-     [editable-autocomplete-field editable-classification-field
-      editable-text-field quantity-control]]
-    [wine-cellar.views.components.image-upload :refer [image-upload]]
-    [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
-    [wine-cellar.views.wines.varieties :refer [wine-varieties-component]]
-    [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]))
+  (:require [clojure.string :as str]
+            [goog.string :as gstring]
+            [goog.string.format]
+            [reagent-mui.icons.arrow-back :refer [arrow-back]]
+            [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
+            [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [reagent-mui.material.grid :refer [grid]]
+            [reagent-mui.material.paper :refer [paper]]
+            [reagent-mui.material.typography :refer [typography]]
+            [reagent.core :as r]
+            [wine-cellar.api :as api]
+            [wine-cellar.common :as common]
+            [wine-cellar.utils.formatting :refer
+             [format-date-iso valid-name-producer?]]
+            [wine-cellar.utils.vintage :as vintage]
+            [wine-cellar.views.components :refer
+             [editable-autocomplete-field editable-classification-field
+              editable-text-field quantity-control]]
+            [wine-cellar.views.components.image-upload :refer [image-upload]]
+            [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
+            [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
+            [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]))
 
 (defn editable-location
   [app-state wine]
@@ -352,7 +352,7 @@
      [paper
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
       [typography {:variant "body2" :color "text.secondary"} "Grape Varieties"]
-      [wine-varieties-component app-state (:id wine)]]]
+      [wine-varieties-list app-state (:id wine)]]]
     ;; Location
     [grid {:item true :xs 12 :md 6}
      [paper

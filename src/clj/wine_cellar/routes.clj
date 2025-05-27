@@ -104,7 +104,7 @@
                    (if-not config-utils/production?
                      (wrap-cors handler
                                 :access-control-allow-origin
-                                [#"http://localhost:8080"]
+                                [(re-pattern config-utils/frontend)]
                                 :access-control-allow-methods [:get :put :post
                                                                :delete :options]
                                 :access-control-allow-headers

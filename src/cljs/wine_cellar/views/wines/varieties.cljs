@@ -212,12 +212,3 @@
      (when (:show-wine-variety-form? @app-state)
        [wine-variety-form app-state wine-id])
      [delete-variety-confirmation-dialog app-state wine-id]]))
-
-(defn wine-varieties-component
-  [app-state wine-id]
-  (r/create-class
-   {:component-did-mount (fn [_]
-                           (api/fetch-grape-varieties app-state)
-                           (api/fetch-wine-varieties app-state wine-id))
-    :reagent-render (fn [app-state wine-id] [wine-varieties-list app-state
-                                             wine-id])}))

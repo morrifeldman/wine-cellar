@@ -1,13 +1,14 @@
 (ns wine-cellar.server
-  (:require [org.httpkit.server :as http-kit]
-            [wine-cellar.routes :refer [app]]
-            [wine-cellar.db.setup :as db-setup]
+  (:require [mount.core :as mount :refer [defstate]]
+            [org.httpkit.server :as http-kit]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.session.cookie :refer [cookie-store]]
             [wine-cellar.auth.config :as auth-config]
-            [mount.core :as mount :refer [defstate]]))
+            [wine-cellar.config-utils :refer [backend-port]]
+            [wine-cellar.db.setup :as db-setup]
+            [wine-cellar.routes :refer [app]]))
 
 (defn start-server!
   [port]
@@ -25,13 +26,9 @@
     (println "Started http server on port:" port)
     server))
 
-(defn get-port
-  []
-  (if-let [port-str (System/getenv "PORT")]
-    (Integer/parseInt port-str)
-    3000))
 
-(defstate server :start (start-server! (get-port)) :stop (server))
+
+(defstate server :start (start-server! backend-port) :stop (server))
 
 (defn -main [& _] (mount/start))
 

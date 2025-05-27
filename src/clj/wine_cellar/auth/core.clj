@@ -1,10 +1,12 @@
 (ns wine-cellar.auth.core
   (:require [buddy.sign.jwt :as jwt]
             [clojure.string :as str]
+            [jsonista.core :as json]
+            [org.httpkit.client :as http]
             [ring.util.response :as response]
             [wine-cellar.auth.config :as config]
-            [jsonista.core :as json]
-            [org.httpkit.client :as http])
+            [wine-cellar.config-utils :refer [frontend]]
+            [wine-cellar.config-utils :as config-utils])
   (:import [java.time Instant]
            [java.time.temporal ChronoUnit]
            [java.util UUID]))
@@ -126,7 +128,7 @@
                     _ (tap> ["user-info-received" user-info])
                     jwt-token (create-jwt-token user-info)]
                 (tap> ["jwt-token" jwt-token])
-                (-> (response/redirect "/")
+                (-> (response/redirect config-utils/frontend)
                     (assoc-in [:cookies "auth-token"]
                               {:value jwt-token
                                :http-only true
@@ -179,14 +181,14 @@
         ;; For API requests, return 401 with proper JSON and CORS headers
         (let [json-body (json/write-value-as-string {:error
                                                      "Authentication required"})
-              response
-              (-> (response/response json-body)
-                  (response/status 401)
-                  (response/content-type "application/json")
-                  (update :headers
-                          merge
-                          {"Access-Control-Allow-Origin" "http://localhost:8080"
-                           "Access-Control-Allow-Credentials" "true"}))]
+              response (-> (response/response json-body)
+                           (response/status 401)
+                           (response/content-type "application/json")
+                           (update
+                            :headers
+                            merge
+                            {"Access-Control-Allow-Origin" config-utils/frontend
+                             "Access-Control-Allow-Credentials" "true"}))]
           response)
         ;; For browser requests, redirect to login
         (response/redirect "/login")))))
@@ -207,13 +209,13 @@
                          (update :headers
                                  merge
                                  {"Access-Control-Allow-Origin"
-                                  "http://localhost:8080"
+                                  config-utils/frontend
                                   "Access-Control-Allow-Credentials" "true"}))]
         response))))
 
 (defn logout
   [request]
-  (-> (response/redirect "/")
+  (-> (response/redirect frontend)
       (assoc-in [:cookies "auth-token"]
                 {:value ""
                  :http-only true
