@@ -41,11 +41,6 @@
               "Classifications"]
              [menu-item
               {:on-click (fn []
-                           (reset! anchor-el nil)
-                           (swap! app-state assoc :view :admin-schema))}
-              "Database Schema"]
-             [menu-item
-              {:on-click (fn []
                            (swap! app-state update :show-debug-controls? not))}
               (if (:show-debug-controls? @app-state)
                 "Hide Debug Controls"

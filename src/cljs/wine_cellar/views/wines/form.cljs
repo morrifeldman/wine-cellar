@@ -16,7 +16,7 @@
             [wine-cellar.views.components.form :refer
              [currency-field date-field form-actions form-container form-divider
               form-row number-field select-field smart-select-field text-field
-              year-field]]
+              text-area-field year-field]]
             [wine-cellar.views.components.image-upload :refer [image-upload]]))
 
 (defn vintage
@@ -300,6 +300,15 @@
        [typography {:variant "body2" :sx {:mt 1}} (:window-reason @app-state)]]]
      [form-row [drink-from-year app-state new-wine]
       [drink-until-year app-state new-wine]]
+     [form-row
+      [text-area-field
+       {:label "Tasting Window Commentary"
+        :multiline true
+        :rows 4
+        :fullWidth true
+        :value (:tasting_window_commentary new-wine)
+        :on-change
+        #(swap! app-state assoc-in [:new-wine :tasting_window_commentary] %)}]]
      ;; Additional Information Section
      [form-divider "Additional Information"]
      [form-row
