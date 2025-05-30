@@ -79,15 +79,16 @@
 (def vintage-range-offset 2)  ;; How many years back from current year to start
 
 (defn default-vintage-years
-  []
-  (concat
-   ;; Recent years starting a few years back
-   (map str
-        (range (- (current-year) vintage-range-offset)
-               (- (- (current-year) vintage-range-offset) vintage-range-years)
-               -1))
-   ;; Then decades for older wines
-   (map #(str (+ 1900 (* % 10))) (range 9 -1 -1))))
+  ([] (default-vintage-years vintage-range-offset))
+  ([offset]
+   (concat
+    ;; Recent years starting a few years back
+    (map str
+         (range (- (current-year) offset)
+                (- (- (current-year) offset) vintage-range-years)
+                -1))
+    ;; Then decades for older wines
+    (map #(str (+ 1900 (* % 10))) (range 9 -1 -1)))))
 
 (defn valid-vintage?
   "Validates that a vintage is a valid year (between 1800 and current year) or nil for NV"

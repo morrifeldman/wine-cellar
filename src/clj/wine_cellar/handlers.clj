@@ -1,6 +1,5 @@
 (ns wine-cellar.handlers
   (:require [wine-cellar.db.api :as db-api]
-            [wine-cellar.db.setup :as db-setup]
             [wine-cellar.ai.anthropic :as anthropic]
             [ring.util.response :as response]))
 
@@ -270,17 +269,6 @@
                    (no-content))
                {:status 404 :body {:error "Grape variety not found"}}))
            {:status 404 :body {:error "Wine not found"}}))
-       (catch Exception e (server-error e))))
-
-
-
-;; Admin Handlers
-(defn reset-schema
-  [_]
-  (try (db-setup/reset-schema!)
-       (response/response {:status "success"
-                           :message "Database schema reset successfully"
-                           :timestamp (str (java.time.Instant/now))})
        (catch Exception e (server-error e))))
 
 ;; AI Analysis Handlers

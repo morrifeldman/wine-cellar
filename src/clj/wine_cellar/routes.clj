@@ -40,6 +40,8 @@
 (s/def ::drink_from_year (s/nilable int?))
 (s/def ::drink_until_year (s/nilable int?))
 (s/def ::alcohol_percentage (s/nilable number?))
+(s/def ::disgorgement_year (s/nilable int?))
+(s/def ::tasting_window_commentary (s/nilable string?))
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source (s/nilable string?))
@@ -60,7 +62,8 @@
           :opt-un [::aoc ::classification ::vineyard ::location ::level
                    ::purveyor ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::vintage
-                   ::purchase_date ::alcohol_percentage ::wine_varieties]))
+                   ::purchase_date ::alcohol_percentage ::wine_varieties
+                   ::disgorgement_year ::tasting_window_commentary]))
 
 (def wine-update-schema
   (s/keys :req-un [(or ::producer
@@ -73,12 +76,14 @@
                        ::purveyor ::label_image
                        ::label_thumbnail ::back_label_image
                        ::drink_from_year ::drink_until_year
-                       ::purchase_date ::alcohol_percentage)]
+                       ::purchase_date ::alcohol_percentage
+                       ::disgorgement_year ::tasting_window_commentary)]
           :opt-un [::producer ::country ::region ::aoc ::classification
                    ::vineyard ::name ::vintage ::style ::level ::location
                    ::quantity ::price ::purveyor ::label_image ::label_thumbnail
                    ::back_label_image ::drink_from_year ::drink_until_year
-                   ::purchase_date ::alcohol_percentage]))
+                   ::purchase_date ::alcohol_percentage ::disgorgement_year
+                   ::tasting_window_commentary]))
 
 (s/def ::nilable-label_image (s/nilable ::label_image))
 (s/def ::nilable-label_thumbnail (s/nilable ::label_thumbnail))
@@ -141,16 +146,6 @@
   ["/auth/logout" {:get {:summary "Logout user" :handler auth/logout}}]
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
-   ;; Admin Routes
-   ["/admin" {:middleware [auth/require-admin]}
-    ["/schema"
-     {:post
-      {:summary "Reset database schema while preserving data"
-       :description
-       "This endpoint exports all data, drops all tables, recreates the schema, and imports the data back. Use this to apply schema changes without migrations."
-       :tags ["Admin"]
-       :responses {200 {:body map?} 500 {:body map?}}
-       :handler handlers/reset-schema}}]]
    ;; Grape Varieties Routes
    ["/grape-varieties"
     {:get {:summary "Get all grape varieties"

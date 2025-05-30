@@ -4,7 +4,6 @@
     [wine-cellar.views.components :refer [toggle-button]]
     [wine-cellar.views.wines.list :refer [wine-list]]
     [wine-cellar.views.wines.detail :refer [wine-details-section]]
-    [wine-cellar.views.admin.schema :refer [schema-admin-page]]
     [wine-cellar.views.grape-varieties.list :refer [grape-varieties-page]]
     [wine-cellar.views.classifications.list :refer [classifications-page]]
     [reagent-mui.material.box :refer [box]]
@@ -80,34 +79,25 @@
      [paper
       {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
       [typography {:variant "body1"} error]])
-   (cond
-     ;; Admin views
-     (= (:view @app-state) :admin-schema) [:div [schema-admin-page]
-                                           [button
-                                            {:variant "outlined"
-                                             :color "primary"
-                                             :on-click #(swap! app-state dissoc
-                                                          :view)
-                                             :sx {:mt 2}} "Back to Wine List"]]
-     (= (:view @app-state) :grape-varieties)
-     [:div [grape-varieties-page app-state]
-      [button
-       {:variant "outlined"
-        :color "primary"
-        :on-click #(swap! app-state dissoc :view)
-        :sx {:mt 2}} "Back to Wine List"]]
-     (= (:view @app-state) :classifications)
-     [:div [classifications-page app-state]
-      [button
-       {:variant "outlined"
-        :color "primary"
-        :on-click #(swap! app-state dissoc :view)
-        :sx {:mt 2}} "Back to Wine List"]]
-     ;; Wine views
-     (:selected-wine-id @app-state) [wine-details-section app-state]
-     (:show-wine-form? @app-state) [:div [wine-form app-state]
-                                    [control-buttons app-state]]
-     :else [:div [control-buttons app-state] [wine-list app-state]])
+   (cond (= (:view @app-state) :grape-varieties)
+         [:div [grape-varieties-page app-state]
+          [button
+           {:variant "outlined"
+            :color "primary"
+            :on-click #(swap! app-state dissoc :view)
+            :sx {:mt 2}} "Back to Wine List"]]
+         (= (:view @app-state) :classifications)
+         [:div [classifications-page app-state]
+          [button
+           {:variant "outlined"
+            :color "primary"
+            :on-click #(swap! app-state dissoc :view)
+            :sx {:mt 2}} "Back to Wine List"]]
+         ;; Wine views
+         (:selected-wine-id @app-state) [wine-details-section app-state]
+         (:show-wine-form? @app-state) [:div [wine-form app-state]
+                                        [control-buttons app-state]]
+         :else [:div [control-buttons app-state] [wine-list app-state]])
    (when (:show-debug-controls? @app-state)
      [:div [debug-button] [debug-sidebar app-state]])])
 

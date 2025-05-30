@@ -95,8 +95,8 @@
                                          "anthropic-version" "2023-06-01"
                                          "content-type" "application/json"}
                                :as :text
-                               :keepalive 30000
-                               :timeout 30000}))
+                               :keepalive 60000
+                               :timeout 60000}))
             parsed-body (json/read-value body json/keyword-keys-object-mapper)]
         (tap> ["anthropic-response" "status" status "body" body "parsed-body"
                parsed-body "error" error])

@@ -106,8 +106,6 @@ response itself and I will apply them directly
             │   ├── formatting.cljs
             │   └── vintage.cljs
             └── views
-                ├── admin
-                │   └── schema.cljs
                 ├── classifications
                 │   ├── form.cljs
                 │   └── list.cljs
@@ -132,7 +130,7 @@ response itself and I will apply them directly
                     ├── list.cljs
                     └── varieties.cljs
 
-26 directories, 71 files
+25 directories, 70 files
 
 ## Technical Stack
 - Backend: Clojure

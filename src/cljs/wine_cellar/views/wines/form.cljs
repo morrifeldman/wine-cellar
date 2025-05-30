@@ -38,6 +38,20 @@
                         (= % "NV") nil
                         :else (js/parseInt % 10)))}])
 
+(defn disgorgement-year
+  [app-state new-wine]
+  [year-field
+   {:label "Disgorgement Year"
+    :free-solo true
+    :value (:disgorgement_year new-wine)
+    :options (if-let [vintage (:vintage new-wine)]
+               (filter #(>= % vintage) (vintage/default-vintage-years 0))
+               (vintage/default-vintage-years))
+    :helper-text "Year when the sparkling wine was disgorged"
+    :on-change #(swap! app-state assoc-in
+                  [:new-wine :disgorgement_year]
+                  (when-not (empty? %) (js/parseInt % 10)))}])
+
 (defn drink-from-year
   [app-state new-wine]
   (let [drink-from-year (:drink_from_year new-wine)
@@ -238,7 +252,9 @@
         :on-change #(swap! app-state assoc-in
                       [:new-wine :alcohol_percentage]
                       (when-not (empty? %) (js/parseFloat %)))}]]
-     [form-divider "Vintage"] [form-row [vintage app-state new-wine]]
+     [form-divider "Vintage"]
+     [form-row [vintage app-state new-wine]
+      [disgorgement-year app-state new-wine]]
      [form-row
       [box {:sx {:sx {:mt 2}}}
        [button
@@ -251,30 +267,32 @@
                                  (:region new-wine)
                                  (:style new-wine))))
          :startIcon (r/as-element [auto-awesome])
-         :onClick (fn []
-                    (-> (api/suggest-drinking-window app-state new-wine)
-                        (.then
-                         (fn [result]
-                           ;; Update the new wine with the suggested
-                           ;; drinking window
-                           (swap! app-state update
-                             :new-wine
-                             merge
-                             {:drink_from_year (:drink_from_year result)
-                              :drink_until_year (:drink_until_year result)})
-                           ;; Show success message with reasoning
-                           (swap! app-state assoc
-                             :window-reason
-                             (str "Drinking window suggested: "
-                                  (:drink_from_year result)
-                                  " to " (:drink_until_year result)
-                                  " (" (:confidence result)
-                                  " confidence)\n\n" (:reasoning result)))))
-                        (.catch (fn [error]
-                                  (swap! app-state assoc
-                                    :error
-                                    (str "Failed to suggest drinking window: "
-                                         error))))))}
+         :onClick
+         (fn []
+           (-> (api/suggest-drinking-window app-state new-wine)
+               (.then
+                (fn [result]
+                  (let [window-reason (str "Drinking window suggested: "
+                                           (:drink_from_year result)
+                                           " to " (:drink_until_year result)
+                                           " (" (:confidence result)
+                                           " confidence)\n\n" (:reasoning
+                                                               result))]
+                    ;; Update the new wine with the suggested drinking
+                    ;; window
+                    (swap! app-state update
+                      :new-wine
+                      merge
+                      {:drink_from_year (:drink_from_year result)
+                       :drink_until_year (:drink_until_year result)
+                       :tasting_window_commentary window-reason})
+                    ;; Show success message with reasoning
+                    (swap! app-state assoc :window-reason window-reason))))
+               (.catch (fn [error]
+                         (swap! app-state assoc
+                           :error
+                           (str "Failed to suggest drinking window: "
+                                error))))))}
         (if (:suggesting-drinking-window? @app-state)
           [box {:sx {:display "flex" :alignItems "center"}}
            [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]

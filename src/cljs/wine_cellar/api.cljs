@@ -418,14 +418,3 @@
             :wine-varieties
             #(remove (fn [v] (= (:variety_id v) variety-id)) %))
           (swap! app-state assoc :error (:error result))))))
-
-;; admin endpoints
-(defn reset-schema
-  []
-  (js/Promise. (fn [resolve reject]
-                 (go (let [result (<! (POST "/api/admin/schema"
-                                            nil
-                                            "Failed to reset database schema"))]
-                       (if (:success result)
-                         (resolve result)
-                         (reject (js/Error. (:error result)))))))))

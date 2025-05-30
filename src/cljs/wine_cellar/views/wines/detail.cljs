@@ -96,6 +96,43 @@
                        :InputProps {:endAdornment "%"}
                        :helperText "e.g., 13.5 for 13.5% ABV"}}])
 
+(defn editable-disgorgement-year
+  [app-state wine]
+  [editable-text-field
+   {:value (when-let [year (:disgorgement_year wine)] (str year))
+    :on-save (fn [new-value]
+               (let [parsed-year (when-not (str/blank? new-value)
+                                   (js/parseInt new-value 10))]
+                 (api/update-wine app-state
+                                  (:id wine)
+                                  {:disgorgement_year parsed-year})))
+    :validate-fn (fn [value]
+                   (if (str/blank? value)
+                     nil ;; Allow empty value
+                     (let [parsed (js/parseInt value 10)]
+                       (cond (js/isNaN parsed) "Year must be a valid number"
+                             (< parsed 1900) "Year must be 1900 or later"
+                             (> parsed (.getFullYear (js/Date.)))
+                             "Year cannot be in the future"
+                             :else nil))))
+    :empty-text "Add disgorgement year"
+    :text-field-props
+    {:type "number"
+     :helperText "Year when the wine was disgorged (for sparkling wines)"}}])
+
+(defn editable-tasting-window-commentary
+  [app-state wine]
+  [editable-text-field
+   {:value (:tasting_window_commentary wine)
+    :on-save (fn [new-value]
+               (api/update-wine app-state
+                                (:id wine)
+                                {:tasting_window_commentary new-value}))
+    :empty-text "Add tasting window commentary"
+    :text-field-props {:multiline true
+                       :rows 4
+                       :helperText "Commentary about the drinking window"}}])
+
 (defn editable-name
   [app-state wine]
   [editable-text-field
@@ -402,6 +439,12 @@
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
       [typography {:variant "body2" :color "text.secondary"}
        "Alcohol Percentage"] [editable-alcohol-percentage app-state wine]]]
+    ;; Disgorgement Year
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"}
+       "Disgorgement Year"] [editable-disgorgement-year app-state wine]]]
     ;; Purveyor
     [grid {:item true :xs 12 :md 6}
      [paper
@@ -426,6 +469,8 @@
        [box {:sx {:display "flex" :alignItems "center"}}
         [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
          "Until:"] [editable-drink-until-year app-state wine]]
+       [box {:sx {:display "flex" :alignItems "center"}}
+        [editable-tasting-window-commentary app-state wine]]
        (let [status (vintage/tasting-window-status wine)]
          [typography
           {:variant "body2"
@@ -475,12 +520,13 @@
              :color "secondary"
              :size "small"
              :onClick (fn []
-                        (let [{:keys [drink_from_year drink_until_year]}
+                        (let [{:keys [drink_from_year drink_until_year message]}
                               suggestion]
                           (api/update-wine app-state
                                            (:id wine)
                                            {:drink_from_year drink_from_year
-                                            :drink_until_year drink_until_year})
+                                            :drink_until_year drink_until_year
+                                            :tasting_window_commentary message})
                           ;; Clear the suggestion after applying
                           (swap! app-state dissoc :window-suggestion)))}
             "Apply Suggestion"]
@@ -508,6 +554,18 @@
                           ;; Keep the suggestion in case they want to apply
                           ;; the from year later
                         ))} "Apply Until Year"]
+           [button
+            {:variant "outlined"
+             :color "secondary"
+             :size "small"
+             :onClick (fn []
+                        (let [{:keys [message]} suggestion]
+                          (api/update-wine app-state
+                                           (:id wine)
+                                           {:tasting_window_commentary message})
+                          ;; Keep the suggestion in case they want to apply
+                          ;; the from year later
+                        ))} "Apply Commentary"]
            [button
             {:variant "text"
              :color "secondary"
