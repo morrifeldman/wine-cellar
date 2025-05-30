@@ -275,8 +275,7 @@
     (fn [] [:div
             ;; Toggle button - fixed position in corner of screen
             [box
-             {:sx
-              {:position "fixed" :bottom "10px" :right "140px" :zIndex 1000}}
+             {:sx {:position "fixed" :bottom "10px" :right "10px" :zIndex 1000}}
              [button
               {:variant "contained"
                :color :primary

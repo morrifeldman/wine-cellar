@@ -44,7 +44,13 @@
               {:on-click (fn []
                            (reset! anchor-el nil)
                            (swap! app-state assoc :view :admin-schema))}
-              "Database Schema"]]])))
+              "Database Schema"]
+             [menu-item
+              {:on-click (fn []
+                           (swap! app-state update :show-debug-controls? not))}
+              (if (:show-debug-controls? @app-state)
+                "Hide Debug Controls"
+                "Show Debug Controls")]]])))
 
 (defn control-buttons
   [app-state]
@@ -102,5 +108,6 @@
      (:show-wine-form? @app-state) [:div [wine-form app-state]
                                     [control-buttons app-state]]
      :else [:div [control-buttons app-state] [wine-list app-state]])
-   [debug-button] [debug-sidebar app-state]])
+   (when (:show-debug-controls? @app-state)
+     [:div [debug-button] [debug-sidebar app-state]])])
 

@@ -36,6 +36,8 @@
     (api/fetch-wines app-state))
   (when (and (empty? (:classifications @app-state)) (not @api/headless-mode?))
     (api/fetch-classifications app-state))
+  (when (and (empty? (:grape-varieties @app-state)) (not @api/headless-mode?))
+    (api/fetch-grape-varieties app-state))
   (when-let [container (.getElementById js/document "app")]
     (when (nil? @root) (reset! root (createRoot container)))
     (.render @root
