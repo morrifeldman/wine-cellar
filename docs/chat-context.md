@@ -167,9 +167,9 @@ High Level
 * Make editor a pretty print editor or more like portal.
 
 Small
-*Make buttons hide and slide up when I hover over them...
+~* Make buttons hide and slide up when I hover over them...~
 
 ## Bugs
 
-* Grape varieties bug in headless.
-* Apply from editor window doesn't always work (is it related to the previous bug?)
+~* Grape varieties bug in headless.~
+~* Apply from editor window doesn't always work (is it related to the previous bug?)~
