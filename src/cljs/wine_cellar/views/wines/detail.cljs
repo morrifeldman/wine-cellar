@@ -137,6 +137,24 @@
                                  (vintage/valid-vintage? parsed))))
     :empty-text "Add vintage"}])
 
+(defn editable-level
+  [app-state wine]
+  [editable-classification-field
+   {:value (:level wine)
+    :field-type :level
+    :app-state app-state
+    :wine wine
+    :classifications (:classifications @app-state)
+    :on-save (fn [new-value]
+               (api/update-wine app-state (:id wine) {:level new-value}))
+    :validate-fn (fn [value]
+                   (tap> ["level" value])
+                   (when (and (not (str/blank? value))
+                              (not (contains? common/wine-levels value)))
+                     (str "Level must be one of: "
+                          (str/join ", " (sort common/wine-levels)))))
+    :empty-text "Add level"}])
+
 (defn editable-country
   [app-state wine]
   [editable-classification-field
@@ -342,6 +360,11 @@
       {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
       [typography {:variant "body2" :color "text.secondary"} "Classification"]
       [editable-classification app-state wine]]]
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "Level"]
+      [editable-level app-state wine]]]
     ;; Styles
     [grid {:item true :xs 12 :md 6}
      [paper

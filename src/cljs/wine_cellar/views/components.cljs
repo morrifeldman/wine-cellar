@@ -59,6 +59,7 @@
         saving (r/atom false)]
     (fn [{:keys [value on-save validate-fn empty-text render-input-fn]
           :or {empty-text "Not specified"}}]
+      (tap> ["field-value" @field-value])
       (if @editing
         ;; Edit mode
         [box {:display "flex" :flexDirection "column" :width "100%"}
@@ -151,17 +152,19 @@
                                                      :helperText error
                                                      :autoFocus true})])
               :onChange (fn [_event new-value] (on-change new-value))
-              :clearOnBlur true
+              :clearOnBlur false
               :autoHighlight true
               :selectOnFocus true
               :disableCloseOnSelect multiple
               :openOnFocus true}]))])
+
 (defn editable-classification-field
   "Classification field implementation of editable-field for country, region, AOC, and classification"
   [{:keys [field-type app-state wine classifications] :as props}]
   (let [country (:country wine)
         region (:region wine)
         aoc (:aoc wine)
+        classification (:classification wine)
         raw-options
         (case field-type
           :country (formatting/unique-countries classifications)
@@ -171,6 +174,11 @@
                                                               country
                                                               region
                                                               aoc)
+          :level (formatting/levels-for-classification classifications
+                                                       country
+                                                       region
+                                                       aoc
+                                                       classification)
           [])
         options (into [] (map str) (or raw-options []))]
     [editable-autocomplete-field
