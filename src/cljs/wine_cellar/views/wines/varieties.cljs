@@ -157,7 +157,8 @@
 
 (defn wine-varieties-list
   [app-state wine-id]
-  (let [varieties (:wine-varieties @app-state)]
+  (let [varieties (:wine-varieties @app-state)
+        variety-total (reduce + (map :percentage varieties))]
     [box {:sx {:width "100%"}}
      ;; Remove the card wrapper and just keep the content
      (if (empty? varieties)
@@ -189,7 +190,8 @@
                :on-click #(swap! app-state assoc
                             :deleting-wine-variety-id
                             (:variety_id variety))} [delete]]]]])])
-     ;; Keep the "Add Variety" button
+     (when-not (= variety-total 100)
+       [typography {:variant "body1"} (str "Total: " variety-total "%")])
      (when-not (:show-wine-variety-form? @app-state)
        [button
         {:variant "contained"

@@ -12,6 +12,9 @@
  :builds {:app {:target :browser
                 :output-dir "public/js"
                 :asset-path "/js"
+                :build-hooks [(portal.shadow.remote/hook)]
+                :devtools {:preloads [portal.shadow.preload]
+                           :reload-strategy :full}
                 :modules {:main {:init-fn wine-cellar.core/init}}
                 :js-options {:anon-fn-naming-policy :unmapped}}}}
 ;; npm install
