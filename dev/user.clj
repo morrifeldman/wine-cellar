@@ -1,12 +1,22 @@
 (ns user
-  (:require [portal.api :as p]))
+  (:require [portal.api :as p]
+            [mount.core :as mount]
+            [wine-cellar.server]))
 
 ;; Create and open a new portal instance
 ;; Using default launcher instead of :vs-code
-(defonce portal (p/open))
-
 ;; Add portal as a tap> target
 (add-tap #'p/submit)
+
+;; Start the web server automatically when REPL loads
+(defonce start-server (mount/start))
+
+;; Helper functions for server and portal
+(defn restart-server [] (mount/stop) (mount/start))
+
+(defn stop-server [] (mount/stop))
+
+;; Helper functions for portal
 
 ;; Helper functions for portal
 (defn clear-portal [] (p/clear))
