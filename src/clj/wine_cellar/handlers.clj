@@ -223,6 +223,7 @@
 
 (defn add-variety-to-wine
   [{:keys [path-params body-params]}]
+  (tap> ["add-variety-to-wine" path-params body-params])
   (try (let [wine-id (Integer/parseInt (:id path-params))
              variety-id (:variety_id body-params)
              percentage (:percentage body-params)

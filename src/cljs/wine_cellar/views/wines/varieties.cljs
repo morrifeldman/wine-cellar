@@ -39,7 +39,9 @@
       (filter #(not (contains? added-variety-ids (:id %))) grape-varieties))))
 
 (defn create-submit-handler
-  [app-state wine-id {:keys [editing-id variety]}]
+  [app-state wine-id
+   {:keys [editing-id]
+    {:keys [variety_id variety_name percentage] :as variety} :variety}]
   (fn []
     (cond
       ;; Case 1: Editing an existing variety (only percentage can be
@@ -48,23 +50,18 @@
                      (api/update-wine-variety-percentage app-state
                                                          wine-id
                                                          editing-id
-                                                         (:percentage variety)))
+                                                         percentage))
       ;; Case 2: Selected an existing variety from dropdown
-      (:variety_id variety)
-      (do (swap! app-state assoc :submitting-wine-variety? true)
-          (api/add-variety-to-wine app-state wine-id variety))
+      variety_id (do (swap! app-state assoc :submitting-wine-variety? true)
+                     (api/add-variety-to-wine app-state wine-id variety))
       ;; Case 3: Entered a new variety name (free-solo)
-      (:variety_name variety)
-      (do (swap! app-state assoc :submitting-wine-variety? true)
-          ;; First create the new grape variety, then add it to the wine
-          (-> (api/create-grape-variety app-state
-                                        {:name (:variety_name variety)})
-              (.then (fn [new-variety]
-                       ;; Now add the newly created variety to the wine
-                       (api/add-variety-to-wine
-                        app-state
-                        wine-id
-                        (assoc variety :variety_id (:id new-variety)))))))
+      variety_name (do (swap! app-state assoc :submitting-wine-variety? true)
+                       (-> (api/create-grape-variety app-state variety)
+                           (.then (fn [{:keys [id]}]
+                                    (api/add-variety-to-wine
+                                     app-state
+                                     wine-id
+                                     (assoc variety :variety_id id))))))
       ;; Case 4: No variety selected or entered
       :else (swap! app-state assoc :error "Grape variety is required"))))
 
@@ -160,13 +157,7 @@
 
 (defn wine-varieties-list
   [app-state wine-id]
-  (let [varieties (:wine-varieties @app-state)
-        grape-varieties (:grape-varieties @app-state)
-        ;; Get IDs of varieties already added to this wine
-        added-variety-ids (set (map :variety_id varieties))
-        ;; Check if there are any varieties available to add
-        available-varieties? (some #(not (contains? added-variety-ids (:id %)))
-                                   grape-varieties)]
+  (let [varieties (:wine-varieties @app-state)]
     [box {:sx {:width "100%"}}
      ;; Remove the card wrapper and just keep the content
      (if (empty? varieties)
@@ -206,7 +197,6 @@
          :size "small"
          :start-icon (r/as-element [add])
          :sx {:mt 2}
-         :disabled (or (empty? grape-varieties) (not available-varieties?))
          :on-click #(swap! app-state assoc :show-wine-variety-form? true)}
         "Add Variety"])
      (when (:show-wine-variety-form? @app-state)

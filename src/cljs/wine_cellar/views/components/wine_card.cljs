@@ -181,7 +181,8 @@
      :onClick #(do (swap! app-state assoc :selected-wine-id (:id wine))
                    (swap! app-state assoc :new-tasting-note {})
                    (api/fetch-tasting-notes app-state (:id wine))
-                   (api/fetch-wine-details app-state (:id wine)))} "View"]
+                   (api/fetch-wine-details app-state (:id wine))
+                   (api/fetch-wine-varieties app-state (:id wine)))} "View"]
    [button
     {:variant "outlined"
      :color "error"

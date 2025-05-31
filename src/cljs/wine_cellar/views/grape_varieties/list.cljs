@@ -139,11 +139,6 @@
 
 (defn grape-varieties-page
   [app-state]
-  (r/create-class
-   {:component-did-mount (fn [_] (api/fetch-grape-varieties app-state))
-    :reagent-render (fn [app-state]
-                      [container {:maxWidth "md" :sx {:mt 4 :mb 4}}
-                       [typography
-                        {:variant "h4" :component "h1" :gutterBottom true}
-                        "Grape Varieties Management"]
-                       [grape-varieties-list app-state]])}))
+  [container {:maxWidth "md" :sx {:mt 4 :mb 4}}
+   [typography {:variant "h4" :component "h1" :gutterBottom true}
+    "Grape Varieties Management"] [grape-varieties-list app-state]])

@@ -323,23 +323,21 @@
 (defn create-grape-variety
   [app-state variety]
   (js/console.log "Creating grape variety:" (clj->js variety))
-  (js/Promise.
-   (fn [resolve reject]
-     (go (let [result (<! (POST "/api/grape-varieties"
-                                {:variety_name (or (:name variety)
-                                                   (:variety_name variety))}
-                                "Failed to create grape variety"))]
-           (if (:success result)
-             (do (fetch-grape-varieties app-state)
-                 (swap! app-state assoc
-                   :new-grape-variety {}
-                   :submitting-variety? false
-                   :show-variety-form? false)
-                 (resolve (:data result)))
-             (do (swap! app-state assoc
-                   :error (:error result)
-                   :submitting-variety? false)
-                 (reject (:error result)))))))))
+  (js/Promise. (fn [resolve reject]
+                 (go (let [result (<! (POST "/api/grape-varieties"
+                                            variety
+                                            "Failed to create grape variety"))]
+                       (if (:success result)
+                         (do (fetch-grape-varieties app-state)
+                             (swap! app-state assoc
+                               :new-grape-variety {}
+                               :submitting-variety? false
+                               :show-variety-form? false)
+                             (resolve (:data result)))
+                         (do (swap! app-state assoc
+                               :error (:error result)
+                               :submitting-variety? false)
+                             (reject (:error result)))))))))
 
 (defn update-grape-variety
   [app-state id updates]
@@ -377,6 +375,7 @@
 
 (defn add-variety-to-wine
   [app-state wine-id variety]
+  (tap> ["add-variety-to-wine" wine-id variety])
   (go (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/varieties")
                              variety
                              "Failed to add variety to wine"))]
@@ -389,8 +388,6 @@
           (swap! app-state assoc
             :error (:error result)
             :submitting-wine-variety? false)))))
-
-;; Function removed - using two-step approach instead
 
 (defn update-wine-variety-percentage
   [app-state wine-id variety-id percentage]
