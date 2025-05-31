@@ -17,6 +17,7 @@
            :show-wine-form? false
            :show-stats? false
            :show-filters? false
+           :show-debug-controls? false
            :tasting-notes []
            :new-tasting-note {}
            :sort {:field nil :direction :asc}

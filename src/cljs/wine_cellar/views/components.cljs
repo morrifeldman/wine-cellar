@@ -59,7 +59,6 @@
         saving (r/atom false)]
     (fn [{:keys [value on-save validate-fn empty-text render-input-fn]
           :or {empty-text "Not specified"}}]
-      (tap> ["field-value" @field-value])
       (if @editing
         ;; Edit mode
         [box {:display "flex" :flexDirection "column" :width "100%"}

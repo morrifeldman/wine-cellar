@@ -5,7 +5,6 @@
             [org.httpkit.client :as http]
             [ring.util.response :as response]
             [wine-cellar.auth.config :as config]
-            [wine-cellar.config-utils :refer [frontend]]
             [wine-cellar.config-utils :as config-utils])
   (:import [java.time Instant]
            [java.time.temporal ChronoUnit]
@@ -23,26 +22,23 @@
        :scope ["email" "profile"]})))
 
 (defn create-auth-uri
-  [session]
-  (let [oauth-client (create-oauth-client)]
-    (when oauth-client
-      (let [state (str (UUID/randomUUID))]
-        ;; Store state in the session instead of an atom
-        (str (:authorization-uri oauth-client)
-             "?client_id="
-             (:client-id oauth-client)
-             "&redirect_uri="
-             (java.net.URLEncoder/encode (:redirect-uri oauth-client) "UTF-8")
-             "&response_type=code"
-             "&scope=" (java.net.URLEncoder/encode
-                        (str/join " " (:scope oauth-client))
-                        "UTF-8")
-             "&state=" state)))))
+  []
+  (when-let [oauth-client (create-oauth-client)]
+    (str (:authorization-uri oauth-client)
+         "?client_id="
+         (:client-id oauth-client)
+         "&redirect_uri="
+         (java.net.URLEncoder/encode (:redirect-uri oauth-client) "UTF-8")
+         "&response_type=code"
+         "&scope=" (java.net.URLEncoder/encode (str/join " "
+                                                         (:scope oauth-client))
+                                               "UTF-8")
+         "&state=" (UUID/randomUUID))))
 
 (defn redirect-to-google
   [request]
   (tap> ["redirect-to-google" (:session request)])
-  (if-let [auth-uri (create-auth-uri (:session request))]
+  (if-let [auth-uri (create-auth-uri)]
     (let [state (last (re-find #"&state=([^&]+)" auth-uri))]
       (tap> ["auth-uri" auth-uri "state" state])
       (-> (response/redirect auth-uri)
@@ -162,14 +158,6 @@
 
 (defn authenticated? [request] (boolean (:user request)))
 
-(defn admin?
-  "Check if the user is an admin based on their email"
-  [request]
-  (tap> ["admin?" request])
-  (let [admin-email (config/get-admin-email)]
-    (and (authenticated? request)
-         (= (get-in request [:user :email]) admin-email))))
-
 (defn require-authentication
   [handler]
   (fn [request]
@@ -193,29 +181,9 @@
         ;; For browser requests, redirect to login
         (response/redirect "/login")))))
 
-(defn require-admin
-  "Middleware that ensures the user is an admin"
-  [handler]
-  (fn [request]
-    (tap> ["require-admin" (:uri request)])
-    (if (admin? request)
-      (handler request)
-      ;; Return 403 Forbidden with proper JSON and CORS headers
-      (let [json-body (json/write-value-as-string {:error
-                                                   "Admin access required"})
-            response (-> (response/response json-body)
-                         (response/status 403)
-                         (response/content-type "application/json")
-                         (update :headers
-                                 merge
-                                 {"Access-Control-Allow-Origin"
-                                  config-utils/frontend
-                                  "Access-Control-Allow-Credentials" "true"}))]
-        response))))
-
 (defn logout
-  [request]
-  (-> (response/redirect frontend)
+  [_]
+  (-> (response/redirect config-utils/frontend)
       (assoc-in [:cookies "auth-token"]
                 {:value ""
                  :http-only true
