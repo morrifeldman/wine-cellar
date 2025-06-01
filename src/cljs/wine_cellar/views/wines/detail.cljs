@@ -593,8 +593,6 @@
   (when-let [selected-wine-id (:selected-wine-id @app-state)]
     (when-let [selected-wine (first (filter #(= (:id %) selected-wine-id)
                                             (:wines @app-state)))]
-      ;; No longer fetch wine details here - it should be done when
-      ;; clicking the "View" button
       [box {:sx {:mb 3}} [wine-detail app-state selected-wine]
        [button
         {:variant "contained"
