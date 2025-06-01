@@ -69,30 +69,38 @@
                                    :returning :*})
                       db-opts)))
 
-(defn get-wine
+(defn wine-exists?
   [id]
+  (jdbc/execute-one! ds
+                     (sql/format {:select :id :from :wines :where [:= :id id]})
+                     db-opts))
+
+(def fields-for-card
+  [:id :producer :country :region :aoc :classification :vineyard :level :name
+   :vintage :style :location :purveyor :quantity :price :drink_from_year
+   :drink_until_year :alcohol_percentage :label_thumbnail :created_at
+   :updated_at :purchase_date :latest_rating])
+
+(defn get-wines-with-ratings
+  []
+  (let [wines (jdbc/execute! ds
+                             ;; Listing columns explicitly since the only
+                             ;; image we are getting is the label_thumbnail
+                             (sql/format {:select fields-for-card
+                                          :from :wines_with_ratings
+                                          :order-by [[:created_at :desc]]})
+                             db-opts)]
+    (mapv db-wine->wine wines)))
+
+(defn get-wine
+  [id include-images?]
   (-> (jdbc/execute-one! ds
-                         (sql/format
-                          {:select :* :from :wines :where [:= :id id]})
+                         (sql/format {:select
+                                      (if include-images? :* fields-for-card)
+                                      :from :wines_with_ratings
+                                      :where [:= :id id]})
                          db-opts)
       db-wine->wine))
-
-(defn get-all-wines-with-ratings
-  []
-  (let [wines (jdbc/execute!
-               ds
-               ;; Listing columns explicitly since the only
-               ;; image we are getting is the label_thumbnail
-               (sql/format
-                {:select [:id :producer :country :region :aoc :classification
-                          :vineyard :level :name :vintage :style :location
-                          :purveyor :quantity :price :drink_from_year
-                          :drink_until_year :alcohol_percentage :label_thumbnail
-                          :created_at :updated_at :purchase_date :latest_rating]
-                 :from :wines_with_ratings
-                 :order-by [[:created_at :desc]]})
-               db-opts)]
-    (mapv db-wine->wine wines)))
 
 (defn update-wine!
   [id wine]

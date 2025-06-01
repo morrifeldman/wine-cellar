@@ -47,6 +47,7 @@
 (s/def ::source (s/nilable string?))
 (s/def ::label_image string?)
 (s/def ::label_thumbnail string?)
+(s/def ::include_images boolean?)
 (s/def ::back_label_image string?)
 (s/def ::variety_id int?)
 (s/def ::variety_name string?)
@@ -220,10 +221,13 @@
             :handler handlers/suggest-drinking-window}}]
    ["/wines/by-id"
     ["/:id"
-     {:parameters {:path {:id int?}}
-      :get {:summary "Get wine by ID"
-            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/get-wine}
+     {:parameters {:path {:id int?} :query (s/keys :opt-un [::include_images])}
+      :get
+      {:summary "Get wine by ID"
+       :description
+       "Get wine by ID. Use query parameter ?include_images=true to include full-size images."
+       :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+       :handler handlers/get-wine}
       :put {:summary "Update wine"
             :parameters {:body wine-update-schema}
             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}

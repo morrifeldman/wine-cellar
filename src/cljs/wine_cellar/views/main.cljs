@@ -17,6 +17,11 @@
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.api :as api]))
 
+(defn logout
+  []
+  [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
+   "Logout"])
+
 (defn admin-menu
   [app-state]
   (let [anchor-el (r/atom nil)]
@@ -44,20 +49,15 @@
                            (swap! app-state update :show-debug-controls? not))}
               (if (:show-debug-controls? @app-state)
                 "Hide Debug Controls"
-                "Show Debug Controls")]]])))
+                "Show Debug Controls")]] [logout]])))
 
-(defn control-buttons
+(defn new-wine-or-list
   [app-state]
-  [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-   [box {:sx {:display "flex" :gap 2}}
-    [toggle-button
-     {:app-state app-state
-      :path [:show-wine-form?]
-      :show-text "Add New Wine"
-      :hide-text "Show Wine List"}] [admin-menu app-state]
-    [box {:sx {:mb 2}}
-     [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
-      "Logout"]]]])
+  [toggle-button
+   {:app-state app-state
+    :path [:show-wine-form?]
+    :show-text "Add New Wine"
+    :hide-text "Show Wine List"}])
 
 (defn main-app
   [app-state]
@@ -89,10 +89,11 @@
             :on-click #(swap! app-state dissoc :view)
             :sx {:mt 2}} "Back to Wine List"]]
          ;; Wine views
-         (:selected-wine-id @app-state) [wine-details-section app-state]
+         (:selected-wine-id @app-state) [:div [wine-details-section app-state]]
          (:show-wine-form? @app-state) [:div [wine-form app-state]
-                                        [control-buttons app-state]]
-         :else [:div [control-buttons app-state] [wine-list app-state]])
+                                        [new-wine-or-list app-state]]
+         :else [:div [new-wine-or-list app-state] [wine-list app-state]])
+   [admin-menu app-state]
    (when (:show-debug-controls? @app-state)
      [:div [debug-button] [debug-sidebar app-state]])])
 

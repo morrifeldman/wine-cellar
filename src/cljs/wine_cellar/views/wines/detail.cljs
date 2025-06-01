@@ -1,5 +1,6 @@
 (ns wine-cellar.views.wines.detail
   (:require [clojure.string :as str]
+            [cljs.core.async :refer [<! go]]
             [goog.string :as gstring]
             [goog.string.format]
             [reagent-mui.icons.arrow-back :refer [arrow-back]]
@@ -600,22 +601,27 @@
          :color "primary"
          :start-icon (r/as-element [arrow-back])
          :sx {:mt 2}
-         :onClick #(do
-                     ;; Clean up the selected wine's image data when
-                     ;; navigating away
-                     (swap! app-state update
-                       :wines
-                       (fn [wines]
-                         (map (fn [wine]
-                                (if (= (:id wine) selected-wine-id)
-                                  (-> wine
-                                      (dissoc :label_image)
-                                      (dissoc :back_label_image))
-                                  wine))
-                              wines)))
-                     ;; Remove selected wine ID and tasting notes
-                     (swap! app-state dissoc
-                       :selected-wine-id :tasting-notes
-                       :editing-note-id :window-suggestion)
-                     (swap! app-state assoc :new-tasting-note {}))}
+         :onClick #(go
+                    ;; First, fetch the latest wine details without images
+                    (<! (api/fetch-wine-details app-state
+                                                selected-wine-id
+                                                :include-images
+                                                false))
+                    ;; After fetch completes, clean up the selected wine's
+                    ;; image data
+                    (swap! app-state update
+                      :wines
+                      (fn [wines]
+                        (map (fn [wine]
+                               (if (= (:id wine) selected-wine-id)
+                                 (-> wine
+                                     (dissoc :label_image)
+                                     (dissoc :back_label_image))
+                                 wine))
+                             wines)))
+                    ;; Remove selected wine ID and tasting notes
+                    (swap! app-state dissoc
+                      :selected-wine-id :tasting-notes
+                      :editing-note-id :window-suggestion)
+                    (swap! app-state assoc :new-tasting-note {}))}
         "Back to List"]])))

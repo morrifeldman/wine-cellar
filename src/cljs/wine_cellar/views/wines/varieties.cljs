@@ -154,11 +154,6 @@
                     (api/remove-variety-from-wine app-state wine-id variety-id)
                     (swap! app-state assoc :deleting-wine-variety-id nil))}
        "Remove"]]]))
-(+ nil nil)
-(+ nil)
-(reduce + (remove nil? [nil nil]))
-(seq ())
-(when-let [v (seq ())] (reduce + v))
 
 (defn wine-varieties-list
   [app-state wine-id]
@@ -166,7 +161,6 @@
         variety-total
         (when-let [percentages (seq (remove nil? (map :percentage varieties)))]
           (reduce + percentages))]
-    (tap> ["variety-total" variety-total])
     [box {:sx {:width "100%"}}
      ;; Remove the card wrapper and just keep the content
      (if (empty? varieties)

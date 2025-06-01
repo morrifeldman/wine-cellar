@@ -3,9 +3,7 @@
             [mount.core :as mount]
             [wine-cellar.server]))
 
-;; Create and open a new portal instance
-;; Using default launcher instead of :vs-code
-;; Add portal as a tap> target
+(defonce portal (p/open))
 (add-tap #'p/submit)
 
 ;; Start the web server automatically when REPL loads

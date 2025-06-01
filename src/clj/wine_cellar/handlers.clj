@@ -73,13 +73,14 @@
 
 (defn get-all-wines-with-ratings
   [_]
-  (try (let [wines (db-api/get-all-wines-with-ratings)]
-         (response/response wines))
+  (try (let [wines (db-api/get-wines-with-ratings)] (response/response wines))
        (catch Exception e (server-error e))))
 
 (defn get-wine
-  [{{:keys [id]} :path-params}]
-  (try (if-let [wine (db-api/get-wine (parse-long id))]
+  [{{{:keys [id]} :path {:keys [include_images]} :query} :parameters
+    :as request}]
+  (tap> ["request" request id include_images])
+  (try (if-let [wine (db-api/get-wine id include_images)]
          (response/response wine)
          (response/not-found {:error "Wine not found"}))
        (catch Exception e (server-error e))))
@@ -103,7 +104,7 @@
 
 (defn update-wine
   [{{:keys [id]} :path-params {:keys [body]} :parameters}]
-  (try (if (db-api/get-wine (parse-long id))
+  (try (if (db-api/wine-exists? (parse-long id))
          (let [updated (db-api/update-wine! (parse-long id) body)]
            (response/response updated))
          (response/not-found {:error "Wine not found"}))
@@ -114,14 +115,14 @@
 
 (defn delete-wine
   [{{:keys [id]} :path-params}]
-  (try (if (db-api/get-wine (parse-long id))
+  (try (if (db-api/wine-exists? (parse-long id))
          (do (db-api/delete-wine! (parse-long id)) (no-content))
          (response/not-found {:error "Wine not found"}))
        (catch Exception e (server-error e))))
 
 (defn adjust-quantity
   [{{:keys [id]} :path-params {:keys [adjustment]} :body-params}]
-  (try (if (db-api/get-wine (parse-long id))
+  (try (if (db-api/wine-exists? (parse-long id))
          (let [updated (db-api/adjust-quantity (parse-long id) adjustment)]
            (response/response updated))
          (response/not-found {:error "Wine not found"}))
@@ -143,7 +144,7 @@
 
 (defn create-tasting-note
   [{{:keys [id]} :path-params {:keys [body]} :parameters}]
-  (try (if (db-api/get-wine (parse-long id))
+  (try (if (db-api/wine-exists? (parse-long id))
          (let [note-with-wine-id (assoc body :wine_id (parse-long id))
                created-note (db-api/create-tasting-note note-with-wine-id)]
            {:status 201 :body created-note})
@@ -213,9 +214,8 @@
 ;; Wine Varieties Handlers
 (defn get-wine-varieties
   [{:keys [path-params]}]
-  (try (let [wine-id (Integer/parseInt (:id path-params))
-             wine (db-api/get-wine wine-id)]
-         (if wine
+  (try (let [wine-id (Integer/parseInt (:id path-params))]
+         (if (db-api/wine-exists? wine-id)
            (let [varieties (db-api/get-wine-grape-varieties wine-id)]
              {:status 200 :body varieties})
            {:status 404 :body {:error "Wine not found"}}))
@@ -226,9 +226,8 @@
   (tap> ["add-variety-to-wine" path-params body-params])
   (try (let [wine-id (Integer/parseInt (:id path-params))
              variety-id (:variety_id body-params)
-             percentage (:percentage body-params)
-             wine (db-api/get-wine wine-id)]
-         (if wine
+             percentage (:percentage body-params)]
+         (if (db-api/wine-exists? wine-id)
            (let [variety (db-api/get-grape-variety variety-id)]
              (if variety
                (let [result (db-api/associate-grape-variety-with-wine
@@ -244,9 +243,8 @@
   [{:keys [path-params body-params]}]
   (try (let [wine-id (Integer/parseInt (:id path-params))
              variety-id (Integer/parseInt (:variety-id path-params))
-             percentage (:percentage body-params)
-             wine (db-api/get-wine wine-id)]
-         (if wine
+             percentage (:percentage body-params)]
+         (if (db-api/wine-exists? wine-id)
            (let [variety (db-api/get-grape-variety variety-id)]
              (if variety
                (let [result (db-api/associate-grape-variety-with-wine
@@ -261,9 +259,8 @@
 (defn remove-variety-from-wine
   [{:keys [path-params]}]
   (try (let [wine-id (Integer/parseInt (:id path-params))
-             variety-id (Integer/parseInt (:variety-id path-params))
-             wine (db-api/get-wine wine-id)]
-         (if wine
+             variety-id (Integer/parseInt (:variety-id path-params))]
+         (if (db-api/wine-exists? wine-id)
            (let [variety (db-api/get-grape-variety variety-id)]
              (if variety
                (do (db-api/remove-grape-variety-from-wine wine-id variety-id)

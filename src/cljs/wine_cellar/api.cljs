@@ -137,25 +137,31 @@
             (swap! app-state assoc :error (:error result) :loading? false))))))
 
 (defn fetch-wine-details
-  [app-state wine-id]
-  (go
-   (let [result (<! (GET (str "/api/wines/by-id/" wine-id)
-                         "Failed to fetch wine details"))]
-     (if (:success result)
-       (let [wine-with-details (:data result)]
-         ;; Update the wine in the list with full details including the
-         ;; full image
-         (swap! app-state update
-           :wines
-           (fn [wines]
-             (map #(if (= (:id %) wine-id)
-                     ;; Keep the latest_rating
-                     (merge % wine-with-details)
-                     %)
-                  wines)))
-         ;; Set as selected wine
-         (swap! app-state assoc :selected-wine-id wine-id))
-       (swap! app-state assoc :error (:error result))))))
+  [app-state wine-id & {:keys [include-images] :or {include-images true}}]
+  (let [result-chan (chan)]
+    (go
+     (let [url (str "/api/wines/by-id/"
+                    wine-id
+                    (when include-images "?include_images=true"))
+           result (<! (GET url "Failed to fetch wine details"))]
+       (if (:success result)
+         (let [wine-with-details (:data result)]
+           ;; Update the wine in the list with full details including the
+           ;; full image if requested
+           (swap! app-state update
+             :wines
+             (fn [wines]
+               (map #(if (= (:id %) wine-id)
+                       ;; Keep the latest_rating
+                       (merge % wine-with-details)
+                       %)
+                    wines)))
+           ;; Set as selected wine
+           (swap! app-state assoc :selected-wine-id wine-id)
+           (put! result-chan {:success true :data wine-with-details}))
+         (do (swap! app-state assoc :error (:error result))
+             (put! result-chan {:success false :error (:error result)})))))
+    result-chan))
 
 (defn create-wine
   [app-state wine]
