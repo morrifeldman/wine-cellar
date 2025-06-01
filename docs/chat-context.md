@@ -39,7 +39,10 @@ response itself and I will apply them directly
 │   └── postgresql.yml
 ├── deps.edn
 ├── dev
-│   └── user.clj
+│   ├── clj
+│   │   └── user.clj
+│   └── cljs
+│       └── user.clj
 ├── Dockerfile
 ├── docs
 │   ├── ai-drinking-window-feature.md
@@ -132,7 +135,7 @@ response itself and I will apply them directly
                     ├── list.cljs
                     └── varieties.cljs
 
-26 directories, 71 files
+28 directories, 72 files
 
 ## Technical Stack
 - Backend: Clojure

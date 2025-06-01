@@ -1,18 +1,8 @@
 (ns user
-  (:require [portal.api :as p]
-            [mount.core :as mount]
-            [wine-cellar.server]))
+  (:require [portal.api :as p]))
 
 (defonce portal (p/open))
 (add-tap #'p/submit)
-
-;; Start the web server automatically when REPL loads
-(defonce start-server (mount/start))
-
-;; Helper functions for server and portal
-(defn restart-server [] (mount/stop) (mount/start))
-
-(defn stop-server [] (mount/stop))
 
 ;; Helper functions for portal
 
