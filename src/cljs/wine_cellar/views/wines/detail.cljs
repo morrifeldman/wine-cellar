@@ -601,6 +601,7 @@
          :sx {:mt 2}
          :onClick #(go
                     ;; First, fetch the latest wine details without images
+                    ;; This gets us the latest rating
                     (<! (api/fetch-wine-details app-state
                                                 selected-wine-id
                                                 :include-images

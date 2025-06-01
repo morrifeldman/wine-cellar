@@ -39,6 +39,7 @@
                          (if (= new-field (:field sort))
                            sort
                            {:field new-field :direction :asc}))))}
+       [menu-item {:value "location"} "Location"]
        [menu-item {:value "producer"} "Producer"]
        [menu-item {:value "name"} "Name"]
        [menu-item {:value "vintage"} "Vintage"]
