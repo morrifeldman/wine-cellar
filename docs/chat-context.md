@@ -71,7 +71,9 @@ response itself and I will apply them directly
 ├── scripts
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
-│   └── pre-commit
+│   ├── pre-commit
+│   └── wine_cellar
+│       └── dev.clj
 ├── shadow-cljs.edn
 └── src
     ├── clj
@@ -130,7 +132,7 @@ response itself and I will apply them directly
                     ├── list.cljs
                     └── varieties.cljs
 
-25 directories, 70 files
+26 directories, 71 files
 
 ## Technical Stack
 - Backend: Clojure

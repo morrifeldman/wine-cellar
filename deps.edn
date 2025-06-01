@@ -32,6 +32,12 @@
            ;; clj -M:format
            {:extra-deps {zprint/zprint {:mvn/version "1.2.9"}}
             :extra-paths ["scripts"]
-            :main-opts ["-m" "format-zprint"]}}}
+            :main-opts ["-m" "format-zprint"]}
+          :dev-all
+           ;; Start both backend and frontend
+           ;; clj -M:dev-all
+           {:extra-paths ["scripts"]
+            :extra-deps {babashka/process {:mvn/version "0.5.21"}}
+            :main-opts ["-m" "wine-cellar.dev"]}}}
 ;; Starting a repl for development
 ;; clj -M:dev:repl/conjure
