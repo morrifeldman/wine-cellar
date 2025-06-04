@@ -11,6 +11,14 @@
             [wine-cellar.views.components :refer [quantity-control]]
             [wine-cellar.api :as api]))
 
+(defn view-wine-detail
+  [app-state wine]
+  (swap! app-state assoc :selected-wine-id (:id wine))
+  (swap! app-state assoc :new-tasting-note {})
+  (api/fetch-tasting-notes app-state (:id wine))
+  (api/fetch-wine-details app-state (:id wine))
+  (api/fetch-wine-varieties app-state (:id wine)))
+
 ;; Utility functions
 (defn get-rating-color
   [rating]
@@ -18,9 +26,8 @@
         (>= rating 80) "rating.medium"
         :else "rating.low"))
 
-;; Wine card components
 (defn wine-thumbnail
-  [wine]
+  [app-state wine]
   [box
    {:sx {:mr 2
          :width 120
@@ -34,7 +41,12 @@
      [box
       {:component "img"
        :src (:label_thumbnail wine)
-       :sx {:width "100%" :height "100%" :objectFit "contain" :borderRadius 1}}]
+       :sx {:width "100%"
+            :height "100%"
+            :objectFit "contain"
+            :borderRadius 1
+            :transition "transform 0.2s"
+            ":hover" {:transform "scale(1.05)"}}}]
      [typography
       {:variant "body2" :color "text.secondary" :sx {:textAlign "center"}}
       "No Image"])])
@@ -56,9 +68,9 @@
     (if (:vintage wine) (str (:vintage wine)) "NV")]])
 
 (defn wine-header
-  [wine]
-  [box {:sx {:display "flex" :mb 0}} ;; Removed margin completely
-   [wine-thumbnail wine] [wine-basic-info wine]])
+  [app-state wine]
+  [box {:sx {:display "flex" :mb 0}} [wine-thumbnail app-state wine]
+   [wine-basic-info wine]])
 
 (defn wine-region-info
   [wine]
@@ -176,18 +188,11 @@
   [box {:sx {:display "flex" :gap 1}}
    [button
     {:variant "outlined"
-     :color "primary"
-     :size "small"
-     :onClick #(do (swap! app-state assoc :selected-wine-id (:id wine))
-                   (swap! app-state assoc :new-tasting-note {})
-                   (api/fetch-tasting-notes app-state (:id wine))
-                   (api/fetch-wine-details app-state (:id wine))
-                   (api/fetch-wine-varieties app-state (:id wine)))} "View"]
-   [button
-    {:variant "outlined"
      :color "error"
      :size "small"
-     :onClick #(api/delete-wine app-state (:id wine))} "Delete"]])
+     :onClick
+     (fn [e] (.stopPropagation e) (api/delete-wine app-state (:id wine)))}
+    "Delete"]])
 
 (defn wine-controls
   [app-state wine]
@@ -224,13 +229,18 @@
        :backgroundImage
        (when (= (:style wine) "Red")
          "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))")
-       ":hover" {:transform "translateY(-2px)" :boxShadow 4}}}
+       :cursor "pointer"
+       ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
+      :onClick #(view-wine-detail app-state wine)}
      ;; Wine header with thumbnail and basic info
-     [wine-header wine]
+     [wine-header app-state wine]
      ;; Wine details
      [box {:sx {:mb 0}} ;; Removed margin completely
       [wine-details-grid wine]
       ;; Bottom section with rating, tasting window
       [wine-bottom-info wine status drink-from-year drink-until-year]
       ;; Quantity control and action buttons
-      [wine-controls app-state wine]]]))
+      [box
+       {:onClick (fn [e] (.stopPropagation e)) ;; Prevent card click when
+                                               ;; interacting with controls
+        :sx {:width "100%"}} [wine-controls app-state wine]]]]))
