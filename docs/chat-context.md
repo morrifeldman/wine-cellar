@@ -1,38 +1,43 @@
 # Context for Claude
 
-I am making a wine cellar tracking web app. It is a learning project. I'm good
-with back end Clojure and am using Clojurescript for the front end. I currently
-use Viveno, but I'm a bit frustrated with Viveno. Too many ads and difficult to
-do the simple tracking that I want. I've made some good progress so far.
+## Project Overview
+I'm building a wine cellar tracking web app as a learning project. I'm experienced with backend Clojure and am using ClojureScript for the frontend. I currently use Viveno for wine tracking, but I'm frustrated with its ads and limitations for simple tracking needs.
 
-Please follow these instructions as we work together. Please consider this
-context but don't jump right into the task till I focus you. Sometimes I will
-want to have short conversations focused on tooling setup. I use nvim. Please do
-not give start answering if you want more information or files -- I'd rather
-just give you the data.  Don't bother using shell tools -- just ask me and I
-will be happy to provide any files directly.  It is really important that we
-work incrementally, so please only suggest one change at a time to give me a
-chance to test it before we move on.
+## Technical Stack
+- Backend: Clojure
+- Frontend: ClojureScript with Reagent
+- Database: PostgreSQL 15
+- UI Framework: Material UI (via reagent-mui)
+- Build Tool: Shadow-cljs
+- Clojure: tools.deps
+- Editor: Neovim
 
-I'd like you to be a pair programmer with me -- so while you should suggest
-changes, don't get too far ahead of me and let's stay together collaboratively.
+## Deployment
+- Fly.io
 
-I strongly favor a declarative approach to code, please minimize duplication and
-create reusable abstractions when it makes sense.
+## Working Style Preferences
+- **Incremental Development**: Please suggest only one change at a time so I can test before moving on
+- **Pair Programming**: Be collaborative and don't get too far ahead with suggestions
+- **Declarative Approach**: Minimize duplication and create reusable abstractions when sensible
+- **Minimal Comments**: I don't generally need code comments
+- **Minimal Summaries**: After suggesting code, provide only a very brief summary of changes or none at all
+- **Direct File Sharing**: Don't use shell tools to inspect files - I'll provide files directly when needed
+- **Code Suggestions**: If you encounter errors with code replacement tools, just suggest changes in the chat and I'll apply them
 
-I'm an experience back end data developer but I have little front end
-experience.  Nonetheless, I don't generally need any code comments.
+## My Experience
+I'm an experienced backend data developer but have limited frontend experience.
 
-After suggesting code, give only a very minimal summary of the changes or no
-summary at all.
+## Current Priorities
+1. Implement AI-driven wine pairing features
+2. Enable contextual AI conversations about wine selection
+3. Improve the editor with pretty-print or Portal-like features
+4. Use app-state :view state more broadly throughout the application
+5. UI/UX improvements
 
-If you hit the error: "Failed to find the old string" when using the
-str_replace_editor tool, please start just suggesting changes into the chat
-response itself and I will apply them directly
+If you need any specific files or additional context, just ask and I'll provide them directly.
 
 
-# Source Code Structure
-
+## Source Code Structure
 
 .
 ├── automation
@@ -137,44 +142,3 @@ response itself and I will apply them directly
 
 28 directories, 72 files
 
-## Technical Stack
-- Backend: Clojure
-- Frontend: ClojureScript with Reagent
-- Database: PostgreSQL 15
-- UI Framework: Material UI (via reagent-mui)
-- Build Tool: Shadow-cljs
-- Clojure: tools.deps
-- Editor: Neovim
-
-### Libraries
-- Jsonista for JSON
-- metosin/reitit for routing
-- http-kit for http client and server
-
-## Deployment
-- Fly.io
-
-# Next tasks
-
-## General
-
-High Level
-* ~Editable tasting notes~
-* ~Track wine alcohol percentage~
-* ~Track wine grape varietals~
-* ~Manage/Edit Classifications~
-* Use app-state :view state more broadly
-* ~Extend wine db export to write out to object storage or local machine
-  storage~
-* Make an AI driven wine pairing feature, or enable AI conversations in the
-  context of my wine cellar.  Like, what wine should I take to this party or eat
-  with BBQ.
-* Make editor a pretty print editor or more like portal.
-
-Small
-~* Make buttons hide and slide up when I hover over them...~
-
-## Bugs
-
-~* Grape varieties bug in headless.~
-~* Apply from editor window doesn't always work (is it related to the previous bug?)~

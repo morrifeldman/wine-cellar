@@ -24,29 +24,18 @@ echo "Updating source code structure in docs/chat-context.md..."
 # Generate the current source code structure
 structure=$(tree --gitignore)
 
-# Define the markers for the source code structure section
-start_marker="# Source Code Structure"
-end_marker="## Technical Stack"
+# Define the marker for the source code structure section
+start_marker="## Source Code Structure"
 
 # Create a temporary file
 temp_file=$(mktemp)
 
-# Extract the content before the source code structure section
+# Extract the content before the source code structure section (including the marker line)
 sed -n "1,/$start_marker/p" docs/chat-context.md > "$temp_file"
 
 # Append the new structure
 echo "" >> "$temp_file"
-echo "" >> "$temp_file"
 echo "$structure" >> "$temp_file"
-echo "" >> "$temp_file"
-
-# Extract the content after the source code structure section
-sed -n "/$end_marker/,\$p" docs/chat-context.md >> "$temp_file"
 
 # Replace the original file with the updated content
 mv "$temp_file" docs/chat-context.md
-
-# Add the updated file to the commit
-git add docs/chat-context.md
-
-exit 0
