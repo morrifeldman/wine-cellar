@@ -83,6 +83,19 @@
    :from [[:wines :w]]})
 #_(sql/format wines-with-ratings-view-schema)
 
+(def wines-with-varieties-view-schema
+  {:create-or-replace-view [:wines-with-varieties]
+   :select [:wr.*
+            [{:select [[[:json_agg
+                         [:json_build_object [:inline "id"] :gv.id
+                          [:inline "name"] :gv.name [:inline "percentage"]
+                          :wgv.percentage]]]]
+              :from [[:wine_grape_varieties :wgv]]
+              :join [[:grape_varieties :gv] [:= :wgv.variety_id :gv.id]]
+              :where [:= :wgv.wine_id :wr.id]} :varieties]]
+   :from [[:wines-with-ratings :wr]]})
+#_(sql/format wines-with-varieties-view-schema)
+
 ;; Grape varieties tables
 (def grape-varieties-table-schema
   {:create-table [:grape_varieties :if-not-exists]

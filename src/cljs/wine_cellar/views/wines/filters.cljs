@@ -18,10 +18,15 @@
             [reagent-mui.icons.expand-less :refer [expand-less]]
             [wine-cellar.utils.vintage :refer [tasting-window-label]]))
 
+;; TODO: split filter-bar into functions / remove repetition
+
 (defn filter-bar
   [app-state]
   (let [filters (:filters @app-state)
-        classifications (:classifications @app-state)]
+        classifications (:classifications @app-state)
+        varieties
+        (sort (distinct (mapcat (fn [wine] (map :name (get wine :varieties [])))
+                         (:wines @app-state))))]
     [paper
      {:elevation 1 :sx {:p 3 :mb 3 :borderRadius 2 :bgcolor "background.paper"}}
      ;; Header row with buttons aligned to the right
@@ -56,6 +61,7 @@
                       :country nil
                       :region nil
                       :style nil
+                      :variety nil
                       :tasting-window nil})} "Clear Filters"]]]
      [collapse {:in (:show-filters? @app-state) :timeout "auto"}
       [grid {:container true :spacing 3}
@@ -119,6 +125,21 @@
           [menu-item {:value ""} "All Styles"]
           (for [style common/wine-styles]
             ^{:key style} [menu-item {:value style} style])]]]
+       ;; Variety dropdown
+       [grid {:item true :xs 12 :md 2}
+        [form-control
+         {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
+         [input-label "Variety"]
+         [select
+          {:value (or (:variety filters) "")
+           :label "Variety"
+           :onChange #(swap! app-state assoc-in
+                        [:filters :variety]
+                        (let [v (.. % -target -value)]
+                          (when-not (empty? v) v)))}
+          [menu-item {:value ""} "All Varieties"]
+          (for [variety varieties]
+            ^{:key variety} [menu-item {:value variety} variety])]]]
        ;; Tasting Window dropdown - increased width
        [grid {:item true :xs 12 :md 2}
         [form-control

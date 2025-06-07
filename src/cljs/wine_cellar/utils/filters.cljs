@@ -23,6 +23,10 @@
 
 (defn matches-style? [wine style] (or (nil? style) (= style (:style wine))))
 
+(defn matches-variety?
+  [wine variety]
+  (or (nil? variety) (some #(= variety (:name %)) (:varieties wine))))
+
 (defn apply-sorting
   [wines field direction]
   (if field
@@ -46,8 +50,8 @@
 (defn filtered-sorted-wines
   [app-state]
   (let [wines (:wines @app-state)
-        {:keys [search country region style tasting-window]} (:filters
-                                                              @app-state)
+        {:keys [search country region style tasting-window variety]}
+        (:filters @app-state)
         {:keys [field direction]} (:sort @app-state)
         show-out-of-stock? (:show-out-of-stock? @app-state)]
     (as-> wines w
@@ -58,6 +62,7 @@
       (filter #(matches-country? % country) w)
       (filter #(matches-region? % region) w)
       (filter #(matches-style? % style) w)
+      (filter #(matches-variety? % variety) w)
       (filter #(matches-tasting-window? % tasting-window) w)
       ;; Apply sorting
       (apply-sorting w field direction))))

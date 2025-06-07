@@ -73,7 +73,7 @@
 
 (defn get-all-wines-with-ratings
   [_]
-  (try (let [wines (db-api/get-wines-with-ratings)] (response/response wines))
+  (try (let [wines (db-api/get-wines)] (response/response wines))
        (catch Exception e (server-error e))))
 
 (defn get-wine

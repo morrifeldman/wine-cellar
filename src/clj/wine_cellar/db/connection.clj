@@ -2,14 +2,25 @@
   (:require [mount.core :refer [defstate]]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
+            [jsonista.core :as json]
             [wine-cellar.config-utils :as config-utils])
-  (:import [org.postgresql.jdbc PgArray]))
+  (:import [org.postgresql.jdbc PgArray]
+           [org.postgresql.util PGobject]))
 
-;; Protocol extension for PostgreSQL arrays
+;; Protocol extensions for PostgreSQL types
 (extend-protocol rs/ReadableColumn
  PgArray
    (read-column-by-label [^PgArray v _] (into [] (.getArray v)))
-   (read-column-by-index [^PgArray v _2 _3] (into [] (.getArray v))))
+   (read-column-by-index [^PgArray v _2 _3] (into [] (.getArray v)))
+ PGobject
+   (read-column-by-label [^PGobject v _]
+     (if (= "json" (.getType v))
+       (json/read-value (.getValue v) json/keyword-keys-object-mapper)
+       (.getValue v)))
+   (read-column-by-index [^PGobject v _2 _3]
+     (if (= "json" (.getType v))
+       (json/read-value (.getValue v) json/keyword-keys-object-mapper)
+       (.getValue v))))
 
 (defn get-db-config
   []

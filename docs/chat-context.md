@@ -16,10 +16,13 @@ I'm building a wine cellar tracking web app as a learning project. I'm experienc
 - Fly.io
 
 ## Working Style Preferences
-- **Incremental Development**: Please suggest only one change at a time so I can test before moving on
+- **Incremental Development**: Please suggest only one change at a time so I can
+  test before moving on.  When in doubt suggest less code!!!
 - **Pair Programming**: Be collaborative and don't get too far ahead with suggestions
 - **Declarative Approach**: Minimize duplication and create reusable abstractions when sensible
 - **Minimal Comments**: I don't generally need code comments
+- **Double Check Parentheses**: You will be programming in Clojure.  Keep the
+  function size short and make sure the parentheses match!
 - **Minimal Summaries**: After suggesting code, provide only a very brief summary of changes or none at all
 - **Direct File Sharing**: Don't use shell tools to inspect files - I'll provide files directly when needed
 - **Code Suggestions**: If you encounter errors with code replacement tools, just suggest changes in the chat and I'll apply them

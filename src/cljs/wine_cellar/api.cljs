@@ -147,13 +147,14 @@
        (if (:success result)
          (let [wine-with-details (:data result)]
            ;; Update the wine in the list with full details including the
-           ;; full image if requested
+           ;; full image if requested, but preserve existing varieties data
            (swap! app-state update
              :wines
              (fn [wines]
                (map #(if (= (:id %) wine-id)
-                       ;; Keep the latest_rating
-                       (merge % wine-with-details)
+                       ;; Merge details but preserve varieties from the
+                       ;; main wine list
+                       (merge % wine-with-details (select-keys % [:varieties]))
                        %)
                     wines)))
            ;; Set as selected wine
