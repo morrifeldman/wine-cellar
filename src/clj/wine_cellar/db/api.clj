@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
+            [jsonista.core :as json]
             [wine-cellar.db.connection :refer [db-opts ds]])
   (:import [java.sql Date]
            [java.util Base64]))
@@ -52,7 +53,8 @@
   (cond-> db-wine
     label_image (update :label_image bytes->base64)
     label_thumbnail (update :label_thumbnail bytes->base64)
-    back_label_image (update :back_label_image bytes->base64)))
+    back_label_image (update :back_label_image bytes->base64)
+    true (update :varieties #(or % []))))
 
 (defn ping-db
   "Simple function to test database connectivity"
@@ -91,6 +93,25 @@
                                           :order-by [[:created_at :desc]]})
                              db-opts)]
     (mapv db-wine->wine wines)))
+
+(defn get-wines-with-varieties
+  []
+  (jdbc/execute! ds
+                 (sql/format {:select :* :from :wines_with_varieties})
+                 db-opts))
+
+(defn get-wines
+  []
+  (let [wines (jdbc/execute! ds
+                             (sql/format {:select [:wr.* :wv.varieties]
+                                          :from [[:wines_with_ratings :wr]]
+                                          :left-join [[:wines_with_varieties
+                                                       :wv] [:= :wr.id :wv.id]]
+                                          :order-by [[:wr.created_at :desc]]})
+                             db-opts)]
+    (mapv db-wine->wine wines)))
+
+#_(get-wines)
 
 (defn get-wine
   [id include-images?]

@@ -13,7 +13,7 @@
   ;; Make sure our shell script is executable
   (make-executable "scripts/start-dev.sh")
   ;; Alternative approach using Babashka process
-  (let [backend (p/process ["clj" "-M:dev:repl/conjure"] {:inherit true})
+  (let [backend (p/process ["clojure" "-M:dev:repl/conjure"] {:inherit true})
         frontend (p/process ["npx" "shadow-cljs" "watch" "app"]
                             {:inherit true})]
     (println "Both processes started. Press Ctrl+C to exit.")
