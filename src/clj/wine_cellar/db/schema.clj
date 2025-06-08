@@ -71,18 +71,6 @@
 #_(sql/format tasting-notes-table-schema)
 
 ;; View schemas
-(def wines-with-latest-rating-view-schema
-  {:create-or-replace-view [:wines-with-latest-rating]
-   :select [:w.*
-            [{:select :tn.rating
-              :from [[:tasting_notes :tn]]
-              :where [:= :tn.wine_id :w.id]
-              :order-by [[:tn.tasting_date :desc]]
-              :limit [:inline 1]} :latest_rating]]
-   :from [[:wines :w]]})
-#_(sql/format wines-with-latest-rating-view-schema)
-
-;; View that includes wines with varieties and latest rating
 (def wines-with-varieties-and-latest-rating-view-schema
   {:create-or-replace-view [:wines-with-varieties-and-latest-rating]
    :select [:w.*
