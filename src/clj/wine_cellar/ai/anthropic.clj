@@ -8,7 +8,10 @@
 
 (def api-url "https://api.anthropic.com/v1/messages")
 
-(def model "claude-3-7-sonnet-20250219")
+(defstate model
+          :start
+          (or (config-utils/get-config "ANTHROPIC_MODEL")
+              "claude-3-7-sonnet-20250219")) ; Default to current model
 
 (defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
 
@@ -81,50 +84,56 @@
 
 (defn- call-anthropic-api
   "Makes a request to the Anthropic API with the given content.
-   Returns the parsed JSON response."
-  [content]
-  (let [request-body {:model model
-                      :max_tokens 1000
-                      :messages [{:role "user" :content content}]}]
-    (tap> ["anthropic-request-body-structure" (keys request-body)])
-    (try
-      (let [{:keys [status body error] :as response}
-            (deref (http/post api-url
-                              {:body (json/write-value-as-string request-body)
-                               :headers {"x-api-key" api-key
-                                         "anthropic-version" "2023-06-01"
-                                         "content-type" "application/json"}
-                               :as :text
-                               :keepalive 60000
-                               :timeout 60000}))
-            parsed-body (json/read-value body json/keyword-keys-object-mapper)]
-        (tap> ["anthropic-response" "status" status "body" body "parsed-body"
-               parsed-body "error" error])
-        (if (= 200 status)
-          (try (let [text-content (get-in parsed-body [:content 0 :text])
-                     _ (tap> ["anthropic-text-content" text-content])
-                     parsed-response (-> text-content
-                                         (json/read-value
-                                          json/keyword-keys-object-mapper))]
-                 (tap> ["anthropic-parsed-response" parsed-response])
-                 parsed-response)
-               (catch Exception e
-                 (throw (ex-info "Failed to parse AI response as JSON"
-                                 {:error (.getMessage e) :response response}))))
-          (throw (ex-info "Anthropic API request failed"
-                          {:status status :body body}))))
-      (catch java.net.SocketTimeoutException e
-        (tap> ["anthropic-timeout-error" (.getMessage e)])
-        (throw (ex-info "Anthropic API request timed out"
-                        {:error (.getMessage e)})))
-      (catch java.net.ConnectException e
-        (tap> ["anthropic-connection-error" (.getMessage e)])
-        (throw (ex-info "Failed to connect to Anthropic API"
-                        {:error (.getMessage e)})))
-      (catch Exception e
-        (tap> ["anthropic-unexpected-error" (.getMessage e) (type e)])
-        (throw (ex-info "Unexpected error calling Anthropic API"
-                        {:error (.getMessage e)}))))))
+   When parse-json? is true, parses response as JSON. Otherwise returns raw text."
+  ([content] (call-anthropic-api content true)) ; Default to JSON parsing
+                                                ; for backward
+                                                ; compatibility
+  ([content parse-json?]
+   (let [request-body {:model model
+                       :max_tokens 1000
+                       :messages [{:role "user" :content content}]}]
+     (tap> ["anthropic-request-body-structure" (keys request-body)])
+     (try
+       (let [{:keys [status body error] :as response}
+             (deref (http/post api-url
+                               {:body (json/write-value-as-string request-body)
+                                :headers {"x-api-key" api-key
+                                          "anthropic-version" "2023-06-01"
+                                          "content-type" "application/json"}
+                                :as :text
+                                :keepalive 60000
+                                :timeout 60000}))
+             parsed-body (json/read-value body json/keyword-keys-object-mapper)]
+         (tap> ["anthropic-response" "status" status "body" body "parsed-body"
+                parsed-body "error" error])
+         (if (= 200 status)
+           (let [text-content (get-in parsed-body [:content 0 :text])]
+             (tap> ["anthropic-text-content" text-content])
+             (if parse-json?
+               (try (let [parsed-response (json/read-value
+                                           text-content
+                                           json/keyword-keys-object-mapper)]
+                      (tap> ["anthropic-parsed-response" parsed-response])
+                      parsed-response)
+                    (catch Exception e
+                      (throw (ex-info "Failed to parse AI response as JSON"
+                                      {:error (.getMessage e)
+                                       :response response}))))
+               text-content))
+           (throw (ex-info "Anthropic API request failed"
+                           {:status status :body body}))))
+       (catch java.net.SocketTimeoutException e
+         (tap> ["anthropic-timeout-error" (.getMessage e)])
+         (throw (ex-info "Anthropic API request timed out"
+                         {:error (.getMessage e)})))
+       (catch java.net.ConnectException e
+         (tap> ["anthropic-connection-error" (.getMessage e)])
+         (throw (ex-info "Failed to connect to Anthropic API"
+                         {:error (.getMessage e)})))
+       (catch Exception e
+         (tap> ["anthropic-unexpected-error" (.getMessage e) (type e)])
+         (throw (ex-info "Unexpected error calling Anthropic API"
+                         {:error (.getMessage e)})))))))
 
 (defn suggest-drinking-window
   "Suggests an optimal drinking window for a wine using Anthropic's Claude API.
@@ -160,3 +169,88 @@
         prompt (create-prompt label-image back-label-image)
         content (into [{:type "text" :text prompt}] images)]
     (call-anthropic-api content)))
+
+(defn- create-wine-context
+  "Creates a context string from the user's wine collection including tasting notes"
+  [wines]
+  (if (empty? wines)
+    "The user has no wines in their collection yet."
+    (let [wine-count (count wines)
+          wine-summaries
+          (take 50 ; Limit to avoid overwhelming the context
+                (map
+                 (fn [wine]
+                   (let [basic-info
+                         (str "- "
+                              (:producer wine)
+                              (when (:name wine) (str " " (:name wine)))
+                              (when (:vintage wine) (str " " (:vintage wine)))
+                              " (" (:style wine)
+                              ", " (:country wine)
+                              ", " (:region wine)
+                              ")" (when (:quantity wine)
+                                    (str " - " (:quantity wine) " bottles")))
+                         tasting-notes (:tasting-notes wine)
+                         notes-summary (when (seq tasting-notes)
+                                         (str "\n  Tasting notes: "
+                                              (str/join
+                                               "; "
+                                               (map (fn [note]
+                                                      (str (when (:rating note)
+                                                             (str (:rating note)
+                                                                  "/100 - "))
+                                                           (:notes note)))
+                                                    (take 3 tasting-notes)))))]
+                     (str basic-info notes-summary)))
+                 wines))
+          summary (str "The user has "
+                       wine-count
+                       " wines in their collection:\n"
+                       (str/join "\n" wine-summaries)
+                       (when (> wine-count 50) "\n... and more wines"))]
+      summary)))
+
+(defn- create-conversation-context
+  "Creates a context string from conversation history"
+  [conversation-history]
+  (if (empty? conversation-history)
+    ""
+    (let [history-text (str/join
+                        "\n"
+                        (map (fn [msg]
+                               (str (if (:is-user msg) "User: " "Assistant: ")
+                                    (:text msg)))
+                             conversation-history))]
+      (str "\n\nPrevious conversation:\n" history-text "\n\n"))))
+
+(defn- create-chat-prompt
+  "Creates a prompt for wine chat conversations with conversation history"
+  [message wines conversation-history]
+  (let [wine-context (create-wine-context wines)
+        conversation-context (create-conversation-context conversation-history)]
+    (str
+     "You are a knowledgeable wine expert and sommelier helping someone with their wine collection. "
+     "Please respond in a conversational, friendly tone. You can discuss wine recommendations, "
+     "food pairings, optimal drinking windows, storage advice, or any wine-related questions. "
+     "CRITICAL FORMATTING REQUIREMENT: You MUST respond in plain text only. Do NOT use any markdown formatting whatsoever. This means:\n"
+     "- NO headers starting with #\n"
+     "- NO bold text with **\n"
+     "- NO italic text with _ or *\n"
+     "- NO code blocks with ```\n"
+     "- NO bullet points with -\n"
+     "- NO numbered lists\n"
+     "Write your response as simple, natural conversational text with normal punctuation only.\n\n"
+     "Here is information about the user's wine collection:\n"
+     wine-context
+     conversation-context
+     "Current user question: " message
+     "\n\n"
+     "Please provide a helpful, informative response. If this is a follow-up question, reference the previous conversation context appropriately.")))
+
+(defn chat-about-wines
+  "Chat with AI about wine collection and wine-related topics with conversation history"
+  [message wines conversation-history]
+  (let [prompt (create-chat-prompt message wines conversation-history)
+        content [{:type "text" :text prompt}]]
+    (tap> ["chat-prompt" prompt])
+    (call-anthropic-api content false)))

@@ -13,8 +13,9 @@
     [reagent-mui.material.menu :refer [menu]]
     [reagent-mui.material.menu-item :refer [menu-item]]
     [reagent.core :as r]
-    [wine-cellar.views.components.portal-debug :refer [debug-button]]
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
+    [wine-cellar.views.components.wine-chat :refer [wine-chat]]
+    [wine-cellar.portal-debug :as pd]
     [wine-cellar.api :as api]))
 
 (defn logout
@@ -46,10 +47,16 @@
               "Classifications"]
              [menu-item
               {:on-click (fn []
+                           (reset! anchor-el nil)
                            (swap! app-state update :show-debug-controls? not))}
               (if (:show-debug-controls? @app-state)
                 "Hide Debug Controls"
-                "Show Debug Controls")]] [logout]])))
+                "Show Debug Controls")]
+             [menu-item
+              {:on-click (fn [] (reset! anchor-el nil) (pd/toggle-debugging!))}
+              (if (:active? @pd/debug-state)
+                "Stop Portal Debugging"
+                "Start Portal Debugging")]] [logout]])))
 
 (defn new-wine-or-list
   [app-state]
@@ -94,6 +101,6 @@
                                         [new-wine-or-list app-state]]
          :else [:div [new-wine-or-list app-state] [wine-list app-state]])
    [admin-menu app-state]
-   (when (:show-debug-controls? @app-state)
-     [:div [debug-button] [debug-sidebar app-state]])])
+   (when (:show-debug-controls? @app-state) [debug-sidebar app-state])
+   [wine-chat app-state]])
 

@@ -268,34 +268,20 @@
             [debug-info app-state saved-states]])))
 
 (defn debug-sidebar
-  "A collapsible sidebar containing debug controls.
+  "A sidebar containing debug controls.
    Takes the app-state atom as a parameter."
   [app-state]
-  (let [open? (r/atom false)]
-    (fn [] [:div
-            ;; Toggle button - fixed position in corner of screen
-            [box
-             {:sx {:position "fixed" :bottom "10px" :right "10px" :zIndex 1000}}
-             [button
-              {:variant "contained"
-               :color :primary
-               :size "small"
-               :onClick #(swap! open? not)
-               :sx {:textTransform "none" :boxShadow 3}}
-              (if @open? "Close State" "App State")]]
-            ;; Sidebar panel with transition
-            [:div.debug-sidebar
-             {:style {:position "fixed"
-                      :top 0
-                      :right (if @open? 0 "-400px")
-                      :width "350px"
-                      :height "100vh"
-                      :background-color "#f8f8f8"
-                      :border-left "1px solid #ccc"
-                      :box-shadow "-2px 0 5px rgba(0,0,0,0.1)"
-                      :transition "right 0.3s ease"
-                      :overflow-y "auto"
-                      :z-index 999
-                      :padding "15px"}}
-             ;; Use the debug panel inside the sidebar
-             [debug-panel app-state]]])))
+  [:div.debug-sidebar
+   {:style {:position "fixed"
+            :top 0
+            :right 0
+            :width "350px"
+            :height "100vh"
+            :background-color "#f8f8f8"
+            :border-left "1px solid #ccc"
+            :box-shadow "-2px 0 5px rgba(0,0,0,0.1)"
+            :overflow-y "auto"
+            :z-index 999
+            :padding "15px"}}
+   ;; Use the debug panel inside the sidebar
+   [debug-panel app-state]])

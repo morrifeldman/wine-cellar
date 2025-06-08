@@ -42,6 +42,7 @@ If you need any specific files or additional context, just ask and I'll provide 
 .
 ├── automation
 │   └── postgresql.yml
+├── CLAUDE.md
 ├── deps.edn
 ├── dev
 │   ├── clj
@@ -140,4 +141,4 @@ If you need any specific files or additional context, just ask and I'll provide 
                     ├── list.cljs
                     └── varieties.cljs
 
-28 directories, 72 files
+28 directories, 73 files
