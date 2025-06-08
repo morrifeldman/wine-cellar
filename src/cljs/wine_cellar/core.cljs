@@ -26,6 +26,46 @@
     :view nil
     :chat {:open? false :messages []}}))
 
+(defn update-url-from-state
+  [state]
+  (let [url (cond (:selected-wine-id state) (str "/wine/"
+                                                 (:selected-wine-id state))
+                  (:show-wine-form? state) "/add-wine"
+                  (= (:view state) :grape-varieties) "/grape-varieties"
+                  (= (:view state) :classifications) "/classifications"
+                  :else "/")]
+    (when (not= url (.-pathname js/location))
+      (.pushState js/history nil "" url))))
+
+(defn parse-url
+  []
+  (let [path (.-pathname js/location)]
+    (cond (= path "/") {:view nil :selected-wine-id nil :show-wine-form? false}
+          (= path "/add-wine")
+          {:view nil :selected-wine-id nil :show-wine-form? true}
+          (= path "/grape-varieties")
+          {:view :grape-varieties :selected-wine-id nil :show-wine-form? false}
+          (= path "/classifications")
+          {:view :classifications :selected-wine-id nil :show-wine-form? false}
+          (.startsWith path "/wine/")
+          {:view nil :selected-wine-id (subs path 6) :show-wine-form? false}
+          :else {:view nil :selected-wine-id nil :show-wine-form? false})))
+
+(defn sync-state-with-url
+  []
+  (let [url-state (parse-url)] (swap! app-state merge url-state)))
+
+(defn handle-popstate [_] (sync-state-with-url))
+
+(add-watch
+ app-state
+ :url-sync
+ (fn [_ _ old-state new-state]
+   (when (or (not= (:view old-state) (:view new-state))
+             (not= (:selected-wine-id old-state) (:selected-wine-id new-state))
+             (not= (:show-wine-form? old-state) (:show-wine-form? new-state)))
+     (update-url-from-state new-state))))
+
 (add-watch app-state :tap (fn [_ _ _ new-state] (tap> new-state)))
 
 (defonce root (atom nil))
@@ -33,6 +73,10 @@
 (defn init
   []
   (js/console.log "Initializing app...")
+  ;; Set up browser history handling
+  (.addEventListener js/window "popstate" handle-popstate)
+  ;; Sync initial state with URL
+  (sync-state-with-url)
   ;; Only fetch data if we don't already have it and we're not in headless
   ;; mode
   (when (and (empty? (:wines @app-state)) (not @api/headless-mode?))
