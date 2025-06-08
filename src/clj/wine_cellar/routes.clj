@@ -141,16 +141,24 @@
    {:get {:summary "Login page"
           :handler
           (fn [_] (response/resource-response "index.html" {:root "public"}))}}]
-  ["/auth/google"
-   {:get {:summary "Redirect to Google for authentication"
-          :handler (fn [request] (auth/redirect-to-google request))}}]
-  ["/auth/google/callback"
-   {:get {:summary "Handle Google OAuth callback"
-          :handler auth/handle-google-callback}}]
-  ["/auth/logout" {:get {:summary "Logout user" :handler auth/logout}}]
+  ["/auth"
+   ["/google"
+    {:get {:summary "Redirect to Google for authentication"
+           :handler (fn [request] (auth/redirect-to-google request))}}]
+   ["google/callback"
+    {:get {:summary "Handle Google OAuth callback"
+           :handler auth/handle-google-callback}}]
+   ["logout" {:get {:summary "Logout user" :handler auth/logout}}]]
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
    ;; Grape Varieties Routes
+   ["/chat"
+    {:post {:summary "Chat with AI about your wine collection"
+            :parameters {:body (s/keys :req-un [::message]
+                                       :opt-un [::wines
+                                                ::conversation-history])}
+            :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
+            :handler handlers/chat-with-ai}}]
    ["/grape-varieties"
     {:get {:summary "Get all grape varieties"
            :responses {200 {:body vector?} 500 {:body map?}}
@@ -171,7 +179,6 @@
      :delete {:summary "Delete grape variety"
               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
               :handler handlers/delete-grape-variety}}]
-   ;; Wine Classification Routes
    ["/classifications"
     {:get {:summary "Get all wine classifications"
            :responses {200 {:body vector?} 500 {:body map?}}
@@ -180,57 +187,51 @@
             :parameters {:body classification-schema}
             :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/create-classification}}]
-   ["/classifications/:id"
-    {:parameters {:path {:id int?}}
-     :get {:summary "Get classification by ID"
-           :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-           :handler handlers/get-classification}
-     :put {:summary "Update classification"
-           :parameters {:body classification-schema}
-           :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-           :handler handlers/update-classification}
-     :delete {:summary "Delete classification"
-              :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
-              :handler handlers/delete-classification}}]
-   ["/classifications/regions/:country"
-    {:parameters {:path {:country string?}}
-     :get {:summary "Get regions for a country"
-           :responses {200 {:body vector?} 500 {:body map?}}
-           :handler handlers/get-regions-by-country}}]
-   ["/classifications/aocs/:country/:region"
-    {:parameters {:path {:country string? :region string?}}
-     :get {:summary "Get AOCs for a region"
-           :responses {200 {:body vector?} 500 {:body map?}}
-           :handler handlers/get-aocs-by-region}}]
-   ;; Wine Routes
+   ["/classifications"
+    ["/regions/:country"
+     {:parameters {:path {:country string?}}
+      :get {:summary "Get regions for a country"
+            :responses {200 {:body vector?} 500 {:body map?}}
+            :handler handlers/get-regions-by-country}}]
+    ["/aocs/:country/:region"
+     {:parameters {:path {:country string? :region string?}}
+      :get {:summary "Get AOCs for a region"
+            :responses {200 {:body vector?} 500 {:body map?}}
+            :handler handlers/get-aocs-by-region}}]
+    ["/:id"
+     {:parameters {:path {:id int?}}
+      :get {:summary "Get classification by ID"
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/get-classification}
+      :put {:summary "Update classification"
+            :parameters {:body classification-schema}
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/update-classification}
+      :delete {:summary "Delete classification"
+               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+               :handler handlers/delete-classification}}]]
    ["/wines"
-    {:get {:summary "Get all wines"
-           :responses {200 {:body vector?} 500 {:body map?}}
-           :handler handlers/get-all-wines-with-latest-rating}
-     :post {:summary "Create a new wine"
+    {:post {:summary "Create a new wine"
             :parameters {:body wine-schema}
             :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/create-wine}}]
-   ["/wines/analyze-label"
-    {:post {:summary "Analyze wine label images with AI"
-            :parameters {:body (s/keys :req-un [::label_image]
-                                       :opt-un [::back_label_image])}
-            :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
-            :handler handlers/analyze-wine-label}}]
-   ["/wines/suggest-drinking-window"
-    {:post {:summary "Suggest optimal drinking window for a wine using AI"
-            :parameters {:body {:wine map?}}
-            :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
-            :handler handlers/suggest-drinking-window}}]
-   ["/chat"
-    {:post {:summary "Chat with AI about your wine collection"
-            :parameters {:body (s/keys :req-un [::message]
-                                       :opt-un [::wines
-                                                ::conversation-history])}
-            :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
-            :handler handlers/chat-with-ai}}]
-   ["/wines/by-id"
-    ["/:id"
+   ["/wines"
+    ["/list"
+     {:get {:summary "Get all wines for list view"
+            :responses {200 {:body vector?} 500 {:body map?}}
+            :handler handlers/get-wines-for-list}}]
+    ["/analyze-label"
+     {:post {:summary "Analyze wine label images with AI"
+             :parameters {:body (s/keys :req-un [::label_image]
+                                        :opt-un [::back_label_image])}
+             :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/analyze-wine-label}}]
+    ["/suggest-drinking-window"
+     {:post {:summary "Suggest optimal drinking window for a wine using AI"
+             :parameters {:body {:wine map?}}
+             :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/suggest-drinking-window}}]
+    ["/by-id/:id"
      {:parameters {:path {:id int?} :query (s/keys :opt-un [::include_images])}
       :get
       {:summary "Get wine by ID"
@@ -245,66 +246,62 @@
       :delete {:summary "Delete wine"
                :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
                :handler handlers/delete-wine}}]
-    ["/:id/varieties"
-     {:parameters {:path {:id int?}}
-      :get {:summary "Get grape varieties for a wine"
-            :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/get-wine-varieties}
-      :post
-      {:summary "Add grape variety to wine"
-       :parameters {:body ::wine_variety}
-       :responses
-       {201 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
-       :handler handlers/add-variety-to-wine}}]
-    ["/:id/varieties/:variety-id"
-     {:parameters {:path {:id int? :variety-id int?}}
-      :put
-      {:summary "Update grape variety percentage for wine"
-       :parameters {:body {:percentage ::percentage}}
-       :responses
-       {200 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
-       :handler handlers/update-wine-variety-percentage}
-      :delete {:summary "Remove grape variety from wine"
-               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
-               :handler handlers/remove-variety-from-wine}}]
-    ["/:id/adjust-quantity"
-     {:parameters {:path {:id int?}}
-      :post {:summary "Adjust wine quantity"
-             :parameters {:body {:adjustment int?}}
+    ["/by-id/:id" {:parameters {:path {:id int?}}}
+     ["/adjust-quantity"
+      {:post {:summary "Adjust wine quantity"
+              :parameters {:body {:adjustment int?}}
+              :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+              :handler handlers/adjust-quantity}}]
+     ["/image"
+      {:put {:summary "Upload wine label image"
+             :parameters {:body image-update-schema}
              :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-             :handler handlers/adjust-quantity}}]
-    ["/:id/image"
-     {:parameters {:path {:id int?}}
-      :put {:summary "Upload wine label image"
-            :parameters {:body image-update-schema}
-            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/update-wine}}]
-    ;; Tasting Notes Routes
-    ["/:id/tasting-notes"
-     {:parameters {:path {:id int?}}
-      :get {:summary "Get all tasting notes for a wine"
-            :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/get-tasting-notes-by-wine}
-      :post
-      {:summary "Create a tasting note for a wine"
-       :parameters {:body tasting-note-schema}
-       :responses
-       {201 {:body map?} 404 {:body map?} 400 {:body map?} 500 {:body map?}}
-       :handler handlers/create-tasting-note}}]
-    ["/:id/tasting-notes/:note-id"
-     {:parameters {:path {:id int? :note-id int?}}
-      :get {:summary "Get tasting note by ID"
-            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-            :handler handlers/get-tasting-note}
-      :put
-      {:summary "Update tasting note"
-       :parameters {:body tasting-note-schema}
-       :responses
-       {200 {:body map?} 404 {:body map?} 400 {:body map?} 500 {:body map?}}
-       :handler handlers/update-tasting-note}
-      :delete {:summary "Delete tasting note"
-               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
-               :handler handlers/delete-tasting-note}}]]]])
+             :handler handlers/update-wine}}]
+     ["/varieties"
+      {:get {:summary "Get grape varieties for a wine"
+             :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/get-wine-varieties}
+       :post
+       {:summary "Add grape variety to wine"
+        :parameters {:body ::wine_variety}
+        :responses
+        {201 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
+        :handler handlers/add-variety-to-wine}}]
+     ["/varieties/:variety-id"
+      {:parameters {:path {:variety-id int?}}
+       :put
+       {:summary "Update grape variety percentage for wine"
+        :parameters {:body {:percentage ::percentage}}
+        :responses
+        {200 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
+        :handler handlers/update-wine-variety-percentage}
+       :delete {:summary "Remove grape variety from wine"
+                :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+                :handler handlers/remove-variety-from-wine}}]
+     ["/tasting-notes"
+      {:get {:summary "Get all tasting notes for a wine"
+             :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/get-tasting-notes-by-wine}
+       :post
+       {:summary "Create a tasting note for a wine"
+        :parameters {:body tasting-note-schema}
+        :responses
+        {201 {:body map?} 404 {:body map?} 400 {:body map?} 500 {:body map?}}
+        :handler handlers/create-tasting-note}}]
+     ["/tasting-notes/:note-id"
+      {:parameters {:path {:note-id int?}}
+       :get {:summary "Get tasting note by ID"
+             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/get-tasting-note}
+       :put
+       {:summary "Update tasting note"
+        :parameters {:body tasting-note-schema}
+        :responses
+        {200 {:body map?} 404 {:body map?} 400 {:body map?} 500 {:body map?}}
+        :handler handlers/update-tasting-note}
+       :delete {:summary "Delete tasting note"
+                :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+                :handler handlers/delete-tasting-note}}]]]]])
 
 (defn coercion-error-handler
   [status]

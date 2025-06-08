@@ -71,10 +71,9 @@
          (response/response aocs))
        (catch Exception e (server-error e))))
 
-(defn get-all-wines-with-latest-rating
+(defn get-wines-for-list
   [_]
-  (try (let [wines (db-api/get-wines-with-latest-rating)]
-         (response/response wines))
+  (try (let [wines (db-api/get-wines-for-list)] (response/response wines))
        (catch Exception e (server-error e))))
 
 (defn get-wine

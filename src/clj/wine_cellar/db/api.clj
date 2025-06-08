@@ -81,7 +81,7 @@
    :drink_until_year :alcohol_percentage :label_thumbnail :created_at
    :updated_at :purchase_date :latest_rating :varieties])
 
-(defn get-wines-with-latest-rating
+(defn get-wines-for-list
   []
   (let [wines (jdbc/execute! ds
                              ;; Listing columns explicitly since the only
