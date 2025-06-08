@@ -68,12 +68,11 @@
                      [:and [:= :is_external false] [:not= :tasting_date nil]]]]]
                   [[:foreign-key :wine_id] :references [:entity :wines]
                    [:nest :id] :on-delete :cascade]]})
-
 #_(sql/format tasting-notes-table-schema)
 
 ;; View schemas
-(def wines-with-ratings-view-schema
-  {:create-or-replace-view [:wines-with-ratings]
+(def wines-with-latest-rating-view-schema
+  {:create-or-replace-view [:wines-with-latest-rating]
    :select [:w.*
             [{:select :tn.rating
               :from [[:tasting_notes :tn]]
@@ -81,7 +80,29 @@
               :order-by [[:tn.tasting_date :desc]]
               :limit [:inline 1]} :latest_rating]]
    :from [[:wines :w]]})
-#_(sql/format wines-with-ratings-view-schema)
+#_(sql/format wines-with-latest-rating-view-schema)
+
+;; View that includes wines with varieties and latest rating
+(def wines-with-varieties-and-latest-rating-view-schema
+  {:create-or-replace-view [:wines-with-varieties-and-latest-rating]
+   :select [:w.*
+            [{:select :tn.rating
+              :from [[:tasting_notes :tn]]
+              :where [:= :tn.wine_id :w.id]
+              :order-by [[:tn.tasting_date :desc]]
+              :limit [:inline 1]} :latest_rating]
+            [{:select [[[:coalesce
+                         [:json_agg
+                          [:inline
+                           [:json_build_object [:inline "id"] :gv.id
+                            [:inline "name"] :gv.name [:inline "percentage"]
+                            :wgv.percentage] [:raw "ORDER BY"] :gv.name]]
+                         [:inline "[]"]]]]
+              :from [[:wine_grape_varieties :wgv]]
+              :join [[:grape_varieties :gv] [:= :wgv.variety_id :gv.id]]
+              :where [:= :wgv.wine_id :w.id]} :varieties]]
+   :from [[:wines :w]]})
+#_(sql/format wines-with-varieties-and-latest-rating-view-schema)
 
 ;; Grape varieties tables
 (def grape-varieties-table-schema

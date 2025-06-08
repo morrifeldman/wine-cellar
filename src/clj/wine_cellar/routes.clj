@@ -206,7 +206,7 @@
    ["/wines"
     {:get {:summary "Get all wines"
            :responses {200 {:body vector?} 500 {:body map?}}
-           :handler handlers/get-all-wines-with-ratings}
+           :handler handlers/get-all-wines-with-latest-rating}
      :post {:summary "Create a new wine"
             :parameters {:body wine-schema}
             :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
