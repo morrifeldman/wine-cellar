@@ -50,9 +50,11 @@
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/tasting-notes-table-schema)
-   (sql-execute-helper tx schema/wines-with-ratings-view-schema)
    (sql-execute-helper tx schema/grape-varieties-table-schema)
-   (sql-execute-helper tx schema/wine-grape-varieties-table-schema)))
+   (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
+   (sql-execute-helper
+    tx
+    schema/wines-with-varieties-and-latest-rating-view-schema)))
 
 (defn initialize-db [] (ensure-tables) (seed-classifications-if-needed!))
 
@@ -61,9 +63,6 @@
 (defn- drop-tables
   ([] (jdbc/with-transaction [tx ds] (drop-tables tx)))
   ([tx]
-   (sql-execute-helper tx
-                       {:raw
-                        ["DROP VIEW IF EXISTS wines_with_ratings CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS tasting_notes CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS wines CASCADE"]})
    (sql-execute-helper tx

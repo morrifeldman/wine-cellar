@@ -1,6 +1,6 @@
 (ns wine-cellar.views.wines.filters
   (:require [wine-cellar.utils.formatting :refer
-             [unique-countries regions-for-country]]
+             [unique-countries regions-for-country unique-varieties]]
             [wine-cellar.common :as common]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.text-field :refer [text-field]]
@@ -56,6 +56,7 @@
                       :country nil
                       :region nil
                       :style nil
+                      :variety nil
                       :tasting-window nil})} "Clear Filters"]]]
      [collapse {:in (:show-filters? @app-state) :timeout "auto"}
       [grid {:container true :spacing 3}
@@ -119,6 +120,21 @@
           [menu-item {:value ""} "All Styles"]
           (for [style common/wine-styles]
             ^{:key style} [menu-item {:value style} style])]]]
+       ;; Variety dropdown
+       [grid {:item true :xs 12 :md 2}
+        [form-control
+         {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
+         [input-label "Variety"]
+         [select
+          {:value (or (:variety filters) "")
+           :label "Variety"
+           :onChange #(swap! app-state assoc-in
+                        [:filters :variety]
+                        (let [v (.. % -target -value)]
+                          (when-not (empty? v) v)))}
+          [menu-item {:value ""} "All Varieties"]
+          (for [variety (unique-varieties (:wines @app-state))]
+            ^{:key variety} [menu-item {:value variety} variety])]]]
        ;; Tasting Window dropdown - increased width
        [grid {:item true :xs 12 :md 2}
         [form-control

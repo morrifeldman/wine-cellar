@@ -86,6 +86,17 @@
        distinct
        sort))
 
+(defn unique-varieties
+  "Returns a sorted list of unique variety names from the wines collection"
+  [wines]
+  (->> wines
+       (mapcat :varieties)
+       (map :name)
+       (remove nil?)
+       (remove str/blank?)
+       distinct
+       sort))
+
 (defn valid-name-producer?
   [wine]
   (or (not (str/blank? (:name wine))) (not (str/blank? (:producer wine)))))

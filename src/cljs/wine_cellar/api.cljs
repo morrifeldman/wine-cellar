@@ -125,7 +125,7 @@
   [app-state]
   (swap! app-state assoc :loading? true)
   (js/console.log "Fetching wines...")
-  (go (let [result (<! (GET "/api/wines" "Failed to fetch wines"))]
+  (go (let [result (<! (GET "/api/wines/list" "Failed to fetch wines"))]
         (if (:success result)
           (do (js/console.log "Success! Wines count:" (count (:data result)))
               (swap! app-state assoc

@@ -75,30 +75,33 @@
                      (sql/format {:select :id :from :wines :where [:= :id id]})
                      db-opts))
 
-(def fields-for-card
+(def wine-list-fields
   [:id :producer :country :region :aoc :classification :vineyard :level :name
    :vintage :style :location :purveyor :quantity :price :drink_from_year
    :drink_until_year :alcohol_percentage :label_thumbnail :created_at
-   :updated_at :purchase_date :latest_rating])
+   :updated_at :purchase_date :latest_rating :varieties])
 
-(defn get-wines-with-ratings
+(defn get-wines-for-list
   []
   (let [wines (jdbc/execute! ds
                              ;; Listing columns explicitly since the only
                              ;; image we are getting is the label_thumbnail
-                             (sql/format {:select fields-for-card
-                                          :from :wines_with_ratings
-                                          :order-by [[:created_at :desc]]})
+                             (sql/format
+                              {:select wine-list-fields
+                               :from :wines_with_varieties_and_latest_rating
+                               :order-by [[:created_at :desc]]})
                              db-opts)]
+    ;; The :varieties JSON will be automatically parsed by our PgObject
+    ;; extension
     (mapv db-wine->wine wines)))
 
 (defn get-wine
   [id include-images?]
   (-> (jdbc/execute-one! ds
-                         (sql/format {:select
-                                      (if include-images? :* fields-for-card)
-                                      :from :wines_with_ratings
-                                      :where [:= :id id]})
+                         (sql/format
+                          {:select (if include-images? :* wine-list-fields)
+                           :from :wines_with_varieties_and_latest_rating
+                           :where [:= :id id]})
                          db-opts)
       db-wine->wine))
 
