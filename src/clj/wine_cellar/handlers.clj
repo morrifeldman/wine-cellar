@@ -308,3 +308,24 @@
                         :database "connected"
                         :timestamp (str (java.time.Instant/now))})
     (catch Exception e (server-error e))))
+
+;; Chat Handlers
+
+(defn chat-with-ai
+  [request]
+  (try (let [{:keys [message wines conversation-history]} (-> request
+                                                              :parameters
+                                                              :body)]
+         (if (empty? message)
+           {:status 400 :body {:error "Message is required"}}
+           (let [response (anthropic/chat-about-wines message
+                                                      wines
+                                                      conversation-history)]
+             (response/response response))))
+       (catch clojure.lang.ExceptionInfo e
+         (let [data (ex-data e)]
+           {:status 500
+            :body {:error "AI chat failed"
+                   :details (.getMessage e)
+                   :response (:response data)}}))
+       (catch Exception e (server-error e))))

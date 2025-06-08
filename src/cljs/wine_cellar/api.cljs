@@ -421,3 +421,19 @@
             :wine-varieties
             #(remove (fn [v] (= (:variety_id v) variety-id)) %))
           (swap! app-state assoc :error (:error result))))))
+
+;; Chat endpoints
+
+(defn send-chat-message
+  "Send a message to the AI chat endpoint with wine context and conversation history"
+  [message wines conversation-history callback]
+  (go
+   (let [result (<! (POST "/api/chat"
+                          {:message message
+                           :wines wines
+                           :conversation-history conversation-history}
+                          "Failed to send chat message"))]
+     (if (:success result)
+       (callback (:data result))
+       (callback
+        "Sorry, I'm having trouble connecting right now. Please try again later.")))))
