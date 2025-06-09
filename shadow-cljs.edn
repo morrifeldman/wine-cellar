@@ -16,6 +16,9 @@
                 :devtools {:preloads [portal.shadow.preload]
                            :reload-strategy :full}
                 :modules {:main {:init-fn wine-cellar.core/init}}
-                :js-options {:anon-fn-naming-policy :unmapped}}}}
+                :js-options {:anon-fn-naming-policy :unmapped}
+                :compiler-options {:closure-defines {"goog.DEBUG" true}
+                                   :output-feature-set :es6}
+                :dev {:compiler-options {:closure-defines {"process.env.NODE_ENV" "development"}}}}}}
 ;; npm install
 ;; npx shadow-cljs watch app

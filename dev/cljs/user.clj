@@ -1,9 +1,6 @@
 (ns user
   (:require [portal.api :as p]))
 
-(defonce portal (p/open))
-(add-tap #'p/submit)
-
 ;; Helper functions for portal
 
 ;; Helper functions for portal
@@ -12,6 +9,8 @@
 (defn close-portal [] (p/close))
 
 (comment
+  (defonce portal (p/open))
+  (add-tap #'p/submit)
   ;; Example usage:
   (tap> {:hello "world"})
   (tap> (range 10))

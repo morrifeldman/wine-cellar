@@ -47,27 +47,32 @@
 (defn chat-input
   "Chat input field with send button"
   [message on-send disabled?]
-  [box {:sx {:display "flex" :gap 1 :mt 2}}
-   [text-field
-    {:value @message
-     :on-change #(reset! message (.. % -target -value))
-     :placeholder "Ask me about your wines..."
-     :variant "outlined"
-     :size "small"
-     :disabled @disabled?
-     :sx {:flex-grow 1}
-     :multiline true
-     :max-rows 3
-     :on-key-press #(when (and (= (.-key %) "Enter")
-                               (not (.-shiftKey %))
-                               (not @disabled?)
-                               (not (empty? (str @message))))
-                      (.preventDefault %)
-                      (on-send))}]
-   [button
-    {:variant "contained"
-     :disabled (or @disabled? (empty? (str @message)))
-     :on-click on-send} "Send"]])
+  (r/with-let [local-value (r/atom @message)]
+              [box {:sx {:display "flex" :gap 1 :mt 2}}
+               [text-field
+                {:value @local-value
+                 :on-change #(reset! local-value (.. % -target -value))
+                 :placeholder "Ask me about your wines..."
+                 :variant "outlined"
+                 :size "small"
+                 :disabled @disabled?
+                 :sx {:flex-grow 1}
+                 :multiline true
+                 :max-rows 3
+                 :on-key-press #(when (and (= (.-key %) "Enter")
+                                           (not (.-shiftKey %))
+                                           (not @disabled?)
+                                           (seq (str @local-value)))
+                                  (.preventDefault %)
+                                  (reset! message @local-value)
+                                  (on-send)
+                                  (reset! local-value ""))}]
+               [button
+                {:variant "contained"
+                 :disabled (or @disabled? (empty? (str @local-value)))
+                 :on-click #(do (reset! message @local-value)
+                                (on-send)
+                                (reset! local-value ""))} "Send"]]))
 
 (defn chat-messages
   "Scrollable container for chat messages"

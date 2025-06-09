@@ -6,9 +6,6 @@
 
 (tnsrepl/disable-reload!)
 
-(defonce portal (p/open))
-(add-tap #'p/submit)
-
 ;; Start the web server automatically when REPL loads
 (defonce start-server (mount/start))
 
@@ -25,6 +22,8 @@
 (defn close-portal [] (p/close))
 
 (comment
+  (defonce portal (p/open))
+  (add-tap #'p/submit)
   ;; Example usage:
   (tap> {:hello "world"})
   (tap> (range 10))
