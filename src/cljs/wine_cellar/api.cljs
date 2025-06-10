@@ -425,12 +425,13 @@
 ;; Chat endpoints
 
 (defn send-chat-message
-  "Send a message to the AI chat endpoint with wine context and conversation history"
+  "Send a message to the AI chat endpoint with wine IDs and conversation history"
   [message wines conversation-history callback]
   (go
-   (let [result (<! (POST "/api/chat"
+   (let [wine-ids (mapv :id wines)
+         result (<! (POST "/api/chat"
                           {:message message
-                           :wines wines
+                           :wine-ids wine-ids
                            :conversation-history conversation-history}
                           "Failed to send chat message"))]
      (if (:success result)

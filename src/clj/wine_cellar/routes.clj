@@ -56,6 +56,7 @@
 (s/def ::wine_varieties (s/coll-of ::wine_variety))
 (s/def ::message string?)
 (s/def ::wines vector?)
+(s/def ::wine-ids (s/coll-of int?))
 (s/def ::conversation-history vector?)
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
@@ -155,7 +156,7 @@
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"
             :parameters {:body (s/keys :req-un [::message]
-                                       :opt-un [::wines
+                                       :opt-un [::wine-ids
                                                 ::conversation-history])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]

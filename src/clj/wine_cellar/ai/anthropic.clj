@@ -173,6 +173,7 @@
 (defn- create-wine-context
   "Creates a context string from the user's wine collection including tasting notes"
   [wines]
+  (tap> ["create-wine-context-wines" wines])
   (if (empty? wines)
     "The user has no wines in their collection yet."
     (let [wine-count (count wines)
@@ -190,7 +191,7 @@
                               ", " (:region wine)
                               ")" (when (:quantity wine)
                                     (str " - " (:quantity wine) " bottles")))
-                         tasting-notes (:tasting-notes wine)
+                         tasting-notes (:tasting_notes wine)
                          notes-summary (when (seq tasting-notes)
                                          (str "\n  Tasting notes: "
                                               (str/join
@@ -208,6 +209,7 @@
                        " wines in their collection:\n"
                        (str/join "\n" wine-summaries)
                        (when (> wine-count 50) "\n... and more wines"))]
+      (tap> ["wine cellar summary" summary])
       summary)))
 
 (defn- create-conversation-context
@@ -250,6 +252,7 @@
 (defn chat-about-wines
   "Chat with AI about wine collection and wine-related topics with conversation history"
   [message wines conversation-history]
+  (tap> ["chat-about-wines" wines])
   (let [prompt (create-chat-prompt message wines conversation-history)
         content [{:type "text" :text prompt}]]
     (tap> ["chat-prompt" prompt])

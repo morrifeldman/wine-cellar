@@ -86,10 +86,9 @@
   (let [wines (jdbc/execute! ds
                              ;; Listing columns explicitly since the only
                              ;; image we are getting is the label_thumbnail
-                             (sql/format
-                              {:select wine-list-fields
-                               :from :wines_with_varieties_and_latest_rating
-                               :order-by [[:created_at :desc]]})
+                             (sql/format {:select wine-list-fields
+                                          :from :enriched_wines
+                                          :order-by [[:created_at :desc]]})
                              db-opts)]
     ;; The :varieties JSON will be automatically parsed by our PgObject
     ;; extension
@@ -98,12 +97,24 @@
 (defn get-wine
   [id include-images?]
   (-> (jdbc/execute-one! ds
-                         (sql/format
-                          {:select (if include-images? :* wine-list-fields)
-                           :from :wines_with_varieties_and_latest_rating
-                           :where [:= :id id]})
+                         (sql/format {:select
+                                      (if include-images? :* wine-list-fields)
+                                      :from :enriched_wines
+                                      :where [:= :id id]})
                          db-opts)
       db-wine->wine))
+
+(defn get-enriched-wines-by-ids
+  "Get enriched wines with full tasting notes for AI chat context"
+  [wine-ids]
+  (when (seq wine-ids)
+    (let [wines (jdbc/execute! ds
+                               (sql/format {:select [:*]
+                                            :from :enriched_wines
+                                            :where [:in :id wine-ids]
+                                            :order-by [[:created_at :desc]]})
+                               db-opts)]
+      (mapv db-wine->wine wines))))
 
 (defn update-wine!
   [id wine]

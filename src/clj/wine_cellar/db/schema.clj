@@ -71,8 +71,8 @@
 #_(sql/format tasting-notes-table-schema)
 
 ;; View schemas
-(def wines-with-varieties-and-latest-rating-view-schema
-  {:create-or-replace-view [:wines-with-varieties-and-latest-rating]
+(def enriched-wines-view-schema
+  {:create-or-replace-view [:enriched-wines]
    :select [:w.*
             [{:select :tn.rating
               :from [[:tasting_notes :tn]]
@@ -88,9 +88,20 @@
                          [:inline "[]"]]]]
               :from [[:wine_grape_varieties :wgv]]
               :join [[:grape_varieties :gv] [:= :wgv.variety_id :gv.id]]
-              :where [:= :wgv.wine_id :w.id]} :varieties]]
+              :where [:= :wgv.wine_id :w.id]} :varieties]
+            [{:select [[[:coalesce
+                         [:json_agg
+                          [:inline
+                           [:json_build_object [:inline "id"] :tn.id
+                            [:inline "notes"] :tn.notes [:inline "rating"]
+                            :tn.rating [:inline "tasting_date"] :tn.tasting_date
+                            [:inline "is_external"] :tn.is_external
+                            [:inline "source"] :tn.source] [:raw "ORDER BY"]
+                           :tn.tasting_date [:raw "DESC"]]] [:inline "[]"]]]]
+              :from [[:tasting_notes :tn]]
+              :where [:= :tn.wine_id :w.id]} :tasting_notes]]
    :from [[:wines :w]]})
-#_(sql/format wines-with-varieties-and-latest-rating-view-schema)
+#_(sql/format enriched-wines-view-schema)
 
 ;; Grape varieties tables
 (def grape-varieties-table-schema
