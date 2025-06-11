@@ -289,7 +289,11 @@
   [{{:keys [wine]} :body-params}]
   (try (if (nil? wine)
          {:status 400 :body {:error "Wine details are required"}}
-         (let [result (anthropic/suggest-drinking-window wine)]
+         (let [enriched-wine (if (:id wine)
+                               (first (db-api/get-enriched-wines-by-ids
+                                       [(:id wine)]))
+                               wine)
+               result (anthropic/suggest-drinking-window enriched-wine)]
            (response/response result)))
        (catch clojure.lang.ExceptionInfo e
          (let [data (ex-data e)]

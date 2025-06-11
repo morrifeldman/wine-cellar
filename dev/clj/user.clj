@@ -22,7 +22,7 @@
 (defn close-portal [] (p/close))
 
 (comment
-  (defonce portal (p/open))
+  (p/open)
   (add-tap #'p/submit)
   ;; Example usage:
   (tap> {:hello "world"})

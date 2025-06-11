@@ -104,12 +104,14 @@
                          db-opts)
       db-wine->wine))
 
+(def enriched-wine-fields-for-ai (conj wine-list-fields :tasting_notes))
+
 (defn get-enriched-wines-by-ids
-  "Get enriched wines with full tasting notes for AI chat context"
+  "Get enriched wines with full tasting notes for AI chat context (no images)"
   [wine-ids]
   (when (seq wine-ids)
     (let [wines (jdbc/execute! ds
-                               (sql/format {:select [:*]
+                               (sql/format {:select enriched-wine-fields-for-ai
                                             :from :enriched_wines
                                             :where [:in :id wine-ids]
                                             :order-by [[:created_at :desc]]})

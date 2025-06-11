@@ -51,27 +51,63 @@
      "Do not nest the result in a markdown code block. "
      "Do not include any explanatory text outside the JSON object.")))
 
+(defn- format-wine-summary
+  "Creates a formatted summary of a single wine including tasting notes and varieties"
+  [wine &
+   {:keys [include-quantity? bullet-prefix]
+    :or {include-quantity? true bullet-prefix "- "}}]
+  (tap> ["format-wine-summary" wine])
+  (let [basic-info (str bullet-prefix
+                        (:producer wine)
+                        (when (:name wine) (str " " (:name wine)))
+                        (when (:vintage wine) (str " " (:vintage wine)))
+                        " (" (:style wine)
+                        ", " (:country wine)
+                        ", " (:region wine)
+                        ")" (when (and include-quantity? (:quantity wine))
+                              (str " - " (:quantity wine) " bottles")))
+        classification-info
+        (str/join ""
+                  [(when (:aoc wine) (str "\n  AOC/AVA: " (:aoc wine)))
+                   (when (:vineyard wine)
+                     (str "\n  Vineyard: " (:vineyard wine)))
+                   (when (:classification wine)
+                     (str "\n  Classification: " (:classification wine)))
+                   (when (:level wine) (str "\n  Level: " (:level wine)))])
+        varieties (:varieties wine)
+        varieties-summary
+        (when (seq varieties)
+          (str "\n  Varieties: "
+               (str/join ", "
+                         (map (fn [v]
+                                (if (:percentage v)
+                                  (str (:name v) " (" (:percentage v) "%)")
+                                  (:name v)))
+                              varieties))))
+        tasting-notes (:tasting_notes wine)
+        notes-summary (when (seq tasting-notes)
+                        (str "\n  Tasting notes: "
+                             (str/join "; "
+                                       (map (fn [note]
+                                              (str (when (:rating note)
+                                                     (str (:rating note)
+                                                          "/100 - "))
+                                                   (:notes note)))
+                                            (take 3 tasting-notes)))))]
+    (str basic-info classification-info varieties-summary notes-summary)))
+
 (defn- create-drinking-window-prompt
   "Creates a prompt for suggesting a drinking window for a wine"
   [wine]
-  (let [{:keys [producer name vintage country region style classification
-                vineyard aoc level]}
-        wine
-        current-year (.getValue (java.time.Year/now))]
+  (let [current-year (.getValue (java.time.Year/now))
+        wine-summary
+        (format-wine-summary wine :include-quantity? false :bullet-prefix "")]
     (str
      "You are a wine expert tasked with suggesting an optimal drinking window for a wine. "
-     "Based on the following characteristics, suggest when this wine will be ready to drink and when it might be past its prime.\n\n"
+     "Based on the following characteristics including tasting notes and grape varieties, "
+     "suggest when this wine will be ready to drink and when it might be past its prime.\n\n"
      "Wine details:\n"
-     (when producer (str "- Producer: " producer "\n"))
-     (when name (str "- Name: " name "\n"))
-     (when vintage (str "- Vintage: " vintage "\n"))
-     (when country (str "- Country: " country "\n"))
-     (when region (str "- Region: " region "\n"))
-     (when aoc (str "- AOC/AVA: " aoc "\n"))
-     (when vineyard (str "- Vineyard: " vineyard "\n"))
-     (when style (str "- Style: " style "\n"))
-     (when classification (str "- Classification: " classification "\n"))
-     (when level (str "- Level: " level "\n"))
+     wine-summary
      "\n"
      "The current year is " current-year
      ".\n\n" "Return your response in JSON format with the following fields:\n"
@@ -177,33 +213,8 @@
   (if (empty? wines)
     "The user has no wines in their collection yet."
     (let [wine-count (count wines)
-          wine-summaries
-          (take 50 ; Limit to avoid overwhelming the context
-                (map
-                 (fn [wine]
-                   (let [basic-info
-                         (str "- "
-                              (:producer wine)
-                              (when (:name wine) (str " " (:name wine)))
-                              (when (:vintage wine) (str " " (:vintage wine)))
-                              " (" (:style wine)
-                              ", " (:country wine)
-                              ", " (:region wine)
-                              ")" (when (:quantity wine)
-                                    (str " - " (:quantity wine) " bottles")))
-                         tasting-notes (:tasting_notes wine)
-                         notes-summary (when (seq tasting-notes)
-                                         (str "\n  Tasting notes: "
-                                              (str/join
-                                               "; "
-                                               (map (fn [note]
-                                                      (str (when (:rating note)
-                                                             (str (:rating note)
-                                                                  "/100 - "))
-                                                           (:notes note)))
-                                                    (take 3 tasting-notes)))))]
-                     (str basic-info notes-summary)))
-                 wines))
+          wine-summaries (take 50 ; Limit to avoid overwhelming the context
+                               (map format-wine-summary wines))
           summary (str "The user has "
                        wine-count
                        " wines in their collection:\n"
