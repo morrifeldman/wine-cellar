@@ -8,6 +8,7 @@
             [reagent-mui.material.menu-item :refer [menu-item]]
             [reagent-mui.material.form-control :refer [form-control]]
             [reagent-mui.material.input-label :refer [input-label]]
+            [reagent-mui.material.slider :refer [slider]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
@@ -57,6 +58,7 @@
                       :region nil
                       :style nil
                       :variety nil
+                      :price-range nil
                       :tasting-window nil})} "Clear Filters"]]]
      [collapse {:in (:show-filters? @app-state) :timeout "auto"}
       [grid {:container true :spacing 3}
@@ -135,6 +137,25 @@
           [menu-item {:value ""} "All Varieties"]
           (for [variety (unique-varieties (:wines @app-state))]
             ^{:key variety} [menu-item {:value variety} variety])]]]
+       ;; Price Range Slider
+       [grid {:item true :xs 12 :md 2}
+        [box {:sx {:px 2}}
+         [typography {:variant "subtitle2" :sx {:mb 1}} "Price Range"]
+         [slider
+          {:range true
+           :value (or (:price-range filters) [0 100])
+           :min 0
+           :max 100
+           :step 1
+           :marks [{:value 0 :label "$0"} {:value 50 :label "$50"}
+                   {:value 100 :label "$100"}]
+           :valueLabelDisplay "auto"
+           :valueLabelFormat #(str "$" %)
+           :size "small"
+           :onChange #(let [new-range (vec %2)]
+                        (swap! app-state assoc-in
+                          [:filters :price-range]
+                          (when-not (= new-range [0 100]) new-range)))}]]]
        ;; Tasting Window dropdown - increased width
        [grid {:item true :xs 12 :md 2}
         [form-control

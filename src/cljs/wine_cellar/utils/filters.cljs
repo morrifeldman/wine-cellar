@@ -27,6 +27,13 @@
   [wine variety]
   (or (nil? variety) (some #(= variety (:name %)) (:varieties wine))))
 
+(defn matches-price-range?
+  [wine price-range]
+  (or (nil? price-range)
+      (let [price (:price wine)
+            [min-price max-price] price-range]
+        (and price (>= price min-price) (<= price max-price)))))
+
 (defn apply-sorting
   [wines field direction]
   (if field
@@ -50,7 +57,7 @@
 (defn filtered-sorted-wines
   [app-state]
   (let [wines (:wines @app-state)
-        {:keys [search country region style tasting-window variety]}
+        {:keys [search country region style tasting-window variety price-range]}
         (:filters @app-state)
         {:keys [field direction]} (:sort @app-state)
         show-out-of-stock? (:show-out-of-stock? @app-state)]
@@ -63,6 +70,7 @@
       (filter #(matches-region? % region) w)
       (filter #(matches-style? % style) w)
       (filter #(matches-variety? % variety) w)
+      (filter #(matches-price-range? % price-range) w)
       (filter #(matches-tasting-window? % tasting-window) w)
       ;; Apply sorting
       (apply-sorting w field direction))))
