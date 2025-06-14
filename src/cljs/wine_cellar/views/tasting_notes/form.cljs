@@ -1,5 +1,6 @@
 (ns wine-cellar.views.tasting-notes.form
-  (:require [reagent-mui.material.box :refer [box]]
+  (:require [reagent.core :as r]
+            [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.api :as api]

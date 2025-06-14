@@ -66,8 +66,6 @@
              (not= (:show-wine-form? old-state) (:show-wine-form? new-state)))
      (update-url-from-state new-state))))
 
-(add-watch app-state :tap (fn [_ _ _ new-state] (tap> new-state)))
-
 (defonce root (atom nil))
 
 (defn init

@@ -142,7 +142,7 @@
         [box {:sx {:px 2}}
          [typography {:variant "subtitle2" :sx {:mb 1}} "Price Range"]
          [slider
-          {:range true
+          {:range "true"
            :value (or (:price-range filters) [0 100])
            :min 0
            :max 100

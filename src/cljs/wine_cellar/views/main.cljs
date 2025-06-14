@@ -53,7 +53,8 @@
                 "Hide Debug Controls"
                 "Show Debug Controls")]
              [menu-item
-              {:on-click (fn [] (reset! anchor-el nil) (pd/toggle-debugging!))}
+              {:on-click
+               (fn [] (reset! anchor-el nil) (pd/toggle-debugging! app-state))}
               (if (:active? @pd/debug-state)
                 "Stop Portal Debugging"
                 "Start Portal Debugging")]] [logout]])))

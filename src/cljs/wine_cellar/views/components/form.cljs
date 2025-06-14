@@ -157,22 +157,30 @@
     :onChange #(when on-change (on-change (.. % -target -value)))}])
 
 (defn text-area-field
-  "A multi-line text field with consistent styling"
+  "A multi-line text field with consistent styling and local atom optimization"
   [{:keys [label value on-change required rows helper-text error]}]
-  [mui-text-field/text-field
-   {:label label
-    :multiline true
-    :rows (or rows 3) ;; Reduced from 4
-    :required required
-    :fullWidth true
-    :value value
-    :error error
-    :helperText helper-text
-    :size "small" ;; Added small size
-    :margin "dense" ;; Added dense margin
-    :sx form-field-style
-    :variant "outlined"
-    :onChange #(on-change (.. % -target -value))}])
+  (r/with-let [local-value (r/atom (or value ""))]
+              ;; Sync external value changes to local atom
+              (when (not= @local-value (or value ""))
+                (reset! local-value (or value "")))
+              (tap> ["local-value" local-value])
+              [mui-text-field/text-field
+               {:label label
+                :multiline true
+                :rows (or rows 3) ;; Reduced from 4
+                :required required
+                :fullWidth true
+                :value @local-value
+                :error error
+                :helperText helper-text
+                :size "small" ;; Added small size
+                :margin "dense" ;; Added dense margin
+                :sx form-field-style
+                :variant "outlined"
+                :onChange #(let [new-value (.. % -target -value)]
+                             (reset! local-value new-value)
+                             (when on-change (on-change new-value)))
+                :onBlur #(when on-change (on-change @local-value))}]))
 
 (defn number-field
   "A specialized input for numeric values with min/max/step"
