@@ -7,7 +7,8 @@
             [wine-cellar.utils.vintage :as vintage]
             [wine-cellar.views.components.form :refer
              [checkbox-field date-field form-actions form-container form-divider
-              form-row number-field text-area-field text-field year-field]]))
+              form-row number-field select-field text-area-field text-field
+              year-field]]))
 
 ;; TODO -- add type for external tasting notes
 (defn tasting-note-form
@@ -109,11 +110,13 @@
        ;; Source field (only shown for external notes)
        (when is-external
          [form-row
-          [text-field
+          [select-field
            {:label "Source"
             :required true
             :value (:source updated-note)
-            :helper-text "e.g., Decanter, Wine Spectator, Vivino"
+            :options (or (:tasting-note-sources @app-state) [])
+            :free-solo true
+            :helper-text "Choose from existing sources or type a new one"
             :on-change
             #(swap! app-state assoc-in [:new-tasting-note :source] %)}]])
        ;; Date input (required only for personal notes)

@@ -172,6 +172,12 @@
          (response/not-found {:error "Tasting note not found"}))
        (catch Exception e (server-error e))))
 
+(defn get-tasting-note-sources
+  [_]
+  (try (let [sources (db-api/get-tasting-note-sources)]
+         (response/response sources))
+       (catch Exception e (server-error e))))
+
 ;; Grape Varieties Handlers
 (defn get-grape-varieties
   [_]

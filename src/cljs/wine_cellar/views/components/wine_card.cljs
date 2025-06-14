@@ -17,7 +17,8 @@
   (swap! app-state assoc :new-tasting-note {})
   (api/fetch-tasting-notes app-state (:id wine))
   (api/fetch-wine-details app-state (:id wine))
-  (api/fetch-wine-varieties app-state (:id wine)))
+  (api/fetch-wine-varieties app-state (:id wine))
+  (api/fetch-tasting-note-sources app-state))
 
 ;; Utility functions
 (defn get-rating-color

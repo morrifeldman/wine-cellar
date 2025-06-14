@@ -55,9 +55,10 @@
 (s/def ::wine_variety (s/keys :req-un [::variety_id] :opt-un [::percentage]))
 (s/def ::wine_varieties (s/coll-of ::wine_variety))
 (s/def ::message string?)
-(s/def ::wines vector?)
 (s/def ::wine-ids (s/coll-of int?))
 (s/def ::conversation-history vector?)
+(s/def ::tasting-source string?)
+(s/def ::tasting-sources (s/coll-of ::tasting-source))
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
@@ -146,10 +147,10 @@
    ["/google"
     {:get {:summary "Redirect to Google for authentication"
            :handler (fn [request] (auth/redirect-to-google request))}}]
-   ["google/callback"
+   ["/google/callback"
     {:get {:summary "Handle Google OAuth callback"
            :handler auth/handle-google-callback}}]
-   ["logout" {:get {:summary "Logout user" :handler auth/logout}}]]
+   ["/logout" {:get {:summary "Logout user" :handler auth/logout}}]]
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
    ;; Grape Varieties Routes
@@ -160,6 +161,10 @@
                                                 ::conversation-history])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
+   ["/tasting-note-sources"
+    {:get {:summary "Get unique tasting note sources for suggestions"
+           :responses {200 {:body ::tasting-sources} 500 {:body map?}}
+           :handler handlers/get-tasting-note-sources}}]
    ["/grape-varieties"
     {:get {:summary "Get all grape varieties"
            :responses {200 {:body vector?} 500 {:body map?}}

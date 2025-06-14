@@ -241,6 +241,15 @@
             #(remove (fn [note] (= (:id note) note-id)) %))
           (swap! app-state assoc :error (:error result))))))
 
+(defn fetch-tasting-note-sources
+  [app-state]
+  (go (let [result (<! (GET "/api/tasting-note-sources"
+                            "Failed to fetch tasting note sources"))]
+        (if (:success result)
+          (swap! app-state assoc :tasting-note-sources (:data result))
+          (js/console.error "Failed to fetch tasting note sources:"
+                            (:error result))))))
+
 (defn adjust-wine-quantity
   [app-state wine-id adjustment]
   (go (let [result (<! (POST

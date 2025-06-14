@@ -279,6 +279,19 @@
                                   :where [:= :id id]})
                      db-opts))
 
+(defn get-tasting-note-sources
+  "Returns a list of unique source names from external tasting notes"
+  []
+  (->> (jdbc/execute! ds
+                      (sql/format {:select-distinct [:source]
+                                   :from :tasting_notes
+                                   :where [:and [:= :is_external true]
+                                           [:not [:= :source nil]]
+                                           [:not [:= :source ""]]]
+                                   :order-by [[:source :asc]]})
+                      db-opts)
+       (map :source)))
+
 ;; Grape Varieties Operations
 (defn create-grape-variety
   [name]
