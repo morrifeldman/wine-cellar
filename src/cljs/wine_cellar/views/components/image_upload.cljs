@@ -71,14 +71,26 @@
      {:component-did-mount
       (fn []
         (-> (js/navigator.mediaDevices.getUserMedia
-             #js {:video #js {:facingMode "environment"}}) ;; Use rear
-                                                           ;; camera
+             #js {:video #js {:facingMode "environment"
+                              :focusMode "continuous"
+                              :exposureMode "continuous"
+                              :whiteBalanceMode "continuous"
+                              :width #js {:ideal 1920}
+                              :height #js {:ideal 1080}}})
             (.then (fn [stream]
                      (reset! stream-ref stream)
                      (reset! camera-active true)
                      (when-let [video @video-ref]
                        (set! (.-srcObject video) stream)
-                       (.play video))))
+                       (.play video)
+                       ;; Try to apply manual focus for better depth of
+                       ;; field
+                       (let [track (first (.getVideoTracks stream))
+                             capabilities (.getCapabilities track)]
+                         (when (aget capabilities "focusDistance")
+                           (.applyConstraints
+                            track
+                            #js {:advanced #js [#js {:focusDistance 0.1}]}))))))
             (.catch (fn [err]
                       (js/console.error "Error accessing camera:" err)))))
       :component-will-unmount (fn []
