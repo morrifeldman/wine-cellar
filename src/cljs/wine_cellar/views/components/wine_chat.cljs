@@ -45,34 +45,57 @@
        (.toLocaleTimeString (js/Date. timestamp))])]])
 
 (defn chat-input
-  "Chat input field with send button"
+  "Chat input field with send button and debounced sync"
   [message on-send disabled?]
-  (r/with-let [local-value (r/atom @message)]
-              [box {:sx {:display "flex" :gap 1 :mt 2}}
-               [text-field
-                {:value @local-value
-                 :on-change #(reset! local-value (.. % -target -value))
-                 :placeholder "Ask me about your wines..."
-                 :variant "outlined"
-                 :size "small"
-                 :disabled @disabled?
-                 :sx {:flex-grow 1}
-                 :multiline true
-                 :max-rows 3
-                 :on-key-press #(when (and (= (.-key %) "Enter")
-                                           (not (.-shiftKey %))
-                                           (not @disabled?)
-                                           (seq (str @local-value)))
-                                  (.preventDefault %)
-                                  (reset! message @local-value)
-                                  (on-send)
-                                  (reset! local-value ""))}]
-               [button
-                {:variant "contained"
-                 :disabled (or @disabled? (empty? (str @local-value)))
-                 :on-click #(do (reset! message @local-value)
-                                (on-send)
-                                (reset! local-value ""))} "Send"]]))
+  (r/with-let
+   [local-value (r/atom @message) debounce-timeout (r/atom nil)]
+   [box {:sx {:display "flex" :gap 1 :mt 2}}
+    [text-field
+     {:value @local-value
+      :on-change #(let [new-value (.. % -target -value)]
+                    (reset! local-value new-value)
+                    ;; Clear existing timeout
+                    (when @debounce-timeout (js/clearTimeout @debounce-timeout))
+                    ;; Set debounced sync (400ms for mobile)
+                    (reset! debounce-timeout (js/setTimeout
+                                              (fn [] (reset! message new-value))
+                                              400)))
+      :placeholder "Ask me about your wines..."
+      :variant "outlined"
+      :size "small"
+      :disabled @disabled?
+      :sx {:flex-grow 1}
+      :multiline true
+      :max-rows 3
+      :on-blur #(do
+                  ;; Clear timeout and sync immediately
+                  (when @debounce-timeout
+                    (js/clearTimeout @debounce-timeout)
+                    (reset! debounce-timeout nil))
+                  (reset! message @local-value))
+      :on-key-press #(when (and (= (.-key %) "Enter")
+                                (not (.-shiftKey %))
+                                (not @disabled?)
+                                (seq (str @local-value)))
+                       (.preventDefault %)
+                       ;; Clear any pending timeout since we're sending
+                       (when @debounce-timeout
+                         (js/clearTimeout @debounce-timeout)
+                         (reset! debounce-timeout nil))
+                       (reset! message @local-value)
+                       (on-send)
+                       (reset! local-value ""))}]
+    [button
+     {:variant "contained"
+      :disabled (or @disabled? (empty? (str @local-value)))
+      :on-click #(do
+                   ;; Clear any pending timeout since we're sending
+                   (when @debounce-timeout
+                     (js/clearTimeout @debounce-timeout)
+                     (reset! debounce-timeout nil))
+                   (reset! message @local-value)
+                   (on-send)
+                   (reset! local-value ""))} "Send"]]))
 
 (defn chat-messages
   "Scrollable container for chat messages"

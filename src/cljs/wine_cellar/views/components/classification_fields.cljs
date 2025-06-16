@@ -36,7 +36,6 @@
                         (tap> ["fields-component path field" path field value])
                         (swap! app-state assoc-in (conj path field) value)
                         (when on-change (on-change field value)))]
-    (tap> ["classification-fields" path country region])
     [:<>
      [form/form-row
       [form/select-field
