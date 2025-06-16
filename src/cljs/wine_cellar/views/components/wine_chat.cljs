@@ -120,6 +120,37 @@
   [message wines conversation-history callback]
   (api/send-chat-message message wines conversation-history callback))
 
+(defn- handle-send-message
+  "Handle sending a message to the AI assistant"
+  [app-state current-message messages is-sending?]
+  (when (and (not @is-sending?) (seq @current-message))
+    (reset! is-sending? true)
+    (let [user-message {:id (random-uuid)
+                        :text @current-message
+                        :is-user true
+                        :timestamp (.getTime (js/Date.))}
+          message-text @current-message
+          wines (if-let [current-wine-id (:selected-wine-id @app-state)]
+                  ;; In detail view - pass only current wine
+                  (filter #(= (:id %) current-wine-id) (:wines @app-state))
+                  ;; In list view - pass all filtered wines
+                  (filtered-sorted-wines app-state))]
+      (swap! messages conj user-message)
+      (swap! app-state assoc-in [:chat :messages] @messages)
+      (reset! current-message "")
+      (send-chat-message
+       message-text
+       wines
+       @messages
+       (fn [response]
+         (let [ai-message {:id (random-uuid)
+                           :text response
+                           :is-user false
+                           :timestamp (.getTime (js/Date.))}]
+           (swap! messages conj ai-message)
+           (swap! app-state assoc-in [:chat :messages] @messages)
+           (reset! is-sending? false)))))))
+
 (defn chat-dialog
   "Main chat dialog component"
   [app-state]
@@ -151,28 +182,8 @@
               :title "Close chat"} [close]]]]]
          [dialog-content [chat-messages messages]
           [chat-input current-message
-           #(when (and (not @is-sending?) (not (empty? @current-message)))
-              (reset! is-sending? true)
-              (let [user-message {:id (random-uuid)
-                                  :text @current-message
-                                  :is-user true
-                                  :timestamp (.getTime (js/Date.))}]
-                (swap! messages conj user-message)
-                (swap! app-state assoc-in [:chat :messages] @messages)
-                (let [message-text @current-message]
-                  (reset! current-message "")
-                  (send-chat-message
-                   message-text
-                   (filtered-sorted-wines app-state)
-                   @messages
-                   (fn [response]
-                     (let [ai-message {:id (random-uuid)
-                                       :text response
-                                       :is-user false
-                                       :timestamp (.getTime (js/Date.))}]
-                       (swap! messages conj ai-message)
-                       (swap! app-state assoc-in [:chat :messages] @messages)
-                       (reset! is-sending? false))))))) is-sending?]]]))))
+           #(handle-send-message app-state current-message messages is-sending?)
+           is-sending?]]]))))
 
 (defn wine-chat-fab
   "Floating action button for wine chat"
