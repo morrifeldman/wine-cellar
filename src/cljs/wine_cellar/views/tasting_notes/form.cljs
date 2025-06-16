@@ -8,8 +8,7 @@
             [wine-cellar.utils.vintage :as vintage]
             [wine-cellar.views.components.form :refer
              [checkbox-field date-field form-actions form-container form-divider
-              form-row number-field select-field text-area-field text-field
-              year-field]]))
+              form-row number-field select-field text-area-field year-field]]))
 
 (defn- initialize-editing-note!
   "Initialize form state when starting to edit an existing note"
@@ -99,7 +98,7 @@
            is-external (boolean (:is_external updated-note))
            valid-tasting-window?
            (vintage/valid-tasting-window? drink-from-year drink-until-year)
-           {:keys [wine current-drink-from current-drink-until editing?
+           {:keys [current-drink-from current-drink-until editing?
                    editing-note-id submitting?]}
            form-state]
        [form-container
