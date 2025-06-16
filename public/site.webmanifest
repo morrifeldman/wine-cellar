@@ -1,6 +1,10 @@
 {
   "name": "Wine Cellar",
   "short_name": "Wine Cellar",
+  "description": "Track your wine collection with tasting notes and AI assistance",
+  "start_url": "/",
+  "scope": "/",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -17,5 +21,6 @@
   ],
   "theme_color": "#722F37",
   "background_color": "#FFFBF5",
-  "display": "standalone"
+  "display": "standalone",
+  "categories": ["food", "lifestyle", "utilities"]
 }
