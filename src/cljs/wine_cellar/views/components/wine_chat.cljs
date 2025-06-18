@@ -13,12 +13,17 @@
             [reagent-mui.icons.chat :refer [chat]]
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
+            [reagent-mui.icons.edit :refer [edit]]
             [wine-cellar.api :as api]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
+;; Constants
+(def ^:private edit-icon-size "0.8rem")
+(def ^:private edit-button-spacing 4)
+
 (defn message-bubble
   "Renders a single chat message bubble"
-  [{:keys [text is-user timestamp]}]
+  [{:keys [text is-user timestamp id]} on-edit]
   [box
    {:sx {:display "flex"
          :justify-content (if is-user "flex-end" "flex-start")
@@ -31,7 +36,8 @@
           :color (if is-user "background.default" "text.primary")
           :word-wrap "break-word"
           :white-space "pre-wrap"
-          :border-radius 2}}
+          :border-radius 2
+          :position "relative"}}
     [typography
      {:variant "body2"
       :sx {:color "inherit"
@@ -42,17 +48,36 @@
       [typography
        {:variant "caption"
         :sx {:display "block" :mt 0.5 :opacity 0.7 :font-size "0.7em"}}
-       (.toLocaleTimeString (js/Date. timestamp))])]])
+       (.toLocaleTimeString (js/Date. timestamp))])
+    ;; Edit button for user messages
+    (when (and is-user on-edit)
+      [icon-button
+       {:size "small"
+        :sx {:position "absolute"
+             :top edit-button-spacing
+             :right edit-button-spacing
+             :color "inherit"
+             :opacity 0.7
+             :&:hover {:opacity 1}}
+        :on-click #(on-edit id text)}
+       [edit {:sx {:font-size edit-icon-size}}]])]])
 
 (defn chat-input
   "Chat input field with send button and debounced sync"
   [message on-send disabled?]
-  (r/with-let
-   [local-value (r/atom @message) debounce-timeout (r/atom nil)]
-   [box {:sx {:display "flex" :gap 1 :mt 2}}
-    [text-field
-     {:value @local-value
-      :on-change #(let [new-value (.. % -target -value)]
+  (r/with-let [local-value (r/atom @message) debounce-timeout (r/atom nil)
+               ;; Watch for external changes to message (like from edit)
+               _
+               (add-watch message
+                          :sync-external
+                          (fn [_ _ _ new-value]
+                            (when (not= @local-value new-value)
+                              (reset! local-value new-value))))]
+              [box {:sx {:display "flex" :gap 1 :mt 2}}
+               [text-field
+                {:value @local-value
+                 :on-change
+                 #(let [new-value (.. % -target -value)]
                     (reset! local-value new-value)
                     ;; Clear existing timeout
                     (when @debounce-timeout (js/clearTimeout @debounce-timeout))
@@ -60,46 +85,50 @@
                     (reset! debounce-timeout (js/setTimeout
                                               (fn [] (reset! message new-value))
                                               400)))
-      :placeholder "Ask me about your wines..."
-      :variant "outlined"
-      :size "small"
-      :disabled @disabled?
-      :sx {:flex-grow 1}
-      :multiline true
-      :max-rows 3
-      :on-blur #(do
-                  ;; Clear timeout and sync immediately
-                  (when @debounce-timeout
-                    (js/clearTimeout @debounce-timeout)
-                    (reset! debounce-timeout nil))
-                  (reset! message @local-value))
-      :on-key-press #(when (and (= (.-key %) "Enter")
-                                (not (.-shiftKey %))
-                                (not @disabled?)
-                                (seq (str @local-value)))
-                       (.preventDefault %)
-                       ;; Clear any pending timeout since we're sending
-                       (when @debounce-timeout
-                         (js/clearTimeout @debounce-timeout)
-                         (reset! debounce-timeout nil))
-                       (reset! message @local-value)
-                       (on-send)
-                       (reset! local-value ""))}]
-    [button
-     {:variant "contained"
-      :disabled (or @disabled? (empty? (str @local-value)))
-      :on-click #(do
-                   ;; Clear any pending timeout since we're sending
-                   (when @debounce-timeout
-                     (js/clearTimeout @debounce-timeout)
-                     (reset! debounce-timeout nil))
-                   (reset! message @local-value)
-                   (on-send)
-                   (reset! local-value ""))} "Send"]]))
+                 :placeholder "Ask me about your wines..."
+                 :variant "outlined"
+                 :size "small"
+                 :disabled @disabled?
+                 :sx {:flex-grow 1}
+                 :multiline true
+                 :max-rows 3
+                 :on-blur #(do
+                             ;; Clear timeout and sync immediately
+                             (when @debounce-timeout
+                               (js/clearTimeout @debounce-timeout)
+                               (reset! debounce-timeout nil))
+                             (reset! message @local-value))
+                 :on-key-press #(when (and (= (.-key %) "Enter")
+                                           (not (.-shiftKey %))
+                                           (not @disabled?)
+                                           (seq (str @local-value)))
+                                  (.preventDefault %)
+                                  ;; Clear any pending timeout since we're
+                                  ;; sending
+                                  (when @debounce-timeout
+                                    (js/clearTimeout @debounce-timeout)
+                                    (reset! debounce-timeout nil))
+                                  (reset! message @local-value)
+                                  (on-send)
+                                  (reset! local-value ""))}]
+               [button
+                {:variant "contained"
+                 :disabled (or @disabled? (empty? (str @local-value)))
+                 :on-click #(do
+                              ;; Clear any pending timeout since we're
+                              ;; sending
+                              (when @debounce-timeout
+                                (js/clearTimeout @debounce-timeout)
+                                (reset! debounce-timeout nil))
+                              (reset! message @local-value)
+                              (on-send)
+                              (reset! local-value ""))} "Send"]]
+              ;; Cleanup watcher on unmount
+              (finally (remove-watch message :sync-external))))
 
 (defn chat-messages
   "Scrollable container for chat messages"
-  [messages]
+  [messages on-edit]
   [box
    {:sx {:height "400px"
          :overflow-y "auto"
@@ -113,7 +142,8 @@
       {:variant "body2"
        :sx {:text-align "center" :color "text.secondary" :mt 2}}
       "Start a conversation about your wine cellar..."]
-     (for [message @messages] ^{:key (:id message)} [message-bubble message]))])
+     (for [message @messages]
+       ^{:key (:id message)} [message-bubble message on-edit]))])
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with conversation history"
@@ -122,34 +152,72 @@
 
 (defn- handle-send-message
   "Handle sending a message to the AI assistant"
-  [app-state current-message messages is-sending?]
-  (when (and (not @is-sending?) (seq @current-message))
-    (reset! is-sending? true)
-    (let [user-message {:id (random-uuid)
-                        :text @current-message
-                        :is-user true
-                        :timestamp (.getTime (js/Date.))}
-          message-text @current-message
-          wines (if-let [current-wine-id (:selected-wine-id @app-state)]
-                  ;; In detail view - pass only current wine
-                  (filter #(= (:id %) current-wine-id) (:wines @app-state))
-                  ;; In list view - pass all filtered wines
-                  (filtered-sorted-wines app-state))]
-      (swap! messages conj user-message)
-      (swap! app-state assoc-in [:chat :messages] @messages)
+  [app-state message-or-atom messages is-sending?]
+  (let [message-text (if (satisfies? IDeref message-or-atom)
+                       @message-or-atom
+                       message-or-atom)]
+    (when (and (not @is-sending?) (seq message-text))
+      (reset! is-sending? true)
+      (let [user-message {:id (random-uuid)
+                          :text message-text
+                          :is-user true
+                          :timestamp (.getTime (js/Date.))}
+            wines (if-let [current-wine-id (:selected-wine-id @app-state)]
+                    ;; In detail view - pass only current wine
+                    (filter #(= (:id %) current-wine-id) (:wines @app-state))
+                    ;; In list view - pass all filtered wines
+                    (filtered-sorted-wines app-state))]
+        (swap! messages conj user-message)
+        (swap! app-state assoc-in [:chat :messages] @messages)
+        ;; Only reset if it's an atom (normal mode)
+        (when (satisfies? IDeref message-or-atom) (reset! message-or-atom ""))
+        (send-chat-message
+         message-text
+         wines
+         @messages
+         (fn [response]
+           (let [ai-message {:id (random-uuid)
+                             :text response
+                             :is-user false
+                             :timestamp (.getTime (js/Date.))}]
+             (swap! messages conj ai-message)
+             (swap! app-state assoc-in [:chat :messages] @messages)
+             (reset! is-sending? false))))))))
+
+(defn- use-edit-state
+  "Hook for managing edit state"
+  []
+  (let [editing-message-id (r/atom nil)]
+    {:editing-message-id editing-message-id
+     :handle-edit (fn [message-id message-text current-message]
+                    (reset! editing-message-id message-id)
+                    (reset! current-message message-text))
+     :handle-cancel (fn [current-message]
+                      (reset! editing-message-id nil)
+                      (reset! current-message ""))
+     :is-editing? #(some? @editing-message-id)}))
+
+(defn- handle-edit-send
+  "Handle sending an edited message"
+  [app-state editing-message-id current-message messages is-sending?]
+  (if-let [message-idx (->> @messages
+                            (keep-indexed
+                             #(when (= (:id %2) @editing-message-id) %1))
+                            first)]
+    (let [updated-message
+          (assoc (nth @messages message-idx) :text @current-message)]
+      ;; Remove all messages after the edited one
+      (reset! messages (conj (vec (take message-idx @messages))
+                             updated-message))
+      (reset! editing-message-id nil)
       (reset! current-message "")
-      (send-chat-message
-       message-text
-       wines
-       @messages
-       (fn [response]
-         (let [ai-message {:id (random-uuid)
-                           :text response
-                           :is-user false
-                           :timestamp (.getTime (js/Date.))}]
-           (swap! messages conj ai-message)
-           (swap! app-state assoc-in [:chat :messages] @messages)
-           (reset! is-sending? false)))))))
+      ;; Regenerate AI response with just the text
+      (handle-send-message app-state
+                           (:text updated-message)
+                           messages
+                           is-sending?))
+    ;; If message not found, just clear edit state
+    (do (reset! editing-message-id nil) (reset! current-message ""))))
 
 (defn chat-dialog
   "Main chat dialog component"
@@ -157,7 +225,24 @@
   (let [chat-state (:chat @app-state)
         messages (r/atom (:messages chat-state []))
         current-message (r/atom "")
-        is-sending? (r/atom false)]
+        is-sending? (r/atom false)
+        edit-state (use-edit-state)
+        {:keys [editing-message-id handle-edit handle-cancel is-editing?]}
+        edit-state
+        handle-send (fn []
+                      (if (is-editing?)
+                        ;; Edit mode - replace message and regenerate
+                        ;; response
+                        (handle-edit-send app-state
+                                          @editing-message-id
+                                          current-message
+                                          messages
+                                          is-sending?)
+                        ;; Normal mode - send new message
+                        (handle-send-message app-state
+                                             current-message
+                                             messages
+                                             is-sending?)))]
     (fn [app-state]
       (let [chat-state (:chat @app-state)
             is-open (:open? chat-state false)]
@@ -180,10 +265,21 @@
             [icon-button
              {:on-click #(swap! app-state assoc-in [:chat :open?] false)
               :title "Close chat"} [close]]]]]
-         [dialog-content [chat-messages messages]
-          [chat-input current-message
-           #(handle-send-message app-state current-message messages is-sending?)
-           is-sending?]]]))))
+         [dialog-content
+          [chat-messages messages #(handle-edit %1 %2 current-message)]
+          ;; Show editing indicator
+          (when (is-editing?)
+            [typography
+             {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
+             "Editing message - all responses after this will be regenerated"])
+          [chat-input current-message handle-send is-sending?]
+          ;; Cancel edit button
+          (when (is-editing?)
+            [button
+             {:variant "text"
+              :size "small"
+              :sx {:mt 1}
+              :on-click #(handle-cancel current-message)} "Cancel Edit"])]]))))
 
 (defn wine-chat-fab
   "Floating action button for wine chat"
