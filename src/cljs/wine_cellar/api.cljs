@@ -166,19 +166,25 @@
 (defn create-wine
   [app-state wine]
   (js/console.log "Sending wine data:" (clj->js wine))
-  (go (let [result (<! (POST "/api/wines" wine "Failed to create wine"))]
-        (if (:success result)
-          (do (fetch-wines app-state)
-              (fetch-classifications app-state) ;; Refresh classifications
-                                                ;; after adding a wine
-              (swap! app-state assoc
-                :new-wine {}
-                :window-reason nil
-                :show-wine-form? false
-                :submitting-wine? false))
-          (swap! app-state assoc
-            :error (:error result)
-            :submitting-wine? false)))))
+  (go
+   (let [result (<! (POST "/api/wines" wine "Failed to create wine"))]
+     (if (:success result)
+       (do
+         ;; Use replaceState BEFORE updating app state to fix back button
+         ;; behavior. This replaces the add wine form entry in history
+         ;; before navigation
+         (.replaceState js/history nil "" "/")
+         (fetch-wines app-state)
+         (fetch-classifications app-state) ;; Refresh classifications
+                                           ;; after adding a wine
+         (swap! app-state assoc
+           :new-wine {}
+           :window-reason nil
+           :show-wine-form? false
+           :submitting-wine? false))
+       (swap! app-state assoc
+         :error (:error result)
+         :submitting-wine? false)))))
 
 (defn delete-wine
   [app-state id]

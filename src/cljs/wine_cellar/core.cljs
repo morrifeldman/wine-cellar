@@ -57,6 +57,7 @@
 
 (defn handle-popstate [_] (sync-state-with-url))
 
+
 (add-watch
  app-state
  :url-sync
