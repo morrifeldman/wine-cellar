@@ -1,21 +1,63 @@
-# Wine Cellar App
+# 🍷 Wine Cellar App
 
-A personal wine cellar tracking application built with Clojure and ClojureScript.
+A self-hosted wine collection management application built with Clojure and ClojureScript.
 
 ## Features
 
-- Track your wine collection with detailed information
-- Upload and store wine label images
-- AI-powered label analysis to automatically extract wine details
-- Record tasting notes and ratings
-- Filter and search your collection
-- Track consumption history
+### Wine Management
+- **Track your collection** - Store detailed wine information (producer, vintage, region, style, etc.)
+- **Smart search & filtering** - Find wines by name, region, style, price range, or tasting window
+- **Physical location tracking** - Know exactly where each bottle is stored (A1, B2, C10, etc.)
+- **Quantity & consumption tracking** - Monitor your inventory with easy +/- controls
 
-## Local Setup
+### AI-Powered Features
+- **Label analysis** - Upload wine label photos to automatically extract details
+- **Drinking window suggestions** - Get AI recommendations for optimal drinking periods  
+- **Wine chat** - Ask questions about your collection and get intelligent responses
 
-Use the Ansible playbook to setup postgresql.
+### Tasting & Notes
+- **Tasting notes & ratings** - Record detailed notes with 1-100 ratings
+- **Photo storage** - Upload front/back label images with automatic thumbnails
+- **Grape variety management** - Associate wines with varieties and percentages
 
-`ansible-playbook postgresql.yml`
+### Self-Hosted Benefits
+- **Your data, your control** - No vendor lock-in or subscription fees
+- **Complete privacy** - No data mining or external tracking
+- **Customizable** - Modify features to fit your exact needs
+
+## Quick Start
+
+### Prerequisites
+- Java 11+
+- Node.js 18+
+- PostgreSQL
+- [pass](https://www.passwordstore.org/) password manager
+
+### Setup
+1. **Database Setup**
+   ```bash
+   ansible-playbook postgresql.yml
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Credentials** (see Credentials section below)
+
+4. **Start Development Server**
+   ```bash
+   clj -M:dev-all
+   ```
+
+5. **Open** http://localhost:3000
+
+## Tech Stack
+- **Backend**: Clojure, Ring, Reitit, HoneySQL, PostgreSQL
+- **Frontend**: ClojureScript, Reagent (React), Material-UI  
+- **AI**: Anthropic Claude API
+- **Auth**: JWT with Google OAuth
 
 ### Credentials Management
 
