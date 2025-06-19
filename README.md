@@ -51,7 +51,7 @@ A self-hosted wine collection management application built with Clojure and Cloj
    clj -M:dev-all
    ```
 
-5. **Open** http://localhost:3000
+5. **Open** http://localhost:8080 (frontend) or http://localhost:3000 (backend API)
 
 ## Tech Stack
 - **Backend**: Clojure, Ring, Reitit, HoneySQL, PostgreSQL
@@ -63,49 +63,11 @@ A self-hosted wine collection management application built with Clojure and Cloj
 
 #### Local Development
 
-For local development, this application uses the [`pass`](https://www.passwordstore.org/) password manager to securely store credentials instead of environment variables. This approach provides better security by avoiding plain text storage of sensitive information.
+This application uses secure credential management:
+- **Production**: Environment variables
+- **Development**: [`pass`](https://www.passwordstore.org/) password manager
 
-Required credentials in `pass`:
-
-```
-wine-cellar/anthropic-api-key
-wine-cellar/jwt-secret
-wine-cellar/cookie-store-key
-wine-cellar/admin-email
-wine-cellar/google-oath-json
-```
-
-To set up `pass` for local development:
-
-1. Install `pass` if you haven't already:
-   ```
-   # On Debian/Ubuntu
-   sudo apt-get install pass
-   
-   # On macOS with Homebrew
-   brew install pass
-   ```
-
-2. Initialize `pass` if you haven't already:
-   ```
-   pass init your-gpg-id
-   ```
-
-3. Store your credentials:
-   ```
-   pass insert wine-cellar/anthropic-api-key
-   pass insert wine-cellar/jwt-secret
-   pass insert wine-cellar/cookie-store-key
-   pass insert wine-cellar/admin-email
-   ```
-
-4. For Google OAuth credentials, store them as a JSON string:
-   ```
-   pass insert wine-cellar/google-oath-json
-   ```
-   The JSON should have the format provided by Google OAuth.
-
-See [environment-variables.md](docs/environment-variables.md) for a complete list of required credentials.
+See [environment-variables.md](docs/environment-variables.md) for complete setup instructions and credential requirements.
 
 ## Deployment to Fly.io
 
@@ -159,9 +121,18 @@ To set up CI/CD:
    fly auth token
    ```
 
-2. Add the token as a secret in your GitHub repository:
+2. Add the following secrets in your GitHub repository:
    - Go to your repository on GitHub
-   - Navigate to Settings > Secrets and variables > Actions
-   - Create a new repository secret named `FLY_API_TOKEN` with the value of your Fly.io API token
+   - Navigate to Settings > Secrets and variables > Actions > Repository secrets
+   - Create these repository secrets:
+
+   | Secret Name | Description | Example |
+   |-------------|-------------|---------|
+   | `FLY_API_TOKEN` | Fly.io API token for deployment | `fo1_xxx...` |
+   | `FLY_APP_NAME` | Your Fly.io app name | `my-wine-cellar` |
+   | `FLY_PRIMARY_REGION` | Fly.io deployment region | `iad` |
+   | `ANTHROPIC_MODEL` | Claude model to use | `claude-sonnet-4-20250514` |
+
+3. The workflow uses `fly.toml.template` and generates the actual `fly.toml` during deployment using your secret values.
 
 Now, whenever you push changes to the main branch, the application will be automatically deployed to Fly.io.

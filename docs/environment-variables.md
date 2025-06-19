@@ -22,9 +22,11 @@ In production (when `CLOJURE_ENV=production`), the following environment variabl
 ### AI Features
 
 - `ANTHROPIC_API_KEY`: API key for Anthropic's Claude API (required for wine label analysis)
+- `ANTHROPIC_MODEL`: Claude model to use (optional, defaults to claude-3-7-sonnet-20250219)
 
-### Environment Configuration
+### Server Configuration
 
+- `PORT`: Server port (defaults to 3000)
 - `CLOJURE_ENV`: Set to "production" to enable production mode
 
 ## Local Development Credentials
@@ -33,16 +35,13 @@ For local development, the application uses the `pass` password manager to secur
 
 ```
 wine-cellar/anthropic-api-key
-wine-cellar/jwt-secret
+wine-cellar/jwt-secret  
 wine-cellar/cookie-store-key
 wine-cellar/admin-email
-wine-cellar/google-oath-json
+wine-cellar/google-client-id
+wine-cellar/google-client-secret
+wine-cellar/oauth-redirect-uri
+wine-cellar/anthropic-model       # Optional
 ```
-
-The `google-oath-json` should contain the full JSON credentials provided by Google OAuth, which includes:
-- client_id
-- client_secret
-- redirect_uris
-- javascript_origins
 
 See the README.md for instructions on setting up `pass` for local development.

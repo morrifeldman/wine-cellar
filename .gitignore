@@ -40,3 +40,7 @@ public/cljs-runtime/
 wine-cellar.db
 
 untracked/
+local-screenshots/
+
+# Generated deployment config
+fly.toml

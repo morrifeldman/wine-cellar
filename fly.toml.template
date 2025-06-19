@@ -1,15 +1,18 @@
-# fly.toml app configuration file generated for feldman-wine-cellar on 2025-04-05T14:50:04-04:00
+# fly.toml app configuration file
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+# 
+# Note: This template uses environment variable substitution for deployment.
+# Set FLY_APP_NAME, FLY_PRIMARY_REGION, and ANTHROPIC_MODEL in your deployment environment.
 #
 
-app = 'feldman-wine-cellar'
-primary_region = 'iad'
+app = '${FLY_APP_NAME}'
+primary_region = '${FLY_PRIMARY_REGION}'
 
 [env]
   PORT = 3000
   CLOJURE_ENV = "production"
-  ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+  ANTHROPIC_MODEL = "${ANTHROPIC_MODEL}"
 
 [http_service]
   internal_port = 3000

@@ -1,0 +1,29 @@
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate fly.toml from template
+        run: |
+          export FLY_APP_NAME="${{ secrets.FLY_APP_NAME }}"
+          export FLY_PRIMARY_REGION="${{ secrets.FLY_PRIMARY_REGION }}"
+          export ANTHROPIC_MODEL="${{ secrets.ANTHROPIC_MODEL }}"
+          envsubst < fly.toml.template > fly.toml
+          echo "Generated fly.toml:"
+          cat fly.toml
+
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -64,7 +64,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── pairing-feature.md
 │   ├── schema-unification-datomic.md
 │   └── varieties-implementation.md
-├── fly.toml
+├── fly.toml.template
 ├── package.json
 ├── package-lock.json
 ├── public
