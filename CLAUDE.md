@@ -79,6 +79,8 @@ This is a full-stack wine cellar tracking application built with:
 ├── README.md
 ├── resources
 │   └── wine-classifications.edn
+├── Screenshots
+│   └── overview.png
 ├── scripts
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
@@ -144,7 +146,7 @@ This is a full-stack wine cellar tracking application built with:
                     ├── list.cljs
                     └── varieties.cljs
 
-28 directories, 73 files
+29 directories, 74 files
 ```
 
 ## Development Commands

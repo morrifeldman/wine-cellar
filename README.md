@@ -2,6 +2,9 @@
 
 A self-hosted wine collection management application built with Clojure and ClojureScript.
 
+![Wine Cellar App Overview](Screenshots/overview.png)
+*Wine collection overview showing filtering, ratings, and inventory management*
+
 ## Features
 
 ### Wine Management
