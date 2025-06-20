@@ -30,9 +30,9 @@
 (s/def ::style (set common/wine-styles))
 (s/def ::level (s/nilable (set common/wine-levels)))
 (s/def ::levels (s/coll-of (set common/wine-levels)))
-(s/def ::location (s/and string? #(common/valid-location? %)))
+(s/def ::location (s/nilable (s/and string? #(common/valid-location? %))))
 (s/def ::quantity int?)
-(s/def ::price number?)
+(s/def ::price (s/nilable number?))
 (s/def ::purchase_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::notes string?)
@@ -63,11 +63,10 @@
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
 (def wine-schema
-  (s/keys :req-un [(or ::name ::producer) ::country ::region ::style ::quantity
-                   ::price]
+  (s/keys :req-un [(or ::name ::producer) ::country ::region ::style ::quantity]
           :opt-un [::aoc ::classification ::vineyard ::location ::level
                    ::purveyor ::label_image ::label_thumbnail ::back_label_image
-                   ::drink_from_year ::drink_until_year ::vintage
+                   ::drink_from_year ::drink_until_year ::vintage ::price
                    ::purchase_date ::alcohol_percentage ::wine_varieties
                    ::disgorgement_year ::tasting_window_commentary]))
 

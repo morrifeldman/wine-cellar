@@ -104,9 +104,7 @@
                 (vintage/valid-vintage? (:vintage new-wine))
                 (empty? (:style new-wine)) "Style is required"
                 (nil? (:quantity new-wine)) "Quantity is required"
-                (nil? (:price new-wine)) "Price is required"
-                (or (empty? (:location new-wine))
-                    (not (common/valid-location? (:location new-wine))))
+                (not (common/valid-location? (:location new-wine)))
                 common/format-location-error
                 (and (:level new-wine)
                      (seq (:level new-wine))
@@ -314,7 +312,7 @@
      [form-row
       [text-field
        {:label "Location"
-        :required true
+        :required false
         :value (:location new-wine)
         :helper-text common/format-location-error
         :error (and (:location new-wine)
@@ -330,7 +328,7 @@
      [form-row
       [currency-field
        {:label "Price"
-        :required true
+        :required false
         :value (if (string? (:price new-wine))
                  (:price new-wine)
                  (str (:price new-wine)))

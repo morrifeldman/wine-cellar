@@ -9,27 +9,6 @@
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.close :refer [close]]))
 
-;; Helper functions for image processing
-(defn resize-image
-  [file max-width max-height callback]
-  (let [reader (js/FileReader.)
-        img (js/Image.)]
-    (set! (.-onload reader) (fn [e] (set! (.-src img) (.. e -target -result))))
-    (set! (.-onload img)
-          (fn []
-            (let [canvas (js/document.createElement "canvas")
-                  ctx (.getContext canvas "2d")
-                  width (.-width img)
-                  height (.-height img)
-                  scale (min (/ max-width width) (/ max-height height))
-                  new-width (js/Math.floor (* width scale))
-                  new-height (js/Math.floor (* height scale))]
-              (set! (.-width canvas) new-width)
-              (set! (.-height canvas) new-height)
-              (.drawImage ctx img 0 0 new-width new-height)
-              (callback (.toDataURL canvas "image/jpeg" 0.85)))))
-    (.readAsDataURL reader file)))
-
 (defn create-thumbnail
   [data-url callback]
   (let [img (js/Image.)]
@@ -48,18 +27,6 @@
               (.drawImage ctx img 0 0 new-width new-height)
               (callback (.toDataURL canvas "image/jpeg" 0.7)))))
     (set! (.-src img) data-url)))
-
-(defn process-file
-  [file on-image-ready]
-  (resize-image file
-                800
-                800
-                (fn [label_image]
-                  (create-thumbnail label_image
-                                    (fn [label_thumbnail]
-                                      (on-image-ready {:label_image label_image
-                                                       :label_thumbnail
-                                                       label_thumbnail}))))))
 
 ;; Camera capture component
 (defn camera-capture
