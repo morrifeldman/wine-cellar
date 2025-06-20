@@ -171,7 +171,7 @@
         [form-row
          [number-field
           {:label "Rating (1-100)"
-           :required true
+           :required false
            :min 1
            :max 100
            :value (:rating updated-note)

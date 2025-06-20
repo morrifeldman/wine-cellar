@@ -156,9 +156,20 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── user_prices.csv
 │   ├── user_profile.csv
 │   └── wine_menu_scans.csv
+├── vivino_images
+│   ├── wine_000_full.jpg
+│   ├── wine_000_thumb.jpg
+│   ├── wine_001_full.jpg
+│   ├── wine_001_thumb.jpg
+│   ├── wine_002_full.jpg
+│   ├── wine_002_thumb.jpg
+│   ├── wine_003_full.jpg
+│   ├── wine_003_thumb.jpg
+│   ├── wine_004_full.jpg
+│   └── wine_004_thumb.jpg
 └── vivino_processed_sample.edn
 
-30 directories, 85 files
+31 directories, 95 files
 ```
 
 ## Development Commands
