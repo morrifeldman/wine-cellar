@@ -5,6 +5,7 @@
             [goog.string.format]
             [reagent-mui.icons.arrow-back :refer [arrow-back]]
             [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
+            [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
@@ -594,33 +595,60 @@
     (when-let [selected-wine (first (filter #(= (:id %) selected-wine-id)
                                             (:wines @app-state)))]
       [box {:sx {:mb 3}} [wine-detail app-state selected-wine]
-       [button
-        {:variant "contained"
-         :color "primary"
-         :start-icon (r/as-element [arrow-back])
-         :sx {:mt 2}
-         :onClick #(go
-                    ;; First, fetch the latest wine details without images
-                    ;; This gets us the latest rating
-                    (<! (api/fetch-wine-details app-state
-                                                selected-wine-id
-                                                :include-images
-                                                false))
-                    ;; After fetch completes, clean up the selected wine's
-                    ;; image data
-                    (swap! app-state update
-                      :wines
-                      (fn [wines]
-                        (map (fn [wine]
-                               (if (= (:id wine) selected-wine-id)
-                                 (-> wine
-                                     (dissoc :label_image)
-                                     (dissoc :back_label_image))
-                                 wine))
-                             wines)))
-                    ;; Remove selected wine ID and tasting notes
-                    (swap! app-state dissoc
-                      :selected-wine-id :tasting-notes
-                      :editing-note-id :window-suggestion)
-                    (swap! app-state assoc :new-tasting-note {}))}
-        "Back to List"]])))
+       [box {:sx {:mt 2 :display "flex" :gap 2 :justifyContent "space-between"}}
+        [button
+         {:variant "contained"
+          :color "primary"
+          :start-icon (r/as-element [arrow-back])
+          :onClick #(go
+                     ;; First, fetch the latest wine details without images
+                     ;; This gets us the latest rating
+                     (<! (api/fetch-wine-details app-state
+                                                 selected-wine-id
+                                                 :include-images
+                                                 false))
+                     ;; After fetch completes, clean up the selected wine's
+                     ;; image data
+                     (swap! app-state update
+                       :wines
+                       (fn [wines]
+                         (map (fn [wine]
+                                (if (= (:id wine) selected-wine-id)
+                                  (-> wine
+                                      (dissoc :label_image)
+                                      (dissoc :back_label_image))
+                                  wine))
+                              wines)))
+                     ;; Remove selected wine ID and tasting notes
+                     (swap! app-state dissoc
+                       :selected-wine-id :tasting-notes
+                       :editing-note-id :window-suggestion)
+                     (swap! app-state assoc :new-tasting-note {}))}
+         "Back to List"]
+        [button
+         {:variant "outlined"
+          :color "error"
+          :start-icon (r/as-element [delete])
+          :onClick (fn []
+                     (when (js/confirm (str "Are you sure you want to delete "
+                                            (or (:producer selected-wine) "")
+                                            (when (and (:producer selected-wine)
+                                                       (:name selected-wine))
+                                              " ")
+                                            (or (:name selected-wine) "")
+                                            (when (:vintage selected-wine)
+                                              (str " "
+                                                   (:vintage selected-wine)))
+                                            "? This action cannot be undone."))
+                       (go
+                        ;; Delete the wine
+                        (<! (api/delete-wine app-state selected-wine-id))
+                        ;; Replace browser history to prevent back button
+                        ;; to deleted wine
+                        (.replaceState js/history nil "" "/")
+                        ;; Navigate back to the list automatically
+                        (swap! app-state dissoc
+                          :selected-wine-id :tasting-notes
+                          :editing-note-id :window-suggestion)
+                        (swap! app-state assoc :new-tasting-note {}))))}
+         "Delete Wine"]]])))

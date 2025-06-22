@@ -128,12 +128,31 @@
        (str abv "%")
        "-")]]])
 
+(defn wine-varieties-info
+  [wine]
+  [grid {:item true :xs 12}
+   [box {:sx {:display "flex" :alignItems "center" :mb 0.3}}
+    [typography
+     {:variant "body2" :color "text.secondary" :sx {:mr 1 :minWidth "60px"}}
+     "Varieties:"]
+    [typography {:variant "body2"}
+     (if-let [varieties (:varieties wine)]
+       (if (seq varieties)
+         (->> varieties
+              (map (fn [v]
+                     (if (:percentage v)
+                       (str (:name v) " " (:percentage v) "%")
+                       (:name v))))
+              (clojure.string/join ", "))
+         "-")
+       "-")]]])
+
 (defn wine-details-grid
   [wine]
   [grid {:container true :spacing 0.5} ;; Reduced spacing
    [wine-region-info wine] [wine-style-info wine]
    [wine-classification-info wine] [wine-location-info wine]
-   [wine-price-info wine] [wine-alcohol-info wine]])
+   [wine-price-info wine] [wine-alcohol-info wine] [wine-varieties-info wine]])
 
 (defn wine-rating-display
   [wine]
@@ -184,25 +203,13 @@
    [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
     "Quantity:"] [quantity-control app-state (:id wine) (:quantity wine)]])
 
-(defn wine-action-buttons
-  [app-state wine]
-  [box {:sx {:display "flex" :gap 1}}
-   [button
-    {:variant "outlined"
-     :color "error"
-     :size "small"
-     :onClick
-     (fn [e] (.stopPropagation e) (api/delete-wine app-state (:id wine)))}
-    "Delete"]])
-
 (defn wine-controls
   [app-state wine]
   [box
-   {:sx {:display "flex"
-         :justifyContent "space-between"
-         :alignItems "center"
-         :mt 1}} ;; Reduced margin
-   [wine-quantity-display app-state wine] [wine-action-buttons app-state wine]])
+   {:sx {:display "flex" :justifyContent "center" :alignItems "center" :mt 0.5}} ;; Further
+                                                                                 ;; reduced
+                                                                                 ;; margin
+   [wine-quantity-display app-state wine]])
 
 (defn wine-card
   [app-state wine]
