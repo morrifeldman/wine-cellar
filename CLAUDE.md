@@ -89,87 +89,66 @@ This is a full-stack wine cellar tracking application built with:
 │   └── wine_cellar
 │       └── dev.clj
 ├── shadow-cljs.edn
-├── src
-│   ├── clj
-│   │   └── wine_cellar
-│   │       ├── ai
-│   │       │   └── anthropic.clj
-│   │       ├── auth
-│   │       │   ├── config.clj
-│   │       │   └── core.clj
-│   │       ├── config_utils.clj
-│   │       ├── db
-│   │       │   ├── api.clj
-│   │       │   ├── connection.clj
-│   │       │   ├── schema.clj
-│   │       │   └── setup.clj
-│   │       ├── debug
-│   │       ├── handlers.clj
-│   │       ├── routes.clj
-│   │       └── server.clj
-│   ├── cljc
-│   │   └── wine_cellar
-│   │       └── common.cljc
-│   └── cljs
-│       └── wine_cellar
-│           ├── api.cljs
-│           ├── config.cljs
-│           ├── core.cljs
-│           ├── portal_debug.cljs
-│           ├── theme.cljs
-│           ├── utils
-│           │   ├── filters.cljs
-│           │   ├── formatting.cljs
-│           │   └── vintage.cljs
-│           └── views
-│               ├── classifications
-│               │   ├── form.cljs
-│               │   └── list.cljs
-│               ├── components
-│               │   ├── classification_fields.cljs
-│               │   ├── debug.cljs
-│               │   ├── form.cljs
-│               │   ├── image_upload.cljs
-│               │   ├── portal_debug.cljs
-│               │   ├── wine_card.cljs
-│               │   └── wine_chat.cljs
-│               ├── components.cljs
-│               ├── grape_varieties
-│               │   └── list.cljs
-│               ├── main.cljs
-│               ├── tasting_notes
-│               │   ├── form.cljs
-│               │   └── list.cljs
-│               └── wines
-│                   ├── detail.cljs
-│                   ├── filters.cljs
-│                   ├── form.cljs
-│                   ├── list.cljs
-│                   └── varieties.cljs
-├── vivino_data
-│   ├── cellar.csv
-│   ├── external_accounts.csv
-│   ├── full_wine_list.csv
-│   ├── label_scans.csv
-│   ├── last_login_information.csv
-│   ├── mobile_client_information.csv
-│   ├── user_prices.csv
-│   ├── user_profile.csv
-│   └── wine_menu_scans.csv
-├── vivino_images
-│   ├── wine_000_full.jpg
-│   ├── wine_000_thumb.jpg
-│   ├── wine_001_full.jpg
-│   ├── wine_001_thumb.jpg
-│   ├── wine_002_full.jpg
-│   ├── wine_002_thumb.jpg
-│   ├── wine_003_full.jpg
-│   ├── wine_003_thumb.jpg
-│   ├── wine_004_full.jpg
-│   └── wine_004_thumb.jpg
-└── vivino_processed_sample.edn
+└── src
+    ├── clj
+    │   └── wine_cellar
+    │       ├── ai
+    │       │   └── anthropic.clj
+    │       ├── auth
+    │       │   ├── config.clj
+    │       │   └── core.clj
+    │       ├── config_utils.clj
+    │       ├── db
+    │       │   ├── api.clj
+    │       │   ├── connection.clj
+    │       │   ├── schema.clj
+    │       │   └── setup.clj
+    │       ├── debug
+    │       ├── handlers.clj
+    │       ├── routes.clj
+    │       └── server.clj
+    ├── cljc
+    │   └── wine_cellar
+    │       └── common.cljc
+    └── cljs
+        └── wine_cellar
+            ├── api.cljs
+            ├── config.cljs
+            ├── core.cljs
+            ├── portal_debug.cljs
+            ├── state.cljs
+            ├── theme.cljs
+            ├── utils
+            │   ├── filters.cljs
+            │   ├── formatting.cljs
+            │   └── vintage.cljs
+            └── views
+                ├── classifications
+                │   ├── form.cljs
+                │   └── list.cljs
+                ├── components
+                │   ├── classification_fields.cljs
+                │   ├── debug.cljs
+                │   ├── form.cljs
+                │   ├── image_upload.cljs
+                │   ├── portal_debug.cljs
+                │   ├── wine_card.cljs
+                │   └── wine_chat.cljs
+                ├── components.cljs
+                ├── grape_varieties
+                │   └── list.cljs
+                ├── main.cljs
+                ├── tasting_notes
+                │   ├── form.cljs
+                │   └── list.cljs
+                └── wines
+                    ├── detail.cljs
+                    ├── filters.cljs
+                    ├── form.cljs
+                    ├── list.cljs
+                    └── varieties.cljs
 
-31 directories, 95 files
+29 directories, 76 files
 ```
 
 ## Development Commands

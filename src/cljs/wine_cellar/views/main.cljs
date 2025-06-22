@@ -1,5 +1,6 @@
 (ns wine-cellar.views.main
   (:require
+    [wine-cellar.api :as api]
     [wine-cellar.views.wines.form :refer [wine-form]]
     [wine-cellar.views.components :refer [toggle-button]]
     [wine-cellar.views.wines.list :refer [wine-list]]
@@ -26,38 +27,48 @@
 (defn admin-menu
   [app-state]
   (let [anchor-el (r/atom nil)]
-    (fn [] [box {:sx {:mb 2}}
-            [button
-             {:variant "outlined"
-              :color "primary"
-              :on-click #(reset! anchor-el (.-currentTarget %))} "Admin"]
-            [menu
-             {:anchor-el @anchor-el
-              :open (boolean @anchor-el)
-              :on-close #(reset! anchor-el nil)}
-             [menu-item
-              {:on-click (fn []
-                           (reset! anchor-el nil)
-                           (swap! app-state assoc :view :grape-varieties))}
-              "Grape Varieties"]
-             [menu-item
-              {:on-click (fn []
-                           (reset! anchor-el nil)
-                           (swap! app-state assoc :view :classifications))}
-              "Classifications"]
-             [menu-item
-              {:on-click (fn []
-                           (reset! anchor-el nil)
-                           (swap! app-state update :show-debug-controls? not))}
-              (if (:show-debug-controls? @app-state)
-                "Hide Debug Controls"
-                "Show Debug Controls")]
-             [menu-item
-              {:on-click
-               (fn [] (reset! anchor-el nil) (pd/toggle-debugging! app-state))}
-              (if (:active? @pd/debug-state)
-                "Stop Portal Debugging"
-                "Start Portal Debugging")]] [logout]])))
+    (fn []
+      [box {:sx {:mb 2}}
+       [button
+        {:variant "outlined"
+         :color "primary"
+         :on-click #(reset! anchor-el (.-currentTarget %))} "Admin"]
+       [menu
+        {:anchor-el @anchor-el
+         :open (boolean @anchor-el)
+         :on-close #(reset! anchor-el nil)}
+        [menu-item
+         {:on-click (fn []
+                      (reset! anchor-el nil)
+                      (swap! app-state assoc :view :grape-varieties))}
+         "Grape Varieties"]
+        [menu-item
+         {:on-click (fn []
+                      (reset! anchor-el nil)
+                      (swap! app-state assoc :view :classifications))}
+         "Classifications"]
+        [menu-item
+         {:on-click (fn []
+                      (reset! anchor-el nil)
+                      (swap! app-state update :show-debug-controls? not))}
+         (if (:show-debug-controls? @app-state)
+           "Hide Debug Controls"
+           "Show Debug Controls")]
+        [menu-item
+         {:on-click
+          (fn [] (reset! anchor-el nil) (pd/toggle-debugging! app-state))}
+         (if (:active? @pd/debug-state)
+           "Stop Portal Debugging"
+           "Start Portal Debugging")]
+        [menu-item
+         {:on-click
+          (fn []
+            (reset! anchor-el nil)
+            (when
+              (js/confirm
+               "⚠️ DANGER: This will DELETE ALL DATA and reset the database schema!\n\nAre you absolutely sure you want to continue?")
+              (api/reset-database app-state)))
+          :sx {:color "error.main"}} "🔥 Reset Database"]] [logout]])))
 
 (defn new-wine-or-list
   [app-state]

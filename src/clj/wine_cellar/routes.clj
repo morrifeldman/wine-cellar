@@ -36,7 +36,7 @@
 (s/def ::purchase_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::notes string?)
-(s/def ::rating (s/int-in 1 101)) ;; Ratings from 1-100
+(s/def ::rating (s/nilable (s/int-in 1 101))) ;; Ratings from 1-100
 (s/def ::drink_from_year (s/nilable int?))
 (s/def ::drink_until_year (s/nilable int?))
 (s/def ::alcohol_percentage (s/nilable number?))
@@ -164,6 +164,11 @@
     {:get {:summary "Get unique tasting note sources for suggestions"
            :responses {200 {:body ::tasting-sources} 500 {:body map?}}
            :handler handlers/get-tasting-note-sources}}]
+   ["/admin"
+    ["/reset-database"
+     {:post {:summary "Admin: Drop and recreate all database tables"
+             :responses {200 {:body map?} 500 {:body map?}}
+             :handler handlers/reset-database}}]]
    ["/grape-varieties"
     {:get {:summary "Get all grape varieties"
            :responses {200 {:body vector?} 500 {:body map?}}

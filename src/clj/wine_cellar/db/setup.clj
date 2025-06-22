@@ -54,11 +54,16 @@
    (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
 
-(defn initialize-db [] (ensure-tables) (seed-classifications-if-needed!))
+(defn initialize-db
+  "Initialize database with optional classification seeding"
+  ([] (initialize-db true)) ; Default behavior - seed classifications
+  ([seed-classifications?]
+   (ensure-tables)
+   (when seed-classifications? (seed-classifications-if-needed!))))
 
 #_(initialize-db)
 
-(defn- drop-tables
+(defn drop-tables
   ([] (jdbc/with-transaction [tx ds] (drop-tables tx)))
   ([tx]
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines CASCADE"]})

@@ -62,10 +62,6 @@
                   [:is_external :boolean [:default false]] [:source :varchar]
                   [:created_at :timestamp [:default [:now]]]
                   [:updated_at :timestamp [:default [:now]]]
-                  [[:constraint :tasting_date_required_for_personal]
-                   [:check
-                    [:or [:= :is_external true]
-                     [:and [:= :is_external false] [:not= :tasting_date nil]]]]]
                   [[:foreign-key :wine_id] :references [:entity :wines]
                    [:nest :id] :on-delete :cascade]]})
 #_(sql/format tasting-notes-table-schema)

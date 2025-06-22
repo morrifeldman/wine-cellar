@@ -1,6 +1,7 @@
 (ns wine-cellar.handlers
   (:require [wine-cellar.db.api :as db-api]
             [wine-cellar.ai.anthropic :as anthropic]
+            [wine-cellar.db.setup :as db-setup]
             [ring.util.response :as response]))
 
 (defn- no-content [] {:status 204 :headers {} :body nil})
@@ -340,3 +341,23 @@
                    :details (.getMessage e)
                    :response (:response data)}}))
        (catch Exception e (server-error e))))
+
+;; Admin Handlers
+
+(defn reset-database
+  "Admin function to drop and recreate all database tables"
+  [request]
+  (try (println "🔥 ADMIN: Dropping all database tables...")
+       (db-setup/drop-tables)
+       (println "🛠️  ADMIN: Recreating database schema...")
+       (db-setup/initialize-db false) ; Skip classification seeding for
+                                      ; imports
+       (println "✅ ADMIN: Database reset complete!")
+       {:status 200
+        :body {:message "Database reset successfully"
+               :tables-dropped true
+               :schema-recreated true
+               :classifications-seeded false}}
+       (catch Exception e
+         (println "❌ ADMIN: Database reset failed:" (.getMessage e))
+         (server-error e))))

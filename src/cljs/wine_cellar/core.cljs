@@ -3,28 +3,11 @@
             [reagent.dom.client :as dom-client]
             [wine-cellar.views.main :as views]
             [wine-cellar.api :as api]
+            [wine-cellar.state :refer [initial-app-state]]
             [wine-cellar.theme :refer [wine-theme]]
             [reagent-mui.styles :refer [theme-provider]]))
 
-(defonce app-state
-  (r/atom
-   {:wines []
-    :classifications []
-    :new-wine {}
-    :error nil
-    :loading? false
-    :selected-wine-id nil
-    :show-out-of-stock? false
-    :show-wine-form? false
-    :show-stats? false
-    :show-filters? false
-    :show-debug-controls? false
-    :tasting-notes []
-    :new-tasting-note {}
-    :sort {:field nil :direction :asc}
-    :filters {:search "" :country nil :region nil :style nil}
-    :view nil
-    :chat {:open? false :messages []}}))
+(defonce app-state (r/atom initial-app-state))
 
 (defn update-url-from-state
   [state]

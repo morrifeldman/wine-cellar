@@ -118,14 +118,15 @@
      "Only return a valid parseable JSON object without any additional text. "
      "Do not nest the response in a markdown code block.")))
 
-(defn- call-anthropic-api
+(defn call-anthropic-api
   "Makes a request to the Anthropic API with the given content.
    When parse-json? is true, parses response as JSON. Otherwise returns raw text."
   ([content] (call-anthropic-api content true)) ; Default to JSON parsing
                                                 ; for backward
                                                 ; compatibility
-  ([content parse-json?]
-   (let [request-body {:model model
+  ([content parse-json?] (call-anthropic-api content parse-json? model))
+  ([content parse-json? model-override]
+   (let [request-body {:model model-override
                        :max_tokens 1000
                        :messages [{:role "user" :content content}]}]
      (tap> ["anthropic-request-body-structure" (keys request-body)])

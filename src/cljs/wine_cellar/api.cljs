@@ -2,7 +2,8 @@
   (:require [reagent.core :as r]
             [cljs-http.client :as http]
             [cljs.core.async :refer [<! go chan put!]]
-            [wine-cellar.config :as config]))
+            [wine-cellar.config :as config]
+            [wine-cellar.state :refer [initial-app-state]]))
 
 (def headless-mode? (r/atom false))
 
@@ -453,3 +454,21 @@
        (callback (:data result))
        (callback
         "Sorry, I'm having trouble connecting right now. Please try again later.")))))
+
+;; Admin endpoints
+
+(defn reset-database
+  "Admin function to reset the database"
+  [app-state]
+  (go (swap! app-state assoc :resetting-database? true)
+      (let [result (<! (POST "/api/admin/reset-database"
+                             {}
+                             "Failed to reset database"))]
+        (swap! app-state assoc :resetting-database? false)
+        (if (:success result)
+          (do
+            ;; Completely reset app state to initial values
+            (reset! app-state (assoc initial-app-state
+                                     :success
+                                     "Database reset successfully!")))
+          (swap! app-state assoc :error (:error result))))))
