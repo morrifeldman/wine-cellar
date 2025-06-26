@@ -589,66 +589,99 @@
      (when-not (:editing-note-id @app-state)
        [tasting-note-form app-state (:id wine)])]]])
 
+(defn wine-loading-view
+  "Show loading state while fetching wines"
+  []
+  [box
+   {:sx {:display "flex"
+         :justifyContent "center"
+         :alignItems "center"
+         :minHeight "400px"}} [circular-progress]
+   [typography {:sx {:ml 2}} "Loading wine details..."]])
+
+(defn back-button-click-handler
+  "Handle back to list button click"
+  [app-state selected-wine-id]
+  #(go
+    ;; First, fetch the latest wine details without images
+    (<!
+     (api/fetch-wine-details app-state selected-wine-id :include-images false))
+    ;; Clean up the selected wine's image data
+    (swap! app-state update
+      :wines
+      (fn [wines]
+        (map (fn [wine]
+               (if (= (:id wine) selected-wine-id)
+                 (-> wine
+                     (dissoc :label_image)
+                     (dissoc :back_label_image))
+                 wine))
+             wines)))
+    ;; Remove selected wine ID and tasting notes
+    (swap! app-state dissoc
+      :selected-wine-id :tasting-notes
+      :editing-note-id :window-suggestion)
+    (swap! app-state assoc :new-tasting-note {})))
+
+(defn delete-wine-confirmation-text
+  "Generate confirmation text for wine deletion"
+  [selected-wine]
+  (str "Are you sure you want to delete "
+       (or (:producer selected-wine) "")
+       (when (and (:producer selected-wine) (:name selected-wine)) " ")
+       (or (:name selected-wine) "")
+       (when (:vintage selected-wine) (str " " (:vintage selected-wine)))
+       "? This action cannot be undone."))
+
+(defn delete-button-click-handler
+  "Handle delete wine button click"
+  [app-state selected-wine-id selected-wine]
+  (fn []
+    (when (js/confirm (delete-wine-confirmation-text selected-wine))
+      (go
+       ;; Delete the wine
+       (<! (api/delete-wine app-state selected-wine-id))
+       ;; Replace browser history to prevent back button to deleted wine
+       (.replaceState js/history nil "" "/")
+       ;; Navigate back to the list automatically
+       (swap! app-state dissoc
+         :selected-wine-id :tasting-notes
+         :editing-note-id :window-suggestion)
+       (swap! app-state assoc :new-tasting-note {})))))
+
+(defn wine-action-buttons
+  "Render the back and delete buttons for wine details"
+  [app-state selected-wine-id selected-wine]
+  [box {:sx {:mt 2 :display "flex" :gap 2 :justifyContent "space-between"}}
+   [button
+    {:variant "contained"
+     :color "primary"
+     :start-icon (r/as-element [arrow-back])
+     :onClick (back-button-click-handler app-state selected-wine-id)}
+    "Back to List"]
+   [button
+    {:variant "outlined"
+     :color "error"
+     :start-icon (r/as-element [delete])
+     :onClick
+     (delete-button-click-handler app-state selected-wine-id selected-wine)}
+    "Delete Wine"]])
+
+(defn wine-details-content
+  "Render the wine details with action buttons"
+  [app-state selected-wine-id selected-wine]
+  [box {:sx {:mb 3}} [wine-detail app-state selected-wine]
+   [wine-action-buttons app-state selected-wine-id selected-wine]])
+
 (defn wine-details-section
   [app-state]
   (when-let [selected-wine-id (:selected-wine-id @app-state)]
-    (when-let [selected-wine (first (filter #(= (:id %) selected-wine-id)
-                                            (:wines @app-state)))]
-      [box {:sx {:mb 3}} [wine-detail app-state selected-wine]
-       [box {:sx {:mt 2 :display "flex" :gap 2 :justifyContent "space-between"}}
-        [button
-         {:variant "contained"
-          :color "primary"
-          :start-icon (r/as-element [arrow-back])
-          :onClick #(go
-                     ;; First, fetch the latest wine details without images
-                     ;; This gets us the latest rating
-                     (<! (api/fetch-wine-details app-state
-                                                 selected-wine-id
-                                                 :include-images
-                                                 false))
-                     ;; After fetch completes, clean up the selected wine's
-                     ;; image data
-                     (swap! app-state update
-                       :wines
-                       (fn [wines]
-                         (map (fn [wine]
-                                (if (= (:id wine) selected-wine-id)
-                                  (-> wine
-                                      (dissoc :label_image)
-                                      (dissoc :back_label_image))
-                                  wine))
-                              wines)))
-                     ;; Remove selected wine ID and tasting notes
-                     (swap! app-state dissoc
-                       :selected-wine-id :tasting-notes
-                       :editing-note-id :window-suggestion)
-                     (swap! app-state assoc :new-tasting-note {}))}
-         "Back to List"]
-        [button
-         {:variant "outlined"
-          :color "error"
-          :start-icon (r/as-element [delete])
-          :onClick (fn []
-                     (when (js/confirm (str "Are you sure you want to delete "
-                                            (or (:producer selected-wine) "")
-                                            (when (and (:producer selected-wine)
-                                                       (:name selected-wine))
-                                              " ")
-                                            (or (:name selected-wine) "")
-                                            (when (:vintage selected-wine)
-                                              (str " "
-                                                   (:vintage selected-wine)))
-                                            "? This action cannot be undone."))
-                       (go
-                        ;; Delete the wine
-                        (<! (api/delete-wine app-state selected-wine-id))
-                        ;; Replace browser history to prevent back button
-                        ;; to deleted wine
-                        (.replaceState js/history nil "" "/")
-                        ;; Navigate back to the list automatically
-                        (swap! app-state dissoc
-                          :selected-wine-id :tasting-notes
-                          :editing-note-id :window-suggestion)
-                        (swap! app-state assoc :new-tasting-note {}))))}
-         "Delete Wine"]]])))
+    ;; If wines collection is empty, fetch all wines first
+    (when (and (empty? (:wines @app-state)) (not (:loading? @app-state)))
+      (api/fetch-wines app-state))
+    (if (:loading? @app-state)
+      [wine-loading-view]
+      ;; Show wine details once loaded
+      (when-let [selected-wine (first (filter #(= (:id %) selected-wine-id)
+                                              (:wines @app-state)))]
+        [wine-details-content app-state selected-wine-id selected-wine]))))

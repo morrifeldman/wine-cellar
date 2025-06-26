@@ -19,7 +19,8 @@
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.autocomplete :refer [autocomplete]]
     [reagent-mui.material.circular-progress :refer [circular-progress]]
-    [reagent-mui.util :refer [react-component]]))
+    [reagent-mui.util :refer [react-component]]
+    [clojure.string :as str]))
 
 ;; Form container components
 (defn form-container
@@ -157,38 +158,27 @@
     :onChange #(when on-change (on-change (.. % -target -value)))}])
 
 (defn text-area-field
-  "A multi-line text field with consistent styling, local atom optimization, and debounced updates"
+  "A multi-line text field with consistent styling, local atom optimization"
   [{:keys [label value on-change required rows helper-text error]}]
-  (r/with-let
-   [local-value (r/atom (or value "")) debounce-timeout (r/atom nil)]
-   [mui-text-field/text-field
-    {:label label
-     :multiline true
-     :rows (or rows 3) ;; Reduced from 4
-     :required required
-     :fullWidth true
-     :value @local-value
-     :error error
-     :helperText helper-text
-     :size "small" ;; Added small size
-     :margin "dense" ;; Added dense margin
-     :sx form-field-style
-     :variant "outlined"
-     :onChange #(let [new-value (.. % -target -value)]
-                  (reset! local-value new-value)
-                  ;; Clear existing timeout
-                  (when @debounce-timeout (js/clearTimeout @debounce-timeout))
-                  ;; Set new debounced timeout (400ms for mobile)
-                  (when on-change
-                    (reset! debounce-timeout (js/setTimeout
-                                              (fn [] (on-change new-value))
-                                              400))))
-     :onBlur #(do
-                ;; Clear timeout and immediately call on-change
-                (when @debounce-timeout
-                  (js/clearTimeout @debounce-timeout)
-                  (reset! debounce-timeout nil))
-                (when on-change (on-change @local-value)))}]))
+  (r/with-let [local-value (r/atom (or value ""))]
+              (when (and (str/blank? value) (not (str/blank? @local-value)))
+                (reset! local-value ""))
+              [mui-text-field/text-field
+               {:label label
+                :multiline true
+                :rows (or rows 3) ;; Reduced from 4
+                :required required
+                :fullWidth true
+                :value @local-value
+                :error error
+                :helperText helper-text
+                :size "small" ;; Added small size
+                :margin "dense" ;; Added dense margin
+                :sx form-field-style
+                :variant "outlined"
+                :onChange #(let [new-value (.. % -target -value)]
+                             (reset! local-value new-value)
+                             (when on-change (on-change new-value)))}]))
 
 (defn number-field
   "A specialized input for numeric values with min/max/step"

@@ -1,5 +1,5 @@
 (ns user
-  (:require [portal.api :as p]))
+  (:require [portal.web :as p]))
 
 ;; Helper functions for portal
 

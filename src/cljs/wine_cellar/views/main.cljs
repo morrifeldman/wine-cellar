@@ -40,11 +40,13 @@
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
+                      (api/fetch-grape-varieties app-state)
                       (swap! app-state assoc :view :grape-varieties))}
          "Grape Varieties"]
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
+                      (api/fetch-classifications app-state)
                       (swap! app-state assoc :view :classifications))}
          "Classifications"]
         [menu-item

@@ -8,7 +8,7 @@
 ;; Start debugging with Portal
 (defn- start-debugging!
   [app-state]
-  (p/open {:launcher :web})
+  (p/open)
   (let [tap-fn (fn [value] (p/submit value))]
     (swap! debug-state assoc :active? true :tap-fn tap-fn)
     (add-tap tap-fn)

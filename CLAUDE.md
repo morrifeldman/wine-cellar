@@ -52,7 +52,7 @@ This is a full-stack wine cellar tracking application built with:
 │   │   ├── user.clj
 │   │   └── vivino_process.clj
 │   └── cljs
-│       └── user.clj
+│       └── user.cljs
 ├── Dockerfile
 ├── docs
 │   ├── ai-drinking-window-feature.md
@@ -64,6 +64,8 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── ideal-taxonomy.md
 │   ├── pairing-feature.md
 │   ├── schema-unification-datomic.md
+│   ├── screenshots
+│   │   └── overview.png
 │   └── varieties-implementation.md
 ├── fly.toml.template
 ├── package.json
@@ -80,10 +82,6 @@ This is a full-stack wine cellar tracking application built with:
 ├── README.md
 ├── resources
 │   └── wine-classifications.edn
-├── Screenshot 2025-06-21 10.16.44 PM.png
-├── Screenshot 2025-06-21 10.20.24 PM.png
-├── Screenshots
-│   └── overview.png
 ├── scripts
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
@@ -150,7 +148,7 @@ This is a full-stack wine cellar tracking application built with:
                     ├── list.cljs
                     └── varieties.cljs
 
-29 directories, 78 files
+29 directories, 76 files
 ```
 
 ## Development Commands

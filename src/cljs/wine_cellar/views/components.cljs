@@ -151,10 +151,15 @@
                                                      :helperText error
                                                      :autoFocus true})])
               :onChange (fn [_event new-value] (on-change new-value))
-              :clearOnBlur false
+              :on-input-change (when free-solo
+                                 (fn [_event new-value reason]
+                                   (when (= reason "input")
+                                     (on-change new-value))))
+              :clearOnBlur true
               :autoHighlight true
               :selectOnFocus true
               :disableCloseOnSelect multiple
+              :blur-on-select "touch"
               :openOnFocus true}]))])
 
 (defn editable-classification-field
