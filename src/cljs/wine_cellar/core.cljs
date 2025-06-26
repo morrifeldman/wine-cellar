@@ -30,8 +30,10 @@
           {:view :grape-varieties :selected-wine-id nil :show-wine-form? false}
           (= path "/classifications")
           {:view :classifications :selected-wine-id nil :show-wine-form? false}
-          (.startsWith path "/wine/")
-          {:view nil :selected-wine-id (subs path 6) :show-wine-form? false}
+          (.startsWith path "/wine/") {:view nil
+                                       :selected-wine-id
+                                       (js/parseInt (subs path 6) 10)
+                                       :show-wine-form? false}
           :else {:view nil :selected-wine-id nil :show-wine-form? false})))
 
 (defn sync-state-with-url
@@ -39,7 +41,6 @@
   (let [url-state (parse-url)] (swap! app-state merge url-state)))
 
 (defn handle-popstate [_] (sync-state-with-url))
-
 
 (add-watch
  app-state
@@ -67,6 +68,8 @@
     (api/fetch-classifications app-state))
   (when (and (empty? (:grape-varieties @app-state)) (not @api/headless-mode?))
     (api/fetch-grape-varieties app-state))
+  (when-let [wine-id (:selected-wine-id @app-state)]
+    (api/fetch-wine-details app-state wine-id))
   (when-not @root
     (reset! root (dom-client/create-root (js/document.getElementById "app"))))
   (dom-client/render @root
