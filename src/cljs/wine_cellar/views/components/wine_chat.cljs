@@ -5,6 +5,8 @@
             [reagent-mui.material.dialog-title :refer [dialog-title]]
             [reagent-mui.material.dialog-content :refer [dialog-content]]
             [reagent-mui.material.text-field :refer [text-field]]
+            [wine-cellar.views.components.form :refer
+             [uncontrolled-text-area-field]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
@@ -14,6 +16,7 @@
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
             [reagent-mui.icons.edit :refer [edit]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
             [wine-cellar.api :as api]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
@@ -54,7 +57,7 @@
       [icon-button
        {:size "small"
         :sx {:position "absolute"
-             :top edit-button-spacing
+             :bottom edit-button-spacing
              :right edit-button-spacing
              :color "inherit"
              :opacity 0.7
@@ -63,186 +66,194 @@
        [edit {:sx {:font-size edit-icon-size}}]])]])
 
 (defn chat-input
-  "Chat input field with send button and debounced sync"
-  [message on-send disabled?]
-  (r/with-let [local-value (r/atom @message) debounce-timeout (r/atom nil)
-               ;; Watch for external changes to message (like from edit)
-               _
-               (add-watch message
-                          :sync-external
-                          (fn [_ _ _ new-value]
-                            (when (not= @local-value new-value)
-                              (reset! local-value new-value))))]
-              [box {:sx {:display "flex" :gap 1 :mt 2}}
-               [text-field
-                {:value @local-value
-                 :on-change
-                 #(let [new-value (.. % -target -value)]
-                    (reset! local-value new-value)
-                    ;; Clear existing timeout
-                    (when @debounce-timeout (js/clearTimeout @debounce-timeout))
-                    ;; Set debounced sync (400ms for mobile)
-                    (reset! debounce-timeout (js/setTimeout
-                                              (fn [] (reset! message new-value))
-                                              400)))
-                 :placeholder "Ask me about your wines..."
-                 :variant "outlined"
-                 :size "small"
-                 :disabled @disabled?
-                 :sx {:flex-grow 1}
-                 :multiline true
-                 :max-rows 3
-                 :on-blur #(do
-                             ;; Clear timeout and sync immediately
-                             (when @debounce-timeout
-                               (js/clearTimeout @debounce-timeout)
-                               (reset! debounce-timeout nil))
-                             (reset! message @local-value))
-                 :on-key-press #(when (and (= (.-key %) "Enter")
-                                           (not (.-shiftKey %))
-                                           (not @disabled?)
-                                           (seq (str @local-value)))
-                                  (.preventDefault %)
-                                  ;; Clear any pending timeout since we're
-                                  ;; sending
-                                  (when @debounce-timeout
-                                    (js/clearTimeout @debounce-timeout)
-                                    (reset! debounce-timeout nil))
-                                  (reset! message @local-value)
-                                  (on-send)
-                                  (reset! local-value ""))}]
-               [button
-                {:variant "contained"
-                 :disabled (or @disabled? (empty? (str @local-value)))
-                 :on-click #(do
-                              ;; Clear any pending timeout since we're
-                              ;; sending
-                              (when @debounce-timeout
-                                (js/clearTimeout @debounce-timeout)
-                                (reset! debounce-timeout nil))
-                              (reset! message @local-value)
-                              (on-send)
-                              (reset! local-value ""))} "Send"]]
-              ;; Cleanup watcher on unmount
-              (finally (remove-watch message :sync-external))))
+  "Chat input field with send button - uncontrolled for performance"
+  [message-ref on-send disabled? reset-key]
+  [box {:sx {:display "flex" :gap 1 :mt 2}}
+   [uncontrolled-text-area-field
+    {:label "Message"
+     :initial-value ""
+     :reset-key reset-key
+     :input-ref message-ref
+     :rows 3
+     :helper-text "Ask me about your wines..."
+     :sx {:flex-grow 1
+          :& {:backgroundColor "background.paper"}
+          "& .MuiOutlinedInput-root"
+          {:backgroundColor "background.paper"
+           :border "2px solid"
+           :borderColor "primary.main"
+           :borderRadius 2
+           :&:hover {:borderColor "primary.dark"}
+           :&.Mui-focused {:borderColor "primary.main"
+                           :boxShadow "0 0 0 3px rgba(25, 118, 210, 0.1)"}}
+          "& .MuiInputLabel-root" {:&.MuiInputLabel-shrink
+                                   {:transform
+                                    "translate(14px, -9px) scale(0.75)"}}}
+     :placeholder "Type your message here..."
+     :disabled @disabled?
+     :InputLabelProps {:shrink true} ;; Always keep label shrunk to avoid
+                                     ;; overlap
+     :on-blur nil}]
+   [button
+    {:variant "contained"
+     :disabled @disabled?
+     :sx {:minWidth "80px"}
+     :startIcon (when @disabled?
+                  (r/as-element [circular-progress
+                                 {:size 16 :sx {:color "secondary.light"}}]))
+     :on-click #(when @message-ref
+                  (let [message-text (.-value @message-ref)]
+                    (when (seq (str message-text))
+                      (on-send message-text)
+                      (set! (.-value @message-ref) ""))))}
+    [box
+     {:sx {:color (if @disabled? "secondary.light" "inherit")
+           :fontWeight (if @disabled? "600" "normal")
+           :fontSize (if @disabled? "0.85rem" "1rem")}}
+     (if @disabled? "Sending..." "Send")]]])
 
 (defn chat-messages
   "Scrollable container for chat messages"
   [messages on-edit]
-  [box
-   {:sx {:height "400px"
-         :overflow-y "auto"
-         :p 2
-         :background-color "background.default"
-         :border "1px solid"
-         :border-color "divider"
-         :border-radius 1}}
-   (if (empty? @messages)
-     [typography
-      {:variant "body2"
-       :sx {:text-align "center" :color "text.secondary" :mt 2}}
-      "Start a conversation about your wine cellar..."]
-     (for [message @messages]
-       ^{:key (:id message)} [message-bubble message on-edit]))])
+  (let [scroll-ref (r/atom nil)]
+    (r/create-class
+     {:component-did-update (fn [this]
+                              (when @scroll-ref
+                                (set! (.-scrollTop @scroll-ref)
+                                      (.-scrollHeight @scroll-ref))))
+      :reagent-render
+      (fn [messages on-edit]
+        [box
+         {:ref #(reset! scroll-ref %)
+          :sx {:height "400px"
+               :overflow-y "auto"
+               :p 2
+               :background-color "background.default"
+               :border "1px solid"
+               :border-color "divider"
+               :border-radius 1}}
+         (if (empty? @messages)
+           [typography
+            {:variant "body2"
+             :sx {:text-align "center" :color "text.secondary" :mt 2}}
+            "Start a conversation about your wine cellar..."]
+           (for [message @messages]
+             ^{:key (:id message)} [message-bubble message on-edit]))])})))
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with conversation history"
   [message wines conversation-history callback]
+  (tap> ["send-chat-message" message conversation-history])
   (api/send-chat-message message wines conversation-history callback))
 
 (defn- handle-send-message
   "Handle sending a message to the AI assistant"
-  [app-state message-or-atom messages is-sending?]
-  (let [message-text (if (satisfies? IDeref message-or-atom)
-                       @message-or-atom
-                       message-or-atom)]
-    (when (and (not @is-sending?) (seq message-text))
-      (reset! is-sending? true)
-      (let [user-message {:id (random-uuid)
-                          :text message-text
-                          :is-user true
-                          :timestamp (.getTime (js/Date.))}
-            wines (if-let [current-wine-id (:selected-wine-id @app-state)]
-                    ;; In detail view - pass only current wine
-                    (filter #(= (:id %) current-wine-id) (:wines @app-state))
-                    ;; In list view - pass all filtered wines
-                    (filtered-sorted-wines app-state))]
-        (swap! messages conj user-message)
-        (swap! app-state assoc-in [:chat :messages] @messages)
-        ;; Only reset if it's an atom (normal mode)
-        (when (satisfies? IDeref message-or-atom) (reset! message-or-atom ""))
-        (send-chat-message
-         message-text
-         wines
-         @messages
-         (fn [response]
-           (let [ai-message {:id (random-uuid)
-                             :text response
-                             :is-user false
-                             :timestamp (.getTime (js/Date.))}]
-             (swap! messages conj ai-message)
-             (swap! app-state assoc-in [:chat :messages] @messages)
-             (reset! is-sending? false))))))))
+  [app-state message-text messages is-sending?]
+  (when (and (not @is-sending?) (seq message-text))
+    (reset! is-sending? true)
+    (let [user-message {:id (random-uuid)
+                        :text message-text
+                        :is-user true
+                        :timestamp (.getTime (js/Date.))}
+          wines (if-let [current-wine-id (:selected-wine-id @app-state)]
+                  ;; In detail view - pass only current wine
+                  (filter #(= (:id %) current-wine-id) (:wines @app-state))
+                  ;; In list view - pass all filtered wines
+                  (filtered-sorted-wines app-state))]
+      (swap! messages conj user-message)
+      (swap! app-state assoc-in [:chat :messages] @messages)
+      (send-chat-message
+       message-text
+       wines
+       @messages
+       (fn [response]
+         (let [ai-message {:id (random-uuid)
+                           :text response
+                           :is-user false
+                           :timestamp (.getTime (js/Date.))}]
+           (swap! messages conj ai-message)
+           (swap! app-state assoc-in [:chat :messages] @messages)
+           (reset! is-sending? false)))))))
 
 (defn- use-edit-state
   "Hook for managing edit state"
   []
   (let [editing-message-id (r/atom nil)]
     {:editing-message-id editing-message-id
-     :handle-edit (fn [message-id message-text current-message]
+     :handle-edit (fn [message-id message-text message-ref]
                     (reset! editing-message-id message-id)
-                    (reset! current-message message-text))
-     :handle-cancel (fn [current-message]
+                    (when @message-ref
+                      (set! (.-value @message-ref) message-text)
+                      ;; Trigger input event to make Material-UI recognize
+                      ;; the text
+                      (let [input-event (js/Event. "input" #js {:bubbles true})]
+                        (.dispatchEvent @message-ref input-event))
+                      (.focus @message-ref)))
+     :handle-cancel (fn [message-ref]
                       (reset! editing-message-id nil)
-                      (reset! current-message ""))
+                      (when @message-ref (set! (.-value @message-ref) "")))
      :is-editing? #(some? @editing-message-id)}))
 
 (defn- handle-edit-send
   "Handle sending an edited message"
-  [app-state editing-message-id current-message messages is-sending?]
-  (if-let [message-idx (->> @messages
-                            (keep-indexed
-                             #(when (= (:id %2) @editing-message-id) %1))
-                            first)]
-    (let [updated-message
-          (assoc (nth @messages message-idx) :text @current-message)]
-      ;; Remove all messages after the edited one
-      (reset! messages (conj (vec (take message-idx @messages))
-                             updated-message))
-      (reset! editing-message-id nil)
-      (reset! current-message "")
-      ;; Regenerate AI response with just the text
-      (handle-send-message app-state
-                           (:text updated-message)
-                           messages
-                           is-sending?))
-    ;; If message not found, just clear edit state
-    (do (reset! editing-message-id nil) (reset! current-message ""))))
+  [app-state editing-message-id message-ref messages is-sending?]
+  (when @message-ref
+    (let [message-text (.-value @message-ref)]
+      (if-let [message-idx (->> @messages
+                                (keep-indexed
+                                 #(when (= (:id %2) @editing-message-id) %1))
+                                first)]
+        (let [updated-message
+              (assoc (nth @messages message-idx) :text message-text)]
+          ;; Replace the edited message and remove messages after it
+          (reset! messages (conj (vec (take message-idx @messages))
+                                 updated-message))
+          (reset! editing-message-id nil)
+          (set! (.-value @message-ref) "")
+          ;; Generate new AI response (without adding duplicate user
+          ;; message)
+          (reset! is-sending? true)
+          (let [wines (if-let [current-wine-id (:selected-wine-id @app-state)]
+                        (filter #(= (:id %) current-wine-id)
+                                (:wines @app-state))
+                        (filtered-sorted-wines app-state))]
+            (send-chat-message
+             (:text updated-message)
+             wines
+             @messages
+             (fn [response]
+               (let [ai-message {:id (random-uuid)
+                                 :text response
+                                 :is-user false
+                                 :timestamp (.getTime (js/Date.))}]
+                 (swap! messages conj ai-message)
+                 (swap! app-state assoc-in [:chat :messages] @messages)
+                 (reset! is-sending? false))))))
+        ;; If message not found, just clear edit state
+        (do (reset! editing-message-id nil)
+            (set! (.-value @message-ref) ""))))))
 
 (defn chat-dialog
   "Main chat dialog component"
   [app-state]
   (let [chat-state (:chat @app-state)
         messages (r/atom (:messages chat-state []))
-        current-message (r/atom "")
+        message-ref (r/atom nil)
         is-sending? (r/atom false)
         edit-state (use-edit-state)
         {:keys [editing-message-id handle-edit handle-cancel is-editing?]}
         edit-state
-        handle-send (fn []
-                      (if (is-editing?)
-                        ;; Edit mode - replace message and regenerate
-                        ;; response
-                        (handle-edit-send app-state
-                                          @editing-message-id
-                                          current-message
-                                          messages
-                                          is-sending?)
-                        ;; Normal mode - send new message
-                        (handle-send-message app-state
-                                             current-message
-                                             messages
-                                             is-sending?)))]
+        handle-send
+        (fn [message-text]
+          (if (is-editing?)
+            ;; Edit mode - replace message and regenerate response
+            (handle-edit-send app-state
+                              editing-message-id
+                              message-ref
+                              messages
+                              is-sending?)
+            ;; Normal mode - send new message
+            (handle-send-message app-state message-text messages is-sending?)))]
     (fn [app-state]
       (let [chat-state (:chat @app-state)
             is-open (:open? chat-state false)]
@@ -266,20 +277,20 @@
              {:on-click #(swap! app-state assoc-in [:chat :open?] false)
               :title "Close chat"} [close]]]]]
          [dialog-content
-          [chat-messages messages #(handle-edit %1 %2 current-message)]
+          [chat-messages messages #(handle-edit %1 %2 message-ref)]
           ;; Show editing indicator
           (when (is-editing?)
             [typography
              {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
              "Editing message - all responses after this will be regenerated"])
-          [chat-input current-message handle-send is-sending?]
+          [chat-input message-ref handle-send is-sending? "chat-input"]
           ;; Cancel edit button
           (when (is-editing?)
             [button
              {:variant "text"
               :size "small"
               :sx {:mt 1}
-              :on-click #(handle-cancel current-message)} "Cancel Edit"])]]))))
+              :on-click #(handle-cancel message-ref)} "Cancel Edit"])]]))))
 
 (defn wine-chat-fab
   "Floating action button for wine chat"

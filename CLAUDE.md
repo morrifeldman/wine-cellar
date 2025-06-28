@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Minimal Summaries**: Provide only brief summaries of changes or none at all
 - **Direct File Sharing**: Don't use shell tools to inspect files - files will be provided directly when needed
 - **Code Suggestions**: If code replacement tools encounter errors, suggest changes in chat instead
+- **Small Edits**: For single character additions (like missing parentheses), suggest the fix in chat rather than using Edit tool
 
 ## Current Priorities
 

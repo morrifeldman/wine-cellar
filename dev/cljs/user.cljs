@@ -1,4 +1,4 @@
-(ns user
+(ns ^:dev/once user
   (:require [portal.web :as p]))
 
 ;; Helper functions for portal
