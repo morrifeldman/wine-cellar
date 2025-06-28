@@ -5,7 +5,6 @@
 ;; State to track if debugging is active
 (defonce debug-state (r/atom {:active? false :tap-fn nil}))
 
-#_(p/clear)
 ;; Start debugging with Portal
 (defn- start-debugging!
   [app-state]
