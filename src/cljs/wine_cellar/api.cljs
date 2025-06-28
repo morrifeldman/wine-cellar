@@ -474,3 +474,13 @@
                                      :success
                                      "Database reset successfully!")))
           (swap! app-state assoc :error (:error result))))))
+
+(defn load-wine-detail-page
+  "Load all data needed for the wine detail page"
+  [app-state wine-id]
+  (swap! app-state assoc :selected-wine-id wine-id)
+  (swap! app-state assoc :new-tasting-note {})
+  (fetch-tasting-notes app-state wine-id)
+  (fetch-wine-details app-state wine-id)
+  (fetch-wine-varieties app-state wine-id)
+  (fetch-tasting-note-sources app-state))

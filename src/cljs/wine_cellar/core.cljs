@@ -69,7 +69,7 @@
   (when (and (empty? (:grape-varieties @app-state)) (not @api/headless-mode?))
     (api/fetch-grape-varieties app-state))
   (when-let [wine-id (:selected-wine-id @app-state)]
-    (api/fetch-wine-details app-state wine-id))
+    (api/load-wine-detail-page app-state wine-id))
   (when-not @root
     (reset! root (dom-client/create-root (js/document.getElementById "app"))))
   (dom-client/render @root

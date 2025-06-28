@@ -11,15 +11,6 @@
             [wine-cellar.views.components :refer [quantity-control]]
             [wine-cellar.api :as api]))
 
-(defn view-wine-detail
-  [app-state wine]
-  (swap! app-state assoc :selected-wine-id (:id wine))
-  (swap! app-state assoc :new-tasting-note {})
-  (api/fetch-tasting-notes app-state (:id wine))
-  (api/fetch-wine-details app-state (:id wine))
-  (api/fetch-wine-varieties app-state (:id wine))
-  (api/fetch-tasting-note-sources app-state))
-
 ;; Utility functions
 (defn get-rating-color
   [rating]
@@ -239,7 +230,7 @@
          "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))")
        :cursor "pointer"
        ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
-      :onClick #(view-wine-detail app-state wine)}
+      :onClick #(api/load-wine-detail-page app-state (:id wine))}
      ;; Wine header with thumbnail and basic info
      [wine-header app-state wine]
      ;; Wine details
