@@ -18,7 +18,8 @@
                 :devtools {:preloads [portal.shadow.preload]}
                 :dev {:js-options {:anon-fn-naming-policy :unmapped}
                       :compiler-options
-                      {:closure-defines
+                      {:output-feature-set :es6
+                       :closure-defines
                        {"process.env.NODE_ENV" "development"
                         "goog.DEBUG" true}}}}}}
 ;; npm install
