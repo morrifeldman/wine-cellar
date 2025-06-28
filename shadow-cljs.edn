@@ -1,23 +1,25 @@
-{:source-paths ["src/cljc" "src/cljs" "dev/cljs"]
+{:source-paths ["src/cljc" "src/cljs"]
  :dependencies [[reagent "1.3.0"]
                 [cljs-http "0.1.48"]
                 [cider/cider-nrepl "0.55.7"]
                 [refactor-nrepl/refactor-nrepl "3.11.0"]
                 [org.clojure/core.async "2.28.20"]
                 [arttuka/reagent-material-ui "5.11.12-0"]
-                [djblue/portal "0.58.5"]]
+                [djblue/portal "0.59.1"]]
  :nrepl {:middleware [cider.nrepl/cider-middleware
                       refactor-nrepl.middleware/wrap-refactor]}
  :dev-http {8080 "public"}
  :builds {:app {:target :browser
                 :output-dir "public/js"
                 :asset-path "/js"
+                :modules {:main {:init-fn wine-cellar.core/init}}
+                :compiler-options {:output-feature-set :es6}
                 :build-hooks [(portal.shadow.remote/hook)]
                 :devtools {:preloads [portal.shadow.preload]}
-                :modules {:main {:init-fn wine-cellar.core/init}}
-                :js-options {:anon-fn-naming-policy :unmapped}
-                :compiler-options {:closure-defines {"goog.DEBUG" true}
-                                   :output-feature-set :es6}
-                :dev {:compiler-options {:closure-defines {"process.env.NODE_ENV" "development"}}}}}}
+                :dev {:js-options {:anon-fn-naming-policy :unmapped}
+                      :compiler-options
+                      {:closure-defines
+                       {"process.env.NODE_ENV" "development"
+                        "goog.DEBUG" true}}}}}}
 ;; npm install
 ;; npx shadow-cljs watch app

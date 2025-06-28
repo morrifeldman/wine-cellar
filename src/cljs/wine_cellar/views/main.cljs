@@ -62,6 +62,9 @@
          (if (:active? @pd/debug-state)
            "Stop Portal Debugging"
            "Start Portal Debugging")]
+        (when (:active? @pd/debug-state)
+          [menu-item {:on-click (fn [] (reset! anchor-el nil) (pd/open-portal))}
+           "Open Portal"])
         [menu-item
          {:on-click
           (fn []

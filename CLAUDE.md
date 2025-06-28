@@ -49,11 +49,8 @@ This is a full-stack wine cellar tracking application built with:
 ├── CLAUDE.md
 ├── deps.edn
 ├── dev
-│   ├── clj
-│   │   ├── user.clj
-│   │   └── vivino_process.clj
-│   └── cljs
-│       └── user.cljs
+│   ├── user.clj
+│   └── vivino_process.clj
 ├── Dockerfile
 ├── docs
 │   ├── ai-drinking-window-feature.md
@@ -149,7 +146,7 @@ This is a full-stack wine cellar tracking application built with:
                     ├── list.cljs
                     └── varieties.cljs
 
-29 directories, 76 files
+27 directories, 75 files
 ```
 
 ## Development Commands
