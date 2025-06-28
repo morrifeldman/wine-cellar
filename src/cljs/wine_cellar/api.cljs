@@ -206,17 +206,19 @@
           (swap! app-state assoc :error (:error result))))))
 
 (defn create-tasting-note
-  [app-state wine-id note]
-  (go
-   (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/tasting-notes")
-                          note
-                          "Failed to create tasting note"))]
-     (if (:success result)
-       (do (swap! app-state update :tasting-notes conj (:data result))
-           (swap! app-state assoc :new-tasting-note {} :submitting-note? false))
-       (swap! app-state assoc
-         :error (:error result)
-         :submitting-note? false)))))
+  [app-state wine-id note notes-ref]
+  (go (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/tasting-notes")
+                             note
+                             "Failed to create tasting note"))]
+        (if (:success result)
+          (do
+            (swap! app-state update :tasting-notes conj (:data result))
+            (swap! app-state assoc :new-tasting-note {} :submitting-note? false)
+            ;; Clear the notes field after successful creation
+            (when (and notes-ref @notes-ref) (set! (.-value @notes-ref) "")))
+          (swap! app-state assoc
+            :error (:error result)
+            :submitting-note? false)))))
 
 (defn update-tasting-note
   [app-state wine-id note-id note]

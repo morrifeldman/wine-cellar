@@ -180,6 +180,27 @@
                              (reset! local-value new-value)
                              (when on-change (on-change new-value)))}]))
 
+(defn uncontrolled-text-area-field
+  "High-performance text area that doesn't re-render on every keystroke"
+  [{:keys [label initial-value required rows helper-text error reset-key
+           input-ref on-blur]}]
+  [mui-text-field/text-field
+   {:key reset-key ; forces re-render when reset-key changes
+    :label label
+    :multiline true
+    :rows (or rows 4)
+    :required required
+    :fullWidth true
+    :defaultValue (or initial-value "")
+    :error error
+    :helperText helper-text
+    :variant "outlined"
+    :size "small"
+    :margin "dense"
+    :sx form-field-style
+    :inputRef #(reset! input-ref %)
+    :onBlur (when on-blur #(on-blur (.-value (.-target %))))}])
+
 (defn number-field
   "A specialized input for numeric values with min/max/step"
   [{:keys [label value on-change required min max step helper-text error]}]
