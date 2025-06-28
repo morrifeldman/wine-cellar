@@ -3,7 +3,8 @@
             [wine-cellar.api :as api]
             [cljs.reader :as reader]
             [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.box :refer [box]]))
+            [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.text-field :as mui-text-field]))
 
 ;; Helper functions for managing saved states
 (defn get-saved-states
@@ -235,6 +236,67 @@
         ^{:key key}
         [saved-state-item key state-data app-state saved-states])])])
 
+(defn uncontrolled-textarea-demo
+  "Demo of uncontrolled textarea for performance testing"
+  []
+  (r/with-let
+   [textarea-ref (r/atom nil) demo-mode (r/atom "new") demo-text (r/atom "")]
+   [:div
+    {:style
+     {:margin-top "20px" :border-top "1px solid #ddd" :padding-top "10px"}}
+    [:h4 "Uncontrolled Textarea Demo"]
+    [:p {:style {:font-size "0.9em" :color "#666"}}
+     "Test typing performance - should be smooth on mobile!"]
+    ;; Mode switcher
+    [:div {:style {:margin-bottom "10px"}}
+     [:button
+      {:on-click #(do (reset! demo-mode "new") (reset! demo-text ""))
+       :style {:padding "5px 10px"
+               :margin-right "5px"
+               :background-color (if (= @demo-mode "new") "#4CAF50" "#ddd")}}
+      "New Note Mode"]
+     [:button
+      {:on-click #(do (reset! demo-mode "edit")
+                      (reset! demo-text
+                        "This is existing text that you can edit..."))
+       :style {:padding "5px 10px"
+               :background-color (if (= @demo-mode "edit") "#4CAF50" "#ddd")}}
+      "Edit Mode"]]
+    ;; The uncontrolled textarea
+    [mui-text-field/text-field
+     {:key (str "demo-" @demo-mode) ; forces re-render on mode switch
+      :label "Demo Notes Field"
+      :multiline true
+      :rows 4
+      :fullWidth true
+      :defaultValue @demo-text
+      :inputRef #(reset! textarea-ref %)
+      :variant "outlined"
+      :placeholder "Type something long here to test performance..."
+      :sx {:margin-bottom "10px"
+           :color "#000"
+           "& .MuiInputBase-input" {:color "#000"}
+           "& textarea" {:color "#000"}}}]
+    ;; Test buttons
+    [:div {:style {:display "flex" :gap "10px"}}
+     [:button
+      {:on-click #(when @textarea-ref
+                    (js/alert (str "Current value: " (.-value @textarea-ref))))
+       :style {:padding "5px 10px" :background-color "#2196F3" :color "white"}}
+      "Read Value"]
+     [:button
+      {:on-click #(when @textarea-ref
+                    (set! (.-value @textarea-ref) "")
+                    (js/alert "Cleared!"))
+       :style {:padding "5px 10px" :background-color "#ff9800" :color "white"}}
+      "Clear Field"]
+     [:button
+      {:on-click #(when @textarea-ref
+                    (set! (.-value @textarea-ref) "Programmatically set text!")
+                    (js/alert "Text set!"))
+       :style {:padding "5px 10px" :background-color "#9c27b0" :color "white"}}
+      "Set Text"]]]))
+
 (defn debug-info
   "Display debug information"
   [app-state saved-states]
@@ -262,8 +324,8 @@
              {:style {:margin-top 0
                       :border-bottom "1px solid #ddd"
                       :padding-bottom "8px"}} "Debug Controls"]
-            [headless-mode-toggle app-state] [state-editor app-state]
-            [state-save-form saved-states state-name]
+            [headless-mode-toggle app-state] [uncontrolled-textarea-demo]
+            [state-editor app-state] [state-save-form saved-states state-name]
             [saved-states-list saved-states app-state]
             [debug-info app-state saved-states]])))
 
