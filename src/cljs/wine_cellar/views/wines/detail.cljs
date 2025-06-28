@@ -599,29 +599,6 @@
          :minHeight "400px"}} [circular-progress]
    [typography {:sx {:ml 2}} "Loading wine details..."]])
 
-(defn back-button-click-handler
-  "Handle back to list button click"
-  [app-state selected-wine-id]
-  #(go
-    ;; First, fetch the latest wine details without images
-    (<!
-     (api/fetch-wine-details app-state selected-wine-id :include-images false))
-    ;; Clean up the selected wine's image data
-    (swap! app-state update
-      :wines
-      (fn [wines]
-        (map (fn [wine]
-               (if (= (:id wine) selected-wine-id)
-                 (-> wine
-                     (dissoc :label_image)
-                     (dissoc :back_label_image))
-                 wine))
-             wines)))
-    ;; Remove selected wine ID and tasting notes
-    (swap! app-state dissoc
-      :selected-wine-id :tasting-notes
-      :editing-note-id :window-suggestion)
-    (swap! app-state assoc :new-tasting-note {})))
 
 (defn delete-wine-confirmation-text
   "Generate confirmation text for wine deletion"
@@ -657,8 +634,8 @@
     {:variant "contained"
      :color "primary"
      :start-icon (r/as-element [arrow-back])
-     :onClick (back-button-click-handler app-state selected-wine-id)}
-    "Back to List"]
+     :onClick #(do (tap> {:back-button-clicked true})
+                   (api/exit-wine-detail-page app-state))} "Back to List"]
    [button
     {:variant "outlined"
      :color "error"

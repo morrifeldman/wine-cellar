@@ -7,14 +7,14 @@
 
 ;; Start debugging with Portal
 (defn- start-debugging!
-  [app-state]
+  []
   (let [tap-fn (fn [value] (p/submit value))]
     (p/open)
     (add-tap tap-fn)
     (swap! debug-state assoc :active? true :tap-fn tap-fn)
-    (tap> {:hello "from clojure frontend"})
-    (tap> app-state) ;; Can watch it from the portal UI
-  ))
+    (tap> {:hello "from clojure frontend"})))
+
+(defn unwatch-app-state [app-state] (remove-watch app-state :debug-tap))
 
 ;; Stop debugging
 (defn- stop-debugging!
@@ -23,15 +23,20 @@
   (when-let [tap-fn (:tap-fn @debug-state)]
     (js/console.log "Removing tap function")
     (remove-tap tap-fn))
-  ;; Remove app-state watch
-  (remove-watch app-state :debug-tap)
+  (unwatch-app-state app-state)
   (p/close)
   (swap! debug-state assoc :active? false :tap-fn nil))
 
+(defn debugging? [] (boolean (:active? @debug-state)))
+
 (defn toggle-debugging!
   [app-state]
-  (if (:active? @debug-state)
-    (stop-debugging! app-state)
-    (start-debugging! app-state)))
+  (if (debugging?) (stop-debugging! app-state) (start-debugging!)))
 
-(defn open-portal [] (p/open))
+(defn reconnect-if-needed [] (when (debugging?) (p/open)))
+
+(defn watch-app-state
+  [app-state]
+  (add-watch app-state
+             :debug-tap
+             (fn [_ _ _ new-state] (tap> ["app-state-changed" new-state]))))

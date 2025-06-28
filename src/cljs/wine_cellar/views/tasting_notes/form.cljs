@@ -1,8 +1,6 @@
 (ns wine-cellar.views.tasting-notes.form
   (:require [reagent.core :as r]
-            [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.api :as api]
             [wine-cellar.utils.formatting :refer [format-date-iso]]
             [wine-cellar.views.components.form :refer
@@ -30,7 +28,7 @@
 
 (defn- get-form-state
   "Extract form state from app-state for the given wine"
-  [app-state wine-id]
+  [app-state]
   (let [editing-note-id (:editing-note-id @app-state)
         editing? (boolean editing-note-id)
         editing-note (when editing?
@@ -62,7 +60,7 @@
   (r/with-let
    [last-wine-id (r/atom nil) last-editing-note-id (r/atom nil) notes-ref
     (r/atom nil)]
-   (let [form-state (get-form-state app-state wine-id)]
+   (let [form-state (get-form-state app-state)]
      (handle-form-initialization! app-state
                                   wine-id
                                   last-wine-id

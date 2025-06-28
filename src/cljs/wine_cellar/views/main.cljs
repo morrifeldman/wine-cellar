@@ -16,8 +16,7 @@
     [reagent.core :as r]
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.views.components.wine-chat :refer [wine-chat]]
-    [wine-cellar.portal-debug :as pd]
-    [wine-cellar.api :as api]))
+    [wine-cellar.portal-debug :as pd]))
 
 (defn logout
   []
@@ -59,12 +58,24 @@
         [menu-item
          {:on-click
           (fn [] (reset! anchor-el nil) (pd/toggle-debugging! app-state))}
-         (if (:active? @pd/debug-state)
-           "Stop Portal Debugging"
-           "Start Portal Debugging")]
-        (when (:active? @pd/debug-state)
-          [menu-item {:on-click (fn [] (reset! anchor-el nil) (pd/open-portal))}
+         (if (pd/debugging?) "Stop Portal Debugging" "Start Portal Debugging")]
+        (when (pd/debugging?)
+          [menu-item
+           {:on-click (fn [] (reset! anchor-el nil) (pd/reconnect-if-needed))}
            "Open Portal"])
+        (when (pd/debugging?)
+          [menu-item {:on-click (fn [] (reset! anchor-el nil) (tap> app-state))}
+           "Tap> app-state"])
+        (when (pd/debugging?)
+          [menu-item
+           {:on-click
+            (fn [] (reset! anchor-el nil) (pd/watch-app-state app-state))}
+           "Watch App State"])
+        (when (pd/debugging?)
+          [menu-item
+           {:on-click
+            (fn [] (reset! anchor-el nil) (pd/unwatch-app-state app-state))}
+           "Unwatch App State"])
         [menu-item
          {:on-click
           (fn []

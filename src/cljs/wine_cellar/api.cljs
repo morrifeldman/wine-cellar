@@ -484,3 +484,20 @@
   (fetch-wine-details app-state wine-id)
   (fetch-wine-varieties app-state wine-id)
   (fetch-tasting-note-sources app-state))
+
+(defn exit-wine-detail-page
+  "Clean up state when leaving wine detail page"
+  [app-state]
+  ;; Get current wine ID before clearing state
+  (when-let [selected-id (:selected-wine-id @app-state)]
+    (tap> {:exit-wine-detail-page {:selected-id selected-id}})
+    ;; Clear wine detail specific state
+    (swap! app-state dissoc
+      :selected-wine-id :tasting-notes
+      :editing-note-id :window-suggestion
+      :new-tasting-note :wine-varieties)
+    (tap> {:state-cleared true})
+    ;; Remove large image data from wines to free memory
+    (swap! app-state update
+      :wines
+      (fn [wines] (map #(dissoc % :label_image :back_label_image) wines)))))

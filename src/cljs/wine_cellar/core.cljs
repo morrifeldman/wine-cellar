@@ -5,6 +5,7 @@
             [wine-cellar.api :as api]
             [wine-cellar.state :refer [initial-app-state]]
             [wine-cellar.theme :refer [wine-theme]]
+            [clojure.string]
             [reagent-mui.styles :refer [theme-provider]]))
 
 (defonce app-state (r/atom initial-app-state))
@@ -16,13 +17,20 @@
                   (:show-wine-form? state) "/add-wine"
                   (= (:view state) :grape-varieties) "/grape-varieties"
                   (= (:view state) :classifications) "/classifications"
-                  :else "/")]
-    (when (not= url (.-pathname js/location))
-      (.pushState js/history nil "" url))))
+                  :else "/")
+        current-hash (.-hash js/location)
+        current-path (if (clojure.string/starts-with? current-hash "#")
+                       (subs current-hash 1)
+                       "/")]
+    (tap> {:update-url-from-state {:state-wine-id (:selected-wine-id state)
+                                   :calculated-url url
+                                   :current-hash current-hash}})
+    (when (not= url current-path) (set! (.-hash js/location) url))))
 
 (defn parse-url
   []
-  (let [path (.-pathname js/location)]
+  (let [hash (.-hash js/location)
+        path (if (clojure.string/starts-with? hash "#") (subs hash 1) "/")]
     (cond (= path "/") {:view nil :selected-wine-id nil :show-wine-form? false}
           (= path "/add-wine")
           {:view nil :selected-wine-id nil :show-wine-form? true}
@@ -38,9 +46,24 @@
 
 (defn sync-state-with-url
   []
-  (let [url-state (parse-url)] (swap! app-state merge url-state)))
+  (let [url-state (parse-url)
+        current-wine-id (:selected-wine-id @app-state)
+        new-wine-id (:selected-wine-id url-state)]
+    (tap> {:sync-state-with-url {:current-wine-id current-wine-id
+                                 :new-wine-id new-wine-id
+                                 :url-state url-state}})
+    ;; If changing wine (including wine-to-wine), clean up first
+    (when (and current-wine-id (not= current-wine-id new-wine-id))
+      (tap> {:cleaning-up-wine-detail current-wine-id})
+      (api/exit-wine-detail-page app-state))
+    ;; If navigating TO a wine detail, load the data
+    (when new-wine-id
+      (tap> {:loading-wine-detail new-wine-id})
+      (api/load-wine-detail-page app-state new-wine-id))
+    ;; Update state with URL
+    (swap! app-state merge url-state)))
 
-(defn handle-popstate [_] (sync-state-with-url))
+(defn handle-hashchange [_] (sync-state-with-url))
 
 (add-watch
  app-state
@@ -49,6 +72,9 @@
    (when (or (not= (:view old-state) (:view new-state))
              (not= (:selected-wine-id old-state) (:selected-wine-id new-state))
              (not= (:show-wine-form? old-state) (:show-wine-form? new-state)))
+     (tap> {:url-watcher-triggered {:old-wine-id (:selected-wine-id old-state)
+                                    :new-wine-id (:selected-wine-id
+                                                  new-state)}})
      (update-url-from-state new-state))))
 
 (defonce root (atom nil))
@@ -56,8 +82,8 @@
 (defn init
   []
   (js/console.log "Initializing app...")
-  ;; Set up browser history handling
-  (.addEventListener js/window "popstate" handle-popstate)
+  ;; Set up browser hash handling
+  (.addEventListener js/window "hashchange" handle-hashchange)
   ;; Sync initial state with URL
   (sync-state-with-url)
   ;; Only fetch data if we don't already have it and we're not in headless
