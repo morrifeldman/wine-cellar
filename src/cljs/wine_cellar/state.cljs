@@ -15,7 +15,7 @@
    :show-debug-controls? false
    :tasting-notes []
    :new-tasting-note {}
-   :sort {:field nil :direction :asc}
+   :sort {:field :created_at :direction :desc}
    :filters {:search "" :country nil :region nil :style nil}
    :view nil
    :chat {:open? false :messages []}})

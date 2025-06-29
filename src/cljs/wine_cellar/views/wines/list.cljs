@@ -47,7 +47,9 @@
        [menu-item {:value "latest_rating"} "Rating"]
        [menu-item {:value "quantity"} "Quantity"]
        [menu-item {:value "price"} "Price"]
-       [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]]]
+       [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]
+       [menu-item {:value "created_at"} "Date Added"]
+       [menu-item {:value "updated_at"} "Last Updated"]]]
      [button
       {:variant "outlined"
        :size "small"

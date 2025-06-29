@@ -16,7 +16,7 @@
             [wine-cellar.views.components.form :refer
              [currency-field date-field form-actions form-container form-divider
               form-row number-field select-field smart-select-field text-field
-              text-area-field year-field]]
+              uncontrolled-text-area-field year-field]]
             [wine-cellar.views.components.image-upload :refer [image-upload]]))
 
 (defn vintage
@@ -93,6 +93,7 @@
   (let [new-wine (:new-wine @app-state)
         classifications (:classifications @app-state)
         submitting? (:submitting-wine? @app-state)
+        window-commentary-ref (r/atom nil)
         validate-wine
         (fn []
           (cond (not (valid-name-producer? new-wine))
@@ -117,13 +118,17 @@
           (if-let [error (validate-wine)]
             (swap! app-state assoc :error error)
             (do (swap! app-state assoc :submitting-wine? true)
-                (api/create-wine
-                 app-state
-                 (-> new-wine
-                     (update :price js/parseFloat)
-                     (update :vintage (fn [v] (js/parseInt v 10)))
-                     (update :quantity (fn [q] (js/parseInt q 10)))
-                     (assoc :create-classification-if-needed true))))))]
+                ;; Extract tasting window commentary from ref
+                (let [commentary (when @window-commentary-ref
+                                   (.-value @window-commentary-ref))]
+                  (api/create-wine
+                   app-state
+                   (-> new-wine
+                       (update :price js/parseFloat)
+                       (update :vintage (fn [v] (js/parseInt v 10)))
+                       (update :quantity (fn [q] (js/parseInt q 10)))
+                       (assoc :tasting_window_commentary commentary)
+                       (assoc :create-classification-if-needed true)))))))]
     [form-container {:title "Add New Wine" :on-submit submit-handler}
      ;; Wine Label Images Section
      [form-divider "Wine Label Images"]
@@ -299,14 +304,11 @@
      [form-row [drink-from-year app-state new-wine]
       [drink-until-year app-state new-wine]]
      [form-row
-      [text-area-field
+      [uncontrolled-text-area-field
        {:label "Tasting Window Commentary"
-        :multiline true
         :rows 4
-        :fullWidth true
-        :value (:tasting_window_commentary new-wine)
-        :on-change
-        #(swap! app-state assoc-in [:new-wine :tasting_window_commentary] %)}]]
+        :initial-value (:tasting_window_commentary new-wine)
+        :input-ref window-commentary-ref}]]
      ;; Additional Information Section
      [form-divider "Additional Information"]
      [form-row

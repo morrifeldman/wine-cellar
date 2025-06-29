@@ -45,6 +45,9 @@
                                                                              ;; null
                                                                              ;; ratings
                                                                              ;; last
+                                ;; Handle timestamps for date sorting
+                                (and (#{:updated_at :created_at} field) val)
+                                (js/Date. val)
                                 (nil? val) "" ;; For other fields, use
                                               ;; empty string
                                 (number? val) val

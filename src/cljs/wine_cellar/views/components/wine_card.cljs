@@ -107,7 +107,9 @@
    [box {:sx {:display "flex" :alignItems "center"}}
     [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}} "Price:"]
     [typography {:variant "body2"}
-     (gstring/format "$%.2f" (or (:price wine) 0))]]])
+     (if-let [price (:price wine)]
+       (gstring/format "$%.2f" price)
+       "-")]]])
 
 (defn wine-alcohol-info
   [wine]
