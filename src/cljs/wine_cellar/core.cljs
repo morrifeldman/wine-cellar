@@ -22,9 +22,6 @@
         current-path (if (clojure.string/starts-with? current-hash "#")
                        (subs current-hash 1)
                        "/")]
-    (tap> {:update-url-from-state {:state-wine-id (:selected-wine-id state)
-                                   :calculated-url url
-                                   :current-hash current-hash}})
     (when (not= url current-path) (set! (.-hash js/location) url))))
 
 (defn parse-url
@@ -49,18 +46,9 @@
   (let [url-state (parse-url)
         current-wine-id (:selected-wine-id @app-state)
         new-wine-id (:selected-wine-id url-state)]
-    (tap> {:sync-state-with-url {:current-wine-id current-wine-id
-                                 :new-wine-id new-wine-id
-                                 :url-state url-state}})
-    ;; If changing wine (including wine-to-wine), clean up first
     (when (and current-wine-id (not= current-wine-id new-wine-id))
-      (tap> {:cleaning-up-wine-detail current-wine-id})
       (api/exit-wine-detail-page app-state))
-    ;; If navigating TO a wine detail, load the data
-    (when new-wine-id
-      (tap> {:loading-wine-detail new-wine-id})
-      (api/load-wine-detail-page app-state new-wine-id))
-    ;; Update state with URL
+    (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
     (swap! app-state merge url-state)))
 
 (defn handle-hashchange [_] (sync-state-with-url))
@@ -72,9 +60,6 @@
    (when (or (not= (:view old-state) (:view new-state))
              (not= (:selected-wine-id old-state) (:selected-wine-id new-state))
              (not= (:show-wine-form? old-state) (:show-wine-form? new-state)))
-     (tap> {:url-watcher-triggered {:old-wine-id (:selected-wine-id old-state)
-                                    :new-wine-id (:selected-wine-id
-                                                  new-state)}})
      (update-url-from-state new-state))))
 
 (defonce root (atom nil))
