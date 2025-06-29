@@ -16,6 +16,7 @@
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
             [reagent-mui.icons.edit :refer [edit]]
+            [reagent-mui.icons.send :refer [send]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [wine-cellar.api :as api]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
@@ -26,9 +27,10 @@
 
 (defn message-bubble
   "Renders a single chat message bubble"
-  [{:keys [text is-user timestamp id]} on-edit]
+  [{:keys [text is-user timestamp id]} on-edit & [ref-callback]]
   [box
-   {:sx {:display "flex"
+   {:ref ref-callback
+    :sx {:display "flex"
          :justify-content (if is-user "flex-end" "flex-start")
          :mb 1}}
    [paper
@@ -98,9 +100,10 @@
     {:variant "contained"
      :disabled @disabled?
      :sx {:minWidth "80px"}
-     :startIcon (when @disabled?
+     :startIcon (if @disabled?
                   (r/as-element [circular-progress
-                                 {:size 16 :sx {:color "secondary.light"}}]))
+                                 {:size 16 :sx {:color "secondary.light"}}])
+                  (r/as-element [send {:size 16}]))
      :on-click #(when @message-ref
                   (let [message-text (.-value @message-ref)]
                     (when (seq (str message-text))
@@ -115,12 +118,14 @@
 (defn chat-messages
   "Scrollable container for chat messages"
   [messages on-edit]
-  (let [scroll-ref (r/atom nil)]
+  (let [scroll-ref (r/atom nil)
+        last-ai-message-ref (r/atom nil)]
     (r/create-class
      {:component-did-update (fn [this]
-                              (when @scroll-ref
-                                (set! (.-scrollTop @scroll-ref)
-                                      (.-scrollHeight @scroll-ref))))
+                              (when @last-ai-message-ref
+                                (.scrollIntoView @last-ai-message-ref
+                                                 #js {:behavior "smooth"
+                                                      :block "start"})))
       :reagent-render
       (fn [messages on-edit]
         [box
@@ -138,7 +143,11 @@
              :sx {:text-align "center" :color "text.secondary" :mt 2}}
             "Start a conversation about your wine cellar..."]
            (for [message @messages]
-             ^{:key (:id message)} [message-bubble message on-edit]))])})))
+             (let [is-last-message? (= message (last @messages))]
+               ^{:key (:id message)}
+               [message-bubble message on-edit
+                (when is-last-message?
+                  #(reset! last-ai-message-ref %))])))])})))
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with conversation history"
