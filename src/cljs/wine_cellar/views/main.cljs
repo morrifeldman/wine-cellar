@@ -82,6 +82,15 @@
             (reset! anchor-el nil)
             (when
               (js/confirm
+               "Mark all wines as unverified? This will require you to verify them individually.")
+              (api/mark-all-wines-unverified app-state)))}
+         "Mark All Wines Unverified"]
+        [menu-item
+         {:on-click
+          (fn []
+            (reset! anchor-el nil)
+            (when
+              (js/confirm
                "⚠️ DANGER: This will DELETE ALL DATA and reset the database schema!\n\nAre you absolutely sure you want to continue?")
               (api/reset-database app-state)))
           :sx {:color "error.main"}} "🔥 Reset Database"]] [logout]])))

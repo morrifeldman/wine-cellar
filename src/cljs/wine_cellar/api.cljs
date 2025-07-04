@@ -470,6 +470,23 @@
 
 ;; Admin endpoints
 
+(defn mark-all-wines-unverified
+  "Admin function to mark all wines as unverified"
+  [app-state]
+  (go (let [result (<! (POST "/api/admin/mark-all-unverified"
+                             {}
+                             "Failed to mark wines as unverified"))]
+        (if (:success result)
+          (do
+            ;; Refresh the wines list to show updated verification status
+            (fetch-wines app-state)
+            (swap! app-state assoc
+              :success
+              (str "Successfully marked "
+                   (get-in result [:data :wines-updated])
+                   " wines as unverified")))
+          (swap! app-state assoc :error (:error result))))))
+
 (defn reset-database
   "Admin function to reset the database"
   [app-state]
