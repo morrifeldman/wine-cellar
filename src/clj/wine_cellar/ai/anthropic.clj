@@ -269,3 +269,29 @@
         content [{:type "text" :text prompt}]]
     (tap> ["chat-prompt" prompt])
     (call-anthropic-api content false)))
+
+(defn- create-wine-summary-prompt
+  "Creates a prompt for generating a comprehensive wine summary with food pairings and taste profile"
+  [wine]
+  (let [wine-details
+        (format-wine-summary wine :include-quantity? false :bullet-prefix "")]
+    (str
+     "You are a wine expert tasked with creating a concise wine summary including taste profile and food pairing recommendations. "
+     "Based on the following wine details, create an informative but brief summary that would be helpful to someone deciding whether to drink this wine or what to pair it with.\n\n"
+     "Wine details:\n" wine-details
+     "\n\n"
+     "Please provide a concise summary (2-3 paragraphs maximum) that includes:\n"
+     "1. Overall style and key taste characteristics\n"
+     "2. Top 3-4 food pairing suggestions\n"
+     "3. Basic serving recommendations\n\n"
+     "Write in a conversational, informative tone. Keep it concise and practical. "
+     "Focus on the most important information for enjoyment and pairing decisions. "
+     "Return only the summary text without any formatting or structure markers.")))
+
+(defn generate-wine-summary
+  "Generates a comprehensive wine summary including taste profile and food pairings using Anthropic's Claude API"
+  [wine]
+  (let [prompt (create-wine-summary-prompt wine)
+        content [{:type "text" :text prompt}]]
+    (tap> ["wine-summary-prompt" prompt])
+    (call-anthropic-api content false)))

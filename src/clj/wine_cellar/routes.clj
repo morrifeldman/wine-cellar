@@ -42,6 +42,8 @@
 (s/def ::alcohol_percentage (s/nilable number?))
 (s/def ::disgorgement_year (s/nilable int?))
 (s/def ::tasting_window_commentary (s/nilable string?))
+(s/def ::verified boolean?)
+(s/def ::ai_summary (s/nilable string?))
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source (s/nilable string?))
@@ -68,7 +70,8 @@
                    ::purveyor ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::vintage ::price
                    ::purchase_date ::alcohol_percentage ::wine_varieties
-                   ::disgorgement_year ::tasting_window_commentary]))
+                   ::disgorgement_year ::tasting_window_commentary ::verified
+                   ::ai_summary]))
 
 (def wine-update-schema
   (s/keys :req-un [(or ::producer
@@ -82,13 +85,14 @@
                        ::label_thumbnail ::back_label_image
                        ::drink_from_year ::drink_until_year
                        ::purchase_date ::alcohol_percentage
-                       ::disgorgement_year ::tasting_window_commentary)]
+                       ::disgorgement_year ::tasting_window_commentary
+                       ::verified ::ai_summary)]
           :opt-un [::producer ::country ::region ::aoc ::classification
                    ::vineyard ::name ::vintage ::style ::level ::location
                    ::quantity ::price ::purveyor ::label_image ::label_thumbnail
                    ::back_label_image ::drink_from_year ::drink_until_year
                    ::purchase_date ::alcohol_percentage ::disgorgement_year
-                   ::tasting_window_commentary]))
+                   ::tasting_window_commentary ::verified ::ai_summary]))
 
 (s/def ::nilable-label_image (s/nilable ::label_image))
 (s/def ::nilable-label_thumbnail (s/nilable ::label_thumbnail))
@@ -168,7 +172,12 @@
     ["/reset-database"
      {:post {:summary "Admin: Drop and recreate all database tables"
              :responses {200 {:body map?} 500 {:body map?}}
-             :handler handlers/reset-database}}]]
+             :handler handlers/reset-database}}]
+    ["/mark-all-unverified"
+     {:post {:summary
+             "Admin: Mark all wines as unverified for inventory verification"
+             :responses {200 {:body map?} 500 {:body map?}}
+             :handler handlers/mark-all-wines-unverified}}]]
    ["/grape-varieties"
     {:get {:summary "Get all grape varieties"
            :responses {200 {:body vector?} 500 {:body map?}}
@@ -241,6 +250,13 @@
              :parameters {:body {:wine map?}}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/suggest-drinking-window}}]
+    ["/generate-summary"
+     {:post
+      {:summary
+       "Generate comprehensive wine summary with taste profile and food pairings using AI"
+       :parameters {:body {:wine map?}}
+       :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
+       :handler handlers/generate-wine-summary}}]
     ["/by-id/:id"
      {:parameters {:path {:id int?} :query (s/keys :opt-un [::include_images])}
       :get

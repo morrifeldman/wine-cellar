@@ -362,3 +362,12 @@
                                   :where [:and [:= :wine_id wine-id]
                                           [:= :variety_id variety-id]]})
                      db-opts))
+
+(defn mark-all-wines-unverified
+  "Mark all wines as unverified for inventory verification"
+  []
+  (let [result (jdbc/execute-one! ds
+                                  (sql/format {:update :wines
+                                               :set {:verified false}})
+                                  db-opts)]
+    (:next.jdbc/update-count result)))

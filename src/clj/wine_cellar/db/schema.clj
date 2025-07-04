@@ -43,6 +43,7 @@
     [:price :decimal [10 2]] [:purchase_date :date] [:drink_from_year :integer]
     [:drink_until_year :integer] [:alcohol_percentage :decimal [4 2]]
     [:disgorgement_year :integer] [:tasting_window_commentary :text]
+    [:verified :boolean [:default false]] [:ai_summary :text]
     [:label_image :bytea] [:label_thumbnail :bytea] [:back_label_image :bytea]
     [[:constraint :valid_tasting_window]
      [:check

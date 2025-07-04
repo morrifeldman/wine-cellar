@@ -48,63 +48,63 @@
    Options:
    - value: The current value of the field
    - on-save: Function to call when saving (receives new value)
+   - on-cancel: Optional function to call when canceling edit mode
    - validate-fn: Optional validation function that returns error message or nil
    - empty-text: Text to display when value is empty - defaults to 'Not specified'
-   - render-input-fn: Function that renders the input component (receives value, on-change, and error)"
-  [{:keys [value on-save validate-fn empty-text render-input-fn]
+   - render-input-fn: Function that renders the input component (receives value, on-change, and error)
+   - force-edit-mode?: If true, start in edit mode (useful for generated content)"
+  [{:keys [value on-save on-cancel validate-fn empty-text render-input-fn
+           force-edit-mode?]
     :or {empty-text "Not specified"}}]
-  (let [editing (r/atom false)
-        field-value (r/atom value)
-        field-error (r/atom nil)
-        saving (r/atom false)]
-    (fn [{:keys [value on-save validate-fn empty-text render-input-fn]
-          :or {empty-text "Not specified"}}]
-      (if @editing
-        ;; Edit mode
-        [box {:display "flex" :flexDirection "column" :width "100%"}
-         [box {:display "flex" :alignItems "center"}
-          [box {:sx {:flex 1 :mr 1}}
-           (render-input-fn @field-value
-                            (fn [new-value]
-                              (reset! field-value new-value)
-                              (reset! field-error nil))
-                            @field-error)]
-          [icon-button
-           {:color "primary"
-            :size "small"
-            :disabled (or (boolean @field-error) @saving)
-            :onClick (fn []
-                       (let [error (when validate-fn
-                                     (validate-fn @field-value))]
-                         (if error
-                           (reset! field-error error)
-                           (do (reset! saving true)
-                               (-> (on-save @field-value)
-                                   (.then #(do (reset! saving false)
-                                               (reset! editing false)))
-                                   (.catch #(do (reset! saving false)
-                                                (reset! field-error
-                                                  "Save failed"))))))))}
-           (if @saving [circular-progress {:size 20}] [save])]
-          [icon-button
-           {:color "secondary"
-            :size "small"
-            :disabled @saving
-            :onClick (fn []
-                       (reset! field-value value)
-                       (reset! field-error nil)
-                       (reset! editing false))} [cancel]]]]
-        ;; View mode
-        [box
-         {:display "flex"
-          :alignItems "center"
-          :justifyContent "space-between"
-          :width "100%"}
-         [typography {:variant "body1"}
-          (if (or (nil? value) (str/blank? value)) empty-text value)]
-         [icon-button
-          {:color "primary" :size "small" :onClick #(reset! editing true)}
-          [edit]]]))))
+  (r/with-let
+   [editing (r/atom (boolean force-edit-mode?)) field-value (r/atom value)
+    field-error (r/atom nil) saving (r/atom false)]
+   (if @editing
+     ;; Edit mode
+     [box {:display "flex" :flexDirection "column" :width "100%"}
+      [box {:display "flex" :alignItems "center"}
+       [box {:sx {:flex 1 :mr 1}}
+        (render-input-fn @field-value
+                         (fn [new-value]
+                           (reset! field-value new-value)
+                           (reset! field-error nil))
+                         @field-error)]
+       [icon-button
+        {:color "primary"
+         :size "small"
+         :disabled (or (boolean @field-error) @saving)
+         :onClick (fn []
+                    (let [error (when validate-fn (validate-fn @field-value))]
+                      (if error
+                        (reset! field-error error)
+                        (do (reset! saving true)
+                            (-> (on-save @field-value)
+                                (.then #(do (reset! saving false)
+                                            (reset! editing false)))
+                                (.catch #(do (reset! saving false)
+                                             (reset! field-error
+                                               "Save failed"))))))))}
+        (if @saving [circular-progress {:size 20}] [save])]
+       [icon-button
+        {:color "secondary"
+         :size "small"
+         :disabled @saving
+         :onClick (fn []
+                    (reset! field-value value)
+                    (reset! field-error nil)
+                    (reset! editing false)
+                    (when on-cancel (on-cancel)))} [cancel]]]]
+     ;; View mode
+     [box
+      {:display "flex"
+       :alignItems "center"
+       :justifyContent "space-between"
+       :width "100%"}
+      [typography {:variant "body1"}
+       (if (or (nil? value) (str/blank? value)) empty-text value)]
+      [icon-button
+       {:color "primary" :size "small" :onClick #(reset! editing true)}
+       [edit]]])))
 
   ;; Specific field implementations
 (defn editable-text-field

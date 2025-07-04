@@ -58,6 +58,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── ai-form-fill-implementation.md
 │   ├── alcohol-percentage-implementation.md
 │   ├── chat-summary.md
+│   ├── code-quality-improvements.md
 │   ├── environment-variables.md
 │   ├── ideal-taxonomy.md
 │   ├── pairing-feature.md
@@ -146,7 +147,7 @@ This is a full-stack wine cellar tracking application built with:
                     ├── list.cljs
                     └── varieties.cljs
 
-27 directories, 75 files
+27 directories, 76 files
 ```
 
 ## Development Commands

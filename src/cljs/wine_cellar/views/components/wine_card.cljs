@@ -1,11 +1,15 @@
 (ns wine-cellar.views.components.wine-card
   (:require [goog.string :as gstring]
             [goog.string.format]
+            [reagent.core :as r]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.grid :refer [grid]]
+            [reagent-mui.material.checkbox :refer [checkbox]]
+            [reagent-mui.material.form-control-label :refer
+             [form-control-label]]
             [wine-cellar.utils.vintage :refer
              [tasting-window-status tasting-window-color]]
             [wine-cellar.views.components :refer [quantity-control]]
@@ -190,6 +194,21 @@
 
 ;; Using quantity-control from components.cljs
 
+(defn wine-verification-checkbox
+  [app-state wine]
+  [form-control-label
+   {:control (r/as-element [checkbox
+                            {:checked (boolean (:verified wine))
+                             :size "small"
+                             :onChange
+                             (fn [e]
+                               (let [new-verified (.. e -target -checked)]
+                                 (api/update-wine app-state
+                                                  (:id wine)
+                                                  {:verified new-verified})))}])
+    :label "Verified"
+    :sx {:ml 0 :mr 1}}])
+
 (defn wine-quantity-display
   [app-state wine]
   [box {:sx {:display "flex" :alignItems "center"}}
@@ -199,9 +218,10 @@
 (defn wine-controls
   [app-state wine]
   [box
-   {:sx {:display "flex" :justifyContent "center" :alignItems "center" :mt 0.5}} ;; Further
-                                                                                 ;; reduced
-                                                                                 ;; margin
+   {:sx {:display "flex"
+         :justifyContent "space-between"
+         :alignItems "center"
+         :mt 0.5}} [wine-verification-checkbox app-state wine]
    [wine-quantity-display app-state wine]])
 
 (defn wine-card

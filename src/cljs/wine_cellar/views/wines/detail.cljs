@@ -135,6 +135,30 @@
                        :rows 4
                        :helperText "Commentary about the drinking window"}}])
 
+(defn editable-ai-summary
+  [app-state wine]
+  (let [force-edit-key (get-in @app-state [:force-edit-ai-summary (:id wine)])]
+    ^{:key (str "ai-summary-" (:id wine)
+                "-" (if force-edit-key (.getTime (js/Date.)) "view"))}
+    [editable-text-field
+     {:value (:ai_summary wine)
+      :force-edit-mode? (boolean force-edit-key)
+      :on-save
+      (fn [new-value]
+        ;; Clear the force edit mode when saving
+        (swap! app-state update :force-edit-ai-summary dissoc (:id wine))
+        (api/update-wine app-state (:id wine) {:ai_summary new-value}))
+      :on-cancel
+      (fn []
+        ;; Clear the force edit mode when canceling
+        (swap! app-state update :force-edit-ai-summary dissoc (:id wine)))
+      :empty-text "Generate AI wine summary"
+      :text-field-props
+      {:multiline true
+       :rows 4
+       :helperText
+       "AI-generated wine profile, taste notes, and food pairings"}}]))
+
 (defn editable-name
   [app-state wine]
   [editable-text-field
@@ -485,6 +509,7 @@
           :color "secondary"
           :size "small"
           :disabled (:suggesting-drinking-window? @app-state)
+          :sx {"&.Mui-disabled" {:color "secondary.main"}}
           :startIcon (r/as-element [auto-awesome])
           :onClick (fn []
                      (-> (api/suggest-drinking-window app-state wine)
@@ -576,6 +601,48 @@
                         ;; Clear the suggestion without applying
                         (swap! app-state dissoc :window-suggestion))}
             "Dismiss"]])]]]]
+    ;; AI Summary section
+    [grid {:item true :xs 12 :md 6}
+     [paper
+      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "AI Wine Summary"]
+      [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+       [editable-ai-summary app-state wine]
+       [box {:sx {:mt 1}}
+        [button
+         {:variant "outlined"
+          :color "secondary"
+          :size "small"
+          :disabled (:generating-ai-summary? @app-state)
+          :sx {"&.Mui-disabled" {:color "secondary.main"}}
+          :startIcon (r/as-element [auto-awesome])
+          :onClick
+          (fn []
+            (swap! app-state assoc :generating-ai-summary? true)
+            (-> (api/generate-wine-summary app-state wine)
+                (.then (fn [summary]
+                         ;; Update the local wine data with new summary
+                         (swap! app-state update
+                           :wines
+                           (fn [wines]
+                             (map #(if (= (:id %) (:id wine))
+                                     (assoc % :ai_summary summary)
+                                     %)
+                                  wines)))
+                         ;; Force the editable field into edit mode
+                         (swap! app-state assoc-in
+                           [:force-edit-ai-summary (:id wine)]
+                           true)
+                         (swap! app-state dissoc :generating-ai-summary?)))
+                (.catch (fn [error]
+                          (swap! app-state assoc
+                            :error
+                            (str "Failed to generate summary: " error))
+                          (swap! app-state dissoc :generating-ai-summary?)))))}
+         (if (:generating-ai-summary? @app-state)
+           [box {:sx {:display "flex" :alignItems "center"}}
+            [circular-progress {:size 20 :sx {:mr 1}}] "Generating..."]
+           "Generate AI Summary")]]]]]
     ;; Tasting notes section
     [box {:sx {:mt 4}}
      [typography

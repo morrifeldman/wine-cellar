@@ -157,29 +157,6 @@
     :variant "outlined"
     :onChange #(when on-change (on-change (.. % -target -value)))}])
 
-(defn text-area-field
-  "A multi-line text field with consistent styling, local atom optimization"
-  [{:keys [label value on-change required rows helper-text error]}]
-  (r/with-let [local-value (r/atom (or value ""))]
-              (when (and (str/blank? value) (not (str/blank? @local-value)))
-                (reset! local-value ""))
-              [mui-text-field/text-field
-               {:label label
-                :multiline true
-                :rows (or rows 3) ;; Reduced from 4
-                :required required
-                :fullWidth true
-                :value @local-value
-                :error error
-                :helperText helper-text
-                :size "small" ;; Added small size
-                :margin "dense" ;; Added dense margin
-                :sx form-field-style
-                :variant "outlined"
-                :onChange #(let [new-value (.. % -target -value)]
-                             (reset! local-value new-value)
-                             (when on-change (on-change new-value)))}]))
-
 (defn uncontrolled-text-area-field
   "High-performance text area that doesn't re-render on every keystroke"
   [{:keys [label initial-value required rows helper-text error reset-key

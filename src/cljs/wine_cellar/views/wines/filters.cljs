@@ -59,7 +59,8 @@
                       :style nil
                       :variety nil
                       :price-range nil
-                      :tasting-window nil})} "Clear Filters"]]]
+                      :tasting-window nil
+                      :verification nil})} "Clear Filters"]]]
      [collapse {:in (:show-filters? @app-state) :timeout "auto"}
       [grid {:container true :spacing 3}
        ;; Search field - increased width
@@ -171,5 +172,20 @@
           [menu-item {:value ""} "All Wines"]
           [menu-item {:value "ready"} (tasting-window-label :ready)]
           [menu-item {:value "too-young"} (tasting-window-label :too-young)]
-          [menu-item {:value "too-old"} (tasting-window-label :too-old)]]]]]]]))
+          [menu-item {:value "too-old"} (tasting-window-label :too-old)]]]]]
+      ;; Verification Status dropdown
+      [grid {:item true :xs 12 :md 2}
+       [form-control
+        {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
+        [input-label "Verification"]
+        [select
+         {:value (or (:verification filters) "")
+          :label "Verification"
+          :onChange #(swap! app-state assoc-in
+                       [:filters :verification]
+                       (let [v (.. % -target -value)]
+                         (when-not (empty? v) (keyword v))))}
+         [menu-item {:value ""} "All Wines"]
+         [menu-item {:value "verified-only"} "Verified Only"]
+         [menu-item {:value "unverified-only"} "Unverified Only"]]]]]]))
 

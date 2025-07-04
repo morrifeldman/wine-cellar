@@ -34,6 +34,14 @@
             [min-price max-price] price-range]
         (and price (>= price min-price) (<= price max-price)))))
 
+(defn matches-verification-status?
+  [wine verification-filter]
+  (case verification-filter
+    :unverified-only (not (:verified wine))
+    :verified-only (:verified wine)
+    nil true ; Show all when no filter selected
+    true))
+
 (defn apply-sorting
   [wines field direction]
   (if field
@@ -60,7 +68,8 @@
 (defn filtered-sorted-wines
   [app-state]
   (let [wines (:wines @app-state)
-        {:keys [search country region style tasting-window variety price-range]}
+        {:keys [search country region style tasting-window variety price-range
+                verification]}
         (:filters @app-state)
         {:keys [field direction]} (:sort @app-state)
         show-out-of-stock? (:show-out-of-stock? @app-state)]
@@ -75,6 +84,7 @@
       (filter #(matches-variety? % variety) w)
       (filter #(matches-price-range? % price-range) w)
       (filter #(matches-tasting-window? % tasting-window) w)
+      (filter #(matches-verification-status? % verification) w)
       ;; Apply sorting
       (apply-sorting w field direction))))
 

@@ -310,6 +310,24 @@
                    :response (:response data)}}))
        (catch Exception e (server-error e))))
 
+(defn generate-wine-summary
+  [{{:keys [wine]} :body-params}]
+  (try (if (nil? wine)
+         {:status 400 :body {:error "Wine details are required"}}
+         (let [enriched-wine (if (:id wine)
+                               (first (db-api/get-enriched-wines-by-ids
+                                       [(:id wine)]))
+                               wine)
+               result (anthropic/generate-wine-summary enriched-wine)]
+           (response/response result)))
+       (catch clojure.lang.ExceptionInfo e
+         (let [data (ex-data e)]
+           {:status 500
+            :body {:error "AI summary generation failed"
+                   :details (.getMessage e)
+                   :response (:response data)}}))
+       (catch Exception e (server-error e))))
+
 (defn health-check
   [_]
   (try
@@ -360,4 +378,18 @@
                :classifications-seeded false}}
        (catch Exception e
          (println "❌ ADMIN: Database reset failed:" (.getMessage e))
+         (server-error e))))
+
+(defn mark-all-wines-unverified
+  "Admin function to mark all wines as unverified for inventory verification"
+  [_]
+  (try (println "🔄 ADMIN: Marking all wines as unverified...")
+       (let [updated-count (db-api/mark-all-wines-unverified)]
+         (println "✅ ADMIN: Marked" updated-count "wines as unverified")
+         {:status 200
+          :body {:message "All wines marked as unverified"
+                 :wines-updated updated-count}})
+       (catch Exception e
+         (println "❌ ADMIN: Failed to mark wines as unverified:"
+                  (.getMessage e))
          (server-error e))))

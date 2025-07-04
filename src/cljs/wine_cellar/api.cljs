@@ -336,6 +336,17 @@
                       (do (swap! app-state assoc :error (:error result))
                           (reject (:error result)))))))))
 
+(defn generate-wine-summary
+  [app-state wine]
+  (js/Promise. (fn [resolve reject]
+                 (go (let [result (<! (POST "/api/wines/generate-summary"
+                                            {:wine wine}
+                                            "Failed to generate wine summary"))]
+                       (if (:success result)
+                         (resolve (:data result))
+                         (do (swap! app-state assoc :error (:error result))
+                             (reject (:error result)))))))))
+
 (defn fetch-grape-varieties
   [app-state]
   (go (let [result (<! (GET "/api/grape-varieties"
