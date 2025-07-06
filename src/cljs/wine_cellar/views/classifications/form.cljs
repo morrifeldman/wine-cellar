@@ -24,6 +24,7 @@
         :multiple true
         :value (:levels new-class [])
         :options common/wine-levels
+        :sx {"& .MuiAutocomplete-popupIndicator" {:color "text.secondary"}}
         :on-change
         #(swap! app-state assoc-in [:new-classification :levels] %)}]]
      ;; Form buttons

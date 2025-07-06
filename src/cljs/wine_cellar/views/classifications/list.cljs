@@ -38,6 +38,7 @@
         :multiple true
         :value (get-in @app-state [:editing-classification :levels] [])
         :options common/wine-levels
+        :sx {"& .MuiAutocomplete-popupIndicator" {:color "text.secondary"}}
         :on-change
         #(swap! app-state assoc-in [:editing-classification :levels] %)}]]]))
 

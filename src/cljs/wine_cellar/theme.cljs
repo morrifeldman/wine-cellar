@@ -12,8 +12,10 @@
                           :light "#C6D19B"
                           :dark "#8A9A5B"}
               :text {:primary "#F5F5F5" ;; Light text for dark background
-                     :secondary "#D0D0D0"} ;; Slightly darker for secondary
-                                           ;; text
+                     :secondary "#D0D0D0" ;; Slightly darker for secondary
+                                          ;; text
+                     :disabled "#606060"} ;; Much more muted gray for
+                                          ;; disabled text
               :background {:default "#150A0C" ;; Even deeper burgundy/wine
                                               ;; background (like aged wine
                                               ;; in a dark cellar)
@@ -55,7 +57,10 @@
                                         :color "#F5F5F5"}}}
      :MuiButton {:styleOverrides {:root {:textTransform "none"
                                          :fontWeight 500
-                                         :borderRadius "8px"}
+                                         :borderRadius "8px"
+                                         "&.Mui-disabled"
+                                         {:color "text.disabled"
+                                          :borderColor "text.disabled"}}
                                   :contained {:boxShadow "none"}
                                   :outlined {:borderWidth "1.5px"}}}
      ;; More compact form controls
@@ -68,6 +73,16 @@
                                                 :borderRadius "6px"}
                                          :input {:padding "8px 12px"}}} ;; Reduced
                                                                         ;; padding
+     ;; Disabled field styling for better readability
+     :MuiInputBase {:styleOverrides
+                    {:root {"&.Mui-disabled" {:color "text.disabled"}
+                            "&.Mui-disabled input" {:color "text.disabled"}}}}
+     :MuiAutocomplete {:styleOverrides
+                       {:root {"&.Mui-disabled" {:color "text.disabled"}
+                               "&.Mui-disabled .MuiInputBase-input"
+                               {:color "text.disabled"}}}}
+     :MuiFormLabel {:styleOverrides {:root {"&.Mui-disabled"
+                                            {:color "text.secondary"}}}}
      :MuiSelect {:styleOverrides {:root {:fontSize "0.85rem"}}}
      :MuiMenuItem {:styleOverrides {:root {:fontSize "0.85rem"
                                            :minHeight "32px"}}} ;; Reduced

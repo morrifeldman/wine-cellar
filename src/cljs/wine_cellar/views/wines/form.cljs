@@ -193,6 +193,7 @@
         :required true
         :multiple false
         :options common/wine-styles
+        :sx {"& .MuiAutocomplete-popupIndicator" {:color "text.secondary"}}
         :on-change #(swap! app-state assoc-in [:new-wine :style] %)}]]
      ;; Wine Classification Section
      [form-divider "Grape Varieties"]
@@ -269,6 +270,8 @@
                                  (:country new-wine)
                                  (:region new-wine)
                                  (:style new-wine))))
+         :sx {"&.Mui-disabled" {:color "text.disabled"
+                                :borderColor "text.disabled"}}
          :startIcon (r/as-element [auto-awesome])
          :onClick
          (fn []

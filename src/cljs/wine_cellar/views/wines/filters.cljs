@@ -36,7 +36,9 @@
         "Filter Wines"]
        [icon-button
         {:onClick #(swap! app-state update :show-filters? not) :size "small"}
-        (if (:show-filters? @app-state) [expand-less] [expand-more])]]
+        (if (:show-filters? @app-state)
+          [expand-less {:sx {:color "text.secondary"}}]
+          [expand-more {:sx {:color "text.secondary"}}])]]
       ;; Button container
       [box {:sx {:display "flex" :gap 1}}
        ;; In Cellar/All History button
@@ -83,6 +85,7 @@
          [select
           {:value (or (:country filters) "")
            :label "Country"
+           :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
            :onChange #(swap! app-state assoc-in
                         [:filters :country]
                         (let [v (.. % -target -value)]
@@ -101,6 +104,9 @@
          [select
           {:value (or (:region filters) "")
            :label "Region"
+           :sx {"& .MuiSelect-icon" {:color (if (empty? (:country filters))
+                                              "text.disabled"
+                                              "text.secondary")}}
            :onChange #(swap! app-state assoc-in
                         [:filters :region]
                         (let [v (.. % -target -value)]
@@ -116,6 +122,7 @@
          [select
           {:value (or (:style filters) "")
            :label "Style"
+           :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
            :onChange #(swap! app-state assoc-in
                         [:filters :style]
                         (let [v (.. % -target -value)]
@@ -131,6 +138,7 @@
          [select
           {:value (or (:variety filters) "")
            :label "Variety"
+           :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
            :onChange #(swap! app-state assoc-in
                         [:filters :variety]
                         (let [v (.. % -target -value)]
@@ -165,6 +173,7 @@
          [select
           {:value (or (:tasting-window filters) "")
            :label "Tasting Window"
+           :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
            :onChange #(swap! app-state assoc-in
                         [:filters :tasting-window]
                         (let [v (.. % -target -value)]
@@ -181,6 +190,7 @@
         [select
          {:value (or (:verification filters) "")
           :label "Verification"
+          :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
           :onChange #(swap! app-state assoc-in
                        [:filters :verification]
                        (let [v (.. % -target -value)]

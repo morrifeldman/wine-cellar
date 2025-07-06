@@ -509,7 +509,6 @@
           :color "secondary"
           :size "small"
           :disabled (:suggesting-drinking-window? @app-state)
-          :sx {"&.Mui-disabled" {:color "secondary.main"}}
           :startIcon (r/as-element [auto-awesome])
           :onClick (fn []
                      (-> (api/suggest-drinking-window app-state wine)
@@ -614,7 +613,6 @@
           :color "secondary"
           :size "small"
           :disabled (:generating-ai-summary? @app-state)
-          :sx {"&.Mui-disabled" {:color "secondary.main"}}
           :startIcon (r/as-element [auto-awesome])
           :onClick
           (fn []

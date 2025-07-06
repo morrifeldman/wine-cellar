@@ -110,7 +110,7 @@
                       (on-send message-text)
                       (set! (.-value @message-ref) ""))))}
     [box
-     {:sx {:color (if @disabled? "secondary.light" "inherit")
+     {:sx {:color (if @disabled? "text.disabled" "inherit")
            :fontWeight (if @disabled? "600" "normal")
            :fontSize (if @disabled? "0.85rem" "1rem")}}
      (if @disabled? "Sending..." "Send")]]])
@@ -281,10 +281,12 @@
             [icon-button
              {:on-click #(do (reset! messages [])
                              (swap! app-state assoc-in [:chat :messages] []))
-              :title "Clear chat history"} [clear-all]]
+              :title "Clear chat history"
+              :sx {:color "secondary.main"}} [clear-all]]
             [icon-button
              {:on-click #(swap! app-state assoc-in [:chat :open?] false)
-              :title "Close chat"} [close]]]]]
+              :title "Close chat"
+              :sx {:color "secondary.main"}} [close]]]]]
          [dialog-content
           [chat-messages messages #(handle-edit %1 %2 message-ref)]
           ;; Show editing indicator

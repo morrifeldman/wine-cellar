@@ -32,6 +32,7 @@
       [select
        {:value (or current-field "producer")
         :size "small"
+        :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
         :onChange #(swap! app-state update
                      :sort
                      (fn [sort]
@@ -94,7 +95,9 @@
       [typography {:variant "h6" :component "h3"} "Collection Overview"]
       [icon-button
        {:onClick #(swap! app-state update :show-stats? not) :size "small"}
-       (if (:show-stats? @app-state) [expand-less] [expand-more])]]
+       (if (:show-stats? @app-state)
+         [expand-less {:sx {:color "text.secondary"}}]
+         [expand-more {:sx {:color "text.secondary"}}])]]
      [collapse {:in (:show-stats? @app-state) :timeout "auto"}
       [grid {:container true :spacing 3}
        [grid {:item true :xs 12 :sm 6 :md 3}

@@ -231,13 +231,16 @@
     :fullWidth false
     :variant "outlined"
     :InputLabelProps {:shrink true}
-    :sx form-field-style
+    :sx (merge form-field-style
+               {"& input[type=date]::-webkit-calendar-picker-indicator"
+                {:filter "invert(0.7)" ;; Lighten the calendar icon
+                 :opacity 0.7}})
     :on-change #(on-change (.. % -target -value))}])
 
 (defn select-field
   "A dropdown select field with autocomplete"
   [{:keys [label value options required on-change multiple disabled free-solo
-           helper-text on-blur is-option-equal-to-value]
+           helper-text on-blur is-option-equal-to-value sx]
     :or {multiple false
          disabled false
          free-solo false
@@ -251,6 +254,7 @@
      :freeSolo free-solo
      :is-option-equal-to-value is-option-equal-to-value
      :size "small"
+     :sx (merge sx {"& .MuiSelect-icon" {:color "text.secondary"}})
      :value (cond-> value multiple (or []))
      :get-option-label (fn [option]
                          (cond (nil? option) ""
