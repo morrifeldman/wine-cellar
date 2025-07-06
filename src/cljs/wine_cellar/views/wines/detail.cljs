@@ -92,7 +92,7 @@
                            (< parsed 0) "Alcohol percentage cannot be negative"
                            (> parsed 100) "Alcohol percentage cannot exceed 100"
                            :else nil)))
-    :empty-text "Add alcohol percentage"
+    :empty-text "Add ABV"
     :text-field-props {:type "number"
                        :step "0.1"
                        :InputProps {:endAdornment "%"}
@@ -346,6 +346,306 @@
     :text-field-props
     {:type "number" :helperText "Year when the wine should be consumed by"}}])
 
+(defn wine-identity-section
+  [app-state wine]
+  [box {:sx {:mb 3 :pb 2 :borderBottom "1px solid rgba(0,0,0,0.08)"}}
+   ;; Producer + Name
+   [grid {:container true :spacing 2}
+    [grid {:item true :xs 12 :sm 6}
+     [typography {:variant "body2" :color "text.secondary"} "Producer"]
+     [editable-producer app-state wine]]
+    [grid {:item true :xs 12 :sm 6}
+     [typography {:variant "body2" :color "text.secondary"} "Wine Name"]
+     [editable-name app-state wine]]]
+   ;; Country + Region + AOC
+   [grid {:container true :spacing 1 :sx {:mt 2}}
+    [grid {:item true :xs 4 :sm 4}
+     [typography {:variant "body2" :color "text.secondary"} "Country"]
+     [editable-country app-state wine]]
+    [grid {:item true :xs 4 :sm 4}
+     [typography {:variant "body2" :color "text.secondary"} "Region"]
+     [editable-region app-state wine]]
+    [grid {:item true :xs 4 :sm 4}
+     [typography {:variant "body2" :color "text.secondary"} "AOC/AVA"]
+     [editable-aoc app-state wine]]]])
+
+(defn wine-images-section
+  [app-state wine]
+  [:<>
+   ;; Front Wine Label Image
+   [grid {:item true :xs 12 :md 6}
+    [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+     [typography {:variant "body2" :color "text.secondary"} "Front Label"]
+     [image-upload
+      {:image-data (:label_image wine)
+       :label-type "front"
+       :on-image-change #(api/update-wine-image app-state (:id wine) %)
+       :on-image-remove
+       #(api/update-wine-image
+         app-state
+         (:id wine)
+         (assoc wine :label_image nil :label_thumbnail nil))}]]]
+   ;; Back Wine Label Image
+   [grid {:item true :xs 12 :md 6}
+    [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+     [typography {:variant "body2" :color "text.secondary"} "Back Label"]
+     [image-upload
+      {:image-data (:back_label_image wine)
+       :label-type "back"
+       :on-image-change #(api/update-wine-image app-state (:id wine) %)
+       :on-image-remove #(api/update-wine-image
+                          app-state
+                          (:id wine)
+                          (assoc wine :back_label_image nil))}]]]])
+
+(defn stacked-fields-column
+  [fields]
+  [grid {:container true :spacing 1 :direction "column"}
+   (for [[idx field] (map-indexed vector fields)]
+     ^{:key idx}
+     [grid {:item true}
+      [paper
+       {:elevation 0
+        :sx {:p 2
+             :bgcolor "rgba(0,0,0,0.02)"
+             :borderRadius 1
+             :mb (if (< idx (dec (count fields))) 1 0)}} field]])])
+
+(defn field-card
+  [title content]
+  [paper
+   {:elevation 0
+    :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1 :height "100%"}}
+   [typography {:variant "body2" :color "text.secondary"} title] content])
+
+(defn compact-field-group
+  [fields]
+  [paper
+   {:elevation 0
+    :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1 :height "100%"}}
+   [grid {:container true :spacing 2}
+    (for [[idx [title content]] (map-indexed vector fields)]
+      ^{:key idx}
+      [grid {:item true :xs 12}
+       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
+        title] content])]])
+
+(defn inline-field-group
+  [fields]
+  [paper
+   {:elevation 0
+    :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1 :height "100%"}}
+   [grid {:container true :spacing 1}
+    (for [[idx [title content]] (map-indexed vector fields)]
+      ^{:key idx}
+      [grid {:item true :xs 12 :sm (int (/ 12 (count fields)))}
+       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
+        title] content])]])
+
+(defn wine-classification-section
+  [app-state wine]
+  [:<>
+   ;; Classification + Level + Vineyard
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Classification" [editable-classification app-state wine]]
+      ["Level" [editable-level app-state wine]]
+      ["Vineyard" [editable-vineyard app-state wine]]]]]])
+
+(defn wine-compact-details-section
+  [app-state wine]
+  [:<>
+   ;; Grape Varieties (needs space for multiple varieties)
+   [grid {:item true :xs 12 :md 6}
+    [field-card "Grape Varieties" [wine-varieties-list app-state (:id wine)]]]
+   ;; Wine Characteristics: Style + Alcohol % + Location + Quantity
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Style" [editable-styles app-state wine]]
+      ["Alcohol %" [editable-alcohol-percentage app-state wine]]
+      ["Location" [editable-location app-state wine]]
+      ["Quantity"
+       [box {:display "flex" :alignItems "center"}
+        [quantity-control app-state (:id wine) (:quantity wine)]]]]]]
+   ;; Purchase Info: Price + Purchased From + Purchase Date
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Price" [editable-price app-state wine]]
+      ["Purchased From" [editable-purveyor app-state wine]]
+      ["Purchase Date" [editable-purchase-date app-state wine]]]]]
+   ;; Vintage Info: Vintage + Disgorgement Year
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Vintage" [editable-vintage app-state wine]]
+      ["Disgorgement Year" [editable-disgorgement-year app-state wine]]]]]])
+
+(defn wine-tasting-window-suggestion-buttons
+  [app-state wine]
+  (when-let [suggestion (get @app-state :window-suggestion)]
+    [box {:sx {:mt 2 :display "flex" :gap 1 :flexWrap "wrap"}}
+     [button
+      {:variant "contained"
+       :color "secondary"
+       :size "small"
+       :onClick (fn []
+                  (let [{:keys [drink_from_year drink_until_year message]}
+                        suggestion]
+                    (api/update-wine app-state
+                                     (:id wine)
+                                     {:drink_from_year drink_from_year
+                                      :drink_until_year drink_until_year
+                                      :tasting_window_commentary message})
+                    (swap! app-state dissoc :window-suggestion)))}
+      "Apply Suggestion"]
+     [button
+      {:variant "outlined"
+       :color "secondary"
+       :size "small"
+       :onClick (fn []
+                  (let [{:keys [drink_from_year]} suggestion]
+                    (api/update-wine app-state
+                                     (:id wine)
+                                     {:drink_from_year drink_from_year})))}
+      "Apply From Year"]
+     [button
+      {:variant "outlined"
+       :color "secondary"
+       :size "small"
+       :onClick (fn []
+                  (let [{:keys [drink_until_year]} suggestion]
+                    (api/update-wine app-state
+                                     (:id wine)
+                                     {:drink_until_year drink_until_year})))}
+      "Apply Until Year"]
+     [button
+      {:variant "outlined"
+       :color "secondary"
+       :size "small"
+       :onClick (fn []
+                  (let [{:keys [message]} suggestion]
+                    (api/update-wine app-state
+                                     (:id wine)
+                                     {:tasting_window_commentary message})))}
+      "Apply Commentary"]
+     [button
+      {:variant "text"
+       :color "secondary"
+       :size "small"
+       :onClick (fn [] (swap! app-state dissoc :window-suggestion))}
+      "Dismiss"]]))
+
+(defn wine-tasting-window-suggestion
+  [app-state wine]
+  [box {:sx {:mt 2}}
+   [button
+    {:variant "outlined"
+     :color "secondary"
+     :size "small"
+     :disabled (:suggesting-drinking-window? @app-state)
+     :startIcon (r/as-element [auto-awesome])
+     :onClick
+     (fn []
+       (-> (api/suggest-drinking-window app-state wine)
+           (.then (fn [{:keys [drink_from_year drink_until_year confidence
+                               reasoning]
+                        :as suggestion}]
+                    (swap! app-state assoc
+                      :window-suggestion
+                      (assoc suggestion
+                             :message
+                             (str "Drinking window suggested: " drink_from_year
+                                  " to " drink_until_year
+                                  " (" confidence
+                                  " confidence)\n\n" reasoning)))))
+           (.catch (fn [error]
+                     (swap! app-state assoc
+                       :error
+                       (str "Failed to suggest drinking window: " error))))))}
+    (if (:suggesting-drinking-window? @app-state)
+      [box {:sx {:display "flex" :alignItems "center"}}
+       [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
+      "Suggest Drinking Window")]
+   [typography {:variant "body2" :sx {:mt 1}}
+    (get-in @app-state [:window-suggestion :message])]
+   [wine-tasting-window-suggestion-buttons app-state wine]])
+
+(defn wine-tasting-window-section
+  [app-state wine]
+  [grid {:item true :xs 12}
+   [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+    [typography {:variant "body2" :color "text.secondary"} "Tasting Window"]
+    [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+     ;; From and Until on same row
+     [grid {:container true :spacing 2}
+      [grid {:item true :xs 6}
+       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
+        "From"] [editable-drink-from-year app-state wine]]
+      [grid {:item true :xs 6}
+       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
+        "Until"] [editable-drink-until-year app-state wine]]]
+     [box {:sx {:mt 1}} [editable-tasting-window-commentary app-state wine]]
+     (let [status (vintage/tasting-window-status wine)]
+       [typography
+        {:variant "body2"
+         :color (vintage/tasting-window-color status)
+         :sx {:mt 1 :fontStyle "italic"}}
+        (vintage/format-tasting-window-text wine)])
+     [wine-tasting-window-suggestion app-state wine]]]])
+
+(defn wine-ai-summary-section
+  [app-state wine]
+  [grid {:item true :xs 12}
+   [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+    [typography {:variant "body2" :color "text.secondary"} "AI Wine Summary"]
+    [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+     [editable-ai-summary app-state wine]
+     [box {:sx {:mt 1}}
+      [button
+       {:variant "outlined"
+        :color "secondary"
+        :size "small"
+        :disabled (:generating-ai-summary? @app-state)
+        :startIcon (r/as-element [auto-awesome])
+        :onClick
+        (fn []
+          (swap! app-state assoc :generating-ai-summary? true)
+          (-> (api/generate-wine-summary app-state wine)
+              (.then (fn [summary]
+                       (swap! app-state update
+                         :wines
+                         (fn [wines]
+                           (map #(if (= (:id %) (:id wine))
+                                   (assoc % :ai_summary summary)
+                                   %)
+                                wines)))
+                       (swap! app-state assoc-in
+                         [:force-edit-ai-summary (:id wine)]
+                         true)
+                       (swap! app-state dissoc :generating-ai-summary?)))
+              (.catch (fn [error]
+                        (swap! app-state assoc
+                          :error
+                          (str "Failed to generate summary: " error))
+                        (swap! app-state dissoc :generating-ai-summary?)))))}
+       (if (:generating-ai-summary? @app-state)
+         [box {:sx {:display "flex" :alignItems "center"}}
+          [circular-progress {:size 20 :sx {:mr 1}}] "Generating..."]
+         "Generate AI Summary")]]]]])
+
+(defn wine-tasting-notes-section
+  [app-state wine]
+  [box {:sx {:mt 4}}
+   [typography
+    {:variant "h5"
+     :component "h3"
+     :sx {:mb 3
+          :pb 1
+          :borderBottom "1px solid rgba(0,0,0,0.08)"
+          :color "primary.main"}} "Tasting Notes"]
+   [tasting-notes-list app-state (:id wine)]
+   (when-not (:editing-note-id @app-state)
+     [tasting-note-form app-state (:id wine)])])
+
 (defn wine-detail
   [app-state wine]
   [paper
@@ -359,300 +659,14 @@
      :backgroundImage
      "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"}}
    ;; Wine title and basic info
-   [box {:sx {:mb 3 :pb 2 :borderBottom "1px solid rgba(0,0,0,0.08)"}}
-    [grid {:container true :spacing 2}
-     [grid {:item true :xs 12}
-      [typography {:variant "body2" :color "text.secondary"} "Producer"]
-      [editable-producer app-state wine]]
-     [grid {:item true :xs 12}
-      [typography {:variant "body2" :color "text.secondary"} "Wine Name"]
-      [editable-name app-state wine]]]
-    [grid {:container true :spacing 2 :sx {:mt 1}}
-     [grid {:item true :xs 4}
-      [typography {:variant "body2" :color "text.secondary"} "Vintage"]
-      [editable-vintage app-state wine]]
-     [grid {:item true :xs 4}
-      [typography {:variant "body2" :color "text.secondary"} "Country"]
-      [editable-country app-state wine]]
-     [grid {:item true :xs 4}
-      [typography {:variant "body2" :color "text.secondary"} "Region"]
-      [editable-region app-state wine]]]]
+   [wine-identity-section app-state wine]
    [grid {:container true :spacing 3 :sx {:mb 4}}
-    ;; Front Wine Label Image
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Front Label"]
-      [image-upload
-       {:image-data (:label_image wine)
-        :label-type "front"
-        :on-image-change #(api/update-wine-image app-state (:id wine) %)
-        :on-image-remove
-        #(api/update-wine-image
-          app-state
-          (:id wine)
-          (assoc wine :label_image nil :label_thumbnail nil))}]]]
-    ;; Back Wine Label Image
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Back Label"]
-      [image-upload
-       {:image-data (:back_label_image wine)
-        :label-type "back"
-        :on-image-change #(api/update-wine-image app-state (:id wine) %)
-        :on-image-remove #(api/update-wine-image
-                           app-state
-                           (:id wine)
-                           (assoc wine :back_label_image nil))}]]]
-    ;; AOC/AVA
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "AOC/AVA"]
-      [editable-aoc app-state wine]]]
-    ;; Vineyard
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Vineyard"]
-      [editable-vineyard app-state wine]]]
-    ;; Classification
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Classification"]
-      [editable-classification app-state wine]]]
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Level"]
-      [editable-level app-state wine]]]
-    ;; Styles
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Style"]
-      [editable-styles app-state wine]]]
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Grape Varieties"]
-      [wine-varieties-list app-state (:id wine)]]]
-    ;; Location
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Location"]
-      [editable-location app-state wine]]]
-    ;; Quantity
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Quantity"]
-      [box {:display "flex" :alignItems "center" :mt 1}
-       [quantity-control app-state (:id wine) (:quantity wine)]]]]
-    ;; Price
-    (when (:price wine)
-      [grid {:item true :xs 12 :md 6}
-       [paper
-        {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-        [typography {:variant "body2" :color "text.secondary"} "Price"]
-        [editable-price app-state wine]]])
-    ;; Alcohol Percentage
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"}
-       "Alcohol Percentage"] [editable-alcohol-percentage app-state wine]]]
-    ;; Disgorgement Year
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"}
-       "Disgorgement Year"] [editable-disgorgement-year app-state wine]]]
-    ;; Purveyor
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Purchased From"]
-      [editable-purveyor app-state wine]]]
-    ;; Purchase Date
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Purchase Date"]
-      [editable-purchase-date app-state wine]]]
-    ;; Tasting Window
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :btcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "Tasting Window"]
-      [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-       [box {:sx {:display "flex" :alignItems "center"}}
-        [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
-         "From:"] [editable-drink-from-year app-state wine]]
-       [box {:sx {:display "flex" :alignItems "center"}}
-        [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
-         "Until:"] [editable-drink-until-year app-state wine]]
-       [box {:sx {:display "flex" :alignItems "center"}}
-        [editable-tasting-window-commentary app-state wine]]
-       (let [status (vintage/tasting-window-status wine)]
-         [typography
-          {:variant "body2"
-           :color (vintage/tasting-window-color status)
-           :sx {:mt 1 :fontStyle "italic"}}
-          (vintage/format-tasting-window-text wine)])
-       [box {:sx {:mt 2}}
-        [button
-         {:variant "outlined"
-          :color "secondary"
-          :size "small"
-          :disabled (:suggesting-drinking-window? @app-state)
-          :startIcon (r/as-element [auto-awesome])
-          :onClick (fn []
-                     (-> (api/suggest-drinking-window app-state wine)
-                         (.then (fn [{:keys [drink_from_year drink_until_year
-                                             confidence reasoning]
-                                      :as suggestion}]
-                                  ;; Update the wine with the suggested
-                                  ;; drinking window
-                                  (swap! app-state assoc
-                                    :window-suggestion
-                                    (assoc suggestion
-                                           :message
-                                           (str "Drinking window suggested: "
-                                                drink_from_year
-                                                " to " drink_until_year
-                                                " (" confidence
-                                                " confidence)\n\n"
-                                                reasoning)))))
-                         (.catch (fn [error]
-                                   (swap! app-state assoc
-                                     :error
-                                     (str "Failed to suggest drinking window: "
-                                          error))))))}
-         (if (:suggesting-drinking-window? @app-state)
-           [box {:sx {:display "flex" :alignItems "center"}}
-            [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
-           "Suggest Drinking Window")]
-        [typography {:variant "body2" :sx {:mt 1}}
-         (get-in @app-state [:window-suggestion :message])]
-        ;; Buttons to apply the suggestion
-        (when-let [suggestion (get @app-state :window-suggestion)]
-          [box {:sx {:mt 2 :display "flex" :gap 1 :flexWrap "wrap"}}
-           [button
-            {:variant "contained"
-             :color "secondary"
-             :size "small"
-             :onClick (fn []
-                        (let [{:keys [drink_from_year drink_until_year message]}
-                              suggestion]
-                          (api/update-wine app-state
-                                           (:id wine)
-                                           {:drink_from_year drink_from_year
-                                            :drink_until_year drink_until_year
-                                            :tasting_window_commentary message})
-                          ;; Clear the suggestion after applying
-                          (swap! app-state dissoc :window-suggestion)))}
-            "Apply Suggestion"]
-           [button
-            {:variant "outlined"
-             :color "secondary"
-             :size "small"
-             :onClick (fn []
-                        (let [{:keys [drink_from_year]} suggestion]
-                          (api/update-wine app-state
-                                           (:id wine)
-                                           {:drink_from_year drink_from_year})
-                          ;; Keep the suggestion in case they want to apply
-                          ;; the until year later
-                        ))} "Apply From Year"]
-           [button
-            {:variant "outlined"
-             :color "secondary"
-             :size "small"
-             :onClick (fn []
-                        (let [{:keys [drink_until_year]} suggestion]
-                          (api/update-wine app-state
-                                           (:id wine)
-                                           {:drink_until_year drink_until_year})
-                          ;; Keep the suggestion in case they want to apply
-                          ;; the from year later
-                        ))} "Apply Until Year"]
-           [button
-            {:variant "outlined"
-             :color "secondary"
-             :size "small"
-             :onClick (fn []
-                        (let [{:keys [message]} suggestion]
-                          (api/update-wine app-state
-                                           (:id wine)
-                                           {:tasting_window_commentary message})
-                          ;; Keep the suggestion in case they want to apply
-                          ;; the from year later
-                        ))} "Apply Commentary"]
-           [button
-            {:variant "text"
-             :color "secondary"
-             :size "small"
-             :onClick (fn []
-                        ;; Clear the suggestion without applying
-                        (swap! app-state dissoc :window-suggestion))}
-            "Dismiss"]])]]]]
-    ;; AI Summary section
-    [grid {:item true :xs 12 :md 6}
-     [paper
-      {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "AI Wine Summary"]
-      [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-       [editable-ai-summary app-state wine]
-       [box {:sx {:mt 1}}
-        [button
-         {:variant "outlined"
-          :color "secondary"
-          :size "small"
-          :disabled (:generating-ai-summary? @app-state)
-          :startIcon (r/as-element [auto-awesome])
-          :onClick
-          (fn []
-            (swap! app-state assoc :generating-ai-summary? true)
-            (-> (api/generate-wine-summary app-state wine)
-                (.then (fn [summary]
-                         ;; Update the local wine data with new summary
-                         (swap! app-state update
-                           :wines
-                           (fn [wines]
-                             (map #(if (= (:id %) (:id wine))
-                                     (assoc % :ai_summary summary)
-                                     %)
-                                  wines)))
-                         ;; Force the editable field into edit mode
-                         (swap! app-state assoc-in
-                           [:force-edit-ai-summary (:id wine)]
-                           true)
-                         (swap! app-state dissoc :generating-ai-summary?)))
-                (.catch (fn [error]
-                          (swap! app-state assoc
-                            :error
-                            (str "Failed to generate summary: " error))
-                          (swap! app-state dissoc :generating-ai-summary?)))))}
-         (if (:generating-ai-summary? @app-state)
-           [box {:sx {:display "flex" :alignItems "center"}}
-            [circular-progress {:size 20 :sx {:mr 1}}] "Generating..."]
-           "Generate AI Summary")]]]]]
-    ;; Tasting notes section
-    [box {:sx {:mt 4}}
-     [typography
-      {:variant "h5"
-       :component "h3"
-       :sx {:mb 3
-            :pb 1
-            :borderBottom "1px solid rgba(0,0,0,0.08)"
-            :color "primary.main"}} "Tasting Notes"]
-     [tasting-notes-list app-state (:id wine)]
-     (when-not (:editing-note-id @app-state)
-       [tasting-note-form app-state (:id wine)])]]])
+    [wine-images-section app-state wine]
+    [wine-classification-section app-state wine]
+    [wine-compact-details-section app-state wine]
+    [wine-tasting-window-section app-state wine]
+    [wine-ai-summary-section app-state wine]]
+   [wine-tasting-notes-section app-state wine]])
 
 (defn wine-loading-view
   "Show loading state while fetching wines"
