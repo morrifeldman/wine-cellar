@@ -111,13 +111,19 @@
              :helper-text "Choose from existing sources or type a new one"
              :on-change
              #(swap! app-state assoc-in [:new-tasting-note :source] %)}]])
-        ;; Date input (required only for personal notes)
+        ;; Date input (required only for personal notes, unless editing
+        ;; existing dateless note)
         [form-row
          [date-field
           {:label "Tasting Date"
-           :required (not is-external)
+           :required (and (not is-external)
+                          (not (and editing?
+                                    (nil? (:tasting_date editing-note)))))
            :value (format-date-iso (:tasting_date updated-note))
-           :helper-text (when is-external "Optional for external notes")
+           :helper-text (cond is-external "Optional for external notes"
+                              (and editing? (nil? (:tasting_date editing-note)))
+                              "Optional when editing existing dateless notes"
+                              :else nil)
            :on-change
            #(swap! app-state assoc-in [:new-tasting-note :tasting_date] %)}]]
         ;; Tasting notes textarea (uncontrolled for performance)
