@@ -221,7 +221,9 @@
    {:sx {:display "flex"
          :justifyContent "space-between"
          :alignItems "center"
-         :mt 0.5}} [wine-verification-checkbox app-state wine]
+         :mt 0.5}}
+   (when (:show-verification-checkboxes? @app-state)
+     [wine-verification-checkbox app-state wine])
    [wine-quantity-display app-state wine]])
 
 (defn wine-card

@@ -80,6 +80,14 @@
          {:on-click
           (fn []
             (reset! anchor-el nil)
+            (swap! app-state update :show-verification-checkboxes? not))}
+         (if (:show-verification-checkboxes? @app-state)
+           "Hide Verification Checkboxes"
+           "Show Verification Checkboxes")]
+        [menu-item
+         {:on-click
+          (fn []
+            (reset! anchor-el nil)
             (when
               (js/confirm
                "Mark all wines as unverified? This will require you to verify them individually.")

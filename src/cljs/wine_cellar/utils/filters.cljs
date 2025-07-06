@@ -8,10 +8,20 @@
   (if (empty? search-term)
     true ;; No search term, match all wines
     (let [search-lower (str/lower-case search-term)
-          searchable-fields [(or (:name wine) "") (or (:producer wine) "")
-                             (or (:region wine) "") (or (:aoc wine) "")]]
-      (some #(str/includes? (str/lower-case %) search-lower)
-            searchable-fields))))
+          ;; Extract grape variety names from the varieties collection
+          variety-names (when (:varieties wine) (map :name (:varieties wine)))
+          ;; All searchable text fields
+          searchable-fields
+          [(or (:name wine) "") (or (:producer wine) "") (or (:region wine) "")
+           (or (:aoc wine) "") (or (:country wine) "")
+           (or (:classification wine) "") (or (:vineyard wine) "")
+           (or (:style wine) "") (or (:location wine) "")
+           (or (:purveyor wine) "") (or (:tasting_window_commentary wine) "")
+           (or (:ai_summary wine) "")]
+          ;; Combine text fields with variety names
+          all-searchable (concat searchable-fields variety-names)]
+      (some #(str/includes? (str/lower-case (str %)) search-lower)
+            all-searchable))))
 
 (defn matches-country?
   [wine country]
