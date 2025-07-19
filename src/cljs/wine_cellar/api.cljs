@@ -205,6 +205,7 @@
           (swap! app-state assoc :tasting-notes (:data result))
           (swap! app-state assoc :error (:error result))))))
 
+
 (defn create-tasting-note
   [app-state wine-id note notes-ref]
   (go (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/tasting-notes")
@@ -521,7 +522,5 @@
     :selected-wine-id :tasting-notes
     :editing-note-id :window-suggestion
     :new-tasting-note :wine-varieties)
-  ;; Remove large image data from wines to free memory
-  (swap! app-state update
-    :wines
-    (fn [wines] (map #(dissoc % :label_image :back_label_image) wines))))
+  ;; Refresh wine list to get updated ratings from database
+  (fetch-wines app-state))

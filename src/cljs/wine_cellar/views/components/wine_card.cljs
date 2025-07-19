@@ -154,13 +154,51 @@
 (defn wine-rating-display
   [wine]
   [box {:sx {:display "flex" :alignItems "center"}}
-   (if-let [rating (:latest_rating wine)]
-     [box {:sx {:display "flex" :alignItems "center"}}
-      [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
-       "Rating:"]
-      [typography {:sx {:color (get-rating-color rating) :fontWeight "bold"}}
-       (str rating "/100")]]
-     [typography {:variant "body2" :color "text.secondary"} "No Rating"])])
+   (let [internal-rating (:latest_internal_rating wine)
+         external-rating (:average_external_rating wine)]
+     (if (or internal-rating external-rating)
+       [box {:sx {:display "flex" :alignItems "center"}}
+        [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
+         "Rating:"]
+        [box {:sx {:display "flex" :alignItems "center" :gap 0.5}}
+         ;; Internal rating
+         (when internal-rating
+           [box
+            {:sx {:display "flex"
+                  :alignItems "center"
+                  :px 1
+                  :py 0.3
+                  :borderRadius 1
+                  :border "1px solid"
+                  :bgcolor "rgba(25,118,210,0.08)"
+                  :borderColor "rgba(25,118,210,0.2)"}}
+            [typography
+             {:sx {:color (get-rating-color internal-rating)
+                   :fontWeight "bold"
+                   :mr 0.5}} (str internal-rating)]
+            [typography
+             {:variant "caption"
+              :sx {:color "text.secondary" :fontSize "0.7rem"}} "(Internal)"]])
+         ;; External rating (average)
+         (when external-rating
+           [box
+            {:sx {:display "flex"
+                  :alignItems "center"
+                  :px 1
+                  :py 0.3
+                  :borderRadius 1
+                  :border "1px solid"
+                  :bgcolor "rgba(0,0,0,0.04)"
+                  :borderColor "rgba(0,0,0,0.12)"}}
+            [typography
+             {:sx {:color (get-rating-color external-rating)
+                   :fontWeight "bold"
+                   :mr 0.5}} (str external-rating)]
+            [typography
+             {:variant "caption"
+              :sx {:color "text.secondary" :fontSize "0.7rem"}}
+             "(External)"]])]]
+       [typography {:variant "body2" :color "text.secondary"} "No Rating"]))])
 
 (defn wine-tasting-window
   [status drink-from-year drink-until-year]
@@ -182,15 +220,10 @@
         (str drink-until-year)])]]])
 
 (defn wine-bottom-info
-  [wine status drink-from-year drink-until-year]
-  [box
-   {:sx {:mt "auto"
-         :pt 0.5 ;; Reduced padding
-         :borderTop "1px solid rgba(0,0,0,0.08)"
-         :display "flex"
-         :justifyContent "space-between"
-         :alignItems "center"}} [wine-rating-display wine]
-   [wine-tasting-window status drink-from-year drink-until-year]])
+  [wine]
+  [box {:sx {:mt "auto" :pt 0.5 :borderTop "1px solid rgba(0,0,0,0.08)"}}
+   ;; Rating row
+   [wine-rating-display wine]])
 
 ;; Using quantity-control from components.cljs
 
@@ -216,15 +249,19 @@
     "Quantity:"] [quantity-control app-state (:id wine) (:quantity wine)]])
 
 (defn wine-controls
-  [app-state wine]
+  [app-state wine status drink-from-year drink-until-year]
   [box
    {:sx {:display "flex"
          :justifyContent "space-between"
          :alignItems "center"
          :mt 0.5}}
-   (when (:show-verification-checkboxes? @app-state)
-     [wine-verification-checkbox app-state wine])
-   [wine-quantity-display app-state wine]])
+   ;; Left side: drinking window
+   [wine-tasting-window status drink-from-year drink-until-year]
+   ;; Right side: verification + quantity
+   [box {:sx {:display "flex" :alignItems "center" :gap 1}}
+    (when (:show-verification-checkboxes? @app-state)
+      [wine-verification-checkbox app-state wine])
+    [wine-quantity-display app-state wine]]])
 
 (defn wine-card
   [app-state wine]
@@ -260,10 +297,12 @@
      ;; Wine details
      [box {:sx {:mb 0}} ;; Removed margin completely
       [wine-details-grid wine]
-      ;; Bottom section with rating, tasting window
-      [wine-bottom-info wine status drink-from-year drink-until-year]
-      ;; Quantity control and action buttons
+      ;; Bottom section with rating
+      [wine-bottom-info wine]
+      ;; Controls with drinking window, quantity, and verification
       [box
        {:onClick (fn [e] (.stopPropagation e)) ;; Prevent card click when
                                                ;; interacting with controls
-        :sx {:width "100%"}} [wine-controls app-state wine]]]]))
+        :sx {:width "100%"}}
+       [wine-controls app-state wine status drink-from-year
+        drink-until-year]]]]))

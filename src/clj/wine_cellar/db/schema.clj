@@ -73,9 +73,13 @@
    :select [:w.*
             [{:select :tn.rating
               :from [[:tasting_notes :tn]]
-              :where [:= :tn.wine_id :w.id]
+              :where [:and [:= :tn.wine_id :w.id] [:= :tn.is_external false]]
               :order-by [[:tn.tasting_date :desc]]
-              :limit [:inline 1]} :latest_rating]
+              :limit [:inline 1]} :latest_internal_rating]
+            [{:select [[[:round [:avg :tn.rating]]]]
+              :from [[:tasting_notes :tn]]
+              :where [:and [:= :tn.wine_id :w.id] [:= :tn.is_external true]
+                      [:!= :tn.rating]]} :average_external_rating]
             [{:select [[[:coalesce
                          [:json_agg
                           [:inline
