@@ -30,22 +30,36 @@
   [app-state wine]
   [editable-text-field
    {:value (:location wine)
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:location new-value}))
+    :on-save
+    (fn [new-value]
+      (let [clean-value (if (str/blank? new-value) nil new-value)]
+        (api/update-wine app-state (:id wine) {:location clean-value})))
     :validate-fn (fn [value]
-                   (when-not (common/valid-location? value)
-                     common/format-location-error))
+                   (cond (str/blank? value) nil ; Allow empty/clearing
+                         (not (common/valid-location? value))
+                         common/format-location-error
+                         :else nil))
+    :empty-text "Not specified"
     :compact? true
     :text-field-props {:helperText common/format-location-error}}])
 
 (defn editable-purveyor
   [app-state wine]
-  [editable-text-field
-   {:value (:purveyor wine)
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:purveyor new-value}))
-    :empty-text "Not specified"
-    :compact? true}])
+  (let [all-wines (:wines @app-state)
+        existing-purveyors (->> all-wines
+                                (map :purveyor)
+                                (filter #(and % (not (str/blank? %))))
+                                (distinct)
+                                (sort)
+                                (vec))]
+    [editable-autocomplete-field
+     {:value (:purveyor wine)
+      :options existing-purveyors
+      :free-solo true
+      :on-save (fn [new-value]
+                 (api/update-wine app-state (:id wine) {:purveyor new-value}))
+      :empty-text "Not specified"
+      :compact? true}]))
 
 (defn editable-purchase-date
   [app-state wine]
@@ -64,12 +78,16 @@
    {:value (when-let [price (:price wine)] (gstring/format "%.2f" price))
     :on-save
     (fn [new-value]
-      (let [parsed-price (js/parseFloat new-value)]
-        (when-not (js/isNaN parsed-price)
-          (api/update-wine app-state (:id wine) {:price parsed-price}))))
+      (if (str/blank? new-value)
+        ;; Clear the price when empty
+        (api/update-wine app-state (:id wine) {:price nil})
+        ;; Save the parsed price when not empty
+        (let [parsed-price (js/parseFloat new-value)]
+          (when-not (js/isNaN parsed-price)
+            (api/update-wine app-state (:id wine) {:price parsed-price})))))
     :validate-fn (fn [value]
                    (let [parsed (js/parseFloat value)]
-                     (cond (str/blank? value) "Price cannot be empty"
+                     (cond (str/blank? value) nil ;; Allow empty value
                            (js/isNaN parsed) "Price must be a valid number"
                            (< parsed 0) "Price cannot be negative"
                            :else nil)))
