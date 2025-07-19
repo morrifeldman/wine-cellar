@@ -49,3 +49,10 @@ mv "$temp_file" CLAUDE.md
 
 # Stage the updated CLAUDE.md file
 git add CLAUDE.md
+
+# Update version information
+echo "Updating version information..."
+./scripts/update-version.sh
+
+# Stage the updated version file
+git add public/version.json

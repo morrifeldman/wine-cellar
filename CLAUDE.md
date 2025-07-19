@@ -76,6 +76,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── favicon.svg
 │   ├── index.html
 │   ├── site.webmanifest
+│   ├── version.json
 │   ├── web-app-manifest-192x192.png
 │   └── web-app-manifest-512x512.png
 ├── README.md
@@ -85,6 +86,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
 │   ├── pre-commit
+│   ├── update-version.sh
 │   └── wine_cellar
 │       └── dev.clj
 ├── shadow-cljs.edn
@@ -121,6 +123,7 @@ This is a full-stack wine cellar tracking application built with:
             │   ├── filters.cljs
             │   ├── formatting.cljs
             │   └── vintage.cljs
+            ├── version.cljs
             └── views
                 ├── classifications
                 │   ├── form.cljs
@@ -147,7 +150,7 @@ This is a full-stack wine cellar tracking application built with:
                     ├── list.cljs
                     └── varieties.cljs
 
-27 directories, 76 files
+27 directories, 79 files
 ```
 
 ## Development Commands

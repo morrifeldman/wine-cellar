@@ -13,10 +13,12 @@
     [reagent-mui.material.typography :refer [typography]]
     [reagent-mui.material.menu :refer [menu]]
     [reagent-mui.material.menu-item :refer [menu-item]]
+    [reagent-mui.material.divider :refer [divider]]
     [reagent.core :as r]
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.views.components.wine-chat :refer [wine-chat]]
-    [wine-cellar.portal-debug :as pd]))
+    [wine-cellar.portal-debug :as pd]
+    [wine-cellar.version :as version]))
 
 (defn logout
   []
@@ -31,11 +33,18 @@
        [button
         {:variant "outlined"
          :color "primary"
-         :on-click #(reset! anchor-el (.-currentTarget %))} "Admin"]
+         :on-click #(do (reset! anchor-el (.-currentTarget %))
+                        (version/fetch-version!))} "Admin"]
        [menu
         {:anchor-el @anchor-el
          :open (boolean @anchor-el)
          :on-close #(reset! anchor-el nil)}
+        ;; Version info
+        [menu-item
+         {:disabled true
+          :sx {:fontSize "0.875rem"
+               :color "text.secondary"
+               :fontFamily "monospace"}} (version/version-string)] [divider]
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
