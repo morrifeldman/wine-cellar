@@ -47,10 +47,10 @@
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source (s/nilable string?))
-(s/def ::label_image string?)
-(s/def ::label_thumbnail string?)
+(s/def ::label_image (s/nilable string?))
+(s/def ::label_thumbnail (s/nilable string?))
 (s/def ::include_images boolean?)
-(s/def ::back_label_image string?)
+(s/def ::back_label_image (s/nilable string?))
 (s/def ::variety_id int?)
 (s/def ::variety_name string?)
 (s/def ::percentage (s/nilable (s/and number? #(<= 0 % 100))))
@@ -94,14 +94,9 @@
                    ::purchase_date ::alcohol_percentage ::disgorgement_year
                    ::tasting_window_commentary ::verified ::ai_summary]))
 
-(s/def ::nilable-label_image (s/nilable ::label_image))
-(s/def ::nilable-label_thumbnail (s/nilable ::label_thumbnail))
-(s/def ::nilable-back_label_image (s/nilable ::back_label_image))
-
 (def image-update-schema
   (s/nilable (s/keys :opt-un
-                     [::nilable-label_image ::nilable-label_thumbnail
-                      ::nilable-back_label_image])))
+                     [::label_image ::label_thumbnail ::back_label_image])))
 
 (def classification-schema
   (s/keys :req-un [::country ::region]
