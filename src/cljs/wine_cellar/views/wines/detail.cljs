@@ -12,6 +12,9 @@
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
+            [reagent-mui.material.modal :refer [modal]]
+            [reagent-mui.material.backdrop :refer [backdrop]]
+            [reagent-mui.icons.close :refer [close]]
             [reagent.core :as r]
             [wine-cellar.api :as api]
             [wine-cellar.common :as common]
@@ -432,34 +435,113 @@
      [typography {:variant "body2" :color "text.secondary"} "AOC/AVA"]
      [editable-aoc app-state wine]]]])
 
+(defn image-zoom-modal
+  [app-state image-data image-title]
+  [modal
+   {:open (boolean (get @app-state :zoomed-image))
+    :onClose #(swap! app-state dissoc :zoomed-image)
+    :closeAfterTransition true}
+   [backdrop
+    {:sx {:color "white"} :open (boolean (get @app-state :zoomed-image))}
+    [box
+     {:sx {:position "absolute"
+           :top "50%"
+           :left "50%"
+           :transform "translate(-50%, -50%)"
+           :width "90vw"
+           :height "90vh"
+           :bgcolor "background.paper"
+           :borderRadius 2
+           :boxShadow 24
+           :p 2
+           :display "flex"
+           :flexDirection "column"
+           :outline "none"}}
+     ;; Header with title and close button
+     [box
+      {:sx {:display "flex"
+            :justifyContent "space-between"
+            :alignItems "center"
+            :mb 2}} [typography {:variant "h6"} image-title]
+      [button
+       {:onClick #(swap! app-state dissoc :zoomed-image)
+        :sx {:minWidth "auto" :p 1}} [close]]]
+     ;; Image container
+     [box
+      {:sx {:flex 1
+            :display "flex"
+            :justifyContent "center"
+            :alignItems "center"
+            :overflow "auto"}}
+      [box
+       {:component "img"
+        :src image-data
+        :sx {:maxWidth "100%"
+             :maxHeight "100%"
+             :objectFit "contain"
+             :borderRadius 1}}]]]]])
+
+(defn clickable-wine-image
+  [image-data label-type title on-image-change on-image-remove app-state]
+  [box {:sx {:position "relative"}}
+   [image-upload
+    {:image-data image-data
+     :label-type label-type
+     :on-image-change on-image-change
+     :on-image-remove on-image-remove}]
+   ;; Click overlay for zoom (only when image exists)
+   (when image-data
+     [box
+      {:sx {:position "absolute"
+            :top 0
+            :left 0
+            :right 0
+            :bottom 0
+            :cursor "zoom-in"
+            :display "flex"
+            :alignItems "center"
+            :justifyContent "center"
+            :bgcolor "rgba(0,0,0,0)"
+            :transition "background-color 0.2s"
+            ":hover" {:bgcolor "rgba(0,0,0,0.1)"}}
+       :onClick
+       #(swap! app-state assoc :zoomed-image {:data image-data :title title})}
+      [box
+       {:sx {:opacity 0
+             :transition "opacity 0.2s"
+             :bgcolor "rgba(0,0,0,0.7)"
+             :color "white"
+             :px 2
+             :py 1
+             :borderRadius 1
+             :fontSize "0.875rem"
+             ":hover" {:opacity 1}}} "Click to zoom"]])])
+
 (defn wine-images-section
   [app-state wine]
   [:<>
+   ;; Image zoom modal
+   (when-let [zoomed (get @app-state :zoomed-image)]
+     [image-zoom-modal app-state (:data zoomed) (:title zoomed)])
    ;; Front Wine Label Image
    [grid {:item true :xs 12 :md 6}
     [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
      [typography {:variant "body2" :color "text.secondary"} "Front Label"]
-     [image-upload
-      {:image-data (:label_image wine)
-       :label-type "front"
-       :on-image-change #(api/update-wine-image app-state (:id wine) %)
-       :on-image-remove
-       #(api/update-wine-image
-         app-state
-         (:id wine)
-         (assoc wine :label_image nil :label_thumbnail nil))}]]]
+     [clickable-wine-image (:label_image wine) "front" "Front Wine Label"
+      #(api/update-wine-image app-state (:id wine) %)
+      #(api/update-wine-image
+        app-state
+        (:id wine)
+        (assoc wine :label_image nil :label_thumbnail nil)) app-state]]]
    ;; Back Wine Label Image
    [grid {:item true :xs 12 :md 6}
     [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
      [typography {:variant "body2" :color "text.secondary"} "Back Label"]
-     [image-upload
-      {:image-data (:back_label_image wine)
-       :label-type "back"
-       :on-image-change #(api/update-wine-image app-state (:id wine) %)
-       :on-image-remove #(api/update-wine-image
-                          app-state
-                          (:id wine)
-                          (assoc wine :back_label_image nil))}]]]])
+     [clickable-wine-image (:back_label_image wine) "back" "Back Wine Label"
+      #(api/update-wine-image app-state (:id wine) %)
+      #(api/update-wine-image app-state
+                              (:id wine)
+                              (assoc wine :back_label_image nil)) app-state]]]])
 
 (defn stacked-fields-column
   [fields]
