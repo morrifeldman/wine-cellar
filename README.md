@@ -18,6 +18,9 @@ A self-hosted wine collection management application built with Clojure and Cloj
 - **Drinking window suggestions** - Get AI recommendations for optimal drinking periods  
 - **Wine chat** - Ask questions about your collection and get intelligent responses
 
+![Wine Cellar AI Assistant](docs/screenshots/assistant.png)
+*AI-powered wine assistant providing personalized recommendations based on your collection*
+
 ### Tasting & Notes
 - **Tasting notes & ratings** - Record detailed notes with 1-100 ratings
 - **Photo storage** - Upload front/back label images with automatic thumbnails

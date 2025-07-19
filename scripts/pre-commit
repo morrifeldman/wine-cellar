@@ -52,7 +52,7 @@ git add CLAUDE.md
 
 # Update version information
 echo "Updating version information..."
-./scripts/update-version.sh
+./scripts/update-version.sh --increment
 
 # Stage the updated version file
 git add public/version.json
