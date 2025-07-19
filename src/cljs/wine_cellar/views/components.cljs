@@ -52,9 +52,10 @@
    - validate-fn: Optional validation function that returns error message or nil
    - empty-text: Text to display when value is empty - defaults to 'Not specified'
    - render-input-fn: Function that renders the input component (receives value, on-change, and error)
-   - force-edit-mode?: If true, start in edit mode (useful for generated content)"
+   - force-edit-mode?: If true, start in edit mode (useful for generated content)
+   - compact?: If true, stack buttons vertically to save horizontal space"
   [{:keys [value on-save on-cancel validate-fn empty-text render-input-fn
-           force-edit-mode?]
+           force-edit-mode? compact?]
     :or {empty-text "Not specified"}}]
   (r/with-let
    [editing (r/atom (boolean force-edit-mode?)) field-value (r/atom value)
@@ -62,38 +63,75 @@
    (if @editing
      ;; Edit mode
      [box {:display "flex" :flexDirection "column" :width "100%"}
-      [box {:display "flex" :alignItems "center"}
-       [box {:sx {:flex 1 :mr 1}}
-        (render-input-fn @field-value
-                         (fn [new-value]
-                           (reset! field-value new-value)
-                           (reset! field-error nil))
-                         @field-error)]
-       [icon-button
-        {:color "primary"
-         :size "small"
-         :disabled (or (boolean @field-error) @saving)
-         :onClick (fn []
-                    (let [error (when validate-fn (validate-fn @field-value))]
-                      (if error
-                        (reset! field-error error)
-                        (do (reset! saving true)
-                            (-> (on-save @field-value)
-                                (.then #(do (reset! saving false)
-                                            (reset! editing false)))
-                                (.catch #(do (reset! saving false)
-                                             (reset! field-error
-                                               "Save failed"))))))))}
-        (if @saving [circular-progress {:size 20}] [save])]
-       [icon-button
-        {:color "secondary"
-         :size "small"
-         :disabled @saving
-         :onClick (fn []
-                    (reset! field-value value)
-                    (reset! field-error nil)
-                    (reset! editing false)
-                    (when on-cancel (on-cancel)))} [cancel]]]]
+      (if compact?
+        ;; Compact mode: input on top, stacked buttons on the side
+        [box {:display "flex" :alignItems "flex-start"}
+         [box {:sx {:flex 1 :mr 1}}
+          (render-input-fn @field-value
+                           (fn [new-value]
+                             (reset! field-value new-value)
+                             (reset! field-error nil))
+                           @field-error)]
+         [box {:display "flex" :flexDirection "column" :gap 0.5}
+          [icon-button
+           {:color "primary"
+            :size "small"
+            :disabled (or (boolean @field-error) @saving)
+            :onClick (fn []
+                       (let [error (when validate-fn
+                                     (validate-fn @field-value))]
+                         (if error
+                           (reset! field-error error)
+                           (do (reset! saving true)
+                               (-> (on-save @field-value)
+                                   (.then #(do (reset! saving false)
+                                               (reset! editing false)))
+                                   (.catch #(do (reset! saving false)
+                                                (reset! field-error
+                                                  "Save failed"))))))))}
+           (if @saving [circular-progress {:size 20}] [save])]
+          [icon-button
+           {:color "secondary"
+            :size "small"
+            :disabled @saving
+            :onClick (fn []
+                       (reset! field-value value)
+                       (reset! field-error nil)
+                       (reset! editing false)
+                       (when on-cancel (on-cancel)))} [cancel]]]]
+        ;; Normal mode: horizontal layout
+        [box {:display "flex" :alignItems "center"}
+         [box {:sx {:flex 1 :mr 1}}
+          (render-input-fn @field-value
+                           (fn [new-value]
+                             (reset! field-value new-value)
+                             (reset! field-error nil))
+                           @field-error)]
+         [icon-button
+          {:color "primary"
+           :size "small"
+           :disabled (or (boolean @field-error) @saving)
+           :onClick (fn []
+                      (let [error (when validate-fn (validate-fn @field-value))]
+                        (if error
+                          (reset! field-error error)
+                          (do (reset! saving true)
+                              (-> (on-save @field-value)
+                                  (.then #(do (reset! saving false)
+                                              (reset! editing false)))
+                                  (.catch #(do (reset! saving false)
+                                               (reset! field-error
+                                                 "Save failed"))))))))}
+          (if @saving [circular-progress {:size 20}] [save])]
+         [icon-button
+          {:color "secondary"
+           :size "small"
+           :disabled @saving
+           :onClick (fn []
+                      (reset! field-value value)
+                      (reset! field-error nil)
+                      (reset! editing false)
+                      (when on-cancel (on-cancel)))} [cancel]]])]
      ;; View mode
      [box
       {:display "flex"

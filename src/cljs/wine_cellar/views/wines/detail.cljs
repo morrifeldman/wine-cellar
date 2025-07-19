@@ -35,6 +35,7 @@
     :validate-fn (fn [value]
                    (when-not (common/valid-location? value)
                      common/format-location-error))
+    :compact? true
     :text-field-props {:helperText common/format-location-error}}])
 
 (defn editable-purveyor
@@ -43,7 +44,8 @@
    {:value (:purveyor wine)
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:purveyor new-value}))
-    :empty-text "Not specified"}])
+    :empty-text "Not specified"
+    :compact? true}])
 
 (defn editable-purchase-date
   [app-state wine]
@@ -53,6 +55,7 @@
     (fn [new-value]
       (api/update-wine app-state (:id wine) {:purchase_date new-value}))
     :empty-text "Add purchase date"
+    :compact? true
     :text-field-props {:type "date"}}])
 
 (defn editable-price
@@ -71,6 +74,7 @@
                            (< parsed 0) "Price cannot be negative"
                            :else nil)))
     :empty-text "Not specified"
+    :compact? true
     :text-field-props {:type "number" :InputProps {:startAdornment "$"}}}])
 
 (defn editable-alcohol-percentage
@@ -93,6 +97,7 @@
                            (> parsed 100) "Alcohol percentage cannot exceed 100"
                            :else nil)))
     :empty-text "Add ABV"
+    :compact? true
     :text-field-props {:type "number"
                        :step "0.1"
                        :InputProps {:endAdornment "%"}
@@ -118,6 +123,7 @@
                              "Year cannot be in the future"
                              :else nil))))
     :empty-text "Add disgorgement year"
+    :compact? true
     :text-field-props
     {:type "number"
      :helperText "Year when the wine was disgorged (for sparkling wines)"}}])
@@ -198,25 +204,19 @@
                          (= value "NV") nil
                          :else (let [parsed (js/parseInt value 10)]
                                  (vintage/valid-vintage? parsed))))
-    :empty-text "Add vintage"}])
+    :empty-text "Add vintage"
+    :compact? true}])
 
 (defn editable-level
   [app-state wine]
-  [editable-classification-field
+  [editable-autocomplete-field
    {:value (:level wine)
-    :field-type :level
-    :app-state app-state
-    :wine wine
-    :classifications (:classifications @app-state)
+    :options (vec (sort common/wine-levels))
+    :free-solo false
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:level new-value}))
-    :validate-fn (fn [value]
-                   (tap> ["level" value])
-                   (when (and (not (str/blank? value))
-                              (not (contains? common/wine-levels value)))
-                     (str "Level must be one of: "
-                          (str/join ", " (sort common/wine-levels)))))
-    :empty-text "Add level"}])
+    :empty-text "Add level"
+    :compact? true}])
 
 (defn editable-country
   [app-state wine]
@@ -267,7 +267,8 @@
     :classifications (:classifications @app-state)
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:vineyard new-value}))
-    :empty-text "Add vineyard"}])
+    :empty-text "Add vineyard"
+    :compact? true}])
 
 (defn editable-classification
   [app-state wine]
@@ -280,7 +281,8 @@
     :on-save
     (fn [new-value]
       (api/update-wine app-state (:id wine) {:classification new-value}))
-    :empty-text "Add classification"}])
+    :empty-text "Add classification"
+    :compact? true}])
 
 (defn editable-styles
   [app-state wine]
@@ -291,7 +293,8 @@
     :on-save (fn [new-value]
                (api/update-wine app-state (:id wine) {:style new-value}))
     :validate-fn (fn [value] (when (str/blank? value) "Style must be provided"))
-    :empty-text "Add style"}])
+    :empty-text "Add style"
+    :compact? true}])
 
 (defn editable-drink-from-year
   [app-state wine]
@@ -458,12 +461,15 @@
    ;; Grape Varieties (needs space for multiple varieties)
    [grid {:item true :xs 12 :md 6}
     [field-card "Grape Varieties" [wine-varieties-list app-state (:id wine)]]]
-   ;; Wine Characteristics: Style + Alcohol % + Location + Quantity
+   ;; Wine Characteristics: Style + Alcohol %
    [grid {:item true :xs 12 :md 6}
     [inline-field-group
      [["Style" [editable-styles app-state wine]]
-      ["Alcohol %" [editable-alcohol-percentage app-state wine]]
-      ["Location" [editable-location app-state wine]]
+      ["Alcohol %" [editable-alcohol-percentage app-state wine]]]]]
+   ;; Inventory Info: Location + Quantity
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Location" [editable-location app-state wine]]
       ["Quantity"
        [box {:display "flex" :alignItems "center"}
         [quantity-control app-state (:id wine) (:quantity wine)]]]]]]
