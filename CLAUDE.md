@@ -64,6 +64,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── pairing-feature.md
 │   ├── schema-unification-datomic.md
 │   ├── screenshots
+│   │   ├── assistant.png
 │   │   └── overview.png
 │   └── varieties-implementation.md
 ├── fly.toml.template
@@ -150,7 +151,7 @@ This is a full-stack wine cellar tracking application built with:
                     ├── list.cljs
                     └── varieties.cljs
 
-27 directories, 79 files
+27 directories, 80 files
 ```
 
 ## Development Commands

@@ -29,7 +29,7 @@
   [app-state]
   (let [anchor-el (r/atom nil)]
     (fn []
-      [box {:sx {:mb 2}}
+      [box
        [button
         {:variant "outlined"
          :color "primary"
@@ -110,7 +110,7 @@
               (js/confirm
                "⚠️ DANGER: This will DELETE ALL DATA and reset the database schema!\n\nAre you absolutely sure you want to continue?")
               (api/reset-database app-state)))
-          :sx {:color "error.main"}} "🔥 Reset Database"]] [logout]])))
+          :sx {:color "error.main"}} "🔥 Reset Database"]]])))
 
 (defn new-wine-or-list
   [app-state]
@@ -119,6 +119,19 @@
     :path [:show-wine-form?]
     :show-text "Add New Wine"
     :hide-text "Show Wine List"}])
+
+(defn top-controls
+  [app-state]
+  [box
+   {:sx {:display "flex"
+         :justifyContent "space-between"
+         :alignItems "center"
+         :mb 3}}
+   ;; Left side: Add New Wine / Show Wine List
+   [new-wine-or-list app-state]
+   ;; Right side: Admin + Logout
+   [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
+    [admin-menu app-state] [logout]]])
 
 (defn main-app
   [app-state]
@@ -151,10 +164,9 @@
             :sx {:mt 2}} "Back to Wine List"]]
          ;; Wine views
          (:selected-wine-id @app-state) [:div [wine-details-section app-state]]
-         (:show-wine-form? @app-state) [:div [wine-form app-state]
-                                        [new-wine-or-list app-state]]
-         :else [:div [new-wine-or-list app-state] [wine-list app-state]])
-   [admin-menu app-state]
+         (:show-wine-form? @app-state) [:div [top-controls app-state]
+                                        [wine-form app-state]]
+         :else [:div [top-controls app-state] [wine-list app-state]])
    (when (:show-debug-controls? @app-state) [debug-sidebar app-state])
    [wine-chat app-state]])
 
