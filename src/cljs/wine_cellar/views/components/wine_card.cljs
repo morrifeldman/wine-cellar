@@ -244,9 +244,15 @@
 
 (defn wine-quantity-display
   [app-state wine]
-  [box {:sx {:display "flex" :alignItems "center"}}
-   [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
-    "Quantity:"] [quantity-control app-state (:id wine) (:quantity wine)]])
+  (let [quantity (:quantity wine)
+        original-quantity (:original_quantity wine)
+        display-text (if original-quantity
+                       (str quantity "/" original-quantity)
+                       (str quantity))]
+    [box {:sx {:display "flex" :alignItems "center" :gap 1}}
+     [typography {:variant "body2" :color "text.secondary"} "Quantity:"]
+     [quantity-control app-state (:id wine) quantity display-text
+      original-quantity]]))
 
 (defn wine-controls
   [app-state wine status drink-from-year drink-until-year]

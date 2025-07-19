@@ -77,9 +77,9 @@
 
 (def wine-list-fields
   [:id :producer :country :region :aoc :classification :vineyard :level :name
-   :vintage :style :location :purveyor :quantity :price :drink_from_year
-   :drink_until_year :alcohol_percentage :label_thumbnail :created_at
-   :updated_at :verified :purchase_date :latest_internal_rating
+   :vintage :style :location :purveyor :quantity :original_quantity :price
+   :drink_from_year :drink_until_year :alcohol_percentage :label_thumbnail
+   :created_at :updated_at :verified :purchase_date :latest_internal_rating
    :average_external_rating :varieties])
 
 (defn get-wines-for-list

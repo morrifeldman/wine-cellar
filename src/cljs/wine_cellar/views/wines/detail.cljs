@@ -146,6 +146,48 @@
     {:type "number"
      :helperText "Year when the wine was disgorged (for sparkling wines)"}}])
 
+(defn editable-original-quantity
+  [app-state wine]
+  [editable-text-field
+   {:value (when-let [qty (:original_quantity wine)] (str qty))
+    :on-save
+    (fn [new-value]
+      (let [parsed-qty
+            (if (str/blank? new-value) nil (js/parseInt new-value 10))
+            current-qty (:quantity wine)]
+        (cond
+          ;; Allow clearing (nil)
+          (nil? parsed-qty)
+          (api/update-wine app-state (:id wine) {:original_quantity nil})
+          ;; Check if valid and not less than current quantity
+          (and (not (js/isNaN parsed-qty))
+               (> parsed-qty 0)
+               (>= parsed-qty current-qty))
+          (api/update-wine app-state (:id wine) {:original_quantity parsed-qty})
+          ;; Error case - show alert
+          (< parsed-qty current-qty)
+          (js/alert (str "Original quantity ("
+                         parsed-qty
+                         ") cannot be less than current quantity ("
+                         current-qty
+                         ")"))
+          ;; Other validation errors will be caught by validate-fn
+          :else nil)))
+    :validate-fn (fn [value]
+                   (cond (str/blank? value) nil ;; Allow empty value
+                         :else
+                         (let [parsed (js/parseInt value 10)
+                               current-qty (:quantity wine)]
+                           (cond (js/isNaN parsed) "Must be a valid number"
+                                 (< parsed 1) "Must be at least 1"
+                                 (< parsed current-qty)
+                                 (str "Can't have originally bought " parsed
+                                      " when you currently have " current-qty)
+                                 :else nil))))
+    :empty-text "Not specified"
+    :compact? true
+    :text-field-props {:type "number"}}])
+
 (defn editable-tasting-window-commentary
   [app-state wine]
   [editable-text-field
@@ -484,13 +526,15 @@
     [inline-field-group
      [["Style" [editable-styles app-state wine]]
       ["Alcohol %" [editable-alcohol-percentage app-state wine]]]]]
-   ;; Inventory Info: Location + Quantity
+   ;; Inventory Info: Location + Current Quantity + Original Quantity
    [grid {:item true :xs 12 :md 6}
     [inline-field-group
      [["Location" [editable-location app-state wine]]
-      ["Quantity"
+      ["Current Qty"
        [box {:display "flex" :alignItems "center"}
-        [quantity-control app-state (:id wine) (:quantity wine)]]]]]]
+        [quantity-control app-state (:id wine) (:quantity wine)
+         (str (:quantity wine)) (:original_quantity wine)]]]
+      ["Original Qty" [editable-original-quantity app-state wine]]]]]
    ;; Purchase Info: Price + Purchased From + Purchase Date
    [grid {:item true :xs 12 :md 6}
     [inline-field-group

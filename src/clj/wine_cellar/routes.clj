@@ -32,6 +32,7 @@
 (s/def ::levels (s/coll-of (set common/wine-levels)))
 (s/def ::location (s/nilable (s/and string? #(common/valid-location? %))))
 (s/def ::quantity int?)
+(s/def ::original_quantity (s/nilable int?))
 (s/def ::price (s/nilable number?))
 (s/def ::purchase_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
@@ -71,16 +72,16 @@
                    ::drink_from_year ::drink_until_year ::vintage ::price
                    ::purchase_date ::alcohol_percentage ::wine_varieties
                    ::disgorgement_year ::tasting_window_commentary ::verified
-                   ::ai_summary]))
+                   ::ai_summary ::original_quantity]))
 
 (def wine-update-schema
-  (s/keys :req-un [(or ::producer
-                       ::country ::region
-                       ::aoc ::classification
-                       ::vineyard ::name
-                       ::vintage ::style
-                       ::level ::location
-                       ::quantity ::price
+  (s/keys :req-un [(or ::producer ::country
+                       ::region ::aoc
+                       ::classification ::vineyard
+                       ::name ::vintage
+                       ::style ::level
+                       ::location ::quantity
+                       ::original_quantity ::price
                        ::purveyor ::label_image
                        ::label_thumbnail ::back_label_image
                        ::drink_from_year ::drink_until_year
@@ -89,9 +90,10 @@
                        ::verified ::ai_summary)]
           :opt-un [::producer ::country ::region ::aoc ::classification
                    ::vineyard ::name ::vintage ::style ::level ::location
-                   ::quantity ::price ::purveyor ::label_image ::label_thumbnail
-                   ::back_label_image ::drink_from_year ::drink_until_year
-                   ::purchase_date ::alcohol_percentage ::disgorgement_year
+                   ::quantity ::original_quantity ::price ::purveyor
+                   ::label_image ::label_thumbnail ::back_label_image
+                   ::drink_from_year ::drink_until_year ::purchase_date
+                   ::alcohol_percentage ::disgorgement_year
                    ::tasting_window_commentary ::verified ::ai_summary]))
 
 (def image-update-schema

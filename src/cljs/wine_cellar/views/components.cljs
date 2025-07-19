@@ -22,26 +22,36 @@
 
 ;; Quantity control component
 (defn quantity-control
-  [app-state wine-id quantity]
-  [box {:display "flex" :alignItems "center"}
-   [box
-    {:component "span"
-     :sx {:fontSize "1rem" :mx 1 :minWidth "1.5rem" :textAlign "center"}}
-    quantity]
-   [box {:display "flex" :flexDirection "column" :ml 0.5}
-    [button
-     {:variant "text"
-      :size "small"
-      :sx {:minWidth 0 :p 0 :lineHeight 0.8}
-      :onClick #(api/adjust-wine-quantity app-state wine-id 1)}
-     [arrow-drop-up {:fontSize "small"}]]
-    [button
-     {:variant "text"
-      :size "small"
-      :sx {:minWidth 0 :p 0 :lineHeight 0.8}
-      :disabled (= quantity 0)
-      :onClick #(api/adjust-wine-quantity app-state wine-id -1)}
-     [arrow-drop-down {:fontSize "small"}]]]])
+  ([app-state wine-id quantity]
+   (quantity-control app-state wine-id quantity (str quantity) nil))
+  ([app-state wine-id quantity display-text]
+   (quantity-control app-state wine-id quantity display-text nil))
+  ([app-state wine-id quantity display-text original-quantity]
+   [box {:display "flex" :alignItems "center"}
+    [box
+     {:component "span"
+      :sx {:fontSize "1rem" :mx 1 :minWidth "1.5rem" :textAlign "center"}}
+     display-text]
+    [box {:display "flex" :flexDirection "column" :ml 0.5}
+     [button
+      {:variant "text"
+       :size "small"
+       :sx {:minWidth 0 :p 0 :lineHeight 0.8}
+       :disabled (and original-quantity (>= quantity original-quantity))
+       :onClick (fn []
+                  (if (and original-quantity (>= quantity original-quantity))
+                    (js/alert (str "Cannot exceed original quantity ("
+                                   original-quantity
+                                   ")"))
+                    (api/adjust-wine-quantity app-state wine-id 1)))}
+      [arrow-drop-up {:fontSize "small"}]]
+     [button
+      {:variant "text"
+       :size "small"
+       :sx {:minWidth 0 :p 0 :lineHeight 0.8}
+       :disabled (= quantity 0)
+       :onClick #(api/adjust-wine-quantity app-state wine-id -1)}
+      [arrow-drop-down {:fontSize "small"}]]]]))
 
 (defn editable-field-wrapper
   "A generic wrapper for making any field editable.
