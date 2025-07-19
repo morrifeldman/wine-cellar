@@ -250,18 +250,17 @@
 
 (defn wine-controls
   [app-state wine status drink-from-year drink-until-year]
-  [box
-   {:sx {:display "flex"
-         :justifyContent "space-between"
-         :alignItems "center"
-         :mt 0.5}}
-   ;; Left side: drinking window
-   [wine-tasting-window status drink-from-year drink-until-year]
-   ;; Right side: verification + quantity
-   [box {:sx {:display "flex" :alignItems "center" :gap 1}}
-    (when (:show-verification-checkboxes? @app-state)
-      [wine-verification-checkbox app-state wine])
-    [wine-quantity-display app-state wine]]])
+  [box {:sx {:mt 0.5}}
+   ;; Top row: drinking window + quantity
+   [box
+    {:sx {:display "flex" :justifyContent "space-between" :alignItems "center"}}
+    ;; Left side: drinking window
+    [wine-tasting-window status drink-from-year drink-until-year]
+    ;; Right side: quantity
+    [wine-quantity-display app-state wine]]
+   ;; Bottom row: verification checkbox (when enabled)
+   (when (:show-verification-checkboxes? @app-state)
+     [box {:sx {:mt 0.5}} [wine-verification-checkbox app-state wine]])])
 
 (defn wine-card
   [app-state wine]

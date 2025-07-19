@@ -59,12 +59,13 @@
                             (let [val (get wine field)]
                               (cond
                                 ;; Handle nil ratings specifically
-                                (and (= field :latest_rating) (nil? val)) -1 ;; Sort
-                                                                             ;; null
-                                                                             ;; ratings
-                                                                             ;; last
-                                ;; Handle nil vintage specifically for NV
-                                ;; wines
+                                (and (#{:latest_internal_rating
+                                        :average_external_rating}
+                                      field)
+                                     (nil? val))
+                                -1 ;; Sort
+                                ;; null ratings last. Handle nil vintage
+                                ;; specifically for NV wines
                                 (and (= field :vintage) (nil? val)) 0 ;; Sort
                                                                       ;; NV
                                                                       ;; wines
