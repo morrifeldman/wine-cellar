@@ -63,6 +63,12 @@
                                                                              ;; null
                                                                              ;; ratings
                                                                              ;; last
+                                ;; Handle nil vintage specifically for NV
+                                ;; wines
+                                (and (= field :vintage) (nil? val)) 0 ;; Sort
+                                                                      ;; NV
+                                                                      ;; wines
+                                                                      ;; first
                                 ;; Handle timestamps for date sorting
                                 (and (#{:updated_at :created_at} field) val)
                                 (js/Date. val)
