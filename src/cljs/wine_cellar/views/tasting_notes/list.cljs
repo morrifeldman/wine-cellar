@@ -20,10 +20,7 @@
   (let [is-external (boolean (:is_external note))]
     [paper
      {:elevation 1
-      :sx {:p 2
-           :mb 2
-           :borderLeft (when is-external "4px solid #9e9e9e")
-           :bgcolor (when is-external "rgba(0, 0, 0, 0.02)")}}
+      :sx {:p 2 :mb 2 :borderLeft (when is-external "4px solid #9e9e9e")}}
      [grid {:container true}
       ;; Header with date/source and rating
       [grid {:item true :xs 9}

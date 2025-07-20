@@ -18,7 +18,8 @@
             [wine-cellar.api :as api]))
 
 ;; Shared styles
-(def form-field-style {:min-width "180px" :width "75%"})
+(def form-field-style
+  {:min-width "180px" :width "75%" :backgroundColor "container.main"})
 
 ;; Quantity control component
 (defn quantity-control

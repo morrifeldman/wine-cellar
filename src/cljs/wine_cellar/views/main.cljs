@@ -126,24 +126,22 @@
    {:sx {:display "flex"
          :justifyContent "space-between"
          :alignItems "center"
-         :mb 3}}
+         :mb 3
+         :pb 2
+         :borderBottom "1px solid rgba(0,0,0,0.08)"}}
    ;; Left side: Add New Wine / Show Wine List
    [new-wine-or-list app-state]
-   ;; Right side: Admin + Logout
+   ;; Right side: Stats + Admin + Logout
    [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
+    [button
+     {:variant "outlined"
+      :color "primary"
+      :onClick #(swap! app-state assoc :show-collection-stats? true)} "Stats"]
     [admin-menu app-state] [logout]]])
 
 (defn main-app
   [app-state]
   [box {:sx {:p 3 :maxWidth "1200px" :mx "auto"}}
-   [box
-    {:sx {:textAlign "center"
-          :mb 4
-          :pb 3
-          :borderBottom "1px solid rgba(0,0,0,0.08)"}}
-    [typography
-     {:variant "h2" :component "h1" :sx {:fontWeight 300 :color "primary.main"}}
-     "Wine Cellar"]]
    (when-let [error (:error @app-state)]
      [paper
       {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}

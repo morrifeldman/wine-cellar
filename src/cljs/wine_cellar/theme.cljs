@@ -19,8 +19,13 @@
               :background {:default "#150A0C" ;; Even deeper burgundy/wine
                                               ;; background (like aged wine
                                               ;; in a dark cellar)
-                           :paper "#3A1F23"} ;; Rich wine-colored cards
-                                             ;; (like Merlot)
+                           :paper "#3A1F23"} ;; Light wine color for all
+                                             ;; cards
+                                             ;; (consistent card
+                                             ;; background)
+              :wineCard {:main "#3A1F23"} ;; Same as paper for consistency
+              :container {:main "#2A151A"} ;; Intermediate wine color for
+                                           ;; major containers
               :success {:main "#2E7D32"}
               :error {:main "#B71C1C"}
               :rating {:high "#E8C3C8" ;; Lighter wine color for high

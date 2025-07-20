@@ -529,7 +529,7 @@
      [image-zoom-modal app-state (:data zoomed) (:title zoomed)])
    ;; Front Wine Label Image
    [grid {:item true :xs 12 :md 6}
-    [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+    [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
      [typography {:variant "body2" :color "text.secondary"} "Front Label"]
      [clickable-wine-image (:label_image wine) "front" "Front Wine Label"
       #(api/update-wine-image app-state (:id wine) %)
@@ -539,7 +539,7 @@
         (assoc wine :label_image nil :label_thumbnail nil)) app-state]]]
    ;; Back Wine Label Image
    [grid {:item true :xs 12 :md 6}
-    [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+    [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
      [typography {:variant "body2" :color "text.secondary"} "Back Label"]
      [clickable-wine-image (:back_label_image wine) "back" "Back Wine Label"
       #(api/update-wine-image app-state (:id wine) %)
@@ -555,23 +555,17 @@
      [grid {:item true}
       [paper
        {:elevation 0
-        :sx {:p 2
-             :bgcolor "rgba(0,0,0,0.02)"
-             :borderRadius 1
-             :mb (if (< idx (dec (count fields))) 1 0)}} field]])])
+        :sx {:p 2 :borderRadius 1 :mb (if (< idx (dec (count fields))) 1 0)}}
+       field]])])
 
 (defn field-card
   [title content]
-  [paper
-   {:elevation 0
-    :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1 :height "100%"}}
+  [paper {:elevation 0 :sx {:p 2 :borderRadius 1 :height "100%"}}
    [typography {:variant "body2" :color "text.secondary"} title] content])
 
 (defn compact-field-group
   [fields]
-  [paper
-   {:elevation 0
-    :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1 :height "100%"}}
+  [paper {:elevation 0 :sx {:p 2 :borderRadius 1 :height "100%"}}
    [grid {:container true :spacing 2}
     (for [[idx [title content]] (map-indexed vector fields)]
       ^{:key idx}
@@ -581,9 +575,7 @@
 
 (defn inline-field-group
   [fields]
-  [paper
-   {:elevation 0
-    :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1 :height "100%"}}
+  [paper {:elevation 0 :sx {:p 2 :borderRadius 1 :height "100%"}}
    [grid {:container true :spacing 1}
     (for [[idx [title content]] (map-indexed vector fields)]
       ^{:key idx}
@@ -726,7 +718,7 @@
 (defn wine-tasting-window-section
   [app-state wine]
   [grid {:item true :xs 12}
-   [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+   [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
     [typography {:variant "body2" :color "text.secondary"} "Tasting Window"]
     [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
      ;; From and Until on same row
@@ -749,7 +741,7 @@
 (defn wine-ai-summary-section
   [app-state wine]
   [grid {:item true :xs 12}
-   [paper {:elevation 0 :sx {:p 2 :bgcolor "rgba(0,0,0,0.02)" :borderRadius 1}}
+   [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
     [typography {:variant "body2" :color "text.secondary"} "AI Wine Summary"]
     [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
      [editable-ai-summary app-state wine]
@@ -810,11 +802,12 @@
      :borderRadius 2
      :position "relative"
      :overflow "hidden"
+     :bgcolor "container.main"
      :backgroundImage
      "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"}}
    ;; Wine title and basic info
    [wine-identity-section app-state wine]
-   [grid {:container true :spacing 3 :sx {:mb 4}}
+   [grid {:container true :spacing 6 :sx {:mb 4}}
     [wine-images-section app-state wine]
     [wine-classification-section app-state wine]
     [wine-compact-details-section app-state wine]

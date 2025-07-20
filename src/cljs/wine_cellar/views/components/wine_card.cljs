@@ -290,7 +290,6 @@
        :display "flex"
        :flexDirection "column"
        :justifyContent "space-between"
-       :bgcolor "background.paper"
        :backgroundImage
        (when (= (:style wine) "Red")
          "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))")

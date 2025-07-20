@@ -1,6 +1,7 @@
 (ns wine-cellar.views.tasting-notes.form
   (:require [reagent.core :as r]
             [reagent-mui.material.grid :refer [grid]]
+            [reagent-mui.material.text-field :as mui-text-field]
             [wine-cellar.api :as api]
             [wine-cellar.utils.formatting :refer [format-date-iso]]
             [wine-cellar.views.components.form :refer
@@ -128,13 +129,21 @@
            #(swap! app-state assoc-in [:new-tasting-note :tasting_date] %)}]]
         ;; Tasting notes textarea (uncontrolled for performance)
         [grid {:item true :xs 12}
-         [uncontrolled-text-area-field
-          {:label "Notes"
+         [mui-text-field/text-field
+          {:multiline true
+           :rows 12
+           :fullWidth true
+           :variant "outlined"
+           :size "small"
+           :margin "dense"
            :required true
-           :initial-value (if editing? (:notes editing-note) "")
-           :reset-key (str "notes-" (or editing-note-id "new"))
-           :input-ref notes-ref
-           :rows 12}]]
+           :defaultValue (if editing? (:notes editing-note) "")
+           :key (str "notes-" (or editing-note-id "new"))
+           :inputRef #(reset! notes-ref %)
+           :sx {"& .MuiOutlinedInput-root" {:backgroundColor "container.main"
+                                            :border "none"
+                                            :borderRadius 2}}
+           :placeholder "Enter your tasting notes here..."}]]
         ;; Rating input
         [form-row
          [number-field

@@ -1,25 +1,25 @@
 (ns wine-cellar.views.components.wine-chat
-  (:require [reagent.core :as r]
-            [reagent-mui.material.fab :refer [fab]]
-            [reagent-mui.material.dialog :refer [dialog]]
-            [reagent-mui.material.dialog-title :refer [dialog-title]]
-            [reagent-mui.material.dialog-content :refer [dialog-content]]
-            [reagent-mui.material.text-field :refer [text-field]]
-            [wine-cellar.views.components.form :refer
-             [uncontrolled-text-area-field]]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.chat :refer [chat]]
-            [reagent-mui.icons.close :refer [close]]
-            [reagent-mui.icons.clear-all :refer [clear-all]]
-            [reagent-mui.icons.edit :refer [edit]]
-            [reagent-mui.icons.send :refer [send]]
-            [reagent-mui.material.circular-progress :refer [circular-progress]]
-            [wine-cellar.api :as api]
-            [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
+  (:require
+    [reagent.core :as r]
+    [reagent-mui.material.fab :refer [fab]]
+    [reagent-mui.material.dialog :refer [dialog]]
+    [reagent-mui.material.dialog-title :refer [dialog-title]]
+    [reagent-mui.material.dialog-content :refer [dialog-content]]
+    [reagent-mui.material.text-field :as mui-text-field :refer [text-field]]
+    [wine-cellar.views.components.form :refer [uncontrolled-text-area-field]]
+    [reagent-mui.material.button :refer [button]]
+    [reagent-mui.material.box :refer [box]]
+    [reagent-mui.material.paper :refer [paper]]
+    [reagent-mui.material.typography :refer [typography]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.icons.chat :refer [chat]]
+    [reagent-mui.icons.close :refer [close]]
+    [reagent-mui.icons.clear-all :refer [clear-all]]
+    [reagent-mui.icons.edit :refer [edit]]
+    [reagent-mui.icons.send :refer [send]]
+    [reagent-mui.material.circular-progress :refer [circular-progress]]
+    [wine-cellar.api :as api]
+    [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
 ;; Constants
 (def ^:private edit-icon-size "0.8rem")
@@ -37,7 +37,7 @@
     {:elevation 2
      :sx {:p 2
           :max-width "80%"
-          :background-color (if is-user "primary.main" "background.paper")
+          :background-color (if is-user "primary.main" "container.main")
           :color (if is-user "background.default" "text.primary")
           :word-wrap "break-word"
           :white-space "pre-wrap"
@@ -71,30 +71,20 @@
   "Chat input field with send button - uncontrolled for performance"
   [message-ref on-send disabled? reset-key]
   [box {:sx {:display "flex" :gap 1 :mt 2}}
-   [uncontrolled-text-area-field
-    {:label "Message"
-     :initial-value ""
-     :reset-key reset-key
-     :input-ref message-ref
+   [mui-text-field/text-field
+    {:multiline true
      :rows 3
-     :helper-text "Ask me about your wines..."
+     :fullWidth true
+     :variant "outlined"
+     :size "small"
+     :margin "dense"
+     :inputRef #(reset! message-ref %)
      :sx {:flex-grow 1
-          :& {:backgroundColor "background.paper"}
-          "& .MuiOutlinedInput-root"
-          {:backgroundColor "background.paper"
-           :border "2px solid"
-           :borderColor "primary.main"
-           :borderRadius 2
-           :&:hover {:borderColor "primary.dark"}
-           :&.Mui-focused {:borderColor "primary.main"
-                           :boxShadow "0 0 0 3px rgba(25, 118, 210, 0.1)"}}
-          "& .MuiInputLabel-root" {:&.MuiInputLabel-shrink
-                                   {:transform
-                                    "translate(14px, -9px) scale(0.75)"}}}
+          "& .MuiOutlinedInput-root" {:backgroundColor "background.default"
+                                      :border "none"
+                                      :borderRadius 2}}
      :placeholder "Type your message here..."
      :disabled @disabled?
-     :InputLabelProps {:shrink true} ;; Always keep label shrunk to avoid
-                                     ;; overlap
      :on-blur nil}]
    [button
     {:variant "contained"
