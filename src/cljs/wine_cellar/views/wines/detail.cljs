@@ -496,16 +496,19 @@
             :top 0
             :left 0
             :right 0
-            :bottom 0
+            :height "300px"
             :cursor "zoom-in"
             :display "flex"
             :alignItems "center"
             :justifyContent "center"
             :bgcolor "rgba(0,0,0,0)"
             :transition "background-color 0.2s"
+            :pointerEvents "auto"
             ":hover" {:bgcolor "rgba(0,0,0,0.1)"}}
-       :onClick
-       #(swap! app-state assoc :zoomed-image {:data image-data :title title})}
+       :onClick #(do (.stopPropagation %)
+                     (swap! app-state assoc
+                       :zoomed-image
+                       {:data image-data :title title}))}
       [box
        {:sx {:opacity 0
              :transition "opacity 0.2s"
@@ -515,6 +518,7 @@
              :py 1
              :borderRadius 1
              :fontSize "0.875rem"
+             :pointerEvents "none"
              ":hover" {:opacity 1}}} "Click to zoom"]])])
 
 (defn wine-images-section
