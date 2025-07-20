@@ -123,7 +123,8 @@
         wine-summary (format-wine-summary wine
                                           :include-quantity? false
                                           :bullet-prefix ""
-                                          :include-drinking-window? false)]
+                                          :include-drinking-window? false
+                                          :include-ai-summary? false)]
     (str
      "You are a wine expert tasked with suggesting the OPTIMAL drinking window for a wine. "
      "Focus on when this wine will be at its absolute peak quality and most enjoyable, "
