@@ -134,7 +134,7 @@
            :initial-value (if editing? (:notes editing-note) "")
            :reset-key (str "notes-" (or editing-note-id "new"))
            :input-ref notes-ref
-           :rows 4}]]
+           :rows 12}]]
         ;; Rating input
         [form-row
          [number-field
