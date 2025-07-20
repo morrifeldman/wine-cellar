@@ -252,9 +252,9 @@
   [app-state]
   (let [classifications (:classifications @app-state)]
     [paper {:elevation 1 :sx {:p 3 :mb 3 :borderRadius 2}}
-     [filter-header app-state]
+     [filter-header app-state] [box {:sx {:mt 2}} [search-field app-state]]
      [collapse {:in (:show-filters? @app-state) :timeout "auto"}
-      [grid {:container true :spacing 3} [search-field app-state]
+      [grid {:container true :spacing 3}
        [country-filter app-state classifications]
        [region-filter app-state classifications] [style-filter app-state]
        [variety-filter app-state] [price-range-filter app-state]

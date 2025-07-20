@@ -2,12 +2,22 @@
   (:require [clojure.string :as str]
             [wine-cellar.utils.vintage :refer [matches-tasting-window?]]))
 
+;; Text normalization helper for accent-insensitive search
+(defn normalize-text
+  "Normalize text by removing accents and converting to lowercase for search comparison"
+  [text]
+  (when text
+    (-> (str text)
+        (.normalize "NFD") ; Decompose accented characters
+        (.replace #"[\u0300-\u036f]" "") ; Remove accent marks
+        (str/lower-case))))
+
 ;; Filter helper functions
 (defn matches-text-search?
   [wine search-term]
   (if (empty? search-term)
     true ;; No search term, match all wines
-    (let [search-lower (str/lower-case search-term)
+    (let [search-normalized (normalize-text search-term)
           ;; Extract grape variety names from the varieties collection
           variety-names (when (:varieties wine) (map :name (:varieties wine)))
           ;; All searchable text fields
@@ -20,7 +30,7 @@
            (or (:ai_summary wine) "")]
           ;; Combine text fields with variety names
           all-searchable (concat searchable-fields variety-names)]
-      (some #(str/includes? (str/lower-case (str %)) search-lower)
+      (some #(str/includes? (normalize-text %) search-normalized)
             all-searchable))))
 
 (defn matches-country?
