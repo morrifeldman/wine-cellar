@@ -1,5 +1,6 @@
 (ns wine-cellar.views.wines.filters
-  (:require [wine-cellar.utils.formatting :refer
+  (:require [reagent.core :as r]
+            [wine-cellar.utils.formatting :refer
              [unique-countries regions-for-country unique-varieties]]
             [wine-cellar.common :as common]
             [reagent-mui.material.button :refer [button]]
@@ -17,6 +18,10 @@
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.icons.expand-more :refer [expand-more]]
             [reagent-mui.icons.expand-less :refer [expand-less]]
+            [reagent-mui.material.checkbox :refer [checkbox]]
+            [reagent-mui.material.form-control-label :refer
+             [form-control-label]]
+            [reagent-mui.material.form-group :refer [form-group]]
             [wine-cellar.utils.vintage :refer [tasting-window-label]]))
 
 (defn search-field
@@ -172,6 +177,33 @@
          [menu-item {:value "verified-only"} "Verified Only"]
          [menu-item {:value "unverified-only"} "Unverified Only"]]]])))
 
+(defn column-filter
+  [app-state]
+  (let [filters (:filters @app-state)
+        selected-columns (or (:columns filters) #{})
+        columns ["A" "B" "C" "D" "E" "F" "G" "H" "I" "J"]]
+    [grid {:item true :xs 12}
+     [box {:sx {:px 1}}
+      [typography {:variant "subtitle2" :sx {:mb 1}} "Cellar Columns"]
+      [form-group {:row true :sx {:gap 1}}
+       (for [column columns]
+         ^{:key column}
+         [form-control-label
+          {:control (r/as-element [checkbox
+                                   {:checked (contains? selected-columns column)
+                                    :size "small"
+                                    :onChange
+                                    #(let [checked (.. % -target -checked)]
+                                       (swap! app-state update-in
+                                         [:filters :columns]
+                                         (fn [cols]
+                                           (let [col-set (or cols #{})]
+                                             (if checked
+                                               (conj col-set column)
+                                               (disj col-set column))))))}])
+           :label column
+           :sx {:mr 1 :mb 0}}])]]]))
+
 (defn filter-header
   [app-state]
   [box
@@ -210,7 +242,8 @@
                    :variety nil
                    :price-range nil
                    :tasting-window nil
-                   :verification nil})} "Clear Filters"]]])
+                   :verification nil
+                   :columns #{}})} "Clear Filters"]]])
 
 (defn filter-bar
   [app-state]
@@ -223,4 +256,5 @@
        [country-filter app-state classifications]
        [region-filter app-state classifications] [style-filter app-state]
        [variety-filter app-state] [price-range-filter app-state]
-       [tasting-window-filter app-state] [verification-filter app-state]]]]))
+       [tasting-window-filter app-state] [verification-filter app-state]
+       [column-filter app-state]]]]))

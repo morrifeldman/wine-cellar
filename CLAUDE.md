@@ -241,3 +241,7 @@ The application includes AI-powered wine label analysis using Anthropic's API. T
 ## File Upload and Image Handling
 
 Wine label images are stored as bytea in PostgreSQL with both full images and thumbnails. Upload handling is done through multipart form data.
+
+## Clojure Specifics
+
+- **Function Declaration**: In Clojure, functions need to be declared before they're used.

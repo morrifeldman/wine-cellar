@@ -44,6 +44,16 @@
             [min-price max-price] price-range]
         (and price (>= price min-price) (<= price max-price)))))
 
+(defn parse-location
+  "Parse location string like 'F12' into sortable components [column row]"
+  [location]
+  (when location
+    (let [location-str (str/trim (str location))
+          matches (re-matches #"^([A-J])(\d+)$" location-str)]
+      (if matches
+        [(nth matches 1) (js/parseInt (nth matches 2))]
+        [location-str 0])))) ;; Fallback for non-standard locations
+
 (defn matches-verification-status?
   [wine verification-filter]
   (case verification-filter
@@ -52,32 +62,42 @@
     nil true ; Show all when no filter selected
     true))
 
+(defn matches-columns?
+  [wine selected-columns]
+  (if (empty? selected-columns)
+    true ; No column filter, show all
+    (let [[column _] (parse-location (:location wine))]
+      (contains? selected-columns column))))
+
 (defn apply-sorting
   [wines field direction]
   (if field
-    (let [sorted (sort-by (fn [wine]
-                            (let [val (get wine field)]
-                              (cond
-                                ;; Handle nil ratings specifically
-                                (and (#{:latest_internal_rating
-                                        :average_external_rating}
-                                      field)
-                                     (nil? val))
-                                -1 ;; Sort
-                                ;; null ratings last. Handle nil vintage
-                                ;; specifically for NV wines
-                                (and (= field :vintage) (nil? val)) 0 ;; Sort
-                                                                      ;; NV
-                                                                      ;; wines
-                                                                      ;; first
-                                ;; Handle timestamps for date sorting
-                                (and (#{:updated_at :created_at} field) val)
-                                (js/Date. val)
-                                (nil? val) "" ;; For other fields, use
-                                              ;; empty string
-                                (number? val) val
-                                :else (str/lower-case (str val)))))
-                          wines)]
+    (let [sorted
+          (sort-by
+           (fn [wine]
+             (let [val (get wine field)]
+               (cond
+                 ;; Handle location sorting with proper alphanumeric
+                 ;; parsing
+                 (= field :location) (let [[column row] (parse-location val)]
+                                       [(or column "ZZ") (or row 999)]) ;; Sort
+                                                                        ;; unknown
+                                                                        ;; locations
+                                                                        ;; last
+                 ;; Handle nil ratings specifically
+                 (and (#{:latest_internal_rating :average_external_rating}
+                       field)
+                      (nil? val))
+                 -1 ;; Sort null ratings last
+                 ;; Handle nil vintage specifically for NV wines
+                 (and (= field :vintage) (nil? val)) 0 ;; Sort NV wines
+                                                       ;; first
+                 ;; Handle timestamps for date sorting
+                 (and (#{:updated_at :created_at} field) val) (js/Date. val)
+                 (nil? val) "" ;; For other fields, use empty string
+                 (number? val) val
+                 :else (str/lower-case (str val)))))
+           wines)]
       (if (= :desc direction) (reverse sorted) sorted))
     wines))
 
@@ -86,7 +106,7 @@
   [app-state]
   (let [wines (:wines @app-state)
         {:keys [search country region style tasting-window variety price-range
-                verification]}
+                verification columns]}
         (:filters @app-state)
         {:keys [field direction]} (:sort @app-state)
         show-out-of-stock? (:show-out-of-stock? @app-state)]
@@ -102,6 +122,7 @@
       (filter #(matches-price-range? % price-range) w)
       (filter #(matches-tasting-window? % tasting-window) w)
       (filter #(matches-verification-status? % verification) w)
+      (filter #(matches-columns? % columns) w)
       ;; Apply sorting
       (apply-sorting w field direction))))
 
