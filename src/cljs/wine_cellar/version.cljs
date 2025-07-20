@@ -1,9 +1,10 @@
 (ns wine-cellar.version
   (:require [cljs.core.async :refer [<!]]
-            [cljs-http.client :as http])
+            [cljs-http.client :as http]
+            [reagent.core :as r])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
-(def version-cache (atom nil))
+(def version-cache (r/atom nil))
 
 (defn fetch-version!
   []
