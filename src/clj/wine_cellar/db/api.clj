@@ -105,7 +105,10 @@
                          db-opts)
       db-wine->wine))
 
-(def enriched-wine-fields-for-ai (conj wine-list-fields :tasting_notes))
+(def enriched-wine-fields-for-ai
+  (conj wine-list-fields
+        :tasting_notes :disgorgement_year
+        :tasting_window_commentary :ai_summary))
 
 (defn get-enriched-wines-by-ids
   "Get enriched wines with full tasting notes for AI chat context (no images)"

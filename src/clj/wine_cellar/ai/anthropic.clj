@@ -54,8 +54,12 @@
 (defn- format-wine-summary
   "Creates a formatted summary of a single wine including tasting notes and varieties"
   [wine &
-   {:keys [include-quantity? bullet-prefix]
-    :or {include-quantity? true bullet-prefix "- "}}]
+   {:keys [include-quantity? bullet-prefix include-drinking-window?
+           include-ai-summary?]
+    :or {include-quantity? true
+         bullet-prefix "- "
+         include-drinking-window? true
+         include-ai-summary? true}}]
   (tap> ["format-wine-summary" wine])
   (let [basic-info (str bullet-prefix
                         (:producer wine)
@@ -67,13 +71,23 @@
                         ")" (when (and include-quantity? (:quantity wine))
                               (str " - " (:quantity wine) " bottles")))
         classification-info
-        (str/join ""
-                  [(when (:aoc wine) (str "\n  AOC/AVA: " (:aoc wine)))
-                   (when (:vineyard wine)
-                     (str "\n  Vineyard: " (:vineyard wine)))
-                   (when (:classification wine)
-                     (str "\n  Classification: " (:classification wine)))
-                   (when (:level wine) (str "\n  Level: " (:level wine)))])
+        (str/join
+         ""
+         [(when (:aoc wine) (str "\n  AOC/AVA: " (:aoc wine)))
+          (when (:vineyard wine) (str "\n  Vineyard: " (:vineyard wine)))
+          (when (:classification wine)
+            (str "\n  Classification: " (:classification wine)))
+          (when (:level wine) (str "\n  Level: " (:level wine)))
+          (when (:disgorgement_year wine)
+            (str "\n  Disgorgement Year: " (:disgorgement_year wine)))
+          (when (:alcohol_percentage wine)
+            (str "\n  Alcohol: " (:alcohol_percentage wine) "%"))
+          (when (and include-drinking-window?
+                     (or (:drink_from_year wine) (:drink_until_year wine)))
+            (str "\n  Drinking Window: " (or (:drink_from_year wine) "?")
+                 " - " (or (:drink_until_year wine) "?")))
+          (when (and include-drinking-window? (:tasting_window_commentary wine))
+            (str "\n  Drinking Notes: " (:tasting_window_commentary wine)))])
         varieties (:varieties wine)
         varieties-summary
         (when (seq varieties)
@@ -93,28 +107,38 @@
                                                      (str (:rating note)
                                                           "/100 - "))
                                                    (:notes note)))
-                                            (take 3 tasting-notes)))))]
-    (str basic-info classification-info varieties-summary notes-summary)))
+                                            (take 3 tasting-notes)))))
+        ai-summary (when (and include-ai-summary? (:ai_summary wine))
+                     (str "\n  Previous AI Summary: " (:ai_summary wine)))]
+    (str basic-info
+         classification-info
+         varieties-summary
+         notes-summary
+         ai-summary)))
 
 (defn- create-drinking-window-prompt
   "Creates a prompt for suggesting a drinking window for a wine"
   [wine]
   (let [current-year (.getValue (java.time.Year/now))
-        wine-summary
-        (format-wine-summary wine :include-quantity? false :bullet-prefix "")]
+        wine-summary (format-wine-summary wine
+                                          :include-quantity? false
+                                          :bullet-prefix ""
+                                          :include-drinking-window? false)]
     (str
-     "You are a wine expert tasked with suggesting an optimal drinking window for a wine. "
-     "Based on the following characteristics including tasting notes and grape varieties, "
-     "suggest when this wine will be ready to drink and when it might be past its prime.\n\n"
+     "You are a wine expert tasked with suggesting the OPTIMAL drinking window for a wine. "
+     "Focus on when this wine will be at its absolute peak quality and most enjoyable, "
+     "not just when it's acceptable to drink. Based on the following characteristics "
+     "including tasting notes and grape varieties, suggest the ideal timeframe when "
+     "this wine will express its best characteristics.\n\n"
      "Wine details:\n"
      wine-summary
      "\n"
      "The current year is " current-year
      ".\n\n" "Return your response in JSON format with the following fields:\n"
-     "- drink_from_year: (integer) The year when the wine will start to be enjoyable\n"
-     "- drink_until_year: (integer) The year when the wine might be past its prime\n"
+     "- drink_from_year: (integer) The year when the wine will reach optimal drinking condition\n"
+     "- drink_until_year: (integer) The year when the wine will still be at peak quality (not just drinkable)\n"
      "- confidence: (string) \"high\", \"medium\", or \"low\" based on how confident you are in this assessment\n"
-     "- reasoning: (string) A brief explanation of your recommendation\n\n"
+     "- reasoning: (string) A brief explanation of your recommendation focusing on peak quality timing, and mention the broader window when the wine remains enjoyable to drink\n\n"
      "Only return a valid parseable JSON object without any additional text. "
      "Do not nest the response in a markdown code block.")))
 
@@ -273,8 +297,10 @@
 (defn- create-wine-summary-prompt
   "Creates a prompt for generating a comprehensive wine summary with food pairings and taste profile"
   [wine]
-  (let [wine-details
-        (format-wine-summary wine :include-quantity? false :bullet-prefix "")]
+  (let [wine-details (format-wine-summary wine
+                                          :include-quantity? false
+                                          :bullet-prefix ""
+                                          :include-ai-summary? false)]
     (str
      "You are a wine expert tasked with creating a concise wine summary including taste profile and food pairing recommendations. "
      "Based on the following wine details, create an informative but brief summary that would be helpful to someone deciding whether to drink this wine or what to pair it with.\n\n"
