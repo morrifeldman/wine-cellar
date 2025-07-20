@@ -78,9 +78,9 @@
 (def wine-list-fields
   [:id :producer :country :region :aoc :classification :vineyard :level :name
    :vintage :style :location :purveyor :quantity :original_quantity :price
-   :drink_from_year :drink_until_year :alcohol_percentage :label_thumbnail
-   :created_at :updated_at :verified :purchase_date :latest_internal_rating
-   :average_external_rating :varieties])
+   :drink_from_year :drink_until_year :alcohol_percentage :disgorgement_year
+   :label_thumbnail :created_at :updated_at :verified :purchase_date
+   :latest_internal_rating :average_external_rating :varieties])
 
 (defn get-wines-for-list
   []
@@ -106,9 +106,7 @@
       db-wine->wine))
 
 (def enriched-wine-fields-for-ai
-  (conj wine-list-fields
-        :tasting_notes :disgorgement_year
-        :tasting_window_commentary :ai_summary))
+  (conj wine-list-fields :tasting_notes :tasting_window_commentary :ai_summary))
 
 (defn get-enriched-wines-by-ids
   "Get enriched wines with full tasting notes for AI chat context (no images)"

@@ -61,7 +61,12 @@
    [typography {:variant "body1" :sx {:mb 0.3}} ;; Reduced margin
     (:name wine)]
    [typography {:variant "body2" :color "text.secondary"}
-    (if (:vintage wine) (str (:vintage wine)) "NV")]])
+    (let [vintage (:vintage wine)
+          disgorgement (:disgorgement_year wine)]
+      (cond (and (not vintage) disgorgement) (str "NV (" disgorgement " Disg.)")
+            (and vintage disgorgement) (str vintage " (" disgorgement " Disg.)")
+            vintage (str vintage)
+            :else "NV"))]])
 
 (defn wine-header
   [app-state wine]
