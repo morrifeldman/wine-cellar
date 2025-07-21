@@ -174,7 +174,17 @@
      {:post {:summary
              "Admin: Mark all wines as unverified for inventory verification"
              :responses {200 {:body map?} 500 {:body map?}}
-             :handler handlers/mark-all-wines-unverified}}]]
+             :handler handlers/mark-all-wines-unverified}}]
+    ["/start-drinking-window-job"
+     {:post {:summary "Start async job to regenerate drinking windows"
+             :parameters {:body map?}
+             :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/start-drinking-window-job}}]
+    ["/job-status/:job-id"
+     {:get {:summary "Get status of async job"
+            :parameters {:path {:job-id string?}}
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/get-job-status}}]]
    ["/grape-varieties"
     {:get {:summary "Get all grape varieties"
            :responses {200 {:body vector?} 500 {:body map?}}

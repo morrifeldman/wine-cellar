@@ -3,7 +3,8 @@
             [cljs-http.client :as http]
             [cljs.core.async :refer [<! go chan put!]]
             [wine-cellar.config :as config]
-            [wine-cellar.state :refer [initial-app-state]]))
+            [wine-cellar.state :refer [initial-app-state]]
+            [wine-cellar.utils.filters :as filters]))
 
 (def headless-mode? (r/atom false))
 
@@ -487,6 +488,86 @@
                    (get-in result [:data :wines-updated])
                    " wines as unverified")))
           (swap! app-state assoc :error (:error result))))))
+
+(defn poll-job-status
+  "Poll job status until completion"
+  [app-state job-id]
+  (tap> ["🔍 Polling job status for" job-id])
+  (go
+   (let [result (<! (GET (str "/api/admin/job-status/" job-id)
+                         "Failed to get job status"))]
+     (tap> ["📊 Job status result:" result])
+     (if (:success result)
+       (let [status (:data result)
+             job-status (:status status)
+             progress (:progress status)
+             total (:total status)]
+         (tap> ["📈 Job status details:" "job-status" job-status "progress"
+                progress "total" total])
+         (swap! app-state assoc
+           :job-progress
+           {:progress (or progress 0) :total (or total 0) :status job-status})
+         (tap> ["🔄 Updated app-state with progress"])
+         (cond (= job-status "completed")
+               (do (swap! app-state dissoc
+                     :regenerating-drinking-windows?
+                     :job-progress)
+                   (fetch-wines app-state)
+                   (let [failed-wines (:failed-wines status)
+                         failed-count (count failed-wines)
+                         success-count (- total failed-count)
+                         message
+                         (if (> failed-count 0)
+                           (str "Regenerated " success-count
+                                "/" total
+                                " wines successfully. " failed-count
+                                " failed: " (clojure.string/join
+                                             ", "
+                                             (map #(str "ID " (:wine-id %))
+                                                  failed-wines)))
+                           (str "Successfully regenerated drinking windows for "
+                                total
+                                " wines"))]
+                     (swap! app-state assoc :success message))
+                   (js/setTimeout #(swap! app-state dissoc :success) 8000))
+               (= job-status "failed") (do (swap! app-state dissoc
+                                             :regenerating-drinking-windows?
+                                             :job-progress)
+                                           (swap! app-state assoc
+                                             :error
+                                             (str "Job failed: "
+                                                  (:error status))))
+               (= job-status "running")
+               ;; Continue polling
+               (js/setTimeout #(poll-job-status app-state job-id) 2000)
+               :else
+               ;; Unknown status, stop polling
+               (swap! app-state dissoc
+                 :regenerating-drinking-windows?
+                 :job-progress)))
+       ;; Error getting status
+       (do
+         (swap! app-state dissoc :regenerating-drinking-windows? :job-progress)
+         (swap! app-state assoc :error "Failed to check job status"))))))
+
+(defn regenerate-filtered-drinking-windows
+  "Admin function to regenerate drinking windows for currently filtered wines"
+  [app-state]
+  (let [filtered-wines (filters/filtered-sorted-wines app-state)
+        wine-ids (map :id filtered-wines)
+        wine-count (count wine-ids)]
+    (when (> wine-count 0)
+      (swap! app-state assoc :regenerating-drinking-windows? true)
+      (go (let [result (<! (POST "/api/admin/start-drinking-window-job"
+                                 {:wine-ids wine-ids}
+                                 "Failed to start drinking window job"))]
+            (if (:success result)
+              (let [job-id (get-in result [:data :job-id])]
+                (tap> ["🚀 Starting polling for job:" job-id])
+                ;; Start polling for job status
+                (poll-job-status app-state job-id))
+              (do (swap! app-state dissoc :regenerating-drinking-windows?)
+                  (swap! app-state assoc :error (:error result)))))))))
 
 (defn reset-database
   "Admin function to reset the database"

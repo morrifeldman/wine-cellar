@@ -94,6 +94,8 @@ This is a full-stack wine cellar tracking application built with:
 └── src
     ├── clj
     │   └── wine_cellar
+    │       ├── admin
+    │       │   └── bulk_operations.clj
     │       ├── ai
     │       │   └── anthropic.clj
     │       ├── auth
@@ -151,7 +153,7 @@ This is a full-stack wine cellar tracking application built with:
                     ├── list.cljs
                     └── varieties.cljs
 
-27 directories, 80 files
+28 directories, 81 files
 ```
 
 ## Development Commands

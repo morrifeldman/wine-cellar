@@ -18,7 +18,8 @@
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.views.components.wine-chat :refer [wine-chat]]
     [wine-cellar.portal-debug :as pd]
-    [wine-cellar.version :as version]))
+    [wine-cellar.version :as version]
+    [wine-cellar.utils.filters]))
 
 (defn logout
   []
@@ -106,6 +107,24 @@
          {:on-click
           (fn []
             (reset! anchor-el nil)
+            (let [filtered-count
+                  (count (wine-cellar.utils.filters/filtered-sorted-wines
+                          app-state))]
+              (when
+                (js/confirm
+                 (str
+                  "Regenerate drinking windows for "
+                  filtered-count
+                  " currently visible wines? This may take several minutes and will use AI API credits."))
+                (api/regenerate-filtered-drinking-windows app-state))))
+          :disabled (:regenerating-drinking-windows? @app-state)}
+         (if (:regenerating-drinking-windows? @app-state)
+           "Regenerating Drinking Windows..."
+           "Regenerate Filtered Drinking Windows")]
+        [menu-item
+         {:on-click
+          (fn []
+            (reset! anchor-el nil)
             (when
               (js/confirm
                "⚠️ DANGER: This will DELETE ALL DATA and reset the database schema!\n\nAre you absolutely sure you want to continue?")
@@ -146,6 +165,31 @@
      [paper
       {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
       [typography {:variant "body1"} error]])
+   (when (:success @app-state)
+     [paper
+      {:elevation 3
+       :sx {:p 2 :mb 3 :bgcolor "success.light" :color "success.dark"}}
+      [typography {:variant "body1"} (:success @app-state)]])
+   (when (:regenerating-drinking-windows? @app-state)
+     [paper
+      {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "info.light" :color "info.dark"}}
+      (if-let [progress (:job-progress @app-state)]
+        [box
+         [typography {:variant "body1"}
+          (str "🍷 Regenerating drinking windows... "
+               (:progress progress)
+               "/"
+               (:total progress)
+               " wines processed")]
+         [box {:sx {:width "100%" :mt 1}}
+          [box
+           {:sx {:width (str (* 100 (/ (:progress progress) (:total progress)))
+                             "%")
+                 :height 8
+                 :bgcolor "info.main"
+                 :borderRadius 1}}]]]
+        [typography {:variant "body1"}
+         "🍷 Starting drinking window regeneration..."])])
    (cond (= (:view @app-state) :grape-varieties)
          [:div [grape-varieties-page app-state]
           [button

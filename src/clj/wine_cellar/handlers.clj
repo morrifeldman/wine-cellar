@@ -2,6 +2,7 @@
   (:require [wine-cellar.db.api :as db-api]
             [wine-cellar.ai.anthropic :as anthropic]
             [wine-cellar.db.setup :as db-setup]
+            [wine-cellar.admin.bulk-operations]
             [ring.util.response :as response]))
 
 (defn- no-content [] {:status 204 :headers {} :body nil})
@@ -392,4 +393,40 @@
        (catch Exception e
          (println "❌ ADMIN: Failed to mark wines as unverified:"
                   (.getMessage e))
+         (server-error e))))
+
+(defn start-drinking-window-job
+  "Admin function to start async drinking window regeneration job"
+  [request]
+  (try (let [body (:body-params request)
+             wine-ids (:wine-ids body)
+             wine-count (count wine-ids)]
+         (println "🔄 ADMIN: Starting drinking window job for"
+                  wine-count
+                  "wines...")
+         (if (empty? wine-ids)
+           {:status 400 :body {:error "No wine IDs provided"}}
+           (let [job-id
+                 (wine-cellar.admin.bulk-operations/start-drinking-window-job
+                  wine-ids)]
+             (println "✅ ADMIN: Started drinking window job" job-id)
+             {:status 200
+              :body {:job-id job-id
+                     :message "Drinking window regeneration job started"
+                     :total-wines wine-count}})))
+       (catch Exception e
+         (println "❌ ADMIN: Failed to start drinking window job:"
+                  (.getMessage e))
+         (server-error e))))
+
+(defn get-job-status
+  "Get status of an async job"
+  [request]
+  (try (let [job-id (get-in request [:path-params :job-id])
+             status (wine-cellar.admin.bulk-operations/get-job-status job-id)]
+         (if status
+           {:status 200 :body status}
+           {:status 404 :body {:error "Job not found"}}))
+       (catch Exception e
+         (println "❌ ADMIN: Failed to get job status:" (.getMessage e))
          (server-error e))))
