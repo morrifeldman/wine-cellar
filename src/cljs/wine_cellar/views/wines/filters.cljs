@@ -290,6 +290,8 @@
          [menu-item {:value "quantity"} "Quantity"]
          [menu-item {:value "price"} "Price"]
          [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]
+         [menu-item {:value "drink_from_year"} "Drinking Window Open"]
+         [menu-item {:value "drink_until_year"} "Drinking Window Close"]
          [menu-item {:value "created_at"} "Date Added"]
          [menu-item {:value "updated_at"} "Last Updated"]]]
        [icon-button

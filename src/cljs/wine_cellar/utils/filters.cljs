@@ -102,6 +102,9 @@
                  ;; Handle nil vintage specifically for NV wines
                  (and (= field :vintage) (nil? val)) 0 ;; Sort NV wines
                                                        ;; first
+                 ;; Handle nil drinking window years
+                 (and (#{:drink_from_year :drink_until_year} field) (nil? val))
+                 9999 ;; Sort wines without drinking windows last
                  ;; Handle timestamps for date sorting
                  (and (#{:updated_at :created_at} field) val) (js/Date. val)
                  (nil? val) "" ;; For other fields, use empty string
