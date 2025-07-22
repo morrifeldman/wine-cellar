@@ -70,40 +70,40 @@
 (defn chat-input
   "Chat input field with send button - uncontrolled for performance"
   [message-ref on-send disabled? reset-key]
-  [box {:sx {:display "flex" :gap 1 :mt 2}}
+  [box {:sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}}
    [mui-text-field/text-field
     {:multiline true
-     :rows 3
+     :rows 5
      :fullWidth true
      :variant "outlined"
      :size "small"
      :margin "dense"
      :inputRef #(reset! message-ref %)
-     :sx {:flex-grow 1
-          "& .MuiOutlinedInput-root" {:backgroundColor "background.default"
+     :sx {"& .MuiOutlinedInput-root" {:backgroundColor "background.default"
                                       :border "none"
                                       :borderRadius 2}}
      :placeholder "Type your message here..."
      :disabled @disabled?
      :on-blur nil}]
-   [button
-    {:variant "contained"
-     :disabled @disabled?
-     :sx {:minWidth "80px"}
-     :startIcon (if @disabled?
-                  (r/as-element [circular-progress
-                                 {:size 16 :sx {:color "secondary.light"}}])
-                  (r/as-element [send {:size 16}]))
-     :on-click #(when @message-ref
-                  (let [message-text (.-value @message-ref)]
-                    (when (seq (str message-text))
-                      (on-send message-text)
-                      (set! (.-value @message-ref) ""))))}
-    [box
-     {:sx {:color (if @disabled? "text.disabled" "inherit")
-           :fontWeight (if @disabled? "600" "normal")
-           :fontSize (if @disabled? "0.85rem" "1rem")}}
-     (if @disabled? "Sending..." "Send")]]])
+   [box {:sx {:display "flex" :justify-content "flex-end"}}
+    [button
+     {:variant "contained"
+      :disabled @disabled?
+      :sx {:minWidth "60px" :px 1}
+      :startIcon (if @disabled?
+                   (r/as-element [circular-progress
+                                  {:size 14 :sx {:color "secondary.light"}}])
+                   (r/as-element [send {:size 14}]))
+      :on-click #(when @message-ref
+                   (let [message-text (.-value @message-ref)]
+                     (when (seq (str message-text))
+                       (on-send message-text)
+                       (set! (.-value @message-ref) ""))))}
+     [box
+      {:sx {:color (if @disabled? "text.disabled" "inherit")
+            :fontWeight (if @disabled? "600" "normal")
+            :fontSize (if @disabled? "0.8rem" "0.9rem")}}
+      (if @disabled? "Sending..." "Send")]]]])
 
 (defn chat-messages
   "Scrollable container for chat messages"
