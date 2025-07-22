@@ -1,25 +1,23 @@
 (ns wine-cellar.views.components.wine-chat
-  (:require
-    [reagent.core :as r]
-    [reagent-mui.material.fab :refer [fab]]
-    [reagent-mui.material.dialog :refer [dialog]]
-    [reagent-mui.material.dialog-title :refer [dialog-title]]
-    [reagent-mui.material.dialog-content :refer [dialog-content]]
-    [reagent-mui.material.text-field :as mui-text-field :refer [text-field]]
-    [wine-cellar.views.components.form :refer [uncontrolled-text-area-field]]
-    [reagent-mui.material.button :refer [button]]
-    [reagent-mui.material.box :refer [box]]
-    [reagent-mui.material.paper :refer [paper]]
-    [reagent-mui.material.typography :refer [typography]]
-    [reagent-mui.material.icon-button :refer [icon-button]]
-    [reagent-mui.icons.chat :refer [chat]]
-    [reagent-mui.icons.close :refer [close]]
-    [reagent-mui.icons.clear-all :refer [clear-all]]
-    [reagent-mui.icons.edit :refer [edit]]
-    [reagent-mui.icons.send :refer [send]]
-    [reagent-mui.material.circular-progress :refer [circular-progress]]
-    [wine-cellar.api :as api]
-    [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
+  (:require [reagent.core :as r]
+            [reagent-mui.material.fab :refer [fab]]
+            [reagent-mui.material.dialog :refer [dialog]]
+            [reagent-mui.material.dialog-title :refer [dialog-title]]
+            [reagent-mui.material.dialog-content :refer [dialog-content]]
+            [reagent-mui.material.text-field :as mui-text-field]
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.paper :refer [paper]]
+            [reagent-mui.material.typography :refer [typography]]
+            [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.icons.chat :refer [chat]]
+            [reagent-mui.icons.close :refer [close]]
+            [reagent-mui.icons.clear-all :refer [clear-all]]
+            [reagent-mui.icons.edit :refer [edit]]
+            [reagent-mui.icons.send :refer [send]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [wine-cellar.api :as api]
+            [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
 ;; Constants
 (def ^:private edit-icon-size "0.8rem")
@@ -69,7 +67,7 @@
 
 (defn chat-input
   "Chat input field with send button - uncontrolled for performance"
-  [message-ref on-send disabled? reset-key]
+  [message-ref on-send disabled? reset-key app-state]
   [box {:sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}}
    [mui-text-field/text-field
     {:multiline true
@@ -78,7 +76,11 @@
      :variant "outlined"
      :size "small"
      :margin "dense"
-     :inputRef #(reset! message-ref %)
+     :inputRef #(when %
+                  (reset! message-ref %)
+                  ;; Restore draft message when component mounts
+                  (when-let [draft (get-in @app-state [:chat :draft-message])]
+                    (set! (.-value %) draft)))
      :sx {"& .MuiOutlinedInput-root" {:backgroundColor "background.default"
                                       :border "none"
                                       :borderRadius 2}}
@@ -98,7 +100,9 @@
                    (let [message-text (.-value @message-ref)]
                      (when (seq (str message-text))
                        (on-send message-text)
-                       (set! (.-value @message-ref) ""))))}
+                       (set! (.-value @message-ref) "")
+                       ;; Clear draft message after sending
+                       (swap! app-state update :chat dissoc :draft-message))))}
      [box
       {:sx {:color (if @disabled? "text.disabled" "inherit")
             :fontWeight (if @disabled? "600" "normal")
@@ -274,7 +278,14 @@
               :title "Clear chat history"
               :sx {:color "secondary.main"}} [clear-all]]
             [icon-button
-             {:on-click #(swap! app-state assoc-in [:chat :open?] false)
+             {:on-click #(do
+                           ;; Save draft message before closing
+                           (when @message-ref
+                             (let [draft-text (.-value @message-ref)]
+                               (swap! app-state assoc-in
+                                 [:chat :draft-message]
+                                 draft-text)))
+                           (swap! app-state assoc-in [:chat :open?] false))
               :title "Close chat"
               :sx {:color "secondary.main"}} [close]]]]]
          [dialog-content
@@ -284,7 +295,8 @@
             [typography
              {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
              "Editing message - all responses after this will be regenerated"])
-          [chat-input message-ref handle-send is-sending? "chat-input"]
+          [chat-input message-ref handle-send is-sending? "chat-input"
+           app-state]
           ;; Cancel edit button
           (when (is-editing?)
             [button
