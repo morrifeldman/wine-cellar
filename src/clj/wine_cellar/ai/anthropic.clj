@@ -69,7 +69,11 @@
                         ", " (:country wine)
                         ", " (:region wine)
                         ")" (when (and include-quantity? (:quantity wine))
-                              (str " - " (:quantity wine) " bottles")))
+                              (str " - " (:quantity wine)
+                                   " bottles" (when (:original_quantity wine)
+                                                (str " (originally "
+                                                     (:original_quantity wine)
+                                                     ")")))))
         classification-info
         (str/join
          ""
