@@ -86,6 +86,7 @@
             (str "\n  Disgorgement Year: " (:disgorgement_year wine)))
           (when (:alcohol_percentage wine)
             (str "\n  Alcohol: " (:alcohol_percentage wine) "%"))
+          (when (:price wine) (str "\n  Price: $" (:price wine)))
           (when (and include-drinking-window?
                      (or (:drink_from_year wine) (:drink_until_year wine)))
             (str "\n  Drinking Window: " (or (:drink_from_year wine) "?")
