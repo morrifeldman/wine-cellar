@@ -107,6 +107,16 @@
                  9999 ;; Sort wines without drinking windows last
                  ;; Handle timestamps for date sorting
                  (and (#{:updated_at :created_at} field) val) (js/Date. val)
+                 ;; Handle nil price specifically
+                 (and (= field :price) (nil? val)) 999999 ;; Sort wines
+                                                          ;; without prices
+                                                          ;; last
+                 ;; Handle nil alcohol percentage specifically
+                 (and (= field :alcohol_percentage) (nil? val)) 999 ;; Sort
+                                                                    ;; wines
+                                                                    ;; without
+                                                                    ;; ABV
+                                                                    ;; last
                  (nil? val) "" ;; For other fields, use empty string
                  (number? val) val
                  :else (str/lower-case (str val)))))
