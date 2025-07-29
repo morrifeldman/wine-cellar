@@ -62,7 +62,7 @@
                   [:rating :integer
                    [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
                   [:is_external :boolean [:default false]] [:source :varchar]
-                  [:created_at :timestamp [:default [:now]]]
+                  [:wset_data :jsonb] [:created_at :timestamp [:default [:now]]]
                   [:updated_at :timestamp [:default [:now]]]
                   [[:foreign-key :wine_id] :references [:entity :wines]
                    [:nest :id] :on-delete :cascade]]})

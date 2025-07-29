@@ -261,23 +261,22 @@
                                (string? option) option
                                (object? option) (or (.-label option) "")
                                :else (str option)))
-     :render-input (react-component [props]
-                                    [mui-text-field/text-field
-                                     (merge props
-                                            {:label label
-                                             :variant "outlined"
-                                             :size "small"
-                                             :required (if multiple
-                                                         ;; workaround for
-                                                         ;; bug
-                                                         ;; https://github.com/mui/material-ui/issues/21663
-                                                         (= (count value) 0)
-                                                         required)
-                                             :helperText helper-text})])
-     :on-change (fn [_event new-value] (on-change new-value))
-     :on-input-change (when free-solo
-                        (fn [_event new-value reason]
-                          (when (= reason "input") (on-change new-value))))
+     :render-input (react-component
+                    [props]
+                    [mui-text-field/text-field
+                     (merge props
+                            {:label label
+                             :variant "outlined"
+                             :size "small"
+                             :required (if multiple
+                                         ;; workaround for bug
+                                         ;; https://github.com/mui/material-ui/issues/21663
+                                         ;; but only if the field is
+                                         ;; actually required
+                                         (and required (= (count value) 0))
+                                         required)
+                             :helperText helper-text})])
+     :on-change (fn [_event new-value _reason] (on-change new-value))
      :clear-on-blur true ;; Fix free solo mode holding onto values
      :auto-highlight true
      :auto-select false

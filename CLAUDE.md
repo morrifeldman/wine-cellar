@@ -67,11 +67,11 @@ This is a full-stack wine cellar tracking application built with:
 │   │   ├── assistant.png
 │   │   └── overview.png
 │   ├── varieties-implementation.md
+│   ├── wset_l3_wines_sat_en_jun-2016.pdf
 │   └── wset-tasting-notes-feature.md
 ├── fly.toml.template
 ├── package.json
 ├── package-lock.json
-├── Photos-1-001.zip
 ├── public
 │   ├── apple-touch-icon.png
 │   ├── favicon-96x96.png
@@ -82,16 +82,9 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── version.json
 │   ├── web-app-manifest-192x192.png
 │   └── web-app-manifest-512x512.png
-├── PXL_20250723_234949884.MACRO_FOCUS.jpg
-├── PXL_20250723_234954362.jpg
-├── PXL_20250723_235002678.MACRO_FOCUS.jpg
 ├── README.md
 ├── resources
 │   └── wine-classifications.edn
-├── Screenshot 2025-07-23 7.04.33 PM.png
-├── Screenshot 2025-07-23 7.04.42 PM.png
-├── Screenshot 2025-07-23 7.05.06 PM.png
-├── Screenshot 2025-07-23 7.05.16 PM.png
 ├── scripts
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
@@ -100,71 +93,71 @@ This is a full-stack wine cellar tracking application built with:
 │   └── wine_cellar
 │       └── dev.clj
 ├── shadow-cljs.edn
-├── src
-│   ├── clj
-│   │   └── wine_cellar
-│   │       ├── admin
-│   │       │   └── bulk_operations.clj
-│   │       ├── ai
-│   │       │   └── anthropic.clj
-│   │       ├── auth
-│   │       │   ├── config.clj
-│   │       │   └── core.clj
-│   │       ├── config_utils.clj
-│   │       ├── db
-│   │       │   ├── api.clj
-│   │       │   ├── connection.clj
-│   │       │   ├── schema.clj
-│   │       │   └── setup.clj
-│   │       ├── debug
-│   │       ├── handlers.clj
-│   │       ├── routes.clj
-│   │       └── server.clj
-│   ├── cljc
-│   │   └── wine_cellar
-│   │       └── common.cljc
-│   └── cljs
-│       └── wine_cellar
-│           ├── api.cljs
-│           ├── config.cljs
-│           ├── core.cljs
-│           ├── portal_debug.cljs
-│           ├── state.cljs
-│           ├── theme.cljs
-│           ├── utils
-│           │   ├── filters.cljs
-│           │   ├── formatting.cljs
-│           │   └── vintage.cljs
-│           ├── version.cljs
-│           └── views
-│               ├── classifications
-│               │   ├── form.cljs
-│               │   └── list.cljs
-│               ├── components
-│               │   ├── classification_fields.cljs
-│               │   ├── debug.cljs
-│               │   ├── form.cljs
-│               │   ├── image_upload.cljs
-│               │   ├── portal_debug.cljs
-│               │   ├── wine_card.cljs
-│               │   └── wine_chat.cljs
-│               ├── components.cljs
-│               ├── grape_varieties
-│               │   └── list.cljs
-│               ├── main.cljs
-│               ├── tasting_notes
-│               │   ├── form.cljs
-│               │   └── list.cljs
-│               └── wines
-│                   ├── detail.cljs
-│                   ├── filters.cljs
-│                   ├── form.cljs
-│                   ├── list.cljs
-│                   └── varieties.cljs
-├── wset_l2wines_sat_en_may2019.pdf
-└── wset_l3_wines_sat_en_jun-2016.pdf
+└── src
+    ├── clj
+    │   └── wine_cellar
+    │       ├── admin
+    │       │   └── bulk_operations.clj
+    │       ├── ai
+    │       │   └── anthropic.clj
+    │       ├── auth
+    │       │   ├── config.clj
+    │       │   └── core.clj
+    │       ├── config_utils.clj
+    │       ├── db
+    │       │   ├── api.clj
+    │       │   ├── connection.clj
+    │       │   ├── schema.clj
+    │       │   └── setup.clj
+    │       ├── debug
+    │       ├── handlers.clj
+    │       ├── routes.clj
+    │       └── server.clj
+    ├── cljc
+    │   └── wine_cellar
+    │       └── common.cljc
+    └── cljs
+        └── wine_cellar
+            ├── api.cljs
+            ├── config.cljs
+            ├── core.cljs
+            ├── portal_debug.cljs
+            ├── state.cljs
+            ├── theme.cljs
+            ├── utils
+            │   ├── filters.cljs
+            │   ├── formatting.cljs
+            │   └── vintage.cljs
+            ├── version.cljs
+            └── views
+                ├── classifications
+                │   ├── form.cljs
+                │   └── list.cljs
+                ├── components
+                │   ├── classification_fields.cljs
+                │   ├── debug.cljs
+                │   ├── form.cljs
+                │   ├── image_upload.cljs
+                │   ├── portal_debug.cljs
+                │   ├── wine_card.cljs
+                │   ├── wine_chat.cljs
+                │   ├── wset_appearance.cljs
+                │   └── wset_nose.cljs
+                ├── components.cljs
+                ├── grape_varieties
+                │   └── list.cljs
+                ├── main.cljs
+                ├── tasting_notes
+                │   ├── form.cljs
+                │   └── list.cljs
+                └── wines
+                    ├── detail.cljs
+                    ├── filters.cljs
+                    ├── form.cljs
+                    ├── list.cljs
+                    └── varieties.cljs
 
-28 directories, 92 files
+28 directories, 85 files
 ```
 
 ## Development Commands
@@ -258,3 +251,7 @@ Wine label images are stored as bytea in PostgreSQL with both full images and th
 ## Clojure Specifics
 
 - **Function Declaration**: In Clojure, functions need to be declared before they're used.
+
+## Json Processing Recommendations
+
+- **Use Jsonista**: Recommend using jsonista for json processing

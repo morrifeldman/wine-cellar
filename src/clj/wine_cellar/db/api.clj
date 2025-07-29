@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
+            [jsonista.core :as json]
             [wine-cellar.db.connection :refer [db-opts ds]])
   (:import [java.sql Date]
            [java.util Base64]))
@@ -44,8 +45,11 @@
     back_label_image (update :back_label_image base64->bytes)))
 
 (defn tasting-note->db-tasting-note
-  [{:keys [tasting_date] :as note}]
-  (cond-> note tasting_date (update :tasting_date ->sql-date)))
+  [{:keys [tasting_date wset_data] :as note}]
+  (cond-> note
+    tasting_date (update :tasting_date ->sql-date)
+    wset_data (update :wset_data
+                      #(sql-cast :jsonb (json/write-value-as-string %)))))
 
 (defn db-wine->wine
   [{:keys [label_image label_thumbnail back_label_image] :as db-wine}]

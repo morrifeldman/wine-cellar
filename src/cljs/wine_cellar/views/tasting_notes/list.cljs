@@ -6,6 +6,7 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.api :as api]
+            [wine-cellar.common :refer [wset-lexicon]]
             [wine-cellar.utils.formatting :refer [format-date]]
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]))
 
@@ -14,6 +15,92 @@
   (cond (>= rating 90) "rating.high"
         (>= rating 80) "rating.medium"
         :else "rating.low"))
+
+(defn- wset-display
+  "Simple display of WSET structured data"
+  [wset-data]
+  (when wset-data
+    [box {:sx {:mt 2 :p 2 :backgroundColor "background.paper" :borderRadius 1}}
+     [typography {:variant "h6" :sx {:mb 1 :color "primary.main"}}
+      "WSET Structured Tasting"]
+     ;; Appearance section
+     (when-let [appearance (:appearance wset-data)]
+       [box {:sx {:mb 2}}
+        [typography {:variant "subtitle2" :sx {:fontWeight "bold" :mb 1}}
+         "Appearance"]
+        [grid {:container true :spacing 1}
+         (when (:clarity appearance)
+           [grid {:item true}
+            [chip
+             {:label (str "Clarity: " (:clarity appearance)) :size "small"}]])
+         (when (:intensity appearance)
+           [grid {:item true}
+            [chip
+             {:label (str "Intensity: " (:intensity appearance))
+              :size "small"}]])
+         (when (:colour appearance)
+           [grid {:item true}
+            [chip
+             {:label (str "Color: " (:colour appearance)) :size "small"}]])]
+        (when (:other_observations appearance)
+          [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
+           (:other_observations appearance)])])
+     ;; Nose section
+     (when-let [nose (:nose wset-data)]
+       [box {:sx {:mb 2}}
+        [typography {:variant "subtitle2" :sx {:fontWeight "bold" :mb 1}}
+         "Nose"]
+        [grid {:container true :spacing 1}
+         (when (:condition nose)
+           [grid {:item true}
+            [chip
+             {:label (str "Condition: " (:condition nose)) :size "small"}]])
+         (when (:intensity nose)
+           [grid {:item true}
+            [chip
+             {:label (str "Intensity: " (:intensity nose)) :size "small"}]])
+         (when (:development nose)
+           [grid {:item true}
+            [chip
+             {:label (str "Development: " (:development nose))
+              :size "small"}]])]
+        (when (seq (:aroma-characteristics nose))
+          (let [aroma-data (:aroma-characteristics nose)
+                primary-aromas (flatten (vals (:primary aroma-data)))
+                secondary-aromas (flatten (vals (:secondary aroma-data)))
+                tertiary-aromas (flatten (vals (:tertiary aroma-data)))]
+            [box {:sx {:mt 1}}
+             (when (seq primary-aromas)
+               [box {:sx {:mb 1}}
+                [typography {:variant "body2" :sx {:fontWeight "bold" :mb 0.5}}
+                 "Primary Aromas:"]
+                [grid {:container true :spacing 0.5}
+                 (for [aroma primary-aromas]
+                   ^{:key (str "primary-" aroma)}
+                   [grid {:item true}
+                    [chip {:label aroma :size "small" :variant "outlined"}]])]])
+             (when (seq secondary-aromas)
+               [box {:sx {:mb 1}}
+                [typography {:variant "body2" :sx {:fontWeight "bold" :mb 0.5}}
+                 "Secondary Aromas:"]
+                [grid {:container true :spacing 0.5}
+                 (for [aroma secondary-aromas]
+                   ^{:key (str "secondary-" aroma)}
+                   [grid {:item true}
+                    [chip {:label aroma :size "small" :variant "outlined"}]])]])
+             (when (seq tertiary-aromas)
+               [box {:sx {:mb 1}}
+                [typography {:variant "body2" :sx {:fontWeight "bold" :mb 0.5}}
+                 "Tertiary Aromas:"]
+                [grid {:container true :spacing 0.5}
+                 (for [aroma tertiary-aromas]
+                   ^{:key (str "tertiary-" aroma)}
+                   [grid {:item true}
+                    [chip
+                     {:label aroma :size "small" :variant "outlined"}]])]])]))
+        (when (:other_observations nose)
+          [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
+           (:other_observations nose)])])]))
 
 (defn tasting-note-item
   [app-state wine-id note]
@@ -48,7 +135,9 @@
       ;; Note content
       [grid {:item true :xs 12 :sx {:mt 1 :mb 1}}
        [typography {:variant "body1" :sx {:whiteSpace "pre-wrap"}}
-        (:notes note)]]
+        (:notes note)]
+       ;; WSET structured data display
+       [wset-display (:wset_data note)]]
       ;; Action buttons
       [grid
        {:item true

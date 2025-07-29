@@ -48,6 +48,7 @@
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source (s/nilable string?))
+(s/def ::wset_data (s/nilable map?))
 (s/def ::label_image (s/nilable string?))
 (s/def ::label_thumbnail (s/nilable string?))
 (s/def ::include_images boolean?)
@@ -106,7 +107,7 @@
 
 (def tasting-note-schema
   (s/keys :req-un [::notes]
-          :opt-un [::rating ::tasting_date ::is_external ::source]))
+          :opt-un [::rating ::tasting_date ::is_external ::source ::wset_data]))
 
 (defstate cors-middleware
           :start
