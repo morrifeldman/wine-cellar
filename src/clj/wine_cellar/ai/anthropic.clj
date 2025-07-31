@@ -104,15 +104,61 @@
                                   (:name v)))
                               varieties))))
         tasting-notes (:tasting_notes wine)
-        notes-summary (when (seq tasting-notes)
-                        (str "\n  Tasting notes: "
-                             (str/join "; "
-                                       (map (fn [note]
-                                              (str (when (:rating note)
-                                                     (str (:rating note)
-                                                          "/100 - "))
-                                                   (:notes note)))
-                                            (take 3 tasting-notes)))))
+        notes-summary
+        (when (seq tasting-notes)
+          (str
+           "\n  Tasting notes: "
+           (str/join
+            "; "
+            (map
+             (fn [note]
+               (let [basic-note (str (when (:rating note)
+                                       (str (:rating note) "/100 - "))
+                                     (:notes note))
+                     wset-data (:wset_data note)
+                     wset-summary
+                     (when wset-data
+                       (let [appearance (:appearance wset-data)
+                             nose (:nose wset-data)
+                             palate (:palate wset-data)
+                             conclusions (:conclusions wset-data)]
+                         (str/join
+                          " | "
+                          (filter
+                           seq
+                           [(when appearance
+                              (str "Appearance: "
+                                   (str/join ", "
+                                             (filter identity
+                                                     [(:clarity appearance)
+                                                      (:intensity appearance)
+                                                      (:colour appearance)]))))
+                            (when nose
+                              (str "Nose: "
+                                   (str/join ", "
+                                             (filter identity
+                                                     [(:condition nose)
+                                                      (:intensity nose)
+                                                      (:development nose)]))))
+                            (when palate
+                              (str "Palate: "
+                                   (str/join ", "
+                                             (filter identity
+                                                     [(:sweetness palate)
+                                                      (:acidity palate)
+                                                      (:tannin palate)
+                                                      (:body palate)
+                                                      (:finish palate)]))))
+                            (when conclusions
+                              (str "Quality: "
+                                   (:quality-level conclusions)
+                                   (when (:readiness conclusions)
+                                     (str ", Readiness: "
+                                          (:readiness conclusions)))))]))))]
+                 (if wset-summary
+                   (str basic-note " [WSET: " wset-summary "]")
+                   basic-note)))
+             (take 3 tasting-notes)))))
         ai-summary (when (and include-ai-summary? (:ai_summary wine))
                      (str "\n  Previous AI Summary: " (:ai_summary wine)))]
     (str basic-info
