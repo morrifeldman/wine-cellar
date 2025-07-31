@@ -15,8 +15,9 @@
             [reagent-mui.material.divider :refer [divider]]
             [wine-cellar.views.components.wset-appearance :refer
              [wset-appearance-section]]
-            [wine-cellar.views.components.wset-nose :refer
-             [wset-nose-section]]))
+            [wine-cellar.views.components.wset-nose :refer [wset-nose-section]]
+            [wine-cellar.views.components.wset-palate :refer
+             [wset-palate-section]]))
 
 (defn- initialize-editing-note!
   "Initialize form state when starting to edit an existing note"
@@ -193,6 +194,14 @@
                :other-observations-ref nose-observations-ref
                :on-change #(swap! app-state assoc-in
                              [:new-tasting-note :wset_data :nose]
+                             %)}]]
+            ;; Palate Section
+            [grid {:item true :xs 12}
+             [wset-palate-section
+              {:palate (get-in updated-note [:wset_data :palate] {})
+               :wine-style (get-in updated-note [:wset_data :wset_wine_style])
+               :on-change #(swap! app-state assoc-in
+                             [:new-tasting-note :wset_data :palate]
                              %)}]]]])
         ;; Divider between WSET and traditional notes (only when expanded)
         (when (and (get-in updated-note [:wset_data :note_type])
