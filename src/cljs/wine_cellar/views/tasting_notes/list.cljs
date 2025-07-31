@@ -113,28 +113,23 @@
              {:label (str "Sweetness: " (:sweetness palate)) :size "small"}]])
          (when (:acidity palate)
            [grid {:item true}
-            [chip
-             {:label (str "Acidity: " (:acidity palate)) :size "small"}]])
+            [chip {:label (str "Acidity: " (:acidity palate)) :size "small"}]])
          (when (:tannin palate)
            [grid {:item true}
-            [chip
-             {:label (str "Tannin: " (:tannin palate)) :size "small"}]])
+            [chip {:label (str "Tannin: " (:tannin palate)) :size "small"}]])
          (when (:alcohol palate)
            [grid {:item true}
-            [chip
-             {:label (str "Alcohol: " (:alcohol palate)) :size "small"}]])
+            [chip {:label (str "Alcohol: " (:alcohol palate)) :size "small"}]])
          (when (:body palate)
            [grid {:item true}
-            [chip
-             {:label (str "Body: " (:body palate)) :size "small"}]])
+            [chip {:label (str "Body: " (:body palate)) :size "small"}]])
          (when (:intensity palate)
            [grid {:item true}
             [chip
              {:label (str "Intensity: " (:intensity palate)) :size "small"}]])
          (when (:finish palate)
            [grid {:item true}
-            [chip
-             {:label (str "Finish: " (:finish palate)) :size "small"}]])]
+            [chip {:label (str "Finish: " (:finish palate)) :size "small"}]])]
         (when (:other_observations palate)
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
            (:other_observations palate)])])
@@ -147,14 +142,16 @@
          (when (:quality-level conclusions)
            [grid {:item true}
             [chip
-             {:label (str "Quality: " (:quality-level conclusions)) :size "small"}]])
+             {:label (str "Quality: " (:quality-level conclusions))
+              :size "small"}]])
          (when (:readiness conclusions)
            [grid {:item true}
             [chip
-             {:label (str "Readiness: " (:readiness conclusions)) :size "small"}]])]
+             {:label (str "Readiness: " (:readiness conclusions))
+              :size "small"}]])]
         (when (:final-comments conclusions)
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
-           (:final-comments conclusions)])])])
+           (:final-comments conclusions)])])]))
 
 (defn tasting-note-item
   [app-state wine-id note]
