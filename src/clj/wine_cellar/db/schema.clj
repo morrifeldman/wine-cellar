@@ -71,37 +71,37 @@
 ;; View schemas
 (def enriched-wines-view-schema
   {:create-or-replace-view [:enriched-wines]
-   :select [:w.*
-            [{:select :tn.rating
-              :from [[:tasting_notes :tn]]
-              :where [:and [:= :tn.wine_id :w.id] [:= :tn.is_external false]]
-              :order-by [[:tn.tasting_date :desc]]
-              :limit [:inline 1]} :latest_internal_rating]
-            [{:select [[[:round [:avg :tn.rating]]]]
-              :from [[:tasting_notes :tn]]
-              :where [:and [:= :tn.wine_id :w.id] [:= :tn.is_external true]
-                      [:!= :tn.rating]]} :average_external_rating]
-            [{:select [[[:coalesce
-                         [:json_agg
-                          [:inline
-                           [:json_build_object [:inline "id"] :gv.id
-                            [:inline "name"] :gv.name [:inline "percentage"]
-                            :wgv.percentage] [:raw "ORDER BY"] :gv.name]]
-                         [:inline "[]"]]]]
-              :from [[:wine_grape_varieties :wgv]]
-              :join [[:grape_varieties :gv] [:= :wgv.variety_id :gv.id]]
-              :where [:= :wgv.wine_id :w.id]} :varieties]
-            [{:select [[[:coalesce
-                         [:json_agg
-                          [:inline
-                           [:json_build_object [:inline "id"] :tn.id
-                            [:inline "notes"] :tn.notes [:inline "rating"]
-                            :tn.rating [:inline "tasting_date"] :tn.tasting_date
-                            [:inline "is_external"] :tn.is_external
-                            [:inline "source"] :tn.source] [:raw "ORDER BY"]
-                           :tn.tasting_date [:raw "DESC"]]] [:inline "[]"]]]]
-              :from [[:tasting_notes :tn]]
-              :where [:= :tn.wine_id :w.id]} :tasting_notes]]
+   :select
+   [:w.*
+    [{:select :tn.rating
+      :from [[:tasting_notes :tn]]
+      :where [:and [:= :tn.wine_id :w.id] [:= :tn.is_external false]]
+      :order-by [[:tn.tasting_date :desc]]
+      :limit [:inline 1]} :latest_internal_rating]
+    [{:select [[[:round [:avg :tn.rating]]]]
+      :from [[:tasting_notes :tn]]
+      :where [:and [:= :tn.wine_id :w.id] [:= :tn.is_external true]
+              [:!= :tn.rating]]} :average_external_rating]
+    [{:select [[[:coalesce
+                 [:json_agg
+                  [:inline
+                   [:json_build_object [:inline "id"] :gv.id [:inline "name"]
+                    :gv.name [:inline "percentage"] :wgv.percentage]
+                   [:raw "ORDER BY"] :gv.name]] [:inline "[]"]]]]
+      :from [[:wine_grape_varieties :wgv]]
+      :join [[:grape_varieties :gv] [:= :wgv.variety_id :gv.id]]
+      :where [:= :wgv.wine_id :w.id]} :varieties]
+    [{:select
+      [[[:coalesce
+         [:json_agg
+          [:inline
+           [:json_build_object [:inline "id"] :tn.id [:inline "notes"] :tn.notes
+            [:inline "rating"] :tn.rating [:inline "tasting_date"]
+            :tn.tasting_date [:inline "is_external"] :tn.is_external
+            [:inline "source"] :tn.source [:inline "wset_data"] :tn.wset_data]
+           [:raw "ORDER BY"] :tn.tasting_date [:raw "DESC"]]] [:inline "[]"]]]]
+      :from [[:tasting_notes :tn]]
+      :where [:= :tn.wine_id :w.id]} :tasting_notes]]
    :from [[:wines :w]]})
 #_(sql/format enriched-wines-view-schema)
 
