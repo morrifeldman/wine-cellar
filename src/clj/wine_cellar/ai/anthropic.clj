@@ -195,16 +195,12 @@
      "Do not nest the response in a markdown code block.")))
 
 (defn call-anthropic-api
-  "Makes a request to the Anthropic API with the given content.
-   When parse-json? is true, parses response as JSON. Otherwise returns raw text."
-  ([content] (call-anthropic-api content true)) ; Default to JSON parsing
-                                                ; for backward
-                                                ; compatibility
-  ([content parse-json?] (call-anthropic-api content parse-json? model))
-  ([content parse-json? model-override]
-   (let [request-body {:model model-override
-                       :max_tokens 1000
-                       :messages [{:role "user" :content content}]}]
+  "Makes a request to the Anthropic API with messages array and optional JSON parsing"
+  ([messages] (call-anthropic-api messages false))
+  ([messages parse-json?] (call-anthropic-api messages parse-json? model))
+  ([messages parse-json? model-override]
+   (let [request-body
+         {:model model-override :max_tokens 1000 :messages messages}]
      (tap> ["anthropic-request-body-structure" (keys request-body)])
      (try
        (let [{:keys [status body error] :as response}
@@ -253,9 +249,9 @@
    Returns a map with drink_from_year, drink_until_year, confidence, and reasoning."
   [wine]
   (let [prompt (create-drinking-window-prompt wine)
-        content [{:type "text" :text prompt}]]
+        messages [{:role "user" :content prompt}]]
     (tap> ["suggest-window-prompt" prompt])
-    (call-anthropic-api content)))
+    (call-anthropic-api messages true)))
 
 (defn analyze-wine-label
   "Analyzes wine label images using Anthropic's Claude API.
@@ -280,8 +276,9 @@
                                (str/replace #"^data:image/jpeg;base64," "")
                                (str/replace #"^data:image/png;base64," ""))}})])
         prompt (create-prompt label-image back-label-image)
-        content (into [{:type "text" :text prompt}] images)]
-    (call-anthropic-api content)))
+        content (into [{:type "text" :text prompt}] images)
+        messages [{:role "user" :content content}]]
+    (call-anthropic-api messages true)))
 
 (defn- create-wine-context
   "Creates a context string from the user's wine collection including tasting notes"
@@ -313,38 +310,61 @@
                              conversation-history))]
       (str "\n\nPrevious conversation:\n" history-text "\n\n"))))
 
-(defn- create-chat-prompt
-  "Creates a prompt for wine chat conversations with conversation history"
-  [message wines conversation-history]
+(defn- create-cached-system-prompt
+  "Creates the cacheable system prompt with wine collection context"
+  [wines]
   (let [wine-context (create-wine-context wines)
-        conversation-context (create-conversation-context conversation-history)]
+        current-year (.getValue (java.time.Year/now))]
     (str
      "You are a knowledgeable wine expert and sommelier helping someone with their wine collection. "
      "Please respond in a conversational, friendly tone. You can discuss wine recommendations, "
      "food pairings, optimal drinking windows, storage advice, or any wine-related questions. "
+     "The current year is "
+     current-year
+     ". "
      "CRITICAL FORMATTING REQUIREMENT: You MUST respond in plain text only. Do NOT use any markdown formatting whatsoever. This means:\n"
      "- NO headers starting with #\n"
-     "- NO bold text with **\n"
-     "- NO italic text with _ or *\n"
-     "- NO code blocks with ```\n"
-     "- NO bullet points with -\n"
+     "- NO bold text with **\n" "- NO italic text with _ or *\n"
+     "- NO code blocks with ```\n" "- NO bullet points with -\n"
      "- NO numbered lists\n"
      "Write your response as simple, natural conversational text with normal punctuation only.\n\n"
-     "Here is information about the user's wine collection:\n"
-     wine-context
-     conversation-context
-     "Current user question: " message
-     "\n\n"
-     "Please provide a helpful, informative response. If this is a follow-up question, reference the previous conversation context appropriately.")))
+     "Here is information about the user's wine collection:\n" wine-context)))
+
+(defn- create-chat-messages
+  "Creates the message array for Anthropic API with prompt caching"
+  [message wines conversation-history is-first-message?]
+  (let
+    [system-content (create-cached-system-prompt wines)
+     conversation-context (create-conversation-context conversation-history)
+     user-message
+     (str
+      conversation-context
+      "Current user question: " message
+      "\n\n"
+      "Please provide a helpful, informative response. If this is a follow-up question, reference the previous conversation context appropriately.")]
+    (if is-first-message?
+      ;; First message: cache the system prompt
+      [{:role "system"
+        :content [{:type "text"
+                   :text system-content
+                   :cache_control {:type "ephemeral"}}]}
+       {:role "user" :content user-message}]
+      ;; Subsequent messages: assume system prompt is cached
+      [{:role "system" :content system-content}
+       {:role "user" :content user-message}])))
 
 (defn chat-about-wines
-  "Chat with AI about wine collection and wine-related topics with conversation history"
+  "Chat with AI about wine collection and wine-related topics with conversation history.
+   Uses prompt caching for first message in conversation to reduce token costs."
   [message wines conversation-history]
   (tap> ["chat-about-wines" wines])
-  (let [prompt (create-chat-prompt message wines conversation-history)
-        content [{:type "text" :text prompt}]]
-    (tap> ["chat-prompt" prompt])
-    (call-anthropic-api content false)))
+  (let [is-first-message? (empty? conversation-history)
+        messages (create-chat-messages message
+                                       wines
+                                       conversation-history
+                                       is-first-message?)]
+    (tap> ["chat-messages" messages])
+    (call-anthropic-api messages false)))
 
 (defn- create-wine-summary-prompt
   "Creates a prompt for generating a comprehensive wine summary with food pairings and taste profile"
@@ -370,6 +390,6 @@
   "Generates a comprehensive wine summary including taste profile and food pairings using Anthropic's Claude API"
   [wine]
   (let [prompt (create-wine-summary-prompt wine)
-        content [{:type "text" :text prompt}]]
+        messages [{:role "user" :content prompt}]]
     (tap> ["wine-summary-prompt" prompt])
-    (call-anthropic-api content false)))
+    (call-anthropic-api messages false)))
