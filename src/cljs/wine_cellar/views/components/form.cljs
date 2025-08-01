@@ -240,10 +240,11 @@
 (defn select-field
   "A dropdown select field with autocomplete"
   [{:keys [label value options required on-change multiple disabled free-solo
-           helper-text on-blur is-option-equal-to-value sx]
+           helper-text on-blur is-option-equal-to-value sx clear-on-blur]
     :or {multiple false
          disabled false
          free-solo false
+         clear-on-blur false
          is-option-equal-to-value #(= (js->clj %1) (js->clj %2))}}]
   [form-control
    {:variant "outlined" :margin "dense" :required required :sx form-field-style}
@@ -277,7 +278,7 @@
                                          required)
                              :helperText helper-text})])
      :on-change (fn [_event new-value _reason] (on-change new-value))
-     :clear-on-blur true ;; Fix free solo mode holding onto values
+     :clear-on-blur clear-on-blur
      :auto-highlight true
      :auto-select false
      :select-on-focus true
