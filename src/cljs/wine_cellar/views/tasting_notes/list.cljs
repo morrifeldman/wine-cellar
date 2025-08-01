@@ -6,7 +6,6 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.api :as api]
-            [wine-cellar.common :refer [wset-lexicon]]
             [wine-cellar.utils.formatting :refer [format-date]]
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]))
 
