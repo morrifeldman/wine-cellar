@@ -144,7 +144,8 @@ This is a full-stack wine cellar tracking application built with:
                 │   ├── wset_appearance.cljs
                 │   ├── wset_conclusions.cljs
                 │   ├── wset_nose.cljs
-                │   └── wset_palate.cljs
+                │   ├── wset_palate.cljs
+                │   └── wset_shared.cljs
                 ├── components.cljs
                 ├── grape_varieties
                 │   └── list.cljs
@@ -159,7 +160,7 @@ This is a full-stack wine cellar tracking application built with:
                     ├── list.cljs
                     └── varieties.cljs
 
-28 directories, 87 files
+28 directories, 88 files
 ```
 
 ## Development Commands

@@ -148,9 +148,9 @@
             [chip
              {:label (str "Readiness: " (:readiness conclusions))
               :size "small"}]])]
-        (when (:final-comments conclusions)
+        (when (:final_comments conclusions)
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
-           (:final-comments conclusions)])])]))
+           (:final_comments conclusions)])])]))
 
 (defn tasting-note-item
   [app-state wine-id note]

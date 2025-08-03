@@ -74,6 +74,7 @@
   (r/with-let
    [last-wine-id (r/atom nil) last-editing-note-id (r/atom nil) notes-ref
     (r/atom nil) other-observations-ref (r/atom nil) nose-observations-ref
+    (r/atom nil) palate-observations-ref (r/atom nil) final-comments-ref
     (r/atom nil) wset-expanded? (r/atom false)]
    (let [form-state (get-form-state app-state)]
      (handle-form-initialization! app-state
@@ -112,6 +113,14 @@
                                              (get-in updated-note
                                                      [:wset_data :note_type]))
                                     (.-value @nose-observations-ref))
+                    palate-obs-text (when (and @palate-observations-ref
+                                               (get-in updated-note
+                                                       [:wset_data :note_type]))
+                                      (.-value @palate-observations-ref))
+                    final-comments-text
+                    (when (and @final-comments-ref
+                               (get-in updated-note [:wset_data :note_type]))
+                      (.-value @final-comments-ref))
                     ;; Update WSET data with other observations from refs
                     updated-note-with-obs
                     (cond-> updated-note
@@ -120,7 +129,13 @@
                                       other-obs-text)
                       nose-obs-text (assoc-in [:wset_data :nose
                                                :other_observations]
-                                     nose-obs-text))
+                                     nose-obs-text)
+                      palate-obs-text (assoc-in [:wset_data :palate
+                                                 :other_observations]
+                                       palate-obs-text)
+                      final-comments-text (assoc-in [:wset_data :conclusions
+                                                     :final_comments]
+                                           final-comments-text))
                     note-data (-> updated-note-with-obs
                                   (assoc :notes notes-text)
                                   (update :rating
@@ -202,6 +217,7 @@
              [wset-palate-section
               {:palate (get-in updated-note [:wset_data :palate] {})
                :wine-style (get-in updated-note [:wset_data :wset_wine_style])
+               :other-observations-ref palate-observations-ref
                :on-change #(swap! app-state assoc-in
                              [:new-tasting-note :wset_data :palate]
                              %)}]]
@@ -209,6 +225,7 @@
             [grid {:item true :xs 12}
              [wset-conclusions-section
               {:conclusions (get-in updated-note [:wset_data :conclusions] {})
+               :final-comments-ref final-comments-ref
                :on-change #(swap! app-state assoc-in
                              [:new-tasting-note :wset_data :conclusions]
                              %)}]]]])

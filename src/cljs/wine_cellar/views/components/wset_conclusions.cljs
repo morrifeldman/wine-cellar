@@ -1,16 +1,16 @@
 (ns wine-cellar.views.components.wset-conclusions
-  (:require [reagent.core :as r]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.radio-group :refer [radio-group]]
-            [reagent-mui.material.form-control-label :refer
-             [form-control-label]]
-            [reagent-mui.material.radio :refer [radio]]
-            [reagent-mui.material.collapse :refer [collapse]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.expand-more :refer [expand-more]]
-            [wine-cellar.common :refer [wset-lexicon]]
-            [wine-cellar.views.components.form :refer [text-field]]))
+  (:require
+    [reagent.core :as r]
+    [reagent-mui.material.grid :refer [grid]]
+    [reagent-mui.material.typography :refer [typography]]
+    [reagent-mui.material.radio-group :refer [radio-group]]
+    [reagent-mui.material.form-control-label :refer [form-control-label]]
+    [reagent-mui.material.radio :refer [radio]]
+    [reagent-mui.material.collapse :refer [collapse]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.icons.expand-more :refer [expand-more]]
+    [wine-cellar.common :refer [wset-lexicon]]
+    [wine-cellar.views.components.form :refer [uncontrolled-text-area-field]]))
 
 (defn- radio-group-field
   "Simple radio group for WSET enum selections"
@@ -31,7 +31,7 @@
 
 (defn wset-conclusions-section
   "WSET Level 3 Conclusions Assessment Component"
-  [{:keys [conclusions on-change]}]
+  [{:keys [conclusions on-change final-comments-ref]}]
   (r/with-let
    [expanded? (r/atom false)]
    (let [update-field (fn [field value]
@@ -68,11 +68,11 @@
            :on-change #(update-field :readiness %)}]
          ;; Final Comments
          [grid {:item true :xs 12}
-          [text-field
+          [uncontrolled-text-area-field
            {:label "Final Comments"
-            :value (:final-comments conclusions)
-            :multiline true
+            :initial-value (:final_comments conclusions)
             :rows 4
-            :placeholder
+            :helper-text
             "Overall assessment, drinking window, food pairing suggestions, etc."
-            :on-change #(update-field :final-comments %)}]]]]]])))
+            :reset-key (str "conclusions-comments-" (hash conclusions))
+            :input-ref final-comments-ref}]]]]]])))
