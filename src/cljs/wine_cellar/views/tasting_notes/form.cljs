@@ -218,6 +218,7 @@
               {:palate (get-in updated-note [:wset_data :palate] {})
                :wine-style (get-in updated-note [:wset_data :wset_wine_style])
                :other-observations-ref palate-observations-ref
+               :nose (get-in updated-note [:wset_data :nose] {})
                :on-change #(swap! app-state assoc-in
                              [:new-tasting-note :wset_data :palate]
                              %)}]]

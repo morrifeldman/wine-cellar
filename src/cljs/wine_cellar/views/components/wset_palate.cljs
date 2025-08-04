@@ -8,7 +8,9 @@
     [reagent-mui.material.radio :refer [radio]]
     [reagent-mui.material.collapse :refer [collapse]]
     [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.material.button :refer [button]]
     [reagent-mui.icons.expand-more :refer [expand-more]]
+    [reagent-mui.icons.content-copy :refer [content-copy]]
     [wine-cellar.common :refer [wset-lexicon]]
     [wine-cellar.views.components.form :refer [uncontrolled-text-area-field]]
     [wine-cellar.views.components.wset-shared :refer
@@ -33,7 +35,7 @@
 
 (defn wset-palate-section
   "WSET Level 3 Palate Assessment Component"
-  [{:keys [palate wine-style on-change other-observations-ref]}]
+  [{:keys [palate wine-style on-change other-observations-ref nose]}]
   (r/with-let
    [expanded? (r/atom false)]
    (let [update-field (fn [field value] (on-change (assoc palate field value)))]
@@ -98,11 +100,25 @@
             :value (:flavor-intensity palate)
             :options (get-in wset-lexicon [:enums :flavour-intensity])
             :on-change #(update-field :flavor-intensity %)}]]
-         ;; Flavor Characteristics
-         [characteristics-section
-          {:value (:flavor-characteristics palate)
-           :section-title "Flavor Characteristics"
-           :on-change #(update-field :flavor-characteristics %)}]
+         ;; Flavor Characteristics with copy button
+         [grid {:item true :xs 12}
+          [grid {:container true :alignItems "center" :spacing 1 :sx {:mb 1}}
+           [grid {:item true :xs true}
+            [typography {:variant "subtitle1"} "Flavor Characteristics"]]
+           (when (:aroma-characteristics nose)
+             [grid {:item true :xs "auto"}
+              [button
+               {:size "small"
+                :variant "outlined"
+                :startIcon (r/as-element [content-copy {:fontSize "small"}])
+                :onClick #(update-field :flavor-characteristics
+                                        (:aroma-characteristics nose))
+                :sx {:textTransform "none" :fontSize "0.75rem"}}
+               "Copy from Nose"]])]
+          [characteristics-section
+           {:value (:flavor-characteristics palate)
+            :section-title ""
+            :on-change #(update-field :flavor-characteristics %)}]]
          ;; Other Observations
          [grid {:item true :xs 12}
           [uncontrolled-text-area-field
