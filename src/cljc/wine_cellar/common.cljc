@@ -58,7 +58,6 @@
    :enums
    {:wine-styles ["WHITE" "ROSE" "RED" "SPARKLING" "FORTIFIED"]
     :clarity ["CLEAR" "HAZY"]
-    :intensity ["PALE" "MEDIUM" "DEEP"]
     :nose-intensity ["LIGHT" "MEDIUM-" "MEDIUM" "MEDIUM+" "PRONOUNCED"]
     :development ["YOUTHFUL" "DEVELOPING" "FULLY DEVELOPED"
                   "TIRED/PAST ITS BEST"]
@@ -73,11 +72,4 @@
     :finish ["SHORT" "MEDIUM-" "MEDIUM" "MEDIUM+" "LONG"]
     :quality-level ["FAULTY" "POOR" "ACCEPTABLE" "GOOD" "VERY GOOD"
                     "OUTSTANDING"]
-    :readiness ["TOO YOUNG" "DRINK OR HOLD" "DRINK" "TOO OLD"]}
-   ;; Wine Style Color Options
-   :colors {:white ["LEMON-GREEN" "LEMON" "GOLD" "AMBER" "BROWN"]
-            :rose ["PINK" "SALMON" "ORANGE"]
-            :red ["PURPLE" "RUBY" "GARNET" "TAWNY" "BROWN"]
-            :sparkling ["LEMON-GREEN" "LEMON" "GOLD" "PINK" "SALMON"]
-            :fortified ["LEMON" "GOLD" "AMBER" "BROWN" "RUBY" "GARNET"
-                        "TAWNY"]}})
+    :readiness ["TOO YOUNG" "DRINK OR HOLD" "DRINK" "TOO OLD"]}})

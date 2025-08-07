@@ -191,21 +191,38 @@
                                        :intensity new-intensity}))))}]]]])))
 
 (defn wine-color-display
-  "Display selected wine color as icon"
+  "Display selected wine color as small wine glass on white background"
   [{:keys [wine-style selected-color selected-intensity size show-label?]}]
   (when (and selected-color selected-intensity)
-    [box {:sx {:display "flex" :alignItems "center" :gap 1}}
-     [avatar
-      {:sx {:width (case size
-                     :small 20
-                     :large 48
-                     32)
-            :height (case size
-                      :small 20
-                      :large 48
-                      32)
-            :backgroundColor (get-color-hex selected-color selected-intensity)
-            :border "1px solid rgba(0,0,0,0.2)"}}]
-     (when show-label?
-       [typography {:variant "body2" :sx {:textTransform "capitalize"}}
-        (str (name selected-intensity) " " (name selected-color))])]))
+    (let [glass-size (case size
+                       :small 24
+                       :large 40
+                       32)
+          glass-height (case size
+                         :small 30
+                         :large 50
+                         40)
+          current-hex (get-color-hex selected-color selected-intensity)]
+      [box {:sx {:display "flex" :alignItems "center" :gap 1.5}}
+       ;; Wine glass on white background
+       [box
+        {:sx {:backgroundColor "white"
+              :padding 1
+              :borderRadius 1
+              :boxShadow "0 1px 3px rgba(0,0,0,0.2)"
+              :border "1px solid #e0e0e0"}}
+        [box
+         {:sx {:width glass-size
+               :height glass-height
+               :backgroundColor (or current-hex "#f5f5f5")
+               :border "1px solid #666"
+               :borderRadius "0 0 12px 12px"
+               :boxShadow "inset 0 1px 2px rgba(0,0,0,0.1)"
+               :clipPath "polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)"}}]]
+       (when show-label?
+         [typography
+          {:variant (case size
+                      :small "caption"
+                      "body2")
+           :sx {:textTransform "capitalize"}}
+          (str (name selected-intensity) " " (name selected-color))])])))

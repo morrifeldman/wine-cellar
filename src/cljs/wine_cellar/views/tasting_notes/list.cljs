@@ -7,7 +7,9 @@
             [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.api :as api]
             [wine-cellar.utils.formatting :refer [format-date]]
-            [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]))
+            [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
+            [wine-cellar.views.components.wine-color :refer
+             [wine-color-display]]))
 
 (defn get-rating-color
   [rating]
@@ -30,17 +32,14 @@
         [grid {:container true :spacing 1}
          (when (:clarity appearance)
            [grid {:item true}
-            [chip
-             {:label (str "Clarity: " (:clarity appearance)) :size "small"}]])
-         (when (:intensity appearance)
+            [chip {:label (:clarity appearance) :size "small"}]])
+         (when (and (:colour appearance) (:intensity appearance))
            [grid {:item true}
-            [chip
-             {:label (str "Intensity: " (:intensity appearance))
-              :size "small"}]])
-         (when (:colour appearance)
-           [grid {:item true}
-            [chip
-             {:label (str "Color: " (:colour appearance)) :size "small"}]])]
+            [wine-color-display
+             {:selected-color (:colour appearance)
+              :selected-intensity (:intensity appearance)
+              :size :small
+              :show-label? true}]])]
         (when (:other_observations appearance)
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
            (:other_observations appearance)])])
@@ -51,18 +50,14 @@
          "Nose"]
         [grid {:container true :spacing 1}
          (when (:condition nose)
-           [grid {:item true}
-            [chip
-             {:label (str "Condition: " (:condition nose)) :size "small"}]])
+           [grid {:item true} [chip {:label (:condition nose) :size "small"}]])
          (when (:intensity nose)
            [grid {:item true}
             [chip
              {:label (str "Intensity: " (:intensity nose)) :size "small"}]])
          (when (:development nose)
            [grid {:item true}
-            [chip
-             {:label (str "Development: " (:development nose))
-              :size "small"}]])]
+            [chip {:label (:development nose) :size "small"}]])]
         (when (seq (:aroma-characteristics nose))
           (let [aroma-data (:aroma-characteristics nose)
                 primary-aromas (flatten (vals (:primary aroma-data)))

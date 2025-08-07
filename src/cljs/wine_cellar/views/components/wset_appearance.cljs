@@ -32,24 +32,6 @@
         :control (r/as-element [radio {:size "small"}])
         :label option}])]])
 
-(defn- color-dropdown
-  "Dynamic color dropdown based on wine style"
-  [{:keys [wine-style value on-change]}]
-  (let [color-options (case wine-style
-                        "RED" (get-in wset-lexicon [:colors :red])
-                        "WHITE" (get-in wset-lexicon [:colors :white])
-                        "ROSE" (get-in wset-lexicon [:colors :rose])
-                        "SPARKLING" (get-in wset-lexicon [:colors :sparkling])
-                        "FORTIFIED" (get-in wset-lexicon [:colors :fortified])
-                        [])]
-    [grid {:item true :xs 12 :sm 6}
-     [select-field
-      {:label "Color"
-       :value value
-       :options color-options
-       :on-change on-change
-       :sx {"& .MuiAutocomplete-endAdornment .MuiSvgIcon-root"
-            {:color "text.primary"}}}]]))
 
 (defn wset-appearance-section
   "WSET Level 3 Appearance section component"
