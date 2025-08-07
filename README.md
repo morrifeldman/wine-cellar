@@ -142,3 +142,40 @@ To set up CI/CD:
 3. The workflow uses `fly.toml.template` and generates the actual `fly.toml` during deployment using your secret values.
 
 Now, whenever you push changes to the main branch, the application will be automatically deployed to Fly.io.
+
+## Development Tools
+
+### Wine Color Picker
+
+The `tools/wine-color-picker/` directory contains utilities for extracting authentic wine colors from the Wine Folly color chart:
+
+- **`web_color_picker.html`** - Interactive web-based color picker. Click on wine glasses to sample colors and generate Clojure color definitions.
+- **`serve_color_picker.py`** - Web server to host the color picker tool
+- **`wine-colors.jpg`** - Wine Folly color chart poster
+
+#### Usage
+
+1. Create and activate a Python virtual environment:
+   ```bash
+   python3 -m venv wine-color-env
+   source wine-color-env/bin/activate  # On Windows: wine-color-env\Scripts\activate
+   ```
+
+2. Install Python dependencies:
+   ```bash
+   pip3 install -r tools/wine-color-picker/requirements.txt
+   ```
+
+3. Start the color picker server:
+   ```bash
+   python3 tools/wine-color-picker/serve_color_picker.py
+   ```
+
+4. Open the web interface and click on wine glasses to extract colors
+
+5. When finished, deactivate the virtual environment:
+   ```bash
+   deactivate
+   ```
+
+The extracted colors are used in the wine color selection component (`src/cljs/wine_cellar/views/components/wine_color.cljs`) for accurate wine color representation in tasting notes.

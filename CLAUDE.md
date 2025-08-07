@@ -93,74 +93,81 @@ This is a full-stack wine cellar tracking application built with:
 │   └── wine_cellar
 │       └── dev.clj
 ├── shadow-cljs.edn
-└── src
-    ├── clj
-    │   └── wine_cellar
-    │       ├── admin
-    │       │   └── bulk_operations.clj
-    │       ├── ai
-    │       │   └── anthropic.clj
-    │       ├── auth
-    │       │   ├── config.clj
-    │       │   └── core.clj
-    │       ├── config_utils.clj
-    │       ├── db
-    │       │   ├── api.clj
-    │       │   ├── connection.clj
-    │       │   ├── schema.clj
-    │       │   └── setup.clj
-    │       ├── debug
-    │       ├── handlers.clj
-    │       ├── routes.clj
-    │       └── server.clj
-    ├── cljc
-    │   └── wine_cellar
-    │       └── common.cljc
-    └── cljs
-        └── wine_cellar
-            ├── api.cljs
-            ├── config.cljs
-            ├── core.cljs
-            ├── portal_debug.cljs
-            ├── state.cljs
-            ├── theme.cljs
-            ├── utils
-            │   ├── filters.cljs
-            │   ├── formatting.cljs
-            │   └── vintage.cljs
-            ├── version.cljs
-            └── views
-                ├── classifications
-                │   ├── form.cljs
-                │   └── list.cljs
-                ├── components
-                │   ├── classification_fields.cljs
-                │   ├── debug.cljs
-                │   ├── form.cljs
-                │   ├── image_upload.cljs
-                │   ├── portal_debug.cljs
-                │   ├── wine_card.cljs
-                │   ├── wine_chat.cljs
-                │   ├── wset_appearance.cljs
-                │   ├── wset_conclusions.cljs
-                │   ├── wset_nose.cljs
-                │   ├── wset_palate.cljs
-                │   └── wset_shared.cljs
-                ├── components.cljs
-                ├── grape_varieties
-                │   └── list.cljs
-                ├── main.cljs
-                ├── tasting_notes
-                │   ├── form.cljs
-                │   └── list.cljs
-                └── wines
-                    ├── detail.cljs
-                    ├── filters.cljs
-                    ├── form.cljs
-                    ├── list.cljs
-                    └── varieties.cljs
+├── src
+│   ├── clj
+│   │   └── wine_cellar
+│   │       ├── admin
+│   │       │   └── bulk_operations.clj
+│   │       ├── ai
+│   │       │   └── anthropic.clj
+│   │       ├── auth
+│   │       │   ├── config.clj
+│   │       │   └── core.clj
+│   │       ├── config_utils.clj
+│   │       ├── db
+│   │       │   ├── api.clj
+│   │       │   ├── connection.clj
+│   │       │   ├── schema.clj
+│   │       │   └── setup.clj
+│   │       ├── debug
+│   │       ├── handlers.clj
+│   │       ├── routes.clj
+│   │       └── server.clj
+│   ├── cljc
+│   │   └── wine_cellar
+│   │       └── common.cljc
+│   └── cljs
+│       └── wine_cellar
+│           ├── api.cljs
+│           ├── config.cljs
+│           ├── core.cljs
+│           ├── portal_debug.cljs
+│           ├── state.cljs
+│           ├── theme.cljs
+│           ├── utils
+│           │   ├── filters.cljs
+│           │   ├── formatting.cljs
+│           │   └── vintage.cljs
+│           ├── version.cljs
+│           └── views
+│               ├── classifications
+│               │   ├── form.cljs
+│               │   └── list.cljs
+│               ├── components
+│               │   ├── classification_fields.cljs
+│               │   ├── debug.cljs
+│               │   ├── form.cljs
+│               │   ├── image_upload.cljs
+│               │   ├── portal_debug.cljs
+│               │   ├── wine_card.cljs
+│               │   ├── wine_chat.cljs
+│               │   ├── wine_color.cljs
+│               │   ├── wset_appearance.cljs
+│               │   ├── wset_conclusions.cljs
+│               │   ├── wset_nose.cljs
+│               │   ├── wset_palate.cljs
+│               │   └── wset_shared.cljs
+│               ├── components.cljs
+│               ├── grape_varieties
+│               │   └── list.cljs
+│               ├── main.cljs
+│               ├── tasting_notes
+│               │   ├── form.cljs
+│               │   └── list.cljs
+│               └── wines
+│                   ├── detail.cljs
+│                   ├── filters.cljs
+│                   ├── form.cljs
+│                   ├── list.cljs
+│                   └── varieties.cljs
+└── tools
+    └── wine-color-picker
+        ├── requirements.txt
+        ├── serve_color_picker.py
+        ├── web_color_picker.html
+        └── wine-colors.jpg
 
-28 directories, 88 files
+30 directories, 93 files
 ```
 
 ## Development Commands

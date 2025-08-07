@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wine Color Picker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .image-section {
+            flex: 1;
+        }
+        .controls {
+            width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #wineImage {
+            max-width: 100%;
+            border: 2px solid #ddd;
+            cursor: crosshair;
+        }
+        .current-wine {
+            font-size: 18px;
+            font-weight: bold;
+            color: #d32f2f;
+            margin: 10px 0;
+        }
+        .progress {
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 20px;
+            background: #4caf50;
+            transition: width 0.3s;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .primary { background: #2196f3; color: white; }
+        .secondary { background: #ff9800; color: white; }
+        .danger { background: #f44336; color: white; }
+        .success { background: #4caf50; color: white; }
+        button:hover { opacity: 0.8; }
+        #results {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .color-sample {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 1px solid #000;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="image-section">
+            <h1>Wine Color Picker</h1>
+            <p>Click on the center of each wine glass to sample its color. Start with the top-left glass and work your way across each row.</p>
+            <canvas id="wineCanvas" style="border: 2px solid #ddd; cursor: crosshair;"></canvas>
+        </div>
+        
+        <div class="controls">
+            <h3>Instructions</h3>
+            <p>Click the center of the wine liquid in each glass.</p>
+            
+            <div class="current-wine" id="currentWine">Click: pale-straw</div>
+            <div id="progressText">0 / 36</div>
+            <div class="progress">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            
+            <button class="secondary" onclick="undoLast()">Undo Last Click</button>
+            <button class="secondary" onclick="skipCurrent()">Skip Current</button>
+            <button class="danger" onclick="resetAll()">Reset All</button>
+            <button class="primary" onclick="extractColors()">Extract Wine Folly Colors</button>
+            <button class="success" onclick="saveResults()">Save Results</button>
+            
+            <h4>Clicked Colors:</h4>
+            <div id="results"></div>
+            
+            <h4>Wine Folly Color Map:</h4>
+            <div id="wineFollyResults"></div>
+        </div>
+    </div>
+
+    <script>
+        // Wine names in order (6 rows × 6 columns)
+        const wineNames = [
+            'pale-straw', 'medium-straw', 'deep-straw', 'pale-yellow', 'medium-yellow', 'deep-yellow',
+            'pale-gold', 'medium-gold', 'deep-gold', 'pale-brown', 'medium-brown', 'deep-brown',
+            'pale-amber', 'medium-amber', 'deep-amber', 'pale-copper', 'medium-copper', 'deep-copper',
+            'pale-salmon', 'medium-salmon', 'deep-salmon', 'pale-pink', 'medium-pink', 'deep-pink',
+            'pale-ruby', 'medium-ruby', 'deep-ruby', 'pale-purple', 'medium-purple', 'deep-purple',
+            'pale-garnet', 'medium-garnet', 'deep-garnet', 'pale-tawny', 'medium-tawny', 'deep-tawny'
+        ];
+        
+        let currentIndex = 0;
+        let clickedColors = {};
+        let canvas, ctx, img;
+        
+        window.onload = function() {
+            canvas = document.getElementById('wineCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Load the wine image
+            img = new Image();
+            img.onload = function() {
+                // Scale image to fit
+                const maxWidth = 800;
+                const scale = Math.min(maxWidth / img.width, maxWidth / img.height);
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
+                
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.src = 'wine-colors.jpg';
+            
+            canvas.addEventListener('click', onCanvasClick);
+            updateUI();
+        };
+        
+        function onCanvasClick(event) {
+            if (currentIndex >= wineNames.length) {
+                alert('All wines have been clicked!');
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            // Get pixel color
+            const imageData = ctx.getImageData(x, y, 1, 1);
+            const pixel = imageData.data;
+            const r = pixel[0];
+            const g = pixel[1];
+            const b = pixel[2];
+            const hexColor = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+            
+            // Store the color
+            const wineName = wineNames[currentIndex];
+            clickedColors[wineName] = {
+                hex: hexColor,
+                rgb: [r, g, b],
+                coords: [x, y]
+            };
+            
+            // Draw a marker
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Draw crosshair
+            ctx.beginPath();
+            ctx.moveTo(x-5, y);
+            ctx.lineTo(x+5, y);
+            ctx.moveTo(x, y-5);
+            ctx.lineTo(x, y+5);
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            currentIndex++;
+            updateUI();
+            updateResults();
+        }
+        
+        function updateUI() {
+            const currentWineEl = document.getElementById('currentWine');
+            const progressTextEl = document.getElementById('progressText');
+            const progressBarEl = document.getElementById('progressBar');
+            
+            if (currentIndex < wineNames.length) {
+                currentWineEl.textContent = `Click: ${wineNames[currentIndex]}`;
+            } else {
+                currentWineEl.textContent = 'All wines clicked!';
+            }
+            
+            progressTextEl.textContent = `${currentIndex} / ${wineNames.length}`;
+            const progress = (currentIndex / wineNames.length) * 100;
+            progressBarEl.style.width = progress + '%';
+        }
+        
+        function updateResults() {
+            const resultsEl = document.getElementById('results');
+            resultsEl.innerHTML = '';
+            
+            for (const [wineName, data] of Object.entries(clickedColors)) {
+                const div = document.createElement('div');
+                div.innerHTML = `<span class="color-sample" style="background-color: ${data.hex}"></span>${wineName}: ${data.hex}`;
+                resultsEl.appendChild(div);
+            }
+        }
+        
+        function undoLast() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                const wineName = wineNames[currentIndex];
+                delete clickedColors[wineName];
+                
+                // Redraw canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                // Redraw all markers
+                for (const [name, data] of Object.entries(clickedColors)) {
+                    const [x, y] = data.coords;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 8, 0, 2 * Math.PI);
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x-5, y);
+                    ctx.lineTo(x+5, y);
+                    ctx.moveTo(x, y-5);
+                    ctx.lineTo(x, y+5);
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                
+                updateUI();
+                updateResults();
+            }
+        }
+        
+        function skipCurrent() {
+            if (currentIndex < wineNames.length) {
+                currentIndex++;
+                updateUI();
+            }
+        }
+        
+        function resetAll() {
+            currentIndex = 0;
+            clickedColors = {};
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            updateUI();
+            updateResults();
+            document.getElementById('wineFollyResults').innerHTML = '';
+        }
+        
+        function extractColors() {
+            // Use Wine Folly color names directly - much more descriptive!
+            let output = ';; Wine Folly colors extracted from poster\\n(def wine-folly-colors\\n';
+            
+            for (const [wineName, data] of Object.entries(clickedColors)) {
+                const kebabName = wineName.replace(/_/g, '-');
+                output += `  :${kebabName.padEnd(15)} "${data.hex}"\\n`;
+            }
+            output += ')\\n\\n';
+            
+            // Also create organized by wine style for easy lookup
+            output += ';; Organized by wine style\\n';
+            output += '(def colors-by-style\\n';
+            output += '  {:white [\\n';
+            ['pale-straw', 'medium-straw', 'deep-straw', 'pale-yellow', 'medium-yellow', 'deep-yellow',
+             'pale-gold', 'medium-gold', 'deep-gold', 'pale-brown', 'medium-brown', 'deep-brown',
+             'pale-amber', 'medium-amber', 'deep-amber'].forEach(name => {
+                if (clickedColors[name]) {
+                    output += `    :${name.padEnd(15)} `;
+                }
+            });
+            output += ']\\n   :rose [\\n';
+            ['pale-salmon', 'medium-salmon', 'deep-salmon', 'pale-pink', 'medium-pink', 'deep-pink',
+             'pale-copper', 'medium-copper', 'deep-copper'].forEach(name => {
+                if (clickedColors[name]) {
+                    output += `    :${name.padEnd(15)} `;
+                }
+            });
+            output += ']\\n   :red [\\n';
+            ['pale-ruby', 'medium-ruby', 'deep-ruby', 'pale-purple', 'medium-purple', 'deep-purple',
+             'pale-garnet', 'medium-garnet', 'deep-garnet', 'pale-tawny', 'medium-tawny', 'deep-tawny'].forEach(name => {
+                if (clickedColors[name]) {
+                    output += `    :${name.padEnd(15)} `;
+                }
+            });
+            output += ']})';
+            
+            document.getElementById('wineFollyResults').innerHTML = '<pre>' + output + '</pre>';
+        }
+        
+        function saveResults() {
+            const data = {
+                clicked_colors: clickedColors,
+                wset_mapping: {
+                    'lemon-green': clickedColors['pale-straw']?.hex || '#f8f8dc',
+                    'lemon': clickedColors['medium-yellow']?.hex || '#fff700',
+                    'gold': clickedColors['medium-gold']?.hex || '#ffd700',
+                    'amber': clickedColors['medium-amber']?.hex || '#ffbf00',
+                    'brown': clickedColors['deep-brown']?.hex || '#8b4513',
+                    'pink': clickedColors['pale-pink']?.hex || '#ffc0cb',
+                    'salmon': clickedColors['medium-salmon']?.hex || '#fa8072',
+                    'orange': clickedColors['deep-copper']?.hex || '#ff8c00',
+                    'purple': clickedColors['medium-purple']?.hex || '#800080',
+                    'ruby': clickedColors['medium-ruby']?.hex || '#e0115f',
+                    'garnet': clickedColors['medium-garnet']?.hex || '#b22222',
+                    'tawny': clickedColors['medium-tawny']?.hex || '#cd853f'
+                }
+            };
+            
+            // Download as JSON file
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'wine_colors.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

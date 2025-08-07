@@ -1,0 +1,5 @@
+# Wine Color Picker Dependencies
+# For interactive wine color extraction from Wine Folly poster
+
+Pillow>=9.0.0
+numpy>=1.21.0

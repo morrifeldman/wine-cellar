@@ -1,18 +1,19 @@
 (ns wine-cellar.views.components.wset-appearance
-  (:require [reagent.core :as r]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.radio-group :refer [radio-group]]
-            [reagent-mui.material.form-control-label :refer
-             [form-control-label]]
-            [reagent-mui.material.radio :refer [radio]]
-            [reagent-mui.material.text-field :as mui-text-field]
-            [reagent-mui.material.collapse :refer [collapse]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.expand-more :refer [expand-more]]
-            [wine-cellar.common :refer [wset-lexicon]]
-            [wine-cellar.views.components.form :refer
-             [select-field uncontrolled-text-area-field]]))
+  (:require
+    [reagent.core :as r]
+    [reagent-mui.material.grid :refer [grid]]
+    [reagent-mui.material.typography :refer [typography]]
+    [reagent-mui.material.radio-group :refer [radio-group]]
+    [reagent-mui.material.form-control-label :refer [form-control-label]]
+    [reagent-mui.material.radio :refer [radio]]
+    [reagent-mui.material.text-field :as mui-text-field]
+    [reagent-mui.material.collapse :refer [collapse]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.icons.expand-more :refer [expand-more]]
+    [wine-cellar.common :refer [wset-lexicon]]
+    [wine-cellar.views.components.form :refer
+     [select-field uncontrolled-text-area-field]]
+    [wine-cellar.views.components.wine-color :refer [wine-color-selector]]))
 
 (defn- radio-group-field
   "Simple radio group for WSET enum selections"
@@ -81,17 +82,16 @@
            :value (:clarity appearance)
            :options (get-in wset-lexicon [:enums :clarity])
            :on-change #(update-field :clarity %)}]
-         ;; Intensity
-         [radio-group-field
-          {:label "Intensity"
-           :value (:intensity appearance)
-           :options (get-in wset-lexicon [:enums :intensity])
-           :on-change #(update-field :intensity %)}]
-         ;; Color (dynamic based on wine style)
-         [color-dropdown
-          {:wine-style wine-style
-           :value (:colour appearance)
-           :on-change #(update-field :colour %)}]
+         ;; Wine Color (Wine Folly colors with separate intensity)
+         [grid {:item true :xs 12}
+          [wine-color-selector
+           {:wine-style wine-style
+            :selected-color (:colour appearance)
+            :selected-intensity (:intensity appearance)
+            :on-change (fn [{:keys [color intensity]}]
+                         (on-change (-> appearance
+                                        (assoc :colour color)
+                                        (assoc :intensity intensity))))}]]
          ;; Other Observations
          [grid {:item true :xs 12}
           [uncontrolled-text-area-field
