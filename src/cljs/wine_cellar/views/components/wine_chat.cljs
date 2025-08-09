@@ -15,7 +15,9 @@
             [reagent-mui.icons.clear-all :refer [clear-all]]
             [reagent-mui.icons.edit :refer [edit]]
             [reagent-mui.icons.send :refer [send]]
+            [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [wine-cellar.views.components.image-upload :refer [camera-capture]]
             [wine-cellar.api :as api]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
@@ -66,48 +68,85 @@
        [edit {:sx {:font-size edit-icon-size}}]])]])
 
 (defn chat-input
-  "Chat input field with send button - uncontrolled for performance"
-  [message-ref on-send disabled? reset-key app-state]
-  [box {:sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}}
-   [mui-text-field/text-field
-    {:multiline true
-     :rows 5
-     :fullWidth true
-     :variant "outlined"
-     :size "small"
-     :margin "dense"
-     :inputRef #(when %
-                  (reset! message-ref %)
-                  ;; Restore draft message when component mounts
-                  (when-let [draft (get-in @app-state [:chat :draft-message])]
-                    (set! (.-value %) draft)))
-     :sx {"& .MuiOutlinedInput-root" {:backgroundColor "background.default"
-                                      :border "none"
-                                      :borderRadius 2}}
-     :placeholder "Type your message here..."
-     :disabled @disabled?
-     :on-blur nil}]
-   [box {:sx {:display "flex" :justify-content "flex-end"}}
-    [button
-     {:variant "contained"
-      :disabled @disabled?
-      :sx {:minWidth "60px" :px 1}
-      :startIcon (if @disabled?
-                   (r/as-element [circular-progress
-                                  {:size 14 :sx {:color "secondary.light"}}])
-                   (r/as-element [send {:size 14}]))
-      :on-click #(when @message-ref
-                   (let [message-text (.-value @message-ref)]
-                     (when (seq (str message-text))
-                       (on-send message-text)
-                       (set! (.-value @message-ref) "")
-                       ;; Clear draft message after sending
-                       (swap! app-state update :chat dissoc :draft-message))))}
-     [box
-      {:sx {:color (if @disabled? "text.disabled" "inherit")
-            :fontWeight (if @disabled? "600" "normal")
-            :fontSize (if @disabled? "0.8rem" "0.9rem")}}
-      (if @disabled? "Sending..." "Send")]]]])
+  "Chat input field with send button and camera button - uncontrolled for performance"
+  [message-ref on-send disabled? reset-key app-state on-image-capture
+   attached-image on-image-remove]
+  (let [has-image? @attached-image]
+    [box {:sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}}
+     ;; Image preview if attached
+     (when has-image?
+       [box
+        {:sx {:mb 1
+              :p 1
+              :border "1px solid"
+              :border-color "divider"
+              :border-radius 1}}
+        [box
+         {:sx {:display "flex"
+               :justify-content "space-between"
+               :align-items "center"
+               :mb 1}}
+         [typography {:variant "caption" :color "text.secondary"}
+          "Attached image:"]
+         [icon-button
+          {:size "small"
+           :on-click on-image-remove
+           :sx {:color "secondary.main"}} [close {:sx {:font-size "0.8rem"}}]]]
+        [box
+         {:component "img"
+          :src has-image?
+          :sx {:max-width "100%"
+               :max-height "150px"
+               :object-fit "contain"
+               :border-radius 1}}]])
+     [mui-text-field/text-field
+      {:multiline true
+       :rows 5
+       :fullWidth true
+       :variant "outlined"
+       :size "small"
+       :margin "dense"
+       :inputRef #(when %
+                    (reset! message-ref %)
+                    ;; Restore draft message when component mounts
+                    (when-let [draft (get-in @app-state [:chat :draft-message])]
+                      (set! (.-value %) draft)))
+       :sx {"& .MuiOutlinedInput-root" {:backgroundColor "background.default"
+                                        :border "none"
+                                        :borderRadius 2}}
+       :placeholder (if has-image?
+                      "Add a message to go with your image..."
+                      "Type your message here...")
+       :disabled @disabled?
+       :on-blur nil}]
+     [box {:sx {:display "flex" :justify-content "flex-end" :gap 1}}
+      [button
+       {:variant "outlined"
+        :disabled @disabled?
+        :sx {:minWidth "60px" :px 1}
+        :startIcon (r/as-element [camera-alt {:size 14}])
+        :on-click on-image-capture} "Photo"]
+      [button
+       {:variant "contained"
+        :disabled @disabled?
+        :sx {:minWidth "60px" :px 1}
+        :startIcon (if @disabled?
+                     (r/as-element [circular-progress
+                                    {:size 14 :sx {:color "secondary.light"}}])
+                     (r/as-element [send {:size 14}]))
+        :on-click
+        #(when @message-ref
+           (let [message-text (.-value @message-ref)]
+             (when (or (seq (str message-text)) has-image?)
+               (on-send message-text)
+               (set! (.-value @message-ref) "")
+               ;; Clear draft message after sending
+               (swap! app-state update :chat dissoc :draft-message))))}
+       [box
+        {:sx {:color (if @disabled? "text.disabled" "inherit")
+              :fontWeight (if @disabled? "600" "normal")
+              :fontSize (if @disabled? "0.8rem" "0.9rem")}}
+        (if @disabled? "Sending..." "Send")]]]]))
 
 (defn chat-messages
   "Scrollable container for chat messages"
@@ -131,31 +170,35 @@
                :border "1px solid"
                :border-color "divider"
                :border-radius 1}}
-         (if (empty? @messages)
-           [typography
-            {:variant "body2"
-             :sx {:text-align "center" :color "text.secondary" :mt 2}}
-            "Start a conversation about your wine cellar..."]
-           (for [message @messages]
-             (let [is-last-message? (= message (last @messages))]
-               ^{:key (:id message)}
-               [message-bubble message on-edit
-                (when is-last-message?
-                  #(reset! last-ai-message-ref %))])))])})))
+         (let [current-messages @messages]
+           (if (empty? current-messages)
+             [typography
+              {:variant "body2"
+               :sx {:text-align "center" :color "text.secondary" :mt 2}}
+              "Start a conversation about your wine cellar..."]
+             (doall (for [message current-messages]
+                      (let [is-last-message? (= message
+                                                (last current-messages))]
+                        ^{:key (:id message)}
+                        [message-bubble message on-edit
+                         (when is-last-message?
+                           #(reset! last-ai-message-ref %))])))))])})))
 
 (defn send-chat-message
-  "Send a message to the AI chat endpoint with conversation history"
-  [message wines conversation-history callback]
-  (tap> ["send-chat-message" message conversation-history])
-  (api/send-chat-message message wines conversation-history callback))
+  "Send a message to the AI chat endpoint with conversation history and optional image"
+  ([message wines conversation-history callback]
+   (send-chat-message message wines conversation-history nil callback))
+  ([message wines conversation-history image callback]
+   (tap> ["send-chat-message" message conversation-history])
+   (api/send-chat-message message wines conversation-history image callback)))
 
 (defn- handle-send-message
-  "Handle sending a message to the AI assistant"
-  [app-state message-text messages is-sending?]
-  (when (and (not @is-sending?) (seq message-text))
+  "Handle sending a message to the AI assistant with optional image"
+  [app-state message-text messages is-sending? & [image]]
+  (when (and (not @is-sending?) (or (seq message-text) image))
     (reset! is-sending? true)
     (let [user-message {:id (random-uuid)
-                        :text message-text
+                        :text (or message-text "")
                         :is-user true
                         :timestamp (.getTime (js/Date.))}
           wines (if-let [current-wine-id (:selected-wine-id @app-state)]
@@ -169,6 +212,7 @@
        message-text
        wines
        @messages
+       image
        (fn [response]
          (let [ai-message {:id (random-uuid)
                            :text response
@@ -243,20 +287,36 @@
         messages (r/atom (:messages chat-state []))
         message-ref (r/atom nil)
         is-sending? (r/atom false)
+        show-camera? (r/atom false)
+        pending-image (r/atom nil)
         edit-state (use-edit-state)
         {:keys [editing-message-id handle-edit handle-cancel is-editing?]}
         edit-state
-        handle-send
-        (fn [message-text]
-          (if (is-editing?)
-            ;; Edit mode - replace message and regenerate response
-            (handle-edit-send app-state
-                              editing-message-id
-                              message-ref
-                              messages
-                              is-sending?)
-            ;; Normal mode - send new message
-            (handle-send-message app-state message-text messages is-sending?)))]
+        handle-send (fn [message-text]
+                      (if (is-editing?)
+                        ;; Edit mode - replace message and regenerate
+                        ;; response
+                        (handle-edit-send app-state
+                                          editing-message-id
+                                          message-ref
+                                          messages
+                                          is-sending?)
+                        ;; Normal mode - send new message with attached
+                        ;; image
+                        (do (handle-send-message app-state
+                                                 message-text
+                                                 messages
+                                                 is-sending?
+                                                 @pending-image)
+                            (reset! pending-image nil))))
+        handle-image-capture (fn [] (reset! show-camera? true))
+        handle-camera-capture (fn [image-data]
+                                (reset! show-camera? false)
+                                (reset! pending-image (:label_image
+                                                       image-data)))
+        handle-camera-cancel
+        (fn [] (reset! show-camera? false) (reset! pending-image nil))
+        handle-image-remove (fn [] (reset! pending-image nil))]
     (fn [app-state]
       (let [chat-state (:chat @app-state)
             is-open (:open? chat-state false)]
@@ -289,14 +349,17 @@
               :title "Close chat"
               :sx {:color "secondary.main"}} [close]]]]]
          [dialog-content
+          ;; Camera modal
+          (when @show-camera?
+            [camera-capture handle-camera-capture handle-camera-cancel])
           [chat-messages messages #(handle-edit %1 %2 message-ref)]
           ;; Show editing indicator
           (when (is-editing?)
             [typography
              {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
              "Editing message - all responses after this will be regenerated"])
-          [chat-input message-ref handle-send is-sending? "chat-input"
-           app-state]
+          [chat-input message-ref handle-send is-sending? "chat-input" app-state
+           handle-image-capture pending-image handle-image-remove]
           ;; Cancel edit button
           (when (is-editing?)
             [button

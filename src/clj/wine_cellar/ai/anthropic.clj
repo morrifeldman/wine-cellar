@@ -310,11 +310,30 @@
       summary)))
 
 (defn- create-conversation-messages
-  "Converts conversation history to proper message array for Anthropic API"
-  [conversation-history]
-  (map (fn [msg]
-         {:role (if (:is-user msg) "user" "assistant") :content (:text msg)})
-       conversation-history))
+  "Converts conversation history to proper message array for Anthropic API.
+   Optionally adds image to the latest user message."
+  ([conversation-history]
+   (create-conversation-messages conversation-history nil))
+  ([conversation-history image]
+   (let [messages (map (fn [msg]
+                         {:role (if (:is-user msg) "user" "assistant")
+                          :content (:text msg)})
+                       conversation-history)]
+     (if (and image (seq messages) (= "user" (:role (last messages))))
+       ;; Add image to the last user message
+       (let [last-message (last messages)
+             other-messages (butlast messages)
+             image-content
+             [{:type "text" :text (:content last-message)}
+              {:type "image"
+               :source {:type "base64"
+                        :media_type "image/jpeg"
+                        :data (-> image
+                                  (str/replace #"^data:image/jpeg;base64," "")
+                                  (str/replace #"^data:image/png;base64,"
+                                               ""))}}]]
+         (concat other-messages [{:role "user" :content image-content}]))
+       messages))))
 
 (defn- create-system-instructions
   "Creates the stable system instructions for the wine assistant"
@@ -324,6 +343,8 @@
      "You are a knowledgeable wine expert and sommelier helping someone with their wine collection. "
      "Please respond in a conversational, friendly tone. You can discuss wine recommendations, "
      "food pairings, optimal drinking windows, storage advice, or any wine-related questions. "
+     "When images are provided, analyze wine labels, wine lists, or other wine-related images to help with "
+     "identification, recommendations, or general wine advice. "
      "The current year is "
      current-year
      ". "
@@ -342,34 +363,35 @@
          wine-context)))
 
 (defn- create-chat-messages
-  "Creates the properly structured request for Anthropic API with two-part system caching"
-  [message wines conversation-history]
-  (let [system-instructions (create-system-instructions)
-        wine-collection-context (create-wine-collection-context wines)
-        conversation-messages (create-conversation-messages
-                               conversation-history)]
-    ;; Note: conversation-history already includes the current user message
-    ;; from frontend. Return properly structured request with two-part
-    ;; system: instructions + wine collection
-    {:system [{:type "text"
-               :text system-instructions
-               :cache_control {:type "ephemeral"}}
-              {:type "text"
-               :text wine-collection-context
-               :cache_control {:type "ephemeral"}}]
-     :messages conversation-messages}))
+  "Creates the properly structured request for Anthropic API with two-part system caching.
+   Optionally includes image in the latest user message."
+  ([wines conversation-history]
+   (create-chat-messages wines conversation-history nil))
+  ([wines conversation-history image]
+   (let [system-instructions (create-system-instructions)
+         wine-collection-context (create-wine-collection-context wines)
+         conversation-messages
+         (create-conversation-messages conversation-history image)]
+     ;; Return properly structured request with two-part
+     ;; system: instructions + wine collection
+     {:system [{:type "text"
+                :text system-instructions
+                :cache_control {:type "ephemeral"}}
+               {:type "text"
+                :text wine-collection-context
+                :cache_control {:type "ephemeral"}}]
+      :messages conversation-messages})))
 
 (defn chat-about-wines
   "Chat with AI about wine collection and wine-related topics with conversation history.
    Uses prompt caching to reduce token costs - Anthropic automatically handles cache hits/misses.
-   Note: conversation-history already includes the current message from frontend."
-  [message wines conversation-history]
-  (tap> ["chat-about-wines" wines])
-  ;; message parameter is kept for API compatibility but not used since
-  ;; conversation-history already includes the current user message
-  (let [messages (create-chat-messages message wines conversation-history)]
-    (tap> ["chat-messages" messages])
-    (call-anthropic-api messages false)))
+   Optionally supports image input for wine label or wine list analysis."
+  ([wines conversation-history]
+   (chat-about-wines wines conversation-history nil))
+  ([wines conversation-history image]
+   (let [messages (create-chat-messages wines conversation-history image)]
+     (tap> ["chat-messages" messages])
+     (call-anthropic-api messages false))))
 
 (defn- create-wine-summary-system-prompt
   "Creates the system prompt for wine summary generation"

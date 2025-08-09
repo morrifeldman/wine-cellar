@@ -456,19 +456,23 @@
 ;; Chat endpoints
 
 (defn send-chat-message
-  "Send a message to the AI chat endpoint with wine IDs and conversation history"
-  [message wines conversation-history callback]
-  (go
-   (let [wine-ids (mapv :id wines)
-         result (<! (POST "/api/chat"
-                          {:message message
-                           :wine-ids wine-ids
+  "Send a message to the AI chat endpoint with wine IDs and conversation history.
+   Optionally includes image data."
+  ([message wines conversation-history callback]
+   (send-chat-message message wines conversation-history nil callback))
+  ([message wines conversation-history image callback]
+   (go
+    (let [wine-ids (mapv :id wines)
+          payload (cond-> {:wine-ids wine-ids
                            :conversation-history conversation-history}
-                          "Failed to send chat message"))]
-     (if (:success result)
-       (callback (:data result))
-       (callback
-        "Sorry, I'm having trouble connecting right now. Please try again later.")))))
+                    (seq message) (assoc :message message)
+                    image (assoc :image image))]
+      (let [result (<!
+                    (POST "/api/chat" payload "Failed to send chat message"))]
+        (if (:success result)
+          (callback (:data result))
+          (callback
+           "Sorry, I'm having trouble connecting right now. Please try again later.")))))))
 
 ;; Admin endpoints
 

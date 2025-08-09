@@ -343,15 +343,16 @@
 
 (defn chat-with-ai
   [request]
-  (try (let [{:keys [message wine-ids conversation-history]} (-> request
-                                                                 :parameters
-                                                                 :body)]
-         (if (empty? message)
-           {:status 400 :body {:error "Message is required"}}
+  (try (let [{:keys [wine-ids conversation-history image]} (-> request
+                                                               :parameters
+                                                               :body)]
+         (if (and (empty? conversation-history) (empty? image))
+           {:status 400
+            :body {:error "Conversation history or image is required"}}
            (let [enriched-wines (db-api/get-enriched-wines-by-ids wine-ids)
-                 response (anthropic/chat-about-wines message
-                                                      enriched-wines
-                                                      conversation-history)]
+                 response (anthropic/chat-about-wines enriched-wines
+                                                      conversation-history
+                                                      image)]
              (response/response response))))
        (catch clojure.lang.ExceptionInfo e
          (let [data (ex-data e)]

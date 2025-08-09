@@ -61,6 +61,7 @@
 (s/def ::message string?)
 (s/def ::wine-ids (s/coll-of int?))
 (s/def ::conversation-history vector?)
+(s/def ::image (s/nilable string?))
 (s/def ::tasting-source string?)
 (s/def ::tasting-sources (s/coll-of ::tasting-source))
 
@@ -157,9 +158,9 @@
    ;; Grape Varieties Routes
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"
-            :parameters {:body (s/keys :req-un [::message]
-                                       :opt-un [::wine-ids
-                                                ::conversation-history])}
+            :parameters {:body (s/keys :opt-un
+                                       [::message ::wine-ids
+                                        ::conversation-history ::image])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
    ["/tasting-note-sources"
