@@ -17,13 +17,45 @@
             [reagent-mui.icons.send :refer [send]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
-            [wine-cellar.views.components.image-upload :refer [camera-capture]]
+            [wine-cellar.views.components.image-upload :refer [camera-capture create-thumbnail]]
             [wine-cellar.api :as api]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
 ;; Constants
 (def ^:private edit-icon-size "0.8rem")
 (def ^:private edit-button-spacing 4)
+
+(defn- handle-clipboard-image
+  "Process an image file/blob from clipboard and set it as attached image"
+  [file-or-blob attached-image]
+  (let [reader (js/FileReader.)]
+    (set! (.-onload reader)
+          (fn [e]
+            (let [data-url (-> e .-target .-result)
+                  img (js/Image.)]
+              (set! (.-onload img)
+                    (fn []
+                      ;; Convert to JPEG format
+                      (let [canvas (js/document.createElement "canvas")
+                            ctx (.getContext canvas "2d")]
+                        (set! (.-width canvas) (.-width img))
+                        (set! (.-height canvas) (.-height img))
+                        (.drawImage ctx img 0 0)
+                        (let [jpeg-data-url (.toDataURL canvas "image/jpeg" 0.85)]
+                          (reset! attached-image jpeg-data-url)))))
+              (set! (.-src img) data-url))))
+    (.readAsDataURL reader file-or-blob)))
+
+(defn- handle-paste-event
+  "Handle paste events to detect and process clipboard images"
+  [event attached-image]
+  (when-let [items (.-items (.-clipboardData event))]
+    (dotimes [i (.-length items)]
+      (let [item (aget items i)]
+        (when (and (.-type item) 
+                   (.startsWith (.-type item) "image/"))
+          (when-let [file (.getAsFile item)]
+            (handle-clipboard-image file attached-image)))))))
 
 (defn message-bubble
   "Renders a single chat message bubble"
@@ -116,16 +148,56 @@
                                         :borderRadius 2}}
        :placeholder (if has-image?
                       "Add a message to go with your image..."
-                      "Type your message here...")
+                      (let [is-mobile? (and js/navigator.maxTouchPoints (> js/navigator.maxTouchPoints 0))]
+                        (if is-mobile?
+                          "Type your message here..."
+                          "Type your message here... (or paste a screenshot)")))
        :disabled @disabled?
-       :on-blur nil}]
+       :on-blur nil
+       :on-paste #(handle-paste-event % attached-image)}]
      [box {:sx {:display "flex" :justify-content "flex-end" :gap 1}}
-      [button
-       {:variant "outlined"
-        :disabled @disabled?
-        :sx {:minWidth "60px" :px 1}
-        :startIcon (r/as-element [camera-alt {:size 14}])
-        :on-click on-image-capture} "Photo"]
+      ;; Detect if mobile device
+      (let [is-mobile? (and js/navigator.maxTouchPoints (> js/navigator.maxTouchPoints 0))]
+        [:<>
+         ;; Hidden file input
+         [:input {:type "file"
+                  :accept "image/*"
+                  :style {:display "none"}
+                  :id "photo-picker-input"
+                  :on-change #(when-let [file (-> % .-target .-files (aget 0))]
+                                (handle-clipboard-image file attached-image))}]
+         
+         ;; Mobile: Camera + Photos buttons
+         (when is-mobile?
+           [:<>
+            [button
+             {:variant "outlined"
+              :disabled @disabled?
+              :sx {:minWidth "60px" :px 1}
+              :startIcon (r/as-element [camera-alt {:size 14}])
+              :on-click on-image-capture} "Camera"]
+            [button
+             {:variant "outlined" 
+              :disabled @disabled?
+              :sx {:minWidth "60px" :px 1}
+              :on-click #(when-let [input (js/document.getElementById "photo-picker-input")]
+                           (.click input))} "Photos"]])
+         
+         ;; Desktop: Camera + File picker with better labels  
+         (when (not is-mobile?)
+           [:<>
+            [button
+             {:variant "outlined"
+              :disabled @disabled?
+              :sx {:minWidth "60px" :px 1}
+              :startIcon (r/as-element [camera-alt {:size 14}])
+              :on-click on-image-capture} "Camera"]
+            [button
+             {:variant "outlined"
+              :disabled @disabled?
+              :sx {:minWidth "60px" :px 1}
+              :on-click #(when-let [input (js/document.getElementById "photo-picker-input")]
+                           (.click input))} "Upload"]])])
       [button
        {:variant "contained"
         :disabled @disabled?

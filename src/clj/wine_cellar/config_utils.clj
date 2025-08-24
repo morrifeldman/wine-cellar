@@ -11,7 +11,27 @@
 
 (defstate production? :start (= (System/getenv "CLOJURE_ENV") "production"))
 
-(defstate frontend :start (if production? "/" "http://localhost:8080"))
+(defn frontend-url 
+  "Determine the correct frontend URL based on the request context"
+  ([request]
+   (if production?
+     "/"
+     (let [host (get-in request [:headers "host"])
+           is-ngrok? (and host (.contains host "ngrok"))]
+       (if is-ngrok?
+         ;; For ngrok, frontend is served from the same host
+         (str "https://" host)
+         ;; For localhost, frontend is on port 8080
+         "http://localhost:8080"))))
+  ([]
+   ;; Fallback when no request context
+   (if production? "/" "http://localhost:8080")))
+
+(defstate cors-origins 
+  :start (if production? 
+           ["/"]
+           ;; Only need CORS for frontend dev server on localhost:8080
+           [#"http://localhost:8080"]))
 
 (defn get-password-from-pass
   "Retrieves a password from the pass command line program"

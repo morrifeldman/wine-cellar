@@ -12,19 +12,40 @@
   (println "Starting Wine Cellar development environment...")
   ;; Make sure our shell script is executable
   (make-executable "scripts/start-dev.sh")
-  ;; Alternative approach using Babashka process
-  (let [backend (p/process ["clj" "-M:dev:repl/conjure"] {:inherit true})
-        frontend (p/process ["npx" "shadow-cljs" "watch" "app"]
-                            {:inherit true})]
-    (println "Both processes started. Press Ctrl+C to exit.")
+  
+  ;; Check if we should start ngrok and set OAuth redirect
+  (let [ngrok-url (System/getenv "NGROK_URL")
+        processes (if ngrok-url
+                    (do
+                      (println "Using NGROK_URL:" ngrok-url)
+                      (println "OAuth redirect will be auto-detected from request")
+                      (println "Starting ngrok with URL:" ngrok-url)
+                      (let [ngrok (p/process ["ngrok" "http" (str "--url=" ngrok-url) "3000" "--log=stdout"] 
+                                             {:inherit true})
+                            backend (p/process ["clj" "-M:dev:repl/conjure"] {:inherit true})
+                            frontend (p/process ["npx" "shadow-cljs" "watch" "app"]
+                                                {:inherit true})]
+                        [ngrok backend frontend]))
+                    (do
+                      (println "No NGROK_URL set, starting without ngrok")
+                      (let [backend (p/process ["clj" "-M:dev:repl/conjure"] {:inherit true})
+                            frontend (p/process ["npx" "shadow-cljs" "watch" "app"]
+                                                {:inherit true})]
+                        [backend frontend])))]
+    
+    (if ngrok-url
+      (println "All processes started:\n- ngrok:" ngrok-url "\n- backend: http://localhost:3000\n- frontend: http://localhost:8080")
+      (println "Processes started:\n- backend: http://localhost:3000\n- frontend: http://localhost:8080"))
+    
+    (println "Press Ctrl+C to exit.")
     ;; Add shutdown hook to ensure processes are terminated
     (.addShutdownHook (Runtime/getRuntime)
                       (Thread. (fn []
                                  (println "\nShutting down processes...")
-                                 (p/destroy-tree backend)
-                                 (p/destroy-tree frontend))))
-    ;; Wait for processes to complete
-    @(p/check backend)
-    @(p/check frontend)))
+                                 (doseq [process processes]
+                                   (p/destroy-tree process)))))
+    ;; Wait for any process to complete
+    (doseq [process processes]
+      @(p/check process))))
 
 (defn -main [& _args] (start-dev-environment))
