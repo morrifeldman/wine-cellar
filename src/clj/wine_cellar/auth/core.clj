@@ -11,8 +11,8 @@
            [java.util UUID]))
 
 (defn create-oauth-client
-  []
-  (let [oauth-config (config/get-oauth-config)]
+  [request]
+  (let [oauth-config (config/get-oauth-config request)]
     (when oauth-config
       {:authorization-uri "https://accounts.google.com/o/oauth2/v2/auth"
        :token-uri "https://oauth2.googleapis.com/token"
@@ -22,8 +22,8 @@
        :scope ["email" "profile"]})))
 
 (defn create-auth-uri
-  []
-  (when-let [oauth-client (create-oauth-client)]
+  [request]
+  (when-let [oauth-client (create-oauth-client request)]
     (str (:authorization-uri oauth-client)
          "?client_id="
          (:client-id oauth-client)
@@ -38,7 +38,7 @@
 (defn redirect-to-google
   [request]
   (tap> ["redirect-to-google" (:session request)])
-  (if-let [auth-uri (create-auth-uri)]
+  (if-let [auth-uri (create-auth-uri request)]
     (let [state (last (re-find #"&state=([^&]+)" auth-uri))]
       (tap> ["auth-uri" auth-uri "state" state])
       (-> (response/redirect auth-uri)
@@ -46,9 +46,9 @@
     (response/bad-request "OAuth configuration is missing")))
 
 (defn exchange-code-for-token
-  [code]
+  [code request]
   (tap> ["exchange-code-for-token" code])
-  (let [oauth-client (create-oauth-client)]
+  (let [oauth-client (create-oauth-client request)]
     (when oauth-client
       (try (let [request-params {:form-params
                                  {:code code
@@ -99,6 +99,28 @@
                       :exp (inst-ms (.plus now 7 ChronoUnit/DAYS)))]
     (jwt/sign claims jwt-secret {:alg :hs256})))
 
+(defn- handle-successful-auth
+  "Handle successful OAuth flow - exchange code for token and create session"
+  [code request]
+  (if-let [token-response (exchange-code-for-token code request)]
+    (let [access-token (:access_token token-response)
+          _ (tap> ["access-token-received" access-token])
+          user-info (get-user-info access-token)
+          _ (tap> ["user-info-received" user-info])
+          jwt-token (create-jwt-token user-info)
+          _ (tap> ["jwt-token" jwt-token])
+          frontend-url (config-utils/frontend-url request)]
+      (-> (response/redirect frontend-url)
+          (assoc-in [:cookies "auth-token"]
+                    {:value jwt-token
+                     :http-only true
+                     :max-age (* 7 24 60 60) ; 7 days
+                     :same-site :lax
+                     :path "/"})
+          (assoc :session (dissoc (:session request) :oauth-state))))
+    (do (tap> ["token-exchange-failed"])
+        (response/bad-request "Failed to authenticate with Google"))))
+
 (defn handle-google-callback
   [request]
   (tap> ["handle-google-callback" (:query-params request) "session"
@@ -115,26 +137,8 @@
       ;; Verify state to prevent CSRF
       (if (and state (= state session-state))
         (do (tap> ["state-verified" state])
-            ;; Exchange code for token
-            (if-let [token-response (exchange-code-for-token code)]
-              (let [_ (tap> ["token-response" token-response])
-                    access-token (:access_token token-response)
-                    _ (tap> ["access-token-received" access-token])
-                    user-info (get-user-info access-token)
-                    _ (tap> ["user-info-received" user-info])
-                    jwt-token (create-jwt-token user-info)]
-                (tap> ["jwt-token" jwt-token])
-                (-> (response/redirect config-utils/frontend)
-                    (assoc-in [:cookies "auth-token"]
-                              {:value jwt-token
-                               :http-only true
-                               :max-age (* 7 24 60 60) ; 7 days
-                               :same-site :lax
-                               :path "/"})
-                    ;; Clear the oauth state from session
-                    (assoc :session (dissoc (:session request) :oauth-state))))
-              (do (tap> ["token-exchange-failed"])
-                  (response/bad-request "Failed to authenticate with Google"))))
+            ;; Exchange code for token and handle success
+            (handle-successful-auth code request))
         ;; Invalid state - possible CSRF attack
         (do (tap> ["invalid-state"
                    {:received state :session-state session-state}])
@@ -175,15 +179,15 @@
                            (update
                             :headers
                             merge
-                            {"Access-Control-Allow-Origin" config-utils/frontend
+                            {"Access-Control-Allow-Origin" (config-utils/frontend-url)
                              "Access-Control-Allow-Credentials" "true"}))]
           response)
         ;; For browser requests, redirect to login
         (response/redirect "/login")))))
 
 (defn logout
-  [_]
-  (-> (response/redirect config-utils/frontend)
+  [request]
+  (-> (response/redirect "/")
       (assoc-in [:cookies "auth-token"]
                 {:value ""
                  :http-only true

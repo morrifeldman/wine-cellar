@@ -3,14 +3,23 @@
 
 (defn get-oauth-config
   "Returns the OAuth configuration, either from environment variables or pass"
-  []
-  {:client-id (config-utils/get-config "GOOGLE_CLIENT_ID")
-   :client-secret (config-utils/get-config "GOOGLE_CLIENT_SECRET")
-   :redirect-uri (config-utils/get-config "OAUTH_REDIRECT_URI"
-                                          {:fallback
-                                           (str "http://localhost:"
-                                                config-utils/backend-port
-                                                "/auth/google/callback")})})
+  ([]
+   (get-oauth-config nil))
+  ([request]
+   (let [;; Dynamically determine redirect URI based on request
+         redirect-uri (if request
+                        ;; Extract the base URL from the request
+                        (let [scheme (if (= "https" (get-in request [:headers "x-forwarded-proto"]))
+                                       "https" 
+                                       (name (:scheme request)))
+                              host (get-in request [:headers "host"])]
+                          ;; Use the host header which already includes port if needed
+                          (str scheme "://" host "/auth/google/callback"))
+                        ;; Fallback when no request context
+                        (str "http://localhost:" config-utils/backend-port "/auth/google/callback"))]
+     {:client-id (config-utils/get-config "GOOGLE_CLIENT_ID")
+      :client-secret (config-utils/get-config "GOOGLE_CLIENT_SECRET")
+      :redirect-uri redirect-uri})))
 
 (defn get-jwt-secret
   "Gets the JWT secret for signing tokens, either from environment or a default"

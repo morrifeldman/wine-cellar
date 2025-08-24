@@ -117,7 +117,7 @@
                    (if-not config-utils/production?
                      (wrap-cors handler
                                 :access-control-allow-origin
-                                [(re-pattern config-utils/frontend)]
+                                config-utils/cors-origins
                                 :access-control-allow-methods [:get :put :post
                                                                :delete :options]
                                 :access-control-allow-headers
