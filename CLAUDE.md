@@ -230,7 +230,8 @@ Uses the `pass` password manager for secure credential storage. Required credent
 - `wine-cellar/jwt-secret`
 - `wine-cellar/cookie-store-key`
 - `wine-cellar/admin-email`
-- `wine-cellar/google-oath-json`
+- `wine-cellar/google-client-id`
+- `wine-cellar/google-client-secret`
 
 ### Production (Fly.io)
 Credentials are managed through Fly.io secrets. See README.md for deployment instructions.
