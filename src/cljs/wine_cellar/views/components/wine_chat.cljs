@@ -103,8 +103,16 @@
   "Chat input field with send button and camera button - uncontrolled for performance"
   [message-ref on-send disabled? reset-key app-state on-image-capture
    attached-image on-image-remove]
-  (let [has-image? @attached-image]
-    [box {:sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}}
+  (let [has-image? @attached-image
+        container-ref (r/atom nil)]
+    ;; Auto-scroll when image is added - just bring into view, don't force to bottom
+    (when has-image?
+      (js/setTimeout 
+        #(when @container-ref
+           (.scrollIntoView @container-ref #js {:behavior "smooth" :block "nearest"}))
+        100))
+    [box {:sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}
+          :ref #(reset! container-ref %)}
      ;; Image preview if attached
      (when has-image?
        [box
@@ -361,6 +369,8 @@
         is-sending? (r/atom false)
         show-camera? (r/atom false)
         pending-image (r/atom nil)
+        dialog-content-ref (r/atom nil)
+        dialog-opened (r/atom false)
         edit-state (use-edit-state)
         {:keys [editing-message-id handle-edit handle-cancel is-editing?]}
         edit-state
@@ -392,6 +402,16 @@
     (fn [app-state]
       (let [chat-state (:chat @app-state)
             is-open (:open? chat-state false)]
+        ;; Auto-scroll to bottom only when dialog first opens
+        (when (and is-open (not @dialog-opened) @dialog-content-ref)
+          (reset! dialog-opened true)
+          (js/setTimeout 
+            #(when @dialog-content-ref
+               (.scrollTo @dialog-content-ref 0 (.-scrollHeight @dialog-content-ref)))
+            200))
+        ;; Reset opened flag when dialog closes
+        (when (not is-open)
+          (reset! dialog-opened false))
         [dialog
          {:open is-open
           :on-close #(swap! app-state assoc-in [:chat :open?] false)
@@ -421,6 +441,7 @@
               :title "Close chat"
               :sx {:color "secondary.main"}} [close]]]]]
          [dialog-content
+          {:ref #(reset! dialog-content-ref %)}
           ;; Camera modal
           (when @show-camera?
             [camera-capture handle-camera-capture handle-camera-cancel])
