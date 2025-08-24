@@ -13,12 +13,10 @@
   ;; Make sure our shell script is executable
   (make-executable "scripts/start-dev.sh")
   
-  ;; Check if we should start ngrok and set OAuth redirect
+  ;; Check if we should start ngrok
   (let [ngrok-url (System/getenv "NGROK_URL")
         processes (if ngrok-url
                     (do
-                      (println "Using NGROK_URL:" ngrok-url)
-                      (println "OAuth redirect will be auto-detected from request")
                       (println "Starting ngrok with URL:" ngrok-url)
                       (let [ngrok (p/process ["ngrok" "http" (str "--url=" ngrok-url) "3000" "--log=stdout"] 
                                              {:inherit true})

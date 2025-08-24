@@ -10,7 +10,6 @@ In production (when `CLOJURE_ENV=production`), the following environment variabl
 
 - `GOOGLE_CLIENT_ID`: Google OAuth client ID
 - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
-- `OAUTH_REDIRECT_URI`: Redirect URI for OAuth callbacks
 - `JWT_SECRET`: Secret key for signing JWT tokens
 - `COOKIE_STORE_KEY`: Secret key for the cookie store
 - `ADMIN_EMAIL`: Email address of the admin user
@@ -40,7 +39,6 @@ wine-cellar/cookie-store-key
 wine-cellar/admin-email
 wine-cellar/google-client-id
 wine-cellar/google-client-secret
-wine-cellar/oauth-redirect-uri
 wine-cellar/anthropic-model       # Optional
 ```
 
