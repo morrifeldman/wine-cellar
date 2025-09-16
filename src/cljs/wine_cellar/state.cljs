@@ -16,6 +16,6 @@
    :tasting-notes []
    :new-tasting-note {}
    :sort {:field :created_at :direction :desc}
-   :filters {:search "" :country nil :region nil :style nil}
+   :filters {:search "" :country nil :region nil :styles [] :style nil :varieties []}
    :view nil
    :chat {:open? false :messages []}})

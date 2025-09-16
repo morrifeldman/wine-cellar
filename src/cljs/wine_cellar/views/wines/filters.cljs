@@ -1,5 +1,6 @@
 (ns wine-cellar.views.wines.filters
-  (:require [reagent.core :as r]
+  (:require [clojure.string :as str]
+            [reagent.core :as r]
             [wine-cellar.utils.formatting :refer
              [unique-countries regions-for-country unique-varieties]]
             [wine-cellar.common :as common]
@@ -24,6 +25,7 @@
             [reagent-mui.material.form-group :refer [form-group]]
             [reagent-mui.icons.arrow-upward :refer [arrow-upward]]
             [reagent-mui.icons.arrow-downward :refer [arrow-downward]]
+            [reagent-mui.material.list-item-text :refer [list-item-text]]
             [wine-cellar.utils.vintage :refer [tasting-window-label]]))
 
 (defn search-field
@@ -83,39 +85,133 @@
 
 (defn style-filter
   [app-state]
-  (let [filters (:filters @app-state)]
+  (let [filters (:filters @app-state)
+        selected-styles (let [raw (:styles filters)
+                               legacy (:style filters)]
+                           (cond
+                             (sequential? raw) (vec raw)
+                             (some? legacy) [(str legacy)]
+                             :else []))
+        selected-set (set selected-styles)
+        normalize-selection (fn [value]
+                              (let [converted (cond
+                                                (js/Array.isArray value) (js->clj value)
+                                                (sequential? value) value
+                                                (nil? value) []
+                                                :else value)]
+                                (cond
+                                  (vector? converted) converted
+                                  (sequential? converted) (vec converted)
+                                  (nil? converted) []
+                                  :else [(str converted)])))
+        clear-marker? (fn [value]
+                        (or (= value "__clear__")
+                            (= value {"__clear__" true})))
+        label-id "style-filter-label"
+        select-id "style-filter-select"]
     [grid {:item true :xs 12 :md 2}
      [form-control
       {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
-      [input-label "Style"]
+      [input-label {:id label-id :shrink true} "Style"]
       [select
-       {:value (or (:style filters) "")
+       {:multiple true
+        :displayEmpty true
+        :labelId label-id
+        :id select-id
+        :value (clj->js selected-styles)
         :label "Style"
+        :renderValue
+        (fn [selected]
+          (let [values (normalize-selection selected)
+                cleaned (->> values (remove clear-marker?) (into []))]
+            (if (seq cleaned) (str/join ", " cleaned) "All Styles")))
         :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
-        :onChange #(swap! app-state assoc-in
-                     [:filters :style]
-                     (let [v (.. % -target -value)] (when-not (empty? v) v)))}
-       [menu-item {:value ""} "All Styles"]
+        :onChange
+        (fn [event]
+          (let [raw (.. event -target -value)
+                values (normalize-selection raw)
+                cleaned (if (some clear-marker? values)
+                          []
+                          (->> values (remove clear-marker?) (into [])))]
+            (swap! app-state assoc-in [:filters :styles]
+                   (if (seq cleaned) cleaned []))))}
+       [menu-item {:value "__clear__"}
+        [typography {:variant "body2" :sx {:fontStyle "italic"}}
+         "All Styles"]]
        (for [style common/wine-styles]
-         ^{:key style} [menu-item {:value style} style])]]]))
+         ^{:key style}
+         [menu-item {:value style}
+          [checkbox {:checked (contains? selected-set style)
+                     :size "small"
+                     :sx {:mr 1}}]
+          [list-item-text {:primary style}]])]]]))
 
 (defn variety-filter
   [app-state]
-  (let [filters (:filters @app-state)]
+  (let [filters (:filters @app-state)
+        selected-varieties (let [raw (:varieties filters)
+                                  legacy (:variety filters)]
+                              (cond
+                                (sequential? raw) (vec raw)
+                                (some? legacy) [(str legacy)]
+                                :else []))
+        selected-set (set selected-varieties)
+        normalize-selection (fn [value]
+                              (let [converted (cond
+                                                (js/Array.isArray value) (js->clj value)
+                                                (sequential? value) value
+                                                (nil? value) []
+                                                :else value)]
+                                (cond
+                                  (vector? converted) converted
+                                  (sequential? converted) (vec converted)
+                                  (nil? converted) []
+                                  :else [(str converted)])))
+        clear-marker? (fn [value]
+                        (or (= value "__clear__")
+                            (= value {"__clear__" true})))
+        label-id "variety-filter-label"
+        select-id "variety-filter-select"
+        varieties (sort (unique-varieties (:wines @app-state)))]
     [grid {:item true :xs 12 :md 2}
      [form-control
       {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
-      [input-label "Variety"]
+      [input-label {:id label-id :shrink true} "Variety"]
       [select
-       {:value (or (:variety filters) "")
+       {:multiple true
+        :displayEmpty true
+        :labelId label-id
+        :id select-id
+        :value (clj->js selected-varieties)
         :label "Variety"
+        :renderValue
+        (fn [selected]
+          (let [values (normalize-selection selected)
+                cleaned (->> values (remove clear-marker?) (into []))]
+            (if (seq cleaned) (str/join ", " cleaned) "All Varieties")))
         :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
-        :onChange #(swap! app-state assoc-in
-                     [:filters :variety]
-                     (let [v (.. % -target -value)] (when-not (empty? v) v)))}
-       [menu-item {:value ""} "All Varieties"]
-       (for [variety (unique-varieties (:wines @app-state))]
-         ^{:key variety} [menu-item {:value variety} variety])]]]))
+        :onChange
+        (fn [event]
+          (let [raw (.. event -target -value)
+                values (normalize-selection raw)
+                cleaned (if (some clear-marker? values)
+                          []
+                          (->> values (remove clear-marker?) (into [])))]
+            (swap! app-state
+                   (fn [state]
+                     (-> state
+                         (assoc-in [:filters :varieties] (if (seq cleaned) cleaned []))
+                         (assoc-in [:filters :variety] nil))))))}
+       [menu-item {:value "__clear__"}
+        [typography {:variant "body2" :sx {:fontStyle "italic"}}
+         "All Varieties"]]
+       (for [variety varieties]
+         ^{:key variety}
+         [menu-item {:value variety}
+          [checkbox {:checked (contains? selected-set variety)
+                     :size "small"
+                     :sx {:mr 1}}]
+          [list-item-text {:primary variety}]])]]]))
 
 (defn price-range-filter
   [app-state]
@@ -241,7 +337,9 @@
                   {:search ""
                    :country nil
                    :region nil
+                   :styles []
                    :style nil
+                   :varieties []
                    :variety nil
                    :price-range nil
                    :tasting-window nil
