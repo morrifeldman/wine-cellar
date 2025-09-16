@@ -1,5 +1,6 @@
 (ns wine-cellar.views.wines.varieties
-  (:require [reagent.core :as r]
+  (:require [clojure.string :as str]
+            [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.dialog :refer [dialog]]
@@ -71,26 +72,48 @@
         available-varieties (get-available-varieties variety-data)]
     (if editing-id
       [typography {:variant "h6"} (:variety_name variety)]
-      [select-field
-       {:label "Grape Variety"
-        :required true
-        :free-solo true
-        :value (or (get-in @app-state [:new-wine-variety :variety_name])
-                   (when-let [gv (first (filter #(= (:id %)
-                                                    (:variety_id variety))
-                                                grape-varieties))]
-                     (clj->js (grape-variety->option gv))))
-        :options (clj->js (mapv grape-variety->option available-varieties))
-        :on-change
-        (fn [value]
-          (if (string? value)
-            ;; Handle free-solo text input - store the name directly
-            (swap! app-state assoc-in [:new-wine-variety :variety_name] value)
-            ;; Handle selection from dropdown - store the ID
-            (swap! app-state assoc-in
-              [:new-wine-variety :variety_id]
-              (when value (.-id value)))))
-        :helper-text "Select an existing variety or type a new one"}])))
+      (letfn [(update-new-variety!
+                [f]
+                (swap! app-state update :new-wine-variety (fnil f {})))
+              (set-free-solo-name!
+                [text]
+                (update-new-variety!
+                  (fn [variety]
+                    (let [trimmed (str/trim (or text ""))]
+                      (-> variety
+                          (dissoc :variety_id)
+                          ((if (str/blank? trimmed)
+                               #(dissoc % :variety_name)
+                               #(assoc % :variety_name trimmed))))))))]
+        (let [selected-option (when-let [gv (first (filter #(= (:id %)
+                                                                 (:variety_id variety))
+                                                             grape-varieties))]
+                                (clj->js (grape-variety->option gv)))]
+          [select-field
+           {:label "Grape Variety"
+            :required true
+            :free-solo true
+            :value (or (get-in @app-state [:new-wine-variety :variety_name])
+                       selected-option)
+            :input-value (get-in @app-state [:new-wine-variety :variety_name])
+            :options (clj->js (mapv grape-variety->option available-varieties))
+            :on-input-change
+            (fn [value reason]
+              (case reason
+                "input" (set-free-solo-name! value)
+                "clear" (update-new-variety!
+                          #(-> % (dissoc :variety_name) (dissoc :variety_id)))
+                nil))
+            :on-change
+            (fn [value]
+              (if (string? value)
+                (set-free-solo-name! value)
+                (update-new-variety!
+                  (fn [variety]
+                    (-> variety
+                        (assoc :variety_id (when value (.-id value)))
+                        (dissoc :variety_name))))))
+            :helper-text "Select an existing variety or type a new one"}])))))
 
 (defn percentage-field
   [app-state {:keys [editing-id variety]}]
