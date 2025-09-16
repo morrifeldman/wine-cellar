@@ -59,6 +59,10 @@ A self-hosted wine collection management application built with Clojure and Cloj
 
 5. **Open** http://localhost:8080 (frontend) or http://localhost:3000 (backend API)
 
+## Contributor Guide
+
+Review the repository-specific expectations in [Repository Guidelines](AGENTS.md) before opening a PR.
+
 ## Tech Stack
 - **Backend**: Clojure, Ring, Reitit, HoneySQL, PostgreSQL
 - **Frontend**: ClojureScript, Reagent (React), Material-UI  
