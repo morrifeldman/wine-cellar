@@ -109,6 +109,7 @@
                                              :show-variety-form?
                                              true)} "Add Variety"])}] [divider]
       [card-content
+       (when (:show-variety-form? @app-state) [grape-variety-form app-state])
        (if (empty? varieties)
          [typography {:variant "body1" :sx {:p 2}}
           "No grape varieties found. Add some to get started."]
@@ -134,7 +135,6 @@
                                             (:id variety))} [delete]]])}
              [list-item-button
               [list-item-text {:primary (:name variety)}]]])])]]
-     (when (:show-variety-form? @app-state) [grape-variety-form app-state])
      [delete-confirmation-dialog app-state]]))
 
 (defn grape-varieties-page
