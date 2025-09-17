@@ -1,5 +1,6 @@
 (ns wine-cellar.views.tasting-notes.list
-  (:require [reagent-mui.material.box :refer [box]]
+  (:require [clojure.string :as str]
+            [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.grid :refer [grid]]
@@ -16,6 +17,42 @@
   (cond (>= rating 90) "rating.high"
         (>= rating 80) "rating.medium"
         :else "rating.low"))
+
+(defn- normalize-characteristics
+  "Flatten and clean a WSET characteristics section (primary/secondary/tertiary)."
+  [section]
+  (->> (or section {})
+       vals
+       flatten
+       (map #(if (string? %)
+               (let [trimmed (str/trim %)]
+                 (when (not (str/blank? trimmed))
+                   trimmed))
+               %))
+       (remove nil?)))
+
+(defn- sensory-characteristics-group
+  [items label]
+  (when (seq items)
+    [box {:sx {:mb 1}}
+     [typography {:variant "body2" :sx {:fontWeight "bold" :mb 0.5}}
+      (str label ":")]
+     [grid {:container true :spacing 0.5}
+      (for [value items]
+        ^{:key (str label "-" value)}
+        [grid {:item true}
+         [chip {:label value :size "small" :variant "outlined"}]])]]))
+
+(defn- sensory-characteristics-display
+  [{:keys [data primary-label secondary-label tertiary-label]}]
+  (let [primary-items (normalize-characteristics (:primary data))
+        secondary-items (normalize-characteristics (:secondary data))
+        tertiary-items (normalize-characteristics (:tertiary data))]
+    (when (some seq [primary-items secondary-items tertiary-items])
+      [box {:sx {:mt 1}}
+       [sensory-characteristics-group primary-items primary-label]
+       [sensory-characteristics-group secondary-items secondary-label]
+       [sensory-characteristics-group tertiary-items tertiary-label]])))
 
 (defn- wset-display
   "Simple display of WSET structured data"
@@ -58,40 +95,12 @@
          (when (:development nose)
            [grid {:item true}
             [chip {:label (:development nose) :size "small"}]])]
-        (when (seq (:aroma-characteristics nose))
-          (let [aroma-data (:aroma-characteristics nose)
-                primary-aromas (flatten (vals (:primary aroma-data)))
-                secondary-aromas (flatten (vals (:secondary aroma-data)))
-                tertiary-aromas (flatten (vals (:tertiary aroma-data)))]
-            [box {:sx {:mt 1}}
-             (when (seq primary-aromas)
-               [box {:sx {:mb 1}}
-                [typography {:variant "body2" :sx {:fontWeight "bold" :mb 0.5}}
-                 "Primary Aromas:"]
-                [grid {:container true :spacing 0.5}
-                 (for [aroma primary-aromas]
-                   ^{:key (str "primary-" aroma)}
-                   [grid {:item true}
-                    [chip {:label aroma :size "small" :variant "outlined"}]])]])
-             (when (seq secondary-aromas)
-               [box {:sx {:mb 1}}
-                [typography {:variant "body2" :sx {:fontWeight "bold" :mb 0.5}}
-                 "Secondary Aromas:"]
-                [grid {:container true :spacing 0.5}
-                 (for [aroma secondary-aromas]
-                   ^{:key (str "secondary-" aroma)}
-                   [grid {:item true}
-                    [chip {:label aroma :size "small" :variant "outlined"}]])]])
-             (when (seq tertiary-aromas)
-               [box {:sx {:mb 1}}
-                [typography {:variant "body2" :sx {:fontWeight "bold" :mb 0.5}}
-                 "Tertiary Aromas:"]
-                [grid {:container true :spacing 0.5}
-                 (for [aroma tertiary-aromas]
-                   ^{:key (str "tertiary-" aroma)}
-                   [grid {:item true}
-                    [chip
-                     {:label aroma :size "small" :variant "outlined"}]])]])]))
+        (when-let [aroma-data (:aroma-characteristics nose)]
+          [sensory-characteristics-display
+           {:data aroma-data
+            :primary-label "Primary Aromas"
+            :secondary-label "Secondary Aromas"
+            :tertiary-label "Tertiary Aromas"}])
         (when (:other_observations nose)
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
            (:other_observations nose)])])
@@ -117,13 +126,20 @@
          (when (:body palate)
            [grid {:item true}
             [chip {:label (str "Body: " (:body palate)) :size "small"}]])
-         (when (:intensity palate)
+         (when (:flavor-intensity palate)
            [grid {:item true}
             [chip
-             {:label (str "Intensity: " (:intensity palate)) :size "small"}]])
+             {:label (str "Flavor Intensity: " (:flavor-intensity palate))
+              :size "small"}]])
          (when (:finish palate)
            [grid {:item true}
             [chip {:label (str "Finish: " (:finish palate)) :size "small"}]])]
+        (when-let [flavor-data (:flavor-characteristics palate)]
+          [sensory-characteristics-display
+           {:data flavor-data
+            :primary-label "Primary Flavors"
+            :secondary-label "Secondary Flavors"
+            :tertiary-label "Tertiary Flavors"}])
         (when (:other_observations palate)
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
            (:other_observations palate)])])

@@ -35,7 +35,10 @@
            {:extra-deps {zprint/zprint {:mvn/version "1.2.9"}}
             :extra-paths ["scripts"]
             :main-opts ["-m" "format-zprint"]}
-          :dev-all
+           :clj-kondo
+           {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.07.28"}}
+            :main-opts ["-m" "clj-kondo.main"]}
+           :dev-all
            ;; Start both backend and frontend
            ;; clj -M:dev-all
            {:extra-paths ["scripts"]
