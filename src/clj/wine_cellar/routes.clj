@@ -62,6 +62,14 @@
 (s/def ::wine-ids (s/coll-of int?))
 (s/def ::conversation-history vector?)
 (s/def ::image (s/nilable string?))
+(s/def ::title (s/nilable string?))
+(s/def ::wine_search_state (s/nilable map?))
+(s/def ::auto_tags (s/nilable (s/coll-of string?)))
+(s/def ::conversation-create
+  (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags]))
+(s/def ::conversation-message
+  (s/keys :req-un [::is_user ::content]
+          :opt-un [::image ::tokens_used]))
 (s/def ::tasting-source string?)
 (s/def ::tasting-sources (s/coll-of ::tasting-source))
 
@@ -156,13 +164,32 @@
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
    ;; Grape Varieties Routes
-   ["/chat"
+  ["/chat"
     {:post {:summary "Chat with AI about your wine collection"
             :parameters {:body (s/keys :opt-un
                                        [::message ::wine-ids
                                         ::conversation-history ::image])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
+   ["/conversations"
+   {:get {:summary "List AI conversations for the authenticated user"
+          :responses {200 {:body vector?} 500 {:body map?}}
+          :handler handlers/list-conversations}
+     :post {:summary "Create a new AI conversation"
+            :parameters {:body ::conversation-create}
+            :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
+            :handler handlers/create-conversation}}]
+   ["/conversations/:id/messages"
+    {:parameters {:path {:id int?}}
+     :get {:summary "List messages for a conversation"
+           :responses {200 {:body vector?} 403 {:body map?} 404 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/list-conversation-messages}
+     :post {:summary "Append a new message to a conversation"
+            :parameters {:body ::conversation-message}
+            :responses {201 {:body map?} 403 {:body map?} 404 {:body map?}
+                        500 {:body map?}}
+            :handler handlers/append-conversation-message}}]
    ["/tasting-note-sources"
     {:get {:summary "Get unique tasting note sources for suggestions"
            :responses {200 {:body ::tasting-sources} 500 {:body map?}}

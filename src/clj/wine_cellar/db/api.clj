@@ -8,7 +8,25 @@
            [java.util Base64]))
 
 ;; Helper functions for SQL generation
-(defn ->pg-array [coll] {:raw (str "'{" (str/join "," coll) "}'")})
+(defn ->pg-array
+  "Convert a Clojure collection into a PostgreSQL array literal string.
+  Returns nil when collection itself is nil. Empty collections become '{}'."
+  [coll]
+  (when coll
+    (let [format-item (fn [item]
+                        (cond
+                          (string? item)
+                          (str "\""
+                               (-> item
+                                   (str/replace "\\" "\\\\")
+                                   (str/replace "\"" "\\\""))
+                               "\"")
+                          (keyword? item) (recur (name item))
+                          :else (str item)))
+          items (map format-item (remove nil? coll))]
+      {:raw (str "'{"
+                 (str/join "," items)
+                 "}'")})))
 
 (defn sql-cast [sql-type field] [:cast field sql-type])
 
@@ -51,6 +69,25 @@
     wset_data (update :wset_data
                       #(sql-cast :jsonb (json/write-value-as-string %)))))
 
+(defn conversation->db-conversation
+  [{:keys [wine_ids auto_tags wine_search_state] :as conversation}]
+  (cond-> conversation
+    wine_ids (update :wine_ids #(->pg-array %))
+    auto_tags (update :auto_tags #(->pg-array %))
+    wine_search_state
+    (update :wine_search_state
+            #(sql-cast :jsonb (json/write-value-as-string %)))))
+
+(defn conversation-message->db-message
+  [{:keys [image_data] :as message}]
+  (cond-> message
+    image_data (update :image_data base64->bytes)))
+
+(defn db-conversation-message->message
+  [{:keys [image_data] :as message}]
+  (cond-> message
+    image_data (update :image_data bytes->base64)))
+
 (defn db-wine->wine
   [{:keys [label_image label_thumbnail back_label_image] :as db-wine}]
   (cond-> db-wine
@@ -71,7 +108,77 @@
                       (sql/format {:insert-into :wines
                                    :values [(wine->db-wine wine)]
                                    :returning :*})
-                      db-opts)))
+                     db-opts)))
+
+(defn create-conversation!
+  "Create a new AI conversation row." 
+  ([conversation]
+   (create-conversation! ds conversation))
+  ([tx-or-ds {:keys [user_email] :as conversation}]
+   (assert user_email "user_email is required to create a conversation")
+   (let [db-row (-> conversation
+                    (dissoc :user_email)
+                    (conversation->db-conversation)
+                    (assoc :user_email user_email))]
+     (jdbc/execute-one!
+      tx-or-ds
+      (sql/format {:insert-into :ai_conversations
+                   :values [db-row]
+                   :returning :*})
+      db-opts))))
+
+(defn list-conversations-for-user
+  "Return conversations for the given user ordered by recent activity."
+  [user-email]
+  (jdbc/execute! ds
+                 (sql/format {:select :*
+                              :from :ai_conversations
+                              :where [:= :user_email user-email]
+                              :order-by [[:last_message_at :desc]
+                                         [:created_at :desc]]})
+                 db-opts))
+
+(defn get-conversation
+  [conversation-id]
+  (jdbc/execute-one!
+   ds
+   (sql/format {:select :*
+                :from :ai_conversations
+                :where [:= :id conversation-id]})
+   db-opts))
+
+(defn append-conversation-message!
+  "Insert a message and update parent metadata atomically."
+  [{:keys [conversation_id tokens_used] :as message}]
+  (jdbc/with-transaction
+    [tx ds]
+    (let [inserted (jdbc/execute-one!
+                    tx
+                    (sql/format {:insert-into :ai_conversation_messages
+                                 :values [(conversation-message->db-message message)]
+                                 :returning :*})
+                    db-opts)
+          token-inc (or tokens_used 0)]
+      (jdbc/execute-one!
+       tx
+       (sql/format {:update :ai_conversations
+                    :set {:last_message_at [:now]
+                          :updated_at [:now]
+                          :total_tokens_used [:+ :total_tokens_used token-inc]}
+                    :where [:= :id conversation_id]
+                    :returning :*})
+       db-opts)
+      (db-conversation-message->message inserted))))
+
+(defn list-messages-for-conversation
+  [conversation-id]
+  (jdbc/execute!
+   ds
+   (sql/format {:select :*
+                :from :ai_conversation_messages
+                :where [:= :conversation_id conversation-id]
+                :order-by [[:created_at :asc] [:id :asc]]})
+   db-opts))
 
 (defn wine-exists?
   [id]

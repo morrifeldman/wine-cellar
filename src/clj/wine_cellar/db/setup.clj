@@ -40,7 +40,7 @@
   [tx sql-map]
   (let [sql (sql/format sql-map)]
     (println "Compiled SQL:" sql)
-    (println "DB Response:" (jdbc/execute-one! tx sql db-opts))))
+   (println "DB Response:" (jdbc/execute-one! tx sql db-opts))))
 
 (defn- ensure-tables
   ([] (jdbc/with-transaction [tx ds] (ensure-tables tx)))
@@ -50,6 +50,8 @@
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/tasting-notes-table-schema)
+   (sql-execute-helper tx schema/ai-conversations-table-schema)
+   (sql-execute-helper tx schema/ai-conversation-messages-table-schema)
    (sql-execute-helper tx schema/grape-varieties-table-schema)
    (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
@@ -68,6 +70,12 @@
   ([] (jdbc/with-transaction [tx ds] (drop-tables tx)))
   ([tx]
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
+   (sql-execute-helper tx
+                       {:raw
+                        ["DROP TABLE IF EXISTS ai_conversation_messages CASCADE"]})
+   (sql-execute-helper tx
+                       {:raw
+                        ["DROP TABLE IF EXISTS ai_conversations CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS tasting_notes CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS wines CASCADE"]})
    (sql-execute-helper tx

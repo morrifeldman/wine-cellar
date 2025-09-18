@@ -68,6 +68,37 @@
                    [:nest :id] :on-delete :cascade]]})
 #_(sql/format tasting-notes-table-schema)
 
+(def ai-conversations-table-schema
+  {:create-table [:ai_conversations :if-not-exists]
+   :with-columns [[:id :integer :generated :by-default :as :identity
+                   :primary-key]
+                  [:user_email :varchar [:not nil]]
+                  [:title :varchar]
+                  [:wine_ids :integer :array]
+                  [:wine_search_state :jsonb]
+                  [:auto_tags :varchar :array]
+                  [:total_tokens_used :integer [:default 0]]
+                  [:created_at :timestamp [:default [:now]]]
+                  [:updated_at :timestamp [:default [:now]]]
+                  [:last_message_at :timestamp [:default [:now]]]]})
+#_(sql/format ai-conversations-table-schema)
+
+(def ai-conversation-messages-table-schema
+  {:create-table [:ai_conversation_messages :if-not-exists]
+   :with-columns [[:id :integer :generated :by-default :as :identity
+                   :primary-key]
+                  [:conversation_id :integer [:not nil]]
+                  [:is_user :boolean [:not nil]]
+                  [:content :text [:not nil]]
+                  [:image_data :bytea]
+                  [:tokens_used :integer]
+                  [:created_at :timestamp [:default [:now]]]
+                  [[:foreign-key :conversation_id]
+                   :references [:ai_conversations :id]
+                   :on-delete :cascade]]})
+#_(sql/format ai-conversation-messages-table-schema)
+
+
 ;; View schemas
 (def enriched-wines-view-schema
   {:create-or-replace-view [:enriched-wines]
@@ -129,4 +160,3 @@
                      [:and [:>= :percentage 0] [:<= :percentage 100]]]]]
                   [:created_at :timestamp [:default [:now]]]]})
 #_(sql/format wine-grape-varieties-table-schema)
-

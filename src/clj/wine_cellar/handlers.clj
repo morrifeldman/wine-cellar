@@ -362,6 +362,84 @@
                    :response (:response data)}}))
        (catch Exception e (server-error e))))
 
+;; Conversation persistence handlers
+
+(defn- ensure-user-email
+  [request]
+  (if-let [email (get-in request [:user :email])]
+    email
+    (throw (ex-info "Authenticated user email required" {:status 401}))))
+
+(defn list-conversations
+  [request]
+  (try (let [email (ensure-user-email request)]
+         (response/response (db-api/list-conversations-for-user email)))
+       (catch Exception e
+         (if-let [status (:status (ex-data e))]
+           {:status status :body {:error (.getMessage e)}}
+           (server-error e)))))
+
+(defn create-conversation
+  [request]
+  (try (let [email (ensure-user-email request)
+             {:keys [title wine_ids wine_search_state auto_tags]}
+             (:body-params request)
+             payload {:user_email email
+                      :title title
+                      :wine_ids wine_ids
+                      :wine_search_state wine_search_state
+                      :auto_tags auto_tags}
+             conversation (db-api/create-conversation! payload)]
+         (-> (response/response conversation)
+             (response/status 201)))
+       (catch Exception e
+         (if-let [status (:status (ex-data e))]
+           {:status status :body {:error (.getMessage e)}}
+           (server-error e)))))
+
+(defn list-conversation-messages
+  [request]
+  (try (let [email (ensure-user-email request)
+             conversation-id (some-> request :path-params :id parse-long)
+             conversation (db-api/get-conversation conversation-id)]
+         (cond
+           (nil? conversation)
+           (response/not-found {:error "Conversation not found"})
+           (not= email (:user_email conversation))
+           {:status 403 :body {:error "Forbidden"}}
+           :else
+           (response/response (db-api/list-messages-for-conversation conversation-id))))
+       (catch Exception e
+         (if-let [status (:status (ex-data e))]
+           {:status status :body {:error (.getMessage e)}}
+           (server-error e)))))
+
+(defn append-conversation-message
+  [request]
+  (try (let [email (ensure-user-email request)
+             conversation-id (some-> request :path-params :id parse-long)
+             conversation (db-api/get-conversation conversation-id)]
+         (cond
+           (nil? conversation)
+           (response/not-found {:error "Conversation not found"})
+           (not= email (:user_email conversation))
+           {:status 403 :body {:error "Forbidden"}}
+           :else
+           (let [{:keys [is_user content image_data tokens_used] :as body}
+                 (:body-params request)
+                 message {:conversation_id conversation-id
+                          :is_user (boolean is_user)
+                          :content content
+                          :image_data image_data
+                          :tokens_used tokens_used}
+                 inserted (db-api/append-conversation-message! message)]
+             (-> (response/response inserted)
+                 (response/status 201)))))
+       (catch Exception e
+         (if-let [status (:status (ex-data e))]
+           {:status status :body {:error (.getMessage e)}}
+           (server-error e)))))
+
 ;; Admin Handlers
 
 (defn reset-database
