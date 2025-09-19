@@ -11,7 +11,9 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.chat :refer [chat]]
+            [reagent-mui.material.menu-item :refer [menu-item]]
+            [reagent-mui.material.select :refer [select]]
+           [reagent-mui.icons.chat :refer [chat]]
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
             [reagent-mui.icons.edit :refer [edit]]
@@ -60,6 +62,19 @@
 
 (declare persist-conversation-message!)
 
+(defn- open-conversation!
+  ([app-state messages conversation]
+   (open-conversation! app-state messages conversation true))
+  ([app-state messages {:keys [id] :as conversation} close-sidebar?]
+   (when id
+     (when close-sidebar?
+       (swap! app-state assoc-in [:chat :sidebar-open?] false))
+     (swap! app-state assoc-in [:chat :active-conversation-id] id)
+     (swap! app-state assoc-in [:chat :active-conversation] conversation)
+     (reset! messages [])
+     (swap! app-state assoc-in [:chat :messages] [])
+     (api/fetch-conversation-messages! app-state id))))
+
 (defn- ensure-conversation!
   "Ensure an active conversation exists before persisting messages."
   [app-state wines callback]
@@ -102,6 +117,13 @@
            (when after-save (after-save conversation-id))
            (tap> ["conversation-message-persist-failed" error]))))))))
 
+(defn- conversation-label
+  [{:keys [title id last_message_at]}]
+  (or title
+      (when last_message_at (.toLocaleString (js/Date. last_message_at)))
+      (when id (str "Conversation " id))
+      "Conversation"))
+
 (defn- conversation-sidebar
   [app-state messages {:keys [open? conversations loading? active-id]}]
   (when open?
@@ -112,16 +134,10 @@
             :else
             [:items
              (into []
-                   (map (fn [{:keys [id title last_message_at]}]
+                   (map (fn [{:keys [id title last_message_at] :as conversation}]
                           ^{:key id}
                           [box
-                           {:on-click #(do (swap! app-state assoc-in [:chat :sidebar-open?] false)
-                                           (swap! app-state assoc-in [:chat :active-conversation-id] id)
-                                           (swap! app-state assoc-in [:chat :active-conversation]
-                                                  {:id id :title title :last_message_at last_message_at})
-                                           (reset! messages [])
-                                           (swap! app-state assoc-in [:chat :messages] [])
-                                           (api/fetch-conversation-messages! app-state id))
+                           {:on-click #(open-conversation! app-state messages conversation true)
                             :sx {:px 2 :py 1.5 :cursor "pointer"
                                  :background-color (if (= id active-id)
                                                      "action.hover"
@@ -130,11 +146,7 @@
                                  :border-color "divider"}}
                            [typography {:variant "body2"
                                         :sx {:fontWeight (if (= id active-id) "600" "500")}}
-                            (or title (str "Conversation " id))]
-                           (when last_message_at
-                             [typography {:variant "caption"
-                                          :sx {:color "text.secondary"}}
-                              (.toLocaleString (js/Date. last_message_at))])])
+                            (conversation-label conversation)]])
                         conversations))])]
       (let [content
             (cond
@@ -584,7 +596,29 @@
              :on-click #(swap! app-state update-in [:chat :sidebar-open?] not)
              :sx {:textTransform "none"}}
             (if sidebar-open? "Hide Conversations" "Show Conversations")]
-           [icon-button
+            (when (seq conversations)
+              (let [value (if active-id (str active-id) "")
+                    render-label (fn [val]
+                                   (if (seq val)
+                                     (conversation-label (first (filter #(= (str (:id %)) val) conversations)))
+                                     "Select conversation"))]
+                [select
+                 {:size "small"
+                  :displayEmpty true
+                  :value value
+                  :renderValue render-label
+                  :on-change (fn [event]
+                               (let [selected (.. event -target -value)]
+                                 (when (seq selected)
+                                   (when-let [conv (first (filter #(= (str (:id %)) selected) conversations))]
+                                     (open-conversation! app-state messages conv false)))))
+                  :sx {:min-width "12rem"}}
+                 [menu-item {:value "" :disabled true} "Select conversation"]
+                 (for [{:keys [id] :as conv} conversations]
+                   ^{:key id}
+                   [menu-item {:value (str id)}
+                    (conversation-label conv)])]))
+            [icon-button
              {:on-click #(do (reset! messages [])
                              (swap! app-state assoc-in [:chat :messages] [])
                              (swap! app-state assoc-in [:chat :active-conversation-id] nil)
