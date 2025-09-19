@@ -65,10 +65,11 @@
 (s/def ::title (s/nilable string?))
 (s/def ::wine_search_state (s/nilable map?))
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
+(s/def ::pinned boolean?)
 (s/def ::conversation-create
-  (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags]))
+  (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
 (s/def ::conversation-update
-  (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags]))
+  (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
 (s/def ::conversation-message
   (s/keys :req-un [::is_user ::content]
           :opt-un [::image ::tokens_used]))

@@ -27,6 +27,7 @@
           :conversations-loaded? false
           :messages-loading? false
           :creating-conversation? false
+          :pinning-conversation-id nil
           :renaming-conversation-id nil
           :deleting-conversation-id nil
           :sidebar-open? false

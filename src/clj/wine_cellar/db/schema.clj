@@ -77,11 +77,17 @@
                   [:wine_ids :integer :array]
                   [:wine_search_state :jsonb]
                   [:auto_tags :varchar :array]
+                  [:pinned :boolean [:default false]]
                   [:total_tokens_used :integer [:default 0]]
                   [:created_at :timestamp [:default [:now]]]
                   [:updated_at :timestamp [:default [:now]]]
                   [:last_message_at :timestamp [:default [:now]]]]})
 #_(sql/format ai-conversations-table-schema)
+
+(def ai-conversations-add-pinned-column
+  {:raw
+   ["ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS pinned boolean DEFAULT false"]})
+
 
 (def ai-conversation-messages-table-schema
   {:create-table [:ai_conversation_messages :if-not-exists]

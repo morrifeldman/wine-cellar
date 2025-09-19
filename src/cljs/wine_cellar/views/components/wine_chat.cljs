@@ -18,6 +18,8 @@
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
             [reagent-mui.icons.edit :refer [edit]]
+            [reagent-mui.icons.star :refer [star]]
+            [reagent-mui.icons.star-border :refer [star-border]]
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.send :refer [send]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
@@ -127,7 +129,7 @@
       "Conversation"))
 
 (defn- conversation-sidebar
-  [app-state messages {:keys [open? conversations loading? active-id deleting-id renaming-id on-delete on-rename]}]
+  [app-state messages {:keys [open? conversations loading? active-id deleting-id renaming-id pinning-id on-delete on-rename on-pin]}]
   (when open?
     (let [[status items]
           (cond
@@ -136,10 +138,12 @@
             :else
             [:items
              (into []
-                   (map (fn [{:keys [id title last_message_at] :as conversation}]
+                   (map (fn [{:keys [id title last_message_at pinned] :as conversation}]
                           (let [active? (= id active-id)
                                 deleting? (= deleting-id id)
-                                renaming? (= renaming-id id)]
+                                renaming? (= renaming-id id)
+                                pinning? (= pinning-id id)
+                                pinned? (true? pinned)]
                             ^{:key id}
                             [box
                              {:on-click #(open-conversation! app-state
@@ -163,7 +167,19 @@
                                [box
                                 {:sx {:display "flex"
                                       :align-items "center"
-                                      :gap 0.5}}
+                                      :gap 0.25}}
+                                (when on-pin
+                                  [icon-button
+                                   {:size "small"
+                                    :on-click (fn [event]
+                                                (.stopPropagation event)
+                                                (on-pin conversation))
+                                    :disabled pinning?
+                                    :sx {:color (if pinned? "warning.main" "text.secondary")}}
+                                   (cond
+                                     pinning? [circular-progress {:size 16}]
+                                     pinned? [star {:fontSize "small"}]
+                                     :else [star-border {:fontSize "small"}])])
                                 (when on-rename
                                   [icon-button
                                    {:size "small"
@@ -584,7 +600,13 @@
                                          (when (and new-title
                                                     (not (string/blank? trimmed))
                                                     (not= trimmed title))
-                                           (api/update-conversation! app-state id {:title trimmed})))))]
+                                           (api/rename-conversation! app-state id trimmed)))))
+        handle-toggle-pin (fn [{:keys [id pinned]}]
+                             (when id
+                               (api/set-conversation-pinned!
+                                app-state
+                                id
+                                (not (true? pinned)))))]
     (fn [app-state]
       (let [chat-state (:chat @app-state)
             is-open (:open? chat-state false)
@@ -595,6 +617,7 @@
             active-id (:active-conversation-id chat-state)
             active-conversation (:active-conversation chat-state)
             deleting-id (:deleting-conversation-id chat-state)
+            pinning-id (:pinning-conversation-id chat-state)
             renaming-id (:renaming-conversation-id chat-state)
             conversation-messages (vec (or (:messages chat-state) []))
             sidebar (conversation-sidebar app-state
@@ -605,8 +628,10 @@
                                            :active-id active-id
                                            :deleting-id deleting-id
                                            :renaming-id renaming-id
+                                           :pinning-id pinning-id
                                            :on-delete handle-delete-conversation
-                                           :on-rename handle-rename-conversation})
+                                           :on-rename handle-rename-conversation
+                                           :on-pin handle-toggle-pin})
             main-column [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}
                          (when @show-camera?
                            [camera-capture handle-camera-capture handle-camera-cancel])
@@ -684,8 +709,19 @@
                     (conversation-label conv)])]))
             (when active-conversation
               (let [renaming-active? (= renaming-id (:id active-conversation))
-                    deleting-active? (= deleting-id (:id active-conversation))]
+                    deleting-active? (= deleting-id (:id active-conversation))
+                    pinning-active? (= pinning-id (:id active-conversation))
+                    pinned? (true? (:pinned active-conversation))]
                 [:<>
+                 [icon-button
+                  {:on-click #(handle-toggle-pin active-conversation)
+                   :title (if pinned? "Unpin conversation" "Pin conversation")
+                   :disabled (or pinning-active? conversation-loading?)
+                   :sx {:color (if pinned? "warning.main" "text.secondary")}}
+                  (cond
+                    pinning-active? [circular-progress {:size 18}]
+                    pinned? [star]
+                    :else [star-border])]
                  [icon-button
                   {:on-click #(handle-rename-conversation active-conversation)
                    :title "Rename conversation"

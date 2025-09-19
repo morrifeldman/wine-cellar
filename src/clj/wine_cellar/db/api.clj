@@ -134,7 +134,8 @@
                  (sql/format {:select :*
                               :from :ai_conversations
                               :where [:= :user_email user-email]
-                              :order-by [[:last_message_at :desc]
+                              :order-by [[:pinned :desc]
+                                         [:last_message_at :desc]
                                          [:created_at :desc]]})
                  db-opts))
 

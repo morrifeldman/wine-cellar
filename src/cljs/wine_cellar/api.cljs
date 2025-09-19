@@ -455,6 +455,38 @@
 
 ;; Chat endpoints
 
+(defn- conversation-sort-key
+  [{:keys [pinned last_message_at created_at]}]
+  [(if pinned 0 1)
+   (- (or (some-> last_message_at (js/Date.) .getTime)
+          (some-> created_at (js/Date.) .getTime)
+          0))
+   (- (or (some-> created_at (js/Date.) .getTime) 0))])
+
+(defn- sort-conversations
+  [conversations]
+  (->> conversations
+       (sort-by conversation-sort-key)
+       vec))
+
+(defn- upsert-conversation
+  [conversations conversation]
+  (let [without (remove #(= (:id %) (:id conversation)) conversations)]
+    (sort-conversations (cons conversation without))))
+
+(defn- apply-conversation-update!
+  [state conversation]
+  (let [chat (:chat state)
+        convs (or (:conversations chat) [])
+        updated (upsert-conversation convs conversation)
+        active? (= (:active-conversation-id chat) (:id conversation))
+        base (-> state
+                 (assoc-in [:chat :conversations] updated)
+                 (assoc-in [:chat :error] nil))]
+    (if active?
+      (assoc-in base [:chat :active-conversation] conversation)
+      base)))
+
 (defn load-conversations!
   "Fetch conversations for the authenticated user and store them in app state."
   ([app-state]
@@ -474,16 +506,17 @@
         (let [result (<! (GET "/api/conversations"
                                "Failed to load conversations"))]
           (if (:success result)
-            (let [conversations (vec (:data result))]
+            (let [conversations (vec (:data result))
+                  sorted (sort-conversations conversations)]
               (tap> ["conversations-loaded" (count conversations)])
               (swap! app-state
                      (fn [state]
                        (let [active-id (get-in state [:chat :active-conversation-id])
-                             active (some #(when (= (:id %) active-id) %) conversations)]
+                             active (some #(when (= (:id %) active-id) %) sorted)]
                          (-> state
                              (assoc-in [:chat :conversation-loading?] false)
                              (assoc-in [:chat :conversations-loaded?] true)
-                             (assoc-in [:chat :conversations] conversations)
+                             (assoc-in [:chat :conversations] sorted)
                              (assoc-in [:chat :active-conversation] active)
                              (assoc-in [:chat :error] nil))))))
             (do
@@ -508,57 +541,60 @@
           (tap> ["conversation-created" (:id conversation)])
           (swap! app-state
                  (fn [state]
-                   (let [existing (or (get-in state [:chat :conversations]) [])
-                         filtered (remove #(= (:id %) (:id conversation)) existing)]
-                     (-> state
-                         (assoc-in [:chat :conversations]
-                                   (vec (cons conversation filtered)))
-                         (assoc-in [:chat :active-conversation] conversation)
-                         (assoc-in [:chat :active-conversation-id] (:id conversation))
-                         (assoc-in [:chat :conversations-loaded?] true)
-                         (assoc-in [:chat :error] nil)))))
+                   (-> state
+                       (assoc-in [:chat :conversations]
+                                 (upsert-conversation (or (get-in state [:chat :conversations]) [])
+                                                      conversation))
+                       (assoc-in [:chat :active-conversation] conversation)
+                       (assoc-in [:chat :active-conversation-id] (:id conversation))
+                       (assoc-in [:chat :conversations-loaded?] true)
+                       (assoc-in [:chat :error] nil))))
           (when callback
             (callback {:success true :conversation conversation})))
         (do (tap> ["conversation-create-error" (:error result)])
             (swap! app-state assoc-in [:chat :error] (:error result))
-            (when callback
-              (callback {:success false :error (:error result)}))))))))
+             (when callback
+               (callback {:success false :error (:error result)}))))))))
 
-(defn update-conversation!
-  ([app-state conversation-id updates]
-   (update-conversation! app-state conversation-id updates nil))
-  ([app-state conversation-id updates callback]
+(defn rename-conversation!
+  ([app-state conversation-id title]
+   (rename-conversation! app-state conversation-id title nil))
+  ([app-state conversation-id title callback]
    (when conversation-id
      (swap! app-state assoc-in [:chat :renaming-conversation-id] conversation-id)
      (go
       (let [result (<! (PUT (str "/api/conversations/" conversation-id)
-                            updates
+                            {:title title}
                             "Failed to update conversation"))]
         (swap! app-state assoc-in [:chat :renaming-conversation-id] nil)
         (if (:success result)
           (let [conversation (:data result)]
-            (tap> ["conversation-updated" (:id conversation)])
-            (swap! app-state
-                   (fn [state]
-                     (let [chat (:chat state)
-                           convs (or (:conversations chat) [])
-                           updated (mapv #(if (= (:id %) (:id conversation))
-                                            conversation
-                                            %)
-                                         convs)
-                           active? (= (:active-conversation-id chat) (:id conversation))
-                           base (-> state
-                                    (assoc-in [:chat :conversations] updated)
-                                    (assoc-in [:chat :error] nil))]
-                       (if active?
-                         (assoc-in base [:chat :active-conversation] conversation)
-                         base))))
+            (tap> ["conversation-renamed" (:id conversation)])
+            (swap! app-state apply-conversation-update! conversation)
             (when callback
               (callback {:success true :conversation conversation})))
-          (do (tap> ["conversation-update-error" (:error result)])
+          (do (tap> ["conversation-rename-error" (:error result)])
               (swap! app-state assoc-in [:chat :error] (:error result))
               (when callback
                 (callback {:success false :error (:error result)})))))))))
+
+(defn set-conversation-pinned!
+  [app-state conversation-id pinned?]
+  (when conversation-id
+    (swap! app-state assoc-in [:chat :pinning-conversation-id] conversation-id)
+    (go
+     (let [result (<! (PUT (str "/api/conversations/" conversation-id)
+                           {:pinned pinned?}
+                           "Failed to update conversation"))]
+       (swap! app-state assoc-in [:chat :pinning-conversation-id] nil)
+       (if (:success result)
+         (let [conversation (:data result)]
+           (tap> ["conversation-pinned" {:id (:id conversation)
+                                          :pinned (:pinned conversation)}])
+           (swap! app-state apply-conversation-update! conversation)
+           (load-conversations! app-state {:force? true}))
+         (do (tap> ["conversation-pin-error" (:error result)])
+             (swap! app-state assoc-in [:chat :error] (:error result))))))))
 
 (defn delete-conversation!
   [app-state conversation-id]
@@ -574,11 +610,11 @@
                   (fn [state]
                     (let [chat (:chat state)
                           filtered (->> (:conversations chat)
-                                        (remove #(= (:id %) conversation-id))
-                                        vec)
+                                        (remove #(= (:id %) conversation-id)))
+                          sorted (sort-conversations filtered)
                           active? (= (:active-conversation-id chat) conversation-id)
                           base-state (-> state
-                                         (assoc-in [:chat :conversations] filtered)
+                                         (assoc-in [:chat :conversations] sorted)
                                          (assoc-in [:chat :conversations-loaded?] false)
                                          (assoc-in [:chat :error] nil))]
                       (if active?
