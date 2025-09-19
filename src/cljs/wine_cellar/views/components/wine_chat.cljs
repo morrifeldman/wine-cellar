@@ -13,10 +13,11 @@
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.menu-item :refer [menu-item]]
             [reagent-mui.material.select :refer [select]]
-           [reagent-mui.icons.chat :refer [chat]]
+            [reagent-mui.icons.chat :refer [chat]]
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
             [reagent-mui.icons.edit :refer [edit]]
+            [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.send :refer [send]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
@@ -125,7 +126,7 @@
       "Conversation"))
 
 (defn- conversation-sidebar
-  [app-state messages {:keys [open? conversations loading? active-id]}]
+  [app-state messages {:keys [open? conversations loading? active-id deleting-id on-delete]}]
   (when open?
     (let [[status items]
           (cond
@@ -135,18 +136,39 @@
             [:items
              (into []
                    (map (fn [{:keys [id title last_message_at] :as conversation}]
-                          ^{:key id}
-                          [box
-                           {:on-click #(open-conversation! app-state messages conversation true)
-                            :sx {:px 2 :py 1.5 :cursor "pointer"
-                                 :background-color (if (= id active-id)
-                                                     "action.hover"
-                                                     "transparent")
-                                 :border-bottom "1px solid"
-                                 :border-color "divider"}}
-                           [typography {:variant "body2"
-                                        :sx {:fontWeight (if (= id active-id) "600" "500")}}
-                            (conversation-label conversation)]])
+                          (let [active? (= id active-id)
+                                deleting? (= deleting-id id)]
+                            ^{:key id}
+                            [box
+                             {:on-click #(open-conversation! app-state
+                                                            messages
+                                                            conversation
+                                                            true)
+                              :sx {:px 2 :py 1.5 :cursor "pointer"
+                                   :background-color (if active?
+                                                       "action.hover"
+                                                       "transparent")
+                                   :border-bottom "1px solid"
+                                   :border-color "divider"}}
+                             [box
+                              {:sx {:display "flex"
+                                    :align-items "center"
+                                    :justify-content "space-between"
+                                    :gap 1}}
+                              [typography {:variant "body2"
+                                           :sx {:fontWeight (if active? "600" "500")}}
+                               (conversation-label conversation)]
+                              (when on-delete
+                                [icon-button
+                                 {:size "small"
+                                  :on-click (fn [event]
+                                              (.stopPropagation event)
+                                              (on-delete conversation))
+                                  :disabled deleting?
+                                  :sx {:ml 1 :color "text.secondary"}}
+                                 (if deleting?
+                                   [circular-progress {:size 16}]
+                                   [delete])])]]))
                         conversations))])]
       (let [content
             (cond
@@ -422,12 +444,12 @@
                            :timestamp (.getTime (js/Date.))}]
            (swap! messages conj ai-message)
            (swap! app-state assoc-in [:chat :messages] @messages)
-           (persist-conversation-message!
-            app-state
-            wines
-            {:is_user false :content response}
-            (fn [_]
-              (api/load-conversations! app-state)))
+            (persist-conversation-message!
+             app-state
+             wines
+             {:is_user false :content response}
+             (fn [_]
+              (api/load-conversations! app-state {:force? true})))
            (reset! is-sending? false)))))))
 
 (defn- use-edit-state
@@ -493,7 +515,7 @@
                   wines
                   {:is_user false :content response}
                   (fn [_]
-                    (api/load-conversations! app-state)))
+                    (api/load-conversations! app-state {:force? true})))
                  (reset! is-sending? false))))))
         ;; If message not found, just clear edit state
         (do (reset! editing-message-id nil)
@@ -531,22 +553,33 @@
                                 (reset! show-camera? false)
                                 (reset! pending-image (:label_image image-data)))
         handle-camera-cancel (fn [] (reset! show-camera? false) (reset! pending-image nil))
-        handle-image-remove (fn [] (reset! pending-image nil))]
+        handle-image-remove (fn [] (reset! pending-image nil))
+        handle-delete-conversation (fn [{:keys [id] :as conversation}]
+                                     (when (and id
+                                                (js/confirm (str "Delete conversation \""
+                                                                 (conversation-label conversation)
+                                                                 "\"? This cannot be undone.")))
+                                       (api/delete-conversation! app-state id)))]
     (fn [app-state]
       (let [chat-state (:chat @app-state)
             is-open (:open? chat-state false)
             sidebar-open? (:sidebar-open? chat-state)
             conversation-loading? (:conversation-loading? chat-state)
             messages-loading? (:messages-loading? chat-state)
+            conversations-loaded? (:conversations-loaded? chat-state)
             conversations (:conversations chat-state)
             active-id (:active-conversation-id chat-state)
+            active-conversation (:active-conversation chat-state)
+            deleting-id (:deleting-conversation-id chat-state)
             conversation-messages (vec (or (:messages chat-state) []))
             sidebar (conversation-sidebar app-state
                                           messages
                                           {:open? sidebar-open?
                                            :conversations conversations
                                            :loading? conversation-loading?
-                                           :active-id active-id})
+                                           :active-id active-id
+                                           :deleting-id deleting-id
+                                           :on-delete handle-delete-conversation})
             main-column [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}
                          (when @show-camera?
                            [camera-capture handle-camera-capture handle-camera-cancel])
@@ -566,7 +599,7 @@
                             "Cancel Edit"])]]
         (when (not= @messages conversation-messages)
           (reset! messages conversation-messages))
-        (when (and is-open (not conversation-loading?) (empty? conversations))
+        (when (and is-open (not conversation-loading?) (not conversations-loaded?))
           (api/load-conversations! app-state))
         (when (and is-open active-id (not messages-loading?) (empty? conversation-messages))
           (api/fetch-conversation-messages! app-state active-id))
@@ -618,6 +651,16 @@
                    ^{:key id}
                    [menu-item {:value (str id)}
                     (conversation-label conv)])]))
+            (when active-conversation
+              (let [deleting-active? (= deleting-id (:id active-conversation))]
+                [icon-button
+                 {:on-click #(handle-delete-conversation active-conversation)
+                  :title "Delete conversation"
+                  :disabled (or deleting-active? conversation-loading?)
+                  :sx {:color "error.main"}}
+                 (if deleting-active?
+                   [circular-progress {:size 18}]
+                   [delete])]))
             [icon-button
              {:on-click #(do (reset! messages [])
                              (swap! app-state assoc-in [:chat :messages] [])

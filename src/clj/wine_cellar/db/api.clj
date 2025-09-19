@@ -180,6 +180,17 @@
                 :order-by [[:created_at :asc] [:id :asc]]})
    db-opts))
 
+(defn delete-conversation!
+  ([conversation-id]
+   (delete-conversation! ds conversation-id))
+  ([tx-or-ds conversation-id]
+   (jdbc/execute-one!
+    tx-or-ds
+    (sql/format {:delete-from :ai_conversations
+                 :where [:= :id conversation-id]
+                 :returning :id})
+    db-opts)))
+
 (defn wine-exists?
   [id]
   (jdbc/execute-one! ds

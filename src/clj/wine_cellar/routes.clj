@@ -171,7 +171,7 @@
                                         ::conversation-history ::image])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
-   ["/conversations"
+  ["/conversations"
    {:get {:summary "List AI conversations for the authenticated user"
           :responses {200 {:body vector?} 500 {:body map?}}
           :handler handlers/list-conversations}
@@ -179,10 +179,16 @@
             :parameters {:body ::conversation-create}
             :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/create-conversation}}]
-   ["/conversations/:id/messages"
-    {:parameters {:path {:id int?}}
-     :get {:summary "List messages for a conversation"
-           :responses {200 {:body vector?} 403 {:body map?} 404 {:body map?}
+  ["/conversations/:id"
+   {:parameters {:path {:id int?}}
+    :delete {:summary "Delete an AI conversation"
+             :responses {204 {:body nil?} 403 {:body map?} 404 {:body map?}
+                         500 {:body map?}}
+             :handler handlers/delete-conversation}}]
+  ["/conversations/:id/messages"
+   {:parameters {:path {:id int?}}
+    :get {:summary "List messages for a conversation"
+          :responses {200 {:body vector?} 403 {:body map?} 404 {:body map?}
                        500 {:body map?}}
            :handler handlers/list-conversation-messages}
      :post {:summary "Append a new message to a conversation"

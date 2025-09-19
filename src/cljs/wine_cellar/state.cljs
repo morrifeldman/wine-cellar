@@ -24,7 +24,9 @@
           :active-conversation nil
           :active-conversation-id nil
           :conversation-loading? false
+          :conversations-loaded? false
           :messages-loading? false
           :creating-conversation? false
+          :deleting-conversation-id nil
           :sidebar-open? false
           :error nil}})

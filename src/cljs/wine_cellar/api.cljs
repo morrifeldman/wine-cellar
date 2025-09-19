@@ -457,19 +457,43 @@
 
 (defn load-conversations!
   "Fetch conversations for the authenticated user and store them in app state."
-  [app-state]
-  (swap! app-state assoc-in [:chat :conversation-loading?] true)
-  (go
-   (let [result (<! (GET "/api/conversations"
-                          "Failed to load conversations"))]
-     (swap! app-state assoc-in [:chat :conversation-loading?] false)
-     (if (:success result)
-       (let [conversations (:data result)]
-         (tap> ["conversations-loaded" (count conversations)])
-         (swap! app-state assoc-in [:chat :conversations] (vec conversations))
-         (swap! app-state assoc-in [:chat :error] nil))
-       (do (tap> ["conversations-load-error" (:error result)])
-           (swap! app-state assoc-in [:chat :error] (:error result)))))))
+  ([app-state]
+   (load-conversations! app-state {}))
+  ([app-state opts]
+   (let [{:keys [force?] :or {force? false}} opts
+         chat-state (:chat @app-state)
+         loading? (:conversation-loading? chat-state)
+         loaded? (:conversations-loaded? chat-state)]
+     (when (and (not loading?) (or force? (not loaded?)))
+       (swap! app-state
+              (fn [state]
+                (-> state
+                    (assoc-in [:chat :conversation-loading?] true)
+                    (assoc-in [:chat :conversations-loaded?] false))))
+       (go
+        (let [result (<! (GET "/api/conversations"
+                               "Failed to load conversations"))]
+          (if (:success result)
+            (let [conversations (vec (:data result))]
+              (tap> ["conversations-loaded" (count conversations)])
+              (swap! app-state
+                     (fn [state]
+                       (let [active-id (get-in state [:chat :active-conversation-id])
+                             active (some #(when (= (:id %) active-id) %) conversations)]
+                         (-> state
+                             (assoc-in [:chat :conversation-loading?] false)
+                             (assoc-in [:chat :conversations-loaded?] true)
+                             (assoc-in [:chat :conversations] conversations)
+                             (assoc-in [:chat :active-conversation] active)
+                             (assoc-in [:chat :error] nil))))))
+            (do
+              (tap> ["conversations-load-error" (:error result)])
+              (swap! app-state
+                     (fn [state]
+                       (-> state
+                           (assoc-in [:chat :conversation-loading?] false)
+                           (assoc-in [:chat :conversations-loaded?] true)
+                           (assoc-in [:chat :error] (:error result)))))))))))))
 
 (defn create-conversation!
   ([app-state payload]
@@ -482,20 +506,56 @@
       (if (:success result)
         (let [conversation (:data result)]
           (tap> ["conversation-created" (:id conversation)])
-          (swap! app-state update-in [:chat :conversations]
-                 (fn [conversations]
-                   (let [existing (or conversations [])
+          (swap! app-state
+                 (fn [state]
+                   (let [existing (or (get-in state [:chat :conversations]) [])
                          filtered (remove #(= (:id %) (:id conversation)) existing)]
-                     (vec (cons conversation filtered)))))
-          (swap! app-state assoc-in [:chat :active-conversation] conversation)
-          (swap! app-state assoc-in [:chat :active-conversation-id] (:id conversation))
-          (swap! app-state assoc-in [:chat :error] nil)
+                     (-> state
+                         (assoc-in [:chat :conversations]
+                                   (vec (cons conversation filtered)))
+                         (assoc-in [:chat :active-conversation] conversation)
+                         (assoc-in [:chat :active-conversation-id] (:id conversation))
+                         (assoc-in [:chat :conversations-loaded?] true)
+                         (assoc-in [:chat :error] nil)))))
           (when callback
             (callback {:success true :conversation conversation})))
         (do (tap> ["conversation-create-error" (:error result)])
             (swap! app-state assoc-in [:chat :error] (:error result))
             (when callback
               (callback {:success false :error (:error result)}))))))))
+
+(defn delete-conversation!
+  [app-state conversation-id]
+  (when conversation-id
+    (swap! app-state assoc-in [:chat :deleting-conversation-id] conversation-id)
+    (go
+     (let [result (<! (DELETE (str "/api/conversations/" conversation-id)
+                              "Failed to delete conversation"))]
+       (swap! app-state assoc-in [:chat :deleting-conversation-id] nil)
+       (if (:success result)
+         (do
+           (swap! app-state
+                  (fn [state]
+                    (let [chat (:chat state)
+                          filtered (->> (:conversations chat)
+                                        (remove #(= (:id %) conversation-id))
+                                        vec)
+                          active? (= (:active-conversation-id chat) conversation-id)
+                          base-state (-> state
+                                         (assoc-in [:chat :conversations] filtered)
+                                         (assoc-in [:chat :conversations-loaded?] false)
+                                         (assoc-in [:chat :error] nil))]
+                      (if active?
+                        (-> base-state
+                            (assoc-in [:chat :active-conversation-id] nil)
+                            (assoc-in [:chat :active-conversation] nil)
+                            (assoc-in [:chat :messages] [])
+                            (assoc-in [:chat :messages-loading?] false))
+                        base-state))))
+           (tap> ["conversation-deleted" conversation-id])
+           (load-conversations! app-state {:force? true}))
+         (do (tap> ["conversation-delete-error" (:error result)])
+             (swap! app-state assoc-in [:chat :error] (:error result))))))))
 
 (defn append-conversation-message!
   ([app-state conversation-id message]

@@ -440,6 +440,24 @@
            {:status status :body {:error (.getMessage e)}}
            (server-error e)))))
 
+(defn delete-conversation
+  [request]
+  (try (let [email (ensure-user-email request)
+             conversation-id (some-> request :path-params :id parse-long)
+             conversation (db-api/get-conversation conversation-id)]
+         (cond
+           (nil? conversation)
+           (response/not-found {:error "Conversation not found"})
+           (not= email (:user_email conversation))
+           {:status 403 :body {:error "Forbidden"}}
+           :else
+           (do (db-api/delete-conversation! conversation-id)
+               (no-content))))
+       (catch Exception e
+         (if-let [status (:status (ex-data e))]
+           {:status status :body {:error (.getMessage e)}}
+           (server-error e)))))
+
 ;; Admin Handlers
 
 (defn reset-database
