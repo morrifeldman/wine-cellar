@@ -524,6 +524,42 @@
             (when callback
               (callback {:success false :error (:error result)}))))))))
 
+(defn update-conversation!
+  ([app-state conversation-id updates]
+   (update-conversation! app-state conversation-id updates nil))
+  ([app-state conversation-id updates callback]
+   (when conversation-id
+     (swap! app-state assoc-in [:chat :renaming-conversation-id] conversation-id)
+     (go
+      (let [result (<! (PUT (str "/api/conversations/" conversation-id)
+                            updates
+                            "Failed to update conversation"))]
+        (swap! app-state assoc-in [:chat :renaming-conversation-id] nil)
+        (if (:success result)
+          (let [conversation (:data result)]
+            (tap> ["conversation-updated" (:id conversation)])
+            (swap! app-state
+                   (fn [state]
+                     (let [chat (:chat state)
+                           convs (or (:conversations chat) [])
+                           updated (mapv #(if (= (:id %) (:id conversation))
+                                            conversation
+                                            %)
+                                         convs)
+                           active? (= (:active-conversation-id chat) (:id conversation))
+                           base (-> state
+                                    (assoc-in [:chat :conversations] updated)
+                                    (assoc-in [:chat :error] nil))]
+                       (if active?
+                         (assoc-in base [:chat :active-conversation] conversation)
+                         base))))
+            (when callback
+              (callback {:success true :conversation conversation})))
+          (do (tap> ["conversation-update-error" (:error result)])
+              (swap! app-state assoc-in [:chat :error] (:error result))
+              (when callback
+                (callback {:success false :error (:error result)})))))))))
+
 (defn delete-conversation!
   [app-state conversation-id]
   (when conversation-id

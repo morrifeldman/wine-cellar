@@ -191,6 +191,25 @@
                  :returning :id})
     db-opts)))
 
+(defn update-conversation!
+  ([conversation-id updates]
+   (update-conversation! ds conversation-id updates))
+  ([tx-or-ds conversation-id updates]
+   (let [sanitized (-> updates
+                       (dissoc :id :user_email :created_at :updated_at :last_message_at)
+                       (conversation->db-conversation))
+         set-map (cond-> sanitized
+                   true (assoc :updated_at [:now]))]
+     (if (seq sanitized)
+       (jdbc/execute-one!
+        tx-or-ds
+        (sql/format {:update :ai_conversations
+                     :set set-map
+                     :where [:= :id conversation-id]
+                     :returning :*})
+        db-opts)
+       (get-conversation conversation-id)))))
+
 (defn wine-exists?
   [id]
   (jdbc/execute-one! ds

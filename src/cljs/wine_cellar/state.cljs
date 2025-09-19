@@ -27,6 +27,7 @@
           :conversations-loaded? false
           :messages-loading? false
           :creating-conversation? false
+          :renaming-conversation-id nil
           :deleting-conversation-id nil
           :sidebar-open? false
           :error nil}})

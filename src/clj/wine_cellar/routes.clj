@@ -67,6 +67,8 @@
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
 (s/def ::conversation-create
   (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags]))
+(s/def ::conversation-update
+  (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags]))
 (s/def ::conversation-message
   (s/keys :req-un [::is_user ::content]
           :opt-un [::image ::tokens_used]))
@@ -181,6 +183,11 @@
             :handler handlers/create-conversation}}]
   ["/conversations/:id"
    {:parameters {:path {:id int?}}
+    :put {:summary "Update an AI conversation"
+          :parameters {:body ::conversation-update}
+          :responses {200 {:body map?} 400 {:body map?} 403 {:body map?}
+                      404 {:body map?} 500 {:body map?}}
+          :handler handlers/update-conversation}
     :delete {:summary "Delete an AI conversation"
              :responses {204 {:body nil?} 403 {:body map?} 404 {:body map?}
                          500 {:body map?}}

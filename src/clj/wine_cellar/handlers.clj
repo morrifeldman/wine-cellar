@@ -458,6 +458,27 @@
            {:status status :body {:error (.getMessage e)}}
            (server-error e)))))
 
+(defn update-conversation
+  [request]
+  (try (let [email (ensure-user-email request)
+             conversation-id (some-> request :path-params :id parse-long)
+             conversation (db-api/get-conversation conversation-id)]
+         (cond
+           (nil? conversation)
+           (response/not-found {:error "Conversation not found"})
+           (not= email (:user_email conversation))
+           {:status 403 :body {:error "Forbidden"}}
+           :else
+           (let [updates (:body-params request)]
+             (if (seq updates)
+               (response/response
+                (db-api/update-conversation! conversation-id updates))
+               {:status 400 :body {:error "No updates provided"}}))))
+       (catch Exception e
+         (if-let [status (:status (ex-data e))]
+           {:status status :body {:error (.getMessage e)}}
+           (server-error e)))))
+
 ;; Admin Handlers
 
 (defn reset-database
