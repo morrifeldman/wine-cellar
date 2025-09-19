@@ -566,7 +566,6 @@
             sidebar-open? (:sidebar-open? chat-state)
             conversation-loading? (:conversation-loading? chat-state)
             messages-loading? (:messages-loading? chat-state)
-            conversations-loaded? (:conversations-loaded? chat-state)
             conversations (:conversations chat-state)
             active-id (:active-conversation-id chat-state)
             active-conversation (:active-conversation chat-state)
@@ -599,8 +598,6 @@
                             "Cancel Edit"])]]
         (when (not= @messages conversation-messages)
           (reset! messages conversation-messages))
-        (when (and is-open (not conversation-loading?) (not conversations-loaded?))
-          (api/load-conversations! app-state))
         (when (and is-open active-id (not messages-loading?) (empty? conversation-messages))
           (api/fetch-conversation-messages! app-state active-id))
         (when (and is-open (not @dialog-opened) @dialog-content-ref)
@@ -626,9 +623,15 @@
            [button
             {:variant "outlined"
              :size "small"
+             :disabled conversation-loading?
              :on-click #(swap! app-state update-in [:chat :sidebar-open?] not)
-             :sx {:textTransform "none"}}
-            (if sidebar-open? "Hide Conversations" "Show Conversations")]
+             :sx {:textTransform "none"
+                  :display "flex"
+                  :alignItems "center"
+                  :gap 1}}
+            (if conversation-loading?
+              [circular-progress {:size 16 :sx {:color "primary.main"}}]
+              (if sidebar-open? "Hide Conversations" "Show Conversations"))]
             (when (seq conversations)
               (let [value (if active-id (str active-id) "")
                     render-label (fn [val]
@@ -692,7 +695,8 @@
   [fab
    {:color "primary"
     :sx {:position "fixed" :bottom 16 :right 16 :z-index 1000}
-    :on-click #(swap! app-state assoc-in [:chat :open?] true)} [chat]])
+    :on-click #(do (swap! app-state assoc-in [:chat :open?] true)
+                   (api/load-conversations! app-state {:force? true}))} [chat]])
 
 (defn wine-chat
   "Main wine chat component with FAB and dialog"
