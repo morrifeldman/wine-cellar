@@ -18,4 +18,13 @@
    :sort {:field :created_at :direction :desc}
    :filters {:search "" :country nil :region nil :styles [] :style nil :varieties []}
    :view nil
-   :chat {:open? false :messages []}})
+   :chat {:open? false
+          :messages []
+          :conversations []
+          :active-conversation nil
+          :active-conversation-id nil
+          :conversation-loading? false
+          :messages-loading? false
+          :creating-conversation? false
+          :sidebar-open? false
+          :error nil}})

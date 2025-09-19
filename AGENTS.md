@@ -12,7 +12,7 @@ Stick to 2-space indentation in `.clj`/`.cljs` files and align maps for readabil
 ## Testing Guidelines
 Backend code should include `clojure.test`-based specs alongside each namespace (create matching files under a future `test/clj/wine_cellar` tree) and exercise DB logic against the fixtures in `resources/`. For UI and integration coverage, author Playwright specs (default location `tests/e2e/`) and run them with `npx playwright test`. Document any manual verification steps when automated coverage is impractical.
 
-Run `clj -M:clj-kondo --lint src/clj src/cljc src/cljs` after every set of changes to catch syntax or lint issues early.
+Run `clj -M:clj-kondo --lint src --report-level error` after every set of changes to catch syntax or lint issues early.
 
 ## Commit & Pull Request Guidelines
 Follow the existing Git log style: imperative, concise subjects such as “Add store and purchase date to AI summary”, without trailing periods. Each PR must describe the change, note schema migrations, list new environment variables, and link tracking issues. Include screenshots or CLI output for UI or data-flow changes, and confirm that formatters and tests ran locally.

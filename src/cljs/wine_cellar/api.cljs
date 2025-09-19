@@ -455,6 +455,94 @@
 
 ;; Chat endpoints
 
+(defn load-conversations!
+  "Fetch conversations for the authenticated user and store them in app state."
+  [app-state]
+  (swap! app-state assoc-in [:chat :conversation-loading?] true)
+  (go
+   (let [result (<! (GET "/api/conversations"
+                          "Failed to load conversations"))]
+     (swap! app-state assoc-in [:chat :conversation-loading?] false)
+     (if (:success result)
+       (let [conversations (:data result)]
+         (tap> ["conversations-loaded" (count conversations)])
+         (swap! app-state assoc-in [:chat :conversations] (vec conversations))
+         (swap! app-state assoc-in [:chat :error] nil))
+       (do (tap> ["conversations-load-error" (:error result)])
+           (swap! app-state assoc-in [:chat :error] (:error result)))))))
+
+(defn create-conversation!
+  ([app-state payload]
+   (create-conversation! app-state payload nil))
+  ([app-state payload callback]
+   (go
+    (let [result (<! (POST "/api/conversations"
+                           payload
+                           "Failed to create conversation"))]
+      (if (:success result)
+        (let [conversation (:data result)]
+          (tap> ["conversation-created" (:id conversation)])
+          (swap! app-state update-in [:chat :conversations]
+                 (fn [conversations]
+                   (let [existing (or conversations [])
+                         filtered (remove #(= (:id %) (:id conversation)) existing)]
+                     (vec (cons conversation filtered)))))
+          (swap! app-state assoc-in [:chat :active-conversation] conversation)
+          (swap! app-state assoc-in [:chat :active-conversation-id] (:id conversation))
+          (swap! app-state assoc-in [:chat :error] nil)
+          (when callback
+            (callback {:success true :conversation conversation})))
+        (do (tap> ["conversation-create-error" (:error result)])
+            (swap! app-state assoc-in [:chat :error] (:error result))
+            (when callback
+              (callback {:success false :error (:error result)}))))))))
+
+(defn append-conversation-message!
+  ([app-state conversation-id message]
+   (append-conversation-message! app-state conversation-id message nil))
+  ([app-state conversation-id message callback]
+   (let [payload (cond-> message
+                   (nil? (:image_data message)) (dissoc :image_data)
+                   (nil? (:tokens_used message)) (dissoc :tokens_used))]
+     (go
+      (let [result (<! (POST (str "/api/conversations/" conversation-id "/messages")
+                              payload
+                              "Failed to save conversation message"))]
+        (if (:success result)
+          (let [saved (:data result)]
+            (tap> ["conversation-message-saved" (:id saved)])
+            (swap! app-state assoc-in [:chat :error] nil)
+            (when callback
+              (callback {:success true :message saved})))
+          (do (tap> ["conversation-message-save-error" (:error result)])
+              (swap! app-state assoc-in [:chat :error] (:error result))
+              (when callback
+                (callback {:success false :error (:error result)})))))))))
+
+(defn fetch-conversation-messages!
+  [app-state conversation-id]
+  (swap! app-state assoc-in [:chat :messages-loading?] true)
+  (go
+   (let [result (<! (GET (str "/api/conversations/" conversation-id "/messages")
+                          "Failed to load conversation messages"))]
+     (swap! app-state assoc-in [:chat :messages-loading?] false)
+     (if (:success result)
+       (let [messages (:data result)]
+         (tap> ["conversation-messages-loaded" {:conversation-id conversation-id
+                                                 :count (count messages)}])
+         (swap! app-state assoc-in [:chat :messages]
+                (mapv (fn [m]
+                        {:id (:id m)
+                         :text (:content m)
+                         :is-user (:is_user m)
+                         :timestamp (some-> (:created_at m)
+                                            js/Date.parse
+                                            js/Date.)})
+                      messages))
+         (swap! app-state assoc-in [:chat :error] nil))
+       (do (tap> ["conversation-messages-load-error" (:error result)])
+           (swap! app-state assoc-in [:chat :error] (:error result)))))))
+
 (defn send-chat-message
   "Send a message to the AI chat endpoint with wine IDs and conversation history.
    Optionally includes image data."

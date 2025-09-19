@@ -5,6 +5,7 @@
             [reagent-mui.material.dialog-title :refer [dialog-title]]
             [reagent-mui.material.dialog-content :refer [dialog-content]]
             [reagent-mui.material.text-field :as mui-text-field]
+            [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
@@ -56,6 +57,109 @@
                    (.startsWith (.-type item) "image/"))
           (when-let [file (.getAsFile item)]
             (handle-clipboard-image file attached-image)))))))
+
+(declare persist-conversation-message!)
+
+(defn- ensure-conversation!
+  "Ensure an active conversation exists before persisting messages."
+  [app-state wines callback]
+  (let [conversation-id (get-in @app-state [:chat :active-conversation-id])
+        creating? (get-in @app-state [:chat :creating-conversation?])]
+    (cond
+      conversation-id (do
+                        (swap! app-state assoc-in [:chat :active-conversation-id] conversation-id)
+                        (callback conversation-id))
+      creating? (js/setTimeout #(ensure-conversation! app-state wines callback) 100)
+      :else
+      (let [wine-ids (->> wines (map :id) (remove nil?) vec)
+            payload (cond-> {}
+                       (seq wine-ids) (assoc :wine_ids wine-ids))]
+        (swap! app-state assoc-in [:chat :creating-conversation?] true)
+        (api/create-conversation!
+         app-state
+         payload
+         (fn [{:keys [success conversation error]}]
+           (swap! app-state assoc-in [:chat :creating-conversation?] false)
+           (if success
+             (callback (:id conversation))
+             (tap> ["ensure-conversation-failed" error]))))))))
+
+(defn- persist-conversation-message!
+  "Persist a chat message (user or AI) to the backend conversation store."
+  ([app-state wines message-map]
+   (persist-conversation-message! app-state wines message-map nil))
+  ([app-state wines message-map after-save]
+   (ensure-conversation!
+    app-state
+    wines
+    (fn [conversation-id]
+      (api/append-conversation-message!
+       app-state
+       conversation-id
+       message-map
+       (fn [{:keys [success error]}]
+         (if success
+           (when after-save (after-save conversation-id))
+           (tap> ["conversation-message-persist-failed" error]))))))))
+
+(defn- conversation-sidebar
+  [app-state messages {:keys [open? conversations loading? active-id]}]
+  (when open?
+    (let [[status items]
+          (cond
+            loading? [:loading nil]
+            (empty? conversations) [:empty nil]
+            :else
+            [:items
+             (into []
+                   (map (fn [{:keys [id title last_message_at]}]
+                          ^{:key id}
+                          [box
+                           {:on-click #(do (swap! app-state assoc-in [:chat :sidebar-open?] false)
+                                           (swap! app-state assoc-in [:chat :active-conversation-id] id)
+                                           (swap! app-state assoc-in [:chat :active-conversation]
+                                                  {:id id :title title :last_message_at last_message_at})
+                                           (reset! messages [])
+                                           (swap! app-state assoc-in [:chat :messages] [])
+                                           (api/fetch-conversation-messages! app-state id))
+                            :sx {:px 2 :py 1.5 :cursor "pointer"
+                                 :background-color (if (= id active-id)
+                                                     "action.hover"
+                                                     "transparent")
+                                 :border-bottom "1px solid"
+                                 :border-color "divider"}}
+                           [typography {:variant "body2"
+                                        :sx {:fontWeight (if (= id active-id) "600" "500")}}
+                            (or title (str "Conversation " id))]
+                           (when last_message_at
+                             [typography {:variant "caption"
+                                          :sx {:color "text.secondary"}}
+                              (.toLocaleString (js/Date. last_message_at))])])
+                        conversations))])]
+      (let [content
+            (cond
+              (= status :loading)
+              [box {:sx {:display "flex" :justify-content "center" :py 3}}
+               [circular-progress {:size 24}]]
+              (= status :empty)
+              [typography {:variant "body2"
+                           :sx {:px 2 :py 2 :color "text.secondary"}}
+               "No conversations yet"]
+              :else
+              (into [:<>] items))]
+        [grid {:item true :xs 12 :md 4}
+         [box
+          {:sx {:border "1px solid"
+                :border-color "divider"
+                :border-radius 1
+                :overflow "hidden"
+                :background-color "background.default"}}
+          [typography {:variant "subtitle2"
+                       :sx {:px 2 :py 1 :border-bottom "1px solid"
+                            :border-color "divider"}}
+           "Conversations"]
+          [box {:sx {:max-height "320px" :overflow "auto"}}
+           content]]]))))
 
 (defn message-bubble
   "Renders a single chat message bubble"
@@ -288,6 +392,12 @@
                   (filtered-sorted-wines app-state))]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
+      (persist-conversation-message!
+       app-state
+       wines
+       (cond-> {:is_user true
+                :content (or message-text "")}
+         image (assoc :image_data image)))
       (send-chat-message
        message-text
        wines
@@ -300,6 +410,12 @@
                            :timestamp (.getTime (js/Date.))}]
            (swap! messages conj ai-message)
            (swap! app-state assoc-in [:chat :messages] @messages)
+           (persist-conversation-message!
+            app-state
+            wines
+            {:is_user false :content response}
+            (fn [_]
+              (api/load-conversations! app-state)))
            (reset! is-sending? false)))))))
 
 (defn- use-edit-state
@@ -344,6 +460,11 @@
                         (filter #(= (:id %) current-wine-id)
                                 (:wines @app-state))
                         (filtered-sorted-wines app-state))]
+            (persist-conversation-message!
+             app-state
+             wines
+             {:is_user true
+              :content (or (:text updated-message) "")})
             (send-chat-message
              (:text updated-message)
              wines
@@ -355,6 +476,12 @@
                                  :timestamp (.getTime (js/Date.))}]
                  (swap! messages conj ai-message)
                  (swap! app-state assoc-in [:chat :messages] @messages)
+                 (persist-conversation-message!
+                  app-state
+                  wines
+                  {:is_user false :content response}
+                  (fn [_]
+                    (api/load-conversations! app-state)))
                  (reset! is-sending? false))))))
         ;; If message not found, just clear edit state
         (do (reset! editing-message-id nil)
@@ -364,7 +491,7 @@
   "Main chat dialog component"
   [app-state]
   (let [chat-state (:chat @app-state)
-        messages (r/atom (:messages chat-state []))
+        messages (r/atom (vec (or (:messages chat-state) [])))
         message-ref (r/atom nil)
         is-sending? (r/atom false)
         show-camera? (r/atom false)
@@ -376,15 +503,11 @@
         edit-state
         handle-send (fn [message-text]
                       (if (is-editing?)
-                        ;; Edit mode - replace message and regenerate
-                        ;; response
                         (handle-edit-send app-state
                                           editing-message-id
                                           message-ref
                                           messages
                                           is-sending?)
-                        ;; Normal mode - send new message with attached
-                        ;; image
                         (do (handle-send-message app-state
                                                  message-text
                                                  messages
@@ -394,22 +517,53 @@
         handle-image-capture (fn [] (reset! show-camera? true))
         handle-camera-capture (fn [image-data]
                                 (reset! show-camera? false)
-                                (reset! pending-image (:label_image
-                                                       image-data)))
-        handle-camera-cancel
-        (fn [] (reset! show-camera? false) (reset! pending-image nil))
+                                (reset! pending-image (:label_image image-data)))
+        handle-camera-cancel (fn [] (reset! show-camera? false) (reset! pending-image nil))
         handle-image-remove (fn [] (reset! pending-image nil))]
     (fn [app-state]
       (let [chat-state (:chat @app-state)
-            is-open (:open? chat-state false)]
-        ;; Auto-scroll to bottom only when dialog first opens
+            is-open (:open? chat-state false)
+            sidebar-open? (:sidebar-open? chat-state)
+            conversation-loading? (:conversation-loading? chat-state)
+            messages-loading? (:messages-loading? chat-state)
+            conversations (:conversations chat-state)
+            active-id (:active-conversation-id chat-state)
+            conversation-messages (vec (or (:messages chat-state) []))
+            sidebar (conversation-sidebar app-state
+                                          messages
+                                          {:open? sidebar-open?
+                                           :conversations conversations
+                                           :loading? conversation-loading?
+                                           :active-id active-id})
+            main-column [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}
+                         (when @show-camera?
+                           [camera-capture handle-camera-capture handle-camera-cancel])
+                         [chat-messages messages #(handle-edit %1 %2 message-ref)]
+                         (when (is-editing?)
+                           [typography
+                            {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
+                            "Editing message - all responses after this will be regenerated"])
+                         [chat-input message-ref handle-send is-sending? "chat-input" app-state
+                          handle-image-capture pending-image handle-image-remove]
+                         (when (is-editing?)
+                           [button
+                            {:variant "text"
+                             :size "small"
+                             :sx {:mt 1}
+                             :on-click #(handle-cancel message-ref)}
+                            "Cancel Edit"])]]
+        (when (not= @messages conversation-messages)
+          (reset! messages conversation-messages))
+        (when (and is-open (not conversation-loading?) (empty? conversations))
+          (api/load-conversations! app-state))
+        (when (and is-open active-id (not messages-loading?) (empty? conversation-messages))
+          (api/fetch-conversation-messages! app-state active-id))
         (when (and is-open (not @dialog-opened) @dialog-content-ref)
           (reset! dialog-opened true)
-          (js/setTimeout 
+          (js/setTimeout
             #(when @dialog-content-ref
                (.scrollTo @dialog-content-ref 0 (.-scrollHeight @dialog-content-ref)))
             200))
-        ;; Reset opened flag when dialog closes
         (when (not is-open)
           (reset! dialog-opened false))
         [dialog
@@ -424,42 +578,36 @@
                  :align-items "center"}}
            [typography {:variant "h6"} "Wine Cellar Assistant"]
            [box {:sx {:display "flex" :gap 1}}
-            [icon-button
+           [button
+            {:variant "outlined"
+             :size "small"
+             :on-click #(swap! app-state update-in [:chat :sidebar-open?] not)
+             :sx {:textTransform "none"}}
+            (if sidebar-open? "Hide Conversations" "Show Conversations")]
+           [icon-button
              {:on-click #(do (reset! messages [])
-                             (swap! app-state assoc-in [:chat :messages] []))
+                             (swap! app-state assoc-in [:chat :messages] [])
+                             (swap! app-state assoc-in [:chat :active-conversation-id] nil)
+                             (swap! app-state assoc-in [:chat :active-conversation] nil)
+                             (swap! app-state assoc-in [:chat :messages-loading?] false)
+                             (swap! app-state assoc-in [:chat :creating-conversation?] false)
+                             (swap! app-state assoc-in [:chat :draft-message] nil))
               :title "Clear chat history"
               :sx {:color "secondary.main"}} [clear-all]]
             [icon-button
-             {:on-click #(do
-                           ;; Save draft message before closing
-                           (when @message-ref
-                             (let [draft-text (.-value @message-ref)]
-                               (swap! app-state assoc-in
-                                 [:chat :draft-message]
-                                 draft-text)))
+             {:on-click #(do (when @message-ref
+                               (let [draft-text (.-value @message-ref)]
+                                 (swap! app-state assoc-in [:chat :draft-message] draft-text)))
                            (swap! app-state assoc-in [:chat :open?] false))
               :title "Close chat"
               :sx {:color "secondary.main"}} [close]]]]]
          [dialog-content
           {:ref #(reset! dialog-content-ref %)}
-          ;; Camera modal
-          (when @show-camera?
-            [camera-capture handle-camera-capture handle-camera-cancel])
-          [chat-messages messages #(handle-edit %1 %2 message-ref)]
-          ;; Show editing indicator
-          (when (is-editing?)
-            [typography
-             {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
-             "Editing message - all responses after this will be regenerated"])
-          [chat-input message-ref handle-send is-sending? "chat-input" app-state
-           handle-image-capture pending-image handle-image-remove]
-          ;; Cancel edit button
-          (when (is-editing?)
-            [button
-             {:variant "text"
-              :size "small"
-              :sx {:mt 1}
-              :on-click #(handle-cancel message-ref)} "Cancel Edit"])]]))))
+          (into [grid {:container true :spacing 2}]
+                (cond-> []
+                  sidebar (conj sidebar)
+                  true (conj main-column)))]])
+      )))
 
 (defn wine-chat-fab
   "Floating action button for wine chat"
