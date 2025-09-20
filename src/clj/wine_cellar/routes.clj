@@ -62,6 +62,7 @@
 (s/def ::wine-ids (s/coll-of int?))
 (s/def ::conversation-history vector?)
 (s/def ::image (s/nilable string?))
+(s/def ::provider (s/nilable #{"anthropic" "openai"}))
 (s/def ::title (s/nilable string?))
 (s/def ::wine_search_state (s/nilable map?))
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
@@ -171,7 +172,7 @@
     {:post {:summary "Chat with AI about your wine collection"
             :parameters {:body (s/keys :opt-un
                                        [::message ::wine-ids
-                                        ::conversation-history ::image])}
+                                        ::conversation-history ::image ::provider])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
   ["/conversations"

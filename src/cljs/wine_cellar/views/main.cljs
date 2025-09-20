@@ -21,6 +21,14 @@
     [wine-cellar.version :as version]
     [wine-cellar.utils.filters]))
 
+(defn- normalize-provider
+  [value]
+  (cond
+    (keyword? value) value
+    (string? value) (keyword value)
+    (nil? value) :anthropic
+    :else :anthropic))
+
 (defn logout
   []
   [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
@@ -46,6 +54,28 @@
           :sx {:fontSize "0.875rem"
                :color "text.secondary"
                :fontFamily "monospace"}} (version/version-string)] [divider]
+        (let [provider (normalize-provider (get-in @app-state [:chat :provider]))]
+          [menu-item
+           {:on-click (fn []
+                        (swap! app-state
+                               update-in
+                               [:chat :provider]
+                               (fn [current]
+                                 (let [current* (normalize-provider current)]
+                                   (if (= current* :anthropic)
+                                     :openai
+                                     :anthropic)))))
+            :sx {:display "flex"
+                 :justify-content "space-between"
+                 :gap 1}}
+           [:span "AI Provider"]
+           [:span {:style {:fontSize "0.85rem"
+                           :fontWeight 600}}
+            (case provider
+              :openai "ChatGPT"
+              :anthropic "Claude"
+              (name provider))]])
+        [divider]
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
@@ -211,4 +241,3 @@
          :else [:div [top-controls app-state] [wine-list app-state]])
    (when (:show-debug-controls? @app-state) [debug-sidebar app-state])
    [wine-chat app-state]])
-
