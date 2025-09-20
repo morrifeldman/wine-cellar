@@ -1,5 +1,6 @@
 # 🍷 Wine Cellar App
 
+
 A self-hosted wine collection management application built with Clojure and ClojureScript.
 
 ![Wine Cellar App Overview](docs/screenshots/overview.png)
