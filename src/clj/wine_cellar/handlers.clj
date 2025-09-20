@@ -1,6 +1,7 @@
 (ns wine-cellar.handlers
   (:require [wine-cellar.db.api :as db-api]
             [wine-cellar.ai.anthropic :as anthropic]
+            [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations]
             [ring.util.response :as response]))
@@ -343,23 +344,28 @@
 
 (defn chat-with-ai
   [request]
-  (try (let [{:keys [wine-ids conversation-history image]} (-> request
-                                                               :parameters
-                                                               :body)]
+  (try (let [{:keys [wine-ids conversation-history image provider]} (-> request
+                                                                        :parameters
+                                                                        :body)]
          (if (and (empty? conversation-history) (empty? image))
            {:status 400
             :body {:error "Conversation history or image is required"}}
            (let [enriched-wines (db-api/get-enriched-wines-by-ids wine-ids)
-                 response (anthropic/chat-about-wines enriched-wines
-                                                      conversation-history
-                                                      image)]
+                 response (ai/chat-about-wines provider
+                                               enriched-wines
+                                               conversation-history
+                                               image)]
              (response/response response))))
        (catch clojure.lang.ExceptionInfo e
-         (let [data (ex-data e)]
-           {:status 500
-            :body {:error "AI chat failed"
-                   :details (.getMessage e)
-                   :response (:response data)}}))
+         (let [data (ex-data e)
+               status (or (:status data) 500)
+               error-message (or (:error data) "AI chat failed")]
+           {:status status
+            :body (cond-> {:error error-message}
+                    (not= (:error data) (.getMessage e))
+                    (assoc :details (.getMessage e))
+                    (:response data)
+                    (assoc :response (:response data)))}))
        (catch Exception e (server-error e))))
 
 ;; Conversation persistence handlers

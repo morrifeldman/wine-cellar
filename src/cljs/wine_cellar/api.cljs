@@ -677,15 +677,18 @@
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with wine IDs and conversation history.
-   Optionally includes image data."
-  ([message wines conversation-history callback]
-   (send-chat-message message wines conversation-history nil callback))
-  ([message wines conversation-history image callback]
+   Optionally includes provider override and image data."
+  ([message wines conversation-history provider callback]
+   (send-chat-message message wines conversation-history provider nil callback))
+  ([message wines conversation-history provider image callback]
    (go
     (let [wine-ids (mapv :id wines)
           payload (cond-> {:wine-ids wine-ids
                            :conversation-history conversation-history}
                     (seq message) (assoc :message message)
+                    provider (assoc :provider (if (keyword? provider)
+                                                (name provider)
+                                                provider))
                     image (assoc :image image))]
       (let [result (<!
                     (POST "/api/chat" payload "Failed to send chat message"))]

@@ -19,6 +19,7 @@
    :filters {:search "" :country nil :region nil :styles [] :style nil :varieties []}
    :view nil
    :chat {:open? false
+          :provider :anthropic
           :messages []
           :conversations []
           :active-conversation nil

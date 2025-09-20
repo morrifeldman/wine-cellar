@@ -433,12 +433,12 @@
                            #(reset! last-ai-message-ref %))])))))])})))
 
 (defn send-chat-message
-  "Send a message to the AI chat endpoint with conversation history and optional image"
-  ([message wines conversation-history callback]
-   (send-chat-message message wines conversation-history nil callback))
-  ([message wines conversation-history image callback]
-   (tap> ["send-chat-message" message conversation-history])
-   (api/send-chat-message message wines conversation-history image callback)))
+  "Send a message to the AI chat endpoint with conversation history, provider, and optional image"
+  ([message wines conversation-history provider callback]
+   (send-chat-message message wines conversation-history provider nil callback))
+  ([message wines conversation-history provider image callback]
+   (tap> ["send-chat-message" message conversation-history {:provider provider}])
+   (api/send-chat-message message wines conversation-history provider image callback)))
 
 (defn- handle-send-message
   "Handle sending a message to the AI assistant with optional image"
@@ -451,7 +451,8 @@
                         :timestamp (.getTime (js/Date.))}
           wines (if-let [current-wine-id (:selected-wine-id @app-state)]
                   (filter #(= (:id %) current-wine-id) (:wines @app-state))
-                  (filtered-sorted-wines app-state))]
+                  (filtered-sorted-wines app-state))
+          provider (get-in @app-state [:chat :provider] :anthropic)]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
       (persist-conversation-message!
@@ -464,6 +465,7 @@
        message-text
        wines
        @messages
+       provider
        image
        (fn [response]
          (let [ai-message {:id (random-uuid)
@@ -514,7 +516,8 @@
           (let [wines (if-let [current-wine-id (:selected-wine-id @app-state)]
                         (filter #(= (:id %) current-wine-id)
                                 (:wines @app-state))
-                        (filtered-sorted-wines app-state))]
+                        (filtered-sorted-wines app-state))
+                provider (get-in @app-state [:chat :provider] :anthropic)]
             (persist-conversation-message!
              app-state
              wines
@@ -524,6 +527,7 @@
              (:text updated-message)
              wines
              @messages
+             provider
              (fn [response]
                (let [ai-message {:id (random-uuid)
                                  :text response
