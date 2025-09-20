@@ -23,7 +23,7 @@ In production (when `CLOJURE_ENV=production`), the following environment variabl
 - `ANTHROPIC_API_KEY`: API key for Anthropic's Claude API (required for wine label analysis)
 - `ANTHROPIC_MODEL`: Claude model to use (optional, defaults to claude-3-7-sonnet-20250219)
 - `OPENAI_API_KEY`: API key for OpenAI Responses (optional, required for ChatGPT support)
-- `OPENAI_MODEL`: OpenAI model to use (optional, defaults to gpt-4.1-mini)
+- `OPENAI_MODEL`: OpenAI model to use (optional, defaults to gpt-5)
 - `AI_DEFAULT_PROVIDER`: Preferred provider when the UI has not selected one ("anthropic" or "openai")
 
 ### Server Configuration
