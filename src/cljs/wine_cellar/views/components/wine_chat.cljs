@@ -12,8 +12,6 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.material.menu-item :refer [menu-item]]
-            [reagent-mui.material.select :refer [select]]
             [reagent-mui.icons.chat :refer [chat]]
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
@@ -24,13 +22,14 @@
             [reagent-mui.icons.send :refer [send]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
-            [wine-cellar.views.components.image-upload :refer [camera-capture create-thumbnail]]
+            [wine-cellar.views.components.image-upload :refer [camera-capture]]
             [wine-cellar.api :as api]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
 ;; Constants
 (def ^:private edit-icon-size "0.8rem")
 (def ^:private edit-button-spacing 4)
+
 
 (defn- handle-clipboard-image
   "Process an image file/blob from clipboard and set it as attached image"
@@ -128,105 +127,134 @@
       (when id (str "Conversation " id))
       "Conversation"))
 
+(defn- conversation-action-buttons
+  [{:keys [pinned] :as conversation}
+   {:keys [on-pin on-rename on-delete pinning? renaming? deleting?]}]
+  [box {:sx {:display "flex" :align-items "center" :gap 0.25}}
+   (when on-pin
+     [icon-button
+      {:size "small"
+       :on-click (fn [event]
+                   (.stopPropagation event)
+                   (on-pin conversation))
+       :disabled pinning?
+       :sx {:color (if (true? pinned) "warning.main" "text.secondary")}}
+      (cond
+        pinning? [circular-progress {:size 16}]
+        (true? pinned) [star {:fontSize "small"}]
+        :else [star-border {:fontSize "small"}])])
+   (when on-rename
+     [icon-button
+      {:size "small"
+       :on-click (fn [event]
+                   (.stopPropagation event)
+                   (on-rename conversation))
+       :disabled renaming?
+       :sx {:color "text.secondary"}}
+      (if renaming?
+        [circular-progress {:size 16}]
+        [edit])])
+   (when on-delete
+     [icon-button
+      {:size "small"
+       :on-click (fn [event]
+                   (.stopPropagation event)
+                   (on-delete conversation))
+       :disabled deleting?
+       :sx {:color "text.secondary"}}
+      (if deleting?
+        [circular-progress {:size 16}]
+        [delete])])])
+
+(defn- conversation-row
+  [app-state messages
+   {:keys [active-id deleting-id renaming-id pinning-id on-delete on-rename on-pin]
+    :as opts}
+   {:keys [id] :as conversation}]
+  (let [active? (= id active-id)
+        deleting? (= id deleting-id)
+        renaming? (= id renaming-id)
+        pinning? (= id pinning-id)]
+    [box
+     {:on-click #(open-conversation! app-state messages conversation true)
+      :sx {:px 2 :py 1.5 :cursor "pointer"
+           :background-color (if active? "action.hover" "transparent")
+           :border-bottom "1px solid"
+           :border-color "divider"}}
+     [box
+      {:sx {:display "flex"
+            :align-items "center"
+            :justify-content "space-between"
+            :gap 1}}
+      [typography {:variant "body2"
+                   :sx {:fontWeight (if active? "600" "500")}}
+       (conversation-label conversation)]
+      (conversation-action-buttons
+       conversation
+       {:on-pin on-pin
+        :on-rename on-rename
+        :on-delete on-delete
+        :pinning? pinning?
+        :renaming? renaming?
+        :deleting? deleting?})]]))
+
+(defn- conversations->items
+  [app-state messages opts conversations]
+  (into [] (map #(conversation-row app-state messages opts %) conversations)))
+
+(defn- conversation-content
+  [status items]
+  (case status
+    :loading [box {:sx {:display "flex" :justify-content "center" :py 3}}
+              [circular-progress {:size 24}]]
+    :empty [typography {:variant "body2"
+                        :sx {:px 2 :py 2 :color "text.secondary"}}
+            "No conversations yet"]
+    (into [:<>] items)))
+
 (defn- conversation-sidebar
-  [app-state messages {:keys [open? conversations loading? active-id deleting-id renaming-id pinning-id on-delete on-rename on-pin]}]
-  (when open?
-    (let [[status items]
-          (cond
-            loading? [:loading nil]
-            (empty? conversations) [:empty nil]
-            :else
-            [:items
-             (into []
-                   (map (fn [{:keys [id title last_message_at pinned] :as conversation}]
-                          (let [active? (= id active-id)
-                                deleting? (= deleting-id id)
-                                renaming? (= renaming-id id)
-                                pinning? (= pinning-id id)
-                                pinned? (true? pinned)]
-                            ^{:key id}
-                            [box
-                             {:on-click #(open-conversation! app-state
-                                                            messages
-                                                            conversation
-                                                            true)
-                              :sx {:px 2 :py 1.5 :cursor "pointer"
-                                   :background-color (if active?
-                                                       "action.hover"
-                                                       "transparent")
-                                   :border-bottom "1px solid"
-                                   :border-color "divider"}}
-                             [box
-                              {:sx {:display "flex"
-                                    :align-items "center"
-                                    :justify-content "space-between"
-                                    :gap 1}}
-                              [typography {:variant "body2"
-                                           :sx {:fontWeight (if active? "600" "500")}}
-                               (conversation-label conversation)]
-                               [box
-                                {:sx {:display "flex"
-                                      :align-items "center"
-                                      :gap 0.25}}
-                                (when on-pin
-                                  [icon-button
-                                   {:size "small"
-                                    :on-click (fn [event]
-                                                (.stopPropagation event)
-                                                (on-pin conversation))
-                                    :disabled pinning?
-                                    :sx {:color (if pinned? "warning.main" "text.secondary")}}
-                                   (cond
-                                     pinning? [circular-progress {:size 16}]
-                                     pinned? [star {:fontSize "small"}]
-                                     :else [star-border {:fontSize "small"}])])
-                                (when on-rename
-                                  [icon-button
-                                   {:size "small"
-                                    :on-click (fn [event]
-                                                (.stopPropagation event)
-                                                (on-rename conversation))
-                                    :disabled renaming?
-                                    :sx {:color "text.secondary"}}
-                                   (if renaming?
-                                     [circular-progress {:size 16}]
-                                     [edit])])
-                                (when on-delete
-                                  [icon-button
-                                   {:size "small"
-                                    :on-click (fn [event]
-                                                (.stopPropagation event)
-                                                (on-delete conversation))
-                                    :disabled deleting?
-                                    :sx {:color "text.secondary"}}
-                                   (if deleting?
-                                     [circular-progress {:size 16}]
-                                     [delete])])]]]))
-                        conversations))])]
-      (let [content
-            (cond
-              (= status :loading)
-              [box {:sx {:display "flex" :justify-content "center" :py 3}}
-               [circular-progress {:size 24}]]
-              (= status :empty)
-              [typography {:variant "body2"
-                           :sx {:px 2 :py 2 :color "text.secondary"}}
-               "No conversations yet"]
-              :else
-              (into [:<>] items))]
-        [grid {:item true :xs 12 :md 4}
-         [box
-          {:sx {:border "1px solid"
-                :border-color "divider"
-                :border-radius 1
-                :overflow "hidden"
-                :background-color "background.default"}}
-          [typography {:variant "subtitle2"
-                       :sx {:px 2 :py 1 :border-bottom "1px solid"
-                            :border-color "divider"}}
-           "Conversations"]
-          [box {:sx {:max-height "320px" :overflow "auto"}}
-           content]]]))))
+  [app-state messages {:keys [open? conversations loading? active-id deleting-id renaming-id pinning-id scroll-ref scroll-requested? on-delete on-rename on-pin]}]
+  (if open?
+    (let [items (conversations->items
+                 app-state
+                 messages
+                 {:active-id active-id
+                  :deleting-id deleting-id
+                  :renaming-id renaming-id
+                  :pinning-id pinning-id
+                  :on-delete on-delete
+                  :on-rename on-rename
+                  :on-pin on-pin}
+                 conversations)
+          status (cond
+                   loading? :loading
+                   (empty? conversations) :empty
+                   :else :items)
+          content (conversation-content status items)]
+      [grid {:item true :xs 12 :md 4}
+       [box
+        {:sx {:border "1px solid"
+              :border-color "divider"
+              :border-radius 1
+              :overflow "hidden"
+              :background-color "background.default"}}
+        [typography {:variant "subtitle2"
+                     :sx {:px 2 :py 1 :border-bottom "1px solid"
+                          :border-color "divider"}}
+         "Conversations"]
+        [box {:sx {:max-height "320px" :overflow "auto"}
+               :ref (fn [el]
+                      (when scroll-ref (reset! scroll-ref el))
+                      (when (and scroll-requested?
+                                 @scroll-requested?
+                                 el)
+                        (.scrollTo el 0 0)
+                        (reset! scroll-requested? false)))}
+         content]]])
+    (do
+      (when scroll-requested? (reset! scroll-requested? false))
+      (when scroll-ref (reset! scroll-ref nil))
+      nil)))
 
 (defn message-bubble
   "Renders a single chat message bubble"
@@ -257,7 +285,6 @@
        {:variant "caption"
         :sx {:display "block" :mt 0.5 :opacity 0.7 :font-size "0.7em"}}
        (.toLocaleTimeString (js/Date. timestamp))])
-    ;; Edit button for user messages
     (when (and is-user on-edit)
       [icon-button
        {:size "small"
@@ -276,15 +303,13 @@
    attached-image on-image-remove]
   (let [has-image? @attached-image
         container-ref (r/atom nil)]
-    ;; Auto-scroll when image is added - just bring into view, don't force to bottom
     (when has-image?
-      (js/setTimeout 
-        #(when @container-ref
-           (.scrollIntoView @container-ref #js {:behavior "smooth" :block "nearest"}))
-        100))
+      (js/setTimeout
+       #(when @container-ref
+          (.scrollIntoView @container-ref #js {:behavior "smooth" :block "nearest"}))
+       100))
     [box {:sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}
           :ref #(reset! container-ref %)}
-     ;; Image preview if attached
      (when has-image?
        [box
         {:sx {:mb 1
@@ -319,7 +344,6 @@
        :margin "dense"
        :inputRef #(when %
                     (reset! message-ref %)
-                    ;; Restore draft message when component mounts
                     (when-let [draft (get-in @app-state [:chat :draft-message])]
                       (set! (.-value %) draft)))
        :sx {"& .MuiOutlinedInput-root" {:backgroundColor "background.default"
@@ -332,51 +356,26 @@
                           "Type your message here..."
                           "Type your message here... (or paste a screenshot)")))
        :disabled @disabled?
-       :on-blur nil
        :on-paste #(handle-paste-event % attached-image)}]
      [box {:sx {:display "flex" :justify-content "flex-end" :gap 1}}
-      ;; Detect if mobile device
       (let [is-mobile? (and js/navigator.maxTouchPoints (> js/navigator.maxTouchPoints 0))]
         [:<>
-         ;; Hidden file input
          [:input {:type "file"
                   :accept "image/*"
                   :style {:display "none"}
                   :id "photo-picker-input"
                   :on-change #(when-let [file (-> % .-target .-files (aget 0))]
                                 (handle-clipboard-image file attached-image))}]
-         
-         ;; Mobile: Camera + Photos buttons
-         (when is-mobile?
-           [:<>
-            [button
-             {:variant "outlined"
-              :disabled @disabled?
-              :sx {:minWidth "60px" :px 1}
-              :startIcon (r/as-element [camera-alt {:size 14}])
-              :on-click on-image-capture} "Camera"]
-            [button
-             {:variant "outlined" 
-              :disabled @disabled?
-              :sx {:minWidth "60px" :px 1}
-              :on-click #(when-let [input (js/document.getElementById "photo-picker-input")]
-                           (.click input))} "Photos"]])
-         
-         ;; Desktop: Camera + File picker with better labels  
-         (when (not is-mobile?)
-           [:<>
-            [button
-             {:variant "outlined"
-              :disabled @disabled?
-              :sx {:minWidth "60px" :px 1}
-              :startIcon (r/as-element [camera-alt {:size 14}])
-              :on-click on-image-capture} "Camera"]
-            [button
-             {:variant "outlined"
-              :disabled @disabled?
-              :sx {:minWidth "60px" :px 1}
-              :on-click #(when-let [input (js/document.getElementById "photo-picker-input")]
-                           (.click input))} "Upload"]])])
+         [button
+          {:variant "outlined"
+           :size "small"
+           :disabled @disabled?
+           :startIcon (r/as-element [camera-alt {:size 14}])
+           :on-click #(if is-mobile?
+                        (on-image-capture nil)
+                        (when-let [input (js/document.getElementById "photo-picker-input")]
+                          (.click input)))}
+          (if is-mobile? "Camera" "Upload")]])
       [button
        {:variant "contained"
         :disabled @disabled?
@@ -391,7 +390,6 @@
              (when (or (seq (str message-text)) has-image?)
                (on-send message-text)
                (set! (.-value @message-ref) "")
-               ;; Clear draft message after sending
                (swap! app-state update :chat dissoc :draft-message))))}
        [box
         {:sx {:color (if @disabled? "text.disabled" "inherit")
@@ -405,7 +403,7 @@
   (let [scroll-ref (r/atom nil)
         last-ai-message-ref (r/atom nil)]
     (r/create-class
-     {:component-did-update (fn [this]
+     {:component-did-update (fn [_]
                               (when @last-ai-message-ref
                                 (.scrollIntoView @last-ai-message-ref
                                                  #js {:behavior "smooth"
@@ -428,8 +426,7 @@
                :sx {:text-align "center" :color "text.secondary" :mt 2}}
               "Start a conversation about your wine cellar..."]
              (doall (for [message current-messages]
-                      (let [is-last-message? (= message
-                                                (last current-messages))]
+                      (let [is-last-message? (= message (last current-messages))]
                         ^{:key (:id message)}
                         [message-bubble message on-edit
                          (when is-last-message?
@@ -453,9 +450,7 @@
                         :is-user true
                         :timestamp (.getTime (js/Date.))}
           wines (if-let [current-wine-id (:selected-wine-id @app-state)]
-                  ;; In detail view - pass only current wine
                   (filter #(= (:id %) current-wine-id) (:wines @app-state))
-                  ;; In list view - pass all filtered wines
                   (filtered-sorted-wines app-state))]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
@@ -477,16 +472,15 @@
                            :timestamp (.getTime (js/Date.))}]
            (swap! messages conj ai-message)
            (swap! app-state assoc-in [:chat :messages] @messages)
-            (persist-conversation-message!
-             app-state
-             wines
-             {:is_user false :content response}
-             (fn [_]
+           (persist-conversation-message!
+            app-state
+            wines
+            {:is_user false :content response}
+            (fn [_]
               (api/load-conversations! app-state {:force? true})))
            (reset! is-sending? false)))))))
 
 (defn- use-edit-state
-  "Hook for managing edit state"
   []
   (let [editing-message-id (r/atom nil)]
     {:editing-message-id editing-message-id
@@ -494,8 +488,6 @@
                     (reset! editing-message-id message-id)
                     (when @message-ref
                       (set! (.-value @message-ref) message-text)
-                      ;; Trigger input event to make Material-UI recognize
-                      ;; the text
                       (let [input-event (js/Event. "input" #js {:bubbles true})]
                         (.dispatchEvent @message-ref input-event))
                       (.focus @message-ref)))
@@ -505,7 +497,6 @@
      :is-editing? #(some? @editing-message-id)}))
 
 (defn- handle-edit-send
-  "Handle sending an edited message"
   [app-state editing-message-id message-ref messages is-sending?]
   (when @message-ref
     (let [message-text (.-value @message-ref)]
@@ -515,13 +506,10 @@
                                 first)]
         (let [updated-message
               (assoc (nth @messages message-idx) :text message-text)]
-          ;; Replace the edited message and remove messages after it
           (reset! messages (conj (vec (take message-idx @messages))
                                  updated-message))
           (reset! editing-message-id nil)
           (set! (.-value @message-ref) "")
-          ;; Generate new AI response (without adding duplicate user
-          ;; message)
           (reset! is-sending? true)
           (let [wines (if-let [current-wine-id (:selected-wine-id @app-state)]
                         (filter #(= (:id %) current-wine-id)
@@ -550,9 +538,132 @@
                   (fn [_]
                     (api/load-conversations! app-state {:force? true})))
                  (reset! is-sending? false))))))
-        ;; If message not found, just clear edit state
         (do (reset! editing-message-id nil)
             (set! (.-value @message-ref) ""))))))
+
+(defn clear-chat!
+  [app-state messages]
+  (reset! messages [])
+  (swap! app-state
+         (fn [state]
+           (-> state
+               (assoc-in [:chat :messages] [])
+               (assoc-in [:chat :active-conversation-id] nil)
+               (assoc-in [:chat :active-conversation] nil)
+               (assoc-in [:chat :messages-loading?] false)
+               (assoc-in [:chat :creating-conversation?] false)
+               (assoc-in [:chat :draft-message] nil)))))
+
+(defn close-chat!
+  [app-state message-ref]
+  (when-let [node @message-ref]
+    (swap! app-state assoc-in [:chat :draft-message] (.-value node)))
+  (swap! app-state assoc-in [:chat :open?] false))
+
+(defn delete-conversation-with-confirm!
+  [app-state {:keys [id] :as conversation}]
+  (when (and id
+             (js/confirm (str "Delete conversation \""
+                              (conversation-label conversation)
+                              "\"? This cannot be undone.")))
+    (api/delete-conversation! app-state id)))
+
+(defn rename-conversation-with-prompt!
+  [app-state {:keys [id title]}]
+  (when id
+    (when-let [new-title (js/prompt "Rename conversation" (or title ""))]
+      (let [trimmed (string/trim new-title)]
+        (when (and (not (string/blank? trimmed))
+                   (not= trimmed title))
+          (api/rename-conversation! app-state id trimmed))))))
+
+(defn toggle-pin!
+  [app-state {:keys [id pinned]}]
+  (when id
+    (api/set-conversation-pinned! app-state id (not (true? pinned)))))
+
+(defn chat-dialog-header
+  [{:keys [app-state messages message-ref conversation-loading? sidebar-open? on-toggle-sidebar]}]
+  [dialog-title
+   [box
+    {:sx {:display "flex"
+          :justify-content "space-between"
+          :align-items "center"}}
+    [typography {:variant "h6"} "Wine Cellar Assistant"]
+    [box {:sx {:display "flex" :gap 1}}
+     [button
+      {:variant "outlined"
+       :size "small"
+       :disabled conversation-loading?
+       :on-click on-toggle-sidebar
+       :sx {:textTransform "none"
+            :display "flex"
+            :alignItems "center"
+            :gap 1}}
+      (if conversation-loading?
+        [circular-progress {:size 16 :sx {:color "primary.main"}}]
+        (if sidebar-open? "Hide Conversations" "Show Conversations"))]
+     [icon-button
+      {:on-click #(clear-chat! app-state messages)
+       :title "Clear chat history"
+       :sx {:color "secondary.main"}} [clear-all]]
+     [icon-button
+      {:on-click #(close-chat! app-state message-ref)
+       :title "Close chat"
+       :sx {:color "secondary.main"}} [close]]]]])
+
+(defn chat-main-column
+  [{:keys [sidebar-open?
+           show-camera?
+           handle-camera-capture
+           handle-camera-cancel
+           messages
+           message-edit-handler
+           handle-send
+           is-sending?
+           app-state
+           handle-image-capture
+           pending-image
+           handle-image-remove
+           message-ref
+           is-editing?
+           handle-cancel]}]
+  [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}
+   (when @show-camera?
+     [camera-capture handle-camera-capture handle-camera-cancel])
+   [chat-messages messages message-edit-handler]
+   (when (is-editing?)
+     [typography
+      {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
+      "Editing message - all responses after this will be regenerated"])
+   [chat-input message-ref handle-send is-sending? "chat-input" app-state
+    handle-image-capture pending-image handle-image-remove]
+   (when (is-editing?)
+     [button
+      {:variant "text"
+       :size "small"
+       :sx {:mt 1}
+       :on-click #(handle-cancel message-ref)}
+      "Cancel Edit"])])
+
+(defn chat-dialog-content
+  [{:keys [dialog-content-ref sidebar main-column]}]
+  [dialog-content
+   {:ref #(reset! dialog-content-ref %)}
+   (into [grid {:container true :spacing 2}]
+         (cond-> []
+           sidebar (conj sidebar)
+           true (conj main-column)))])
+
+(defn chat-dialog-shell
+  [{:keys [app-state is-open header-props content-props]}]
+  [dialog
+   {:open is-open
+    :on-close #(swap! app-state assoc-in [:chat :open?] false)
+    :max-width "md"
+    :full-width true}
+   (chat-dialog-header header-props)
+   (chat-dialog-content content-props)])
 
 (defn chat-dialog
   "Main chat dialog component"
@@ -565,9 +676,10 @@
         pending-image (r/atom nil)
         dialog-content-ref (r/atom nil)
         dialog-opened (r/atom false)
+        sidebar-scroll-ref (r/atom nil)
+        sidebar-scroll-requested? (r/atom false)
         edit-state (use-edit-state)
-        {:keys [editing-message-id handle-edit handle-cancel is-editing?]}
-        edit-state
+        {:keys [editing-message-id handle-edit handle-cancel is-editing?]} edit-state
         handle-send (fn [message-text]
                       (if (is-editing?)
                         (handle-edit-send app-state
@@ -587,26 +699,8 @@
                                 (reset! pending-image (:label_image image-data)))
         handle-camera-cancel (fn [] (reset! show-camera? false) (reset! pending-image nil))
         handle-image-remove (fn [] (reset! pending-image nil))
-        handle-delete-conversation (fn [{:keys [id] :as conversation}]
-                                     (when (and id
-                                                (js/confirm (str "Delete conversation \""
-                                                                 (conversation-label conversation)
-                                                                 "\"? This cannot be undone.")))
-                                       (api/delete-conversation! app-state id)))
-        handle-rename-conversation (fn [{:keys [id title] :as conversation}]
-                                     (when id
-                                       (let [new-title (js/prompt "Rename conversation" (or title ""))
-                                             trimmed (some-> new-title string/trim)]
-                                         (when (and new-title
-                                                    (not (string/blank? trimmed))
-                                                    (not= trimmed title))
-                                           (api/rename-conversation! app-state id trimmed)))))
-        handle-toggle-pin (fn [{:keys [id pinned]}]
-                             (when id
-                               (api/set-conversation-pinned!
-                                app-state
-                                id
-                                (not (true? pinned)))))]
+        message-edit-handler (fn [id text]
+                               (handle-edit id text message-ref))]
     (fn [app-state]
       (let [chat-state (:chat @app-state)
             is-open (:open? chat-state false)
@@ -615,11 +709,22 @@
             messages-loading? (:messages-loading? chat-state)
             conversations (:conversations chat-state)
             active-id (:active-conversation-id chat-state)
-            active-conversation (:active-conversation chat-state)
             deleting-id (:deleting-conversation-id chat-state)
             pinning-id (:pinning-conversation-id chat-state)
             renaming-id (:renaming-conversation-id chat-state)
             conversation-messages (vec (or (:messages chat-state) []))
+            toggle-sidebar! (fn []
+                              (let [opening? (not sidebar-open?)]
+                                (if opening?
+                                  (do
+                                    (reset! sidebar-scroll-requested? true)
+                                    (js/setTimeout
+                                     #(when-let [el @dialog-content-ref]
+                                        (.scrollTo el 0 0))
+                                     50))
+                                  (reset! sidebar-scroll-requested? false))
+                                (reset! sidebar-scroll-ref nil)
+                                (swap! app-state update-in [:chat :sidebar-open?] not)))
             sidebar (conversation-sidebar app-state
                                           messages
                                           {:open? sidebar-open?
@@ -629,26 +734,35 @@
                                            :deleting-id deleting-id
                                            :renaming-id renaming-id
                                            :pinning-id pinning-id
-                                           :on-delete handle-delete-conversation
-                                           :on-rename handle-rename-conversation
-                                           :on-pin handle-toggle-pin})
-            main-column [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}
-                         (when @show-camera?
-                           [camera-capture handle-camera-capture handle-camera-cancel])
-                         [chat-messages messages #(handle-edit %1 %2 message-ref)]
-                         (when (is-editing?)
-                           [typography
-                            {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
-                            "Editing message - all responses after this will be regenerated"])
-                         [chat-input message-ref handle-send is-sending? "chat-input" app-state
-                          handle-image-capture pending-image handle-image-remove]
-                         (when (is-editing?)
-                           [button
-                            {:variant "text"
-                             :size "small"
-                             :sx {:mt 1}
-                             :on-click #(handle-cancel message-ref)}
-                            "Cancel Edit"])]]
+                                           :scroll-ref sidebar-scroll-ref
+                                           :scroll-requested? sidebar-scroll-requested?
+                                           :on-delete #(delete-conversation-with-confirm! app-state %)
+                                           :on-rename #(rename-conversation-with-prompt! app-state %)
+                                           :on-pin #(toggle-pin! app-state % )})
+            main-column (chat-main-column {:sidebar-open? sidebar-open?
+                                           :show-camera? show-camera?
+                                           :handle-camera-capture handle-camera-capture
+                                           :handle-camera-cancel handle-camera-cancel
+                                           :messages messages
+                                           :message-edit-handler message-edit-handler
+                                           :handle-send handle-send
+                                           :is-sending? is-sending?
+                                           :app-state app-state
+                                           :handle-image-capture handle-image-capture
+                                           :pending-image pending-image
+                                           :handle-image-remove handle-image-remove
+                                           :message-ref message-ref
+                                           :is-editing? is-editing?
+                                           :handle-cancel handle-cancel})
+            header-props {:app-state app-state
+                          :messages messages
+                          :message-ref message-ref
+                          :conversation-loading? conversation-loading?
+                          :sidebar-open? sidebar-open?
+                          :on-toggle-sidebar toggle-sidebar!}
+            content-props {:dialog-content-ref dialog-content-ref
+                           :sidebar sidebar
+                           :main-column main-column}]
         (when (not= @messages conversation-messages)
           (reset! messages conversation-messages))
         (when (and is-open active-id (not messages-loading?) (empty? conversation-messages))
@@ -661,107 +775,10 @@
             200))
         (when (not is-open)
           (reset! dialog-opened false))
-        [dialog
-         {:open is-open
-          :on-close #(swap! app-state assoc-in [:chat :open?] false)
-          :max-width "md"
-          :full-width true}
-         [dialog-title
-          [box
-           {:sx {:display "flex"
-                 :justify-content "space-between"
-                 :align-items "center"}}
-           [typography {:variant "h6"} "Wine Cellar Assistant"]
-           [box {:sx {:display "flex" :gap 1}}
-           [button
-            {:variant "outlined"
-             :size "small"
-             :disabled conversation-loading?
-             :on-click #(swap! app-state update-in [:chat :sidebar-open?] not)
-             :sx {:textTransform "none"
-                  :display "flex"
-                  :alignItems "center"
-                  :gap 1}}
-            (if conversation-loading?
-              [circular-progress {:size 16 :sx {:color "primary.main"}}]
-              (if sidebar-open? "Hide Conversations" "Show Conversations"))]
-            (when (seq conversations)
-              (let [value (if active-id (str active-id) "")
-                    render-label (fn [val]
-                                   (if (seq val)
-                                     (conversation-label (first (filter #(= (str (:id %)) val) conversations)))
-                                     "Select conversation"))]
-                [select
-                 {:size "small"
-                  :displayEmpty true
-                  :value value
-                  :renderValue render-label
-                  :on-change (fn [event]
-                               (let [selected (.. event -target -value)]
-                                 (when (seq selected)
-                                   (when-let [conv (first (filter #(= (str (:id %)) selected) conversations))]
-                                     (open-conversation! app-state messages conv false)))))
-                  :sx {:min-width "12rem"}}
-                 [menu-item {:value "" :disabled true} "Select conversation"]
-                 (for [{:keys [id] :as conv} conversations]
-                   ^{:key id}
-                   [menu-item {:value (str id)}
-                    (conversation-label conv)])]))
-            (when active-conversation
-              (let [renaming-active? (= renaming-id (:id active-conversation))
-                    deleting-active? (= deleting-id (:id active-conversation))
-                    pinning-active? (= pinning-id (:id active-conversation))
-                    pinned? (true? (:pinned active-conversation))]
-                [:<>
-                 [icon-button
-                  {:on-click #(handle-toggle-pin active-conversation)
-                   :title (if pinned? "Unpin conversation" "Pin conversation")
-                   :disabled (or pinning-active? conversation-loading?)
-                   :sx {:color (if pinned? "warning.main" "text.secondary")}}
-                  (cond
-                    pinning-active? [circular-progress {:size 18}]
-                    pinned? [star]
-                    :else [star-border])]
-                 [icon-button
-                  {:on-click #(handle-rename-conversation active-conversation)
-                   :title "Rename conversation"
-                   :disabled (or renaming-active? conversation-loading?)
-                   :sx {:color "text.secondary"}}
-                  (if renaming-active?
-                    [circular-progress {:size 18}]
-                    [edit])]
-                 [icon-button
-                  {:on-click #(handle-delete-conversation active-conversation)
-                   :title "Delete conversation"
-                   :disabled (or deleting-active? conversation-loading?)
-                   :sx {:color "error.main"}}
-                  (if deleting-active?
-                    [circular-progress {:size 18}]
-                    [delete])]]))
-            [icon-button
-             {:on-click #(do (reset! messages [])
-                             (swap! app-state assoc-in [:chat :messages] [])
-                             (swap! app-state assoc-in [:chat :active-conversation-id] nil)
-                             (swap! app-state assoc-in [:chat :active-conversation] nil)
-                             (swap! app-state assoc-in [:chat :messages-loading?] false)
-                             (swap! app-state assoc-in [:chat :creating-conversation?] false)
-                             (swap! app-state assoc-in [:chat :draft-message] nil))
-              :title "Clear chat history"
-              :sx {:color "secondary.main"}} [clear-all]]
-            [icon-button
-             {:on-click #(do (when @message-ref
-                               (let [draft-text (.-value @message-ref)]
-                                 (swap! app-state assoc-in [:chat :draft-message] draft-text)))
-                           (swap! app-state assoc-in [:chat :open?] false))
-              :title "Close chat"
-              :sx {:color "secondary.main"}} [close]]]]]
-         [dialog-content
-          {:ref #(reset! dialog-content-ref %)}
-          (into [grid {:container true :spacing 2}]
-                (cond-> []
-                  sidebar (conj sidebar)
-                  true (conj main-column)))]])
-      )))
+        (chat-dialog-shell {:app-state app-state
+                            :is-open is-open
+                            :header-props header-props
+                            :content-props content-props})))))
 
 (defn wine-chat-fab
   "Floating action button for wine chat"
