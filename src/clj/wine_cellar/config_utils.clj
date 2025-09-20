@@ -59,13 +59,12 @@
    Returns the configuration value or throws an exception if not found."
   [env-var-name & {:keys [pass-path fallback]}]
   (try (let [env-value (System/getenv env-var-name)]
-         (when production?
-           (when-not env-value
-             (throw (ex-info
-                     (str
-                      "Missing required environment variable in production: "
-                      env-var-name)
-                     {:type :config-retrieval-error :env-var env-var-name}))))
+         (when (and production? (nil? env-value) (nil? fallback))
+           (throw (ex-info
+                   (str
+                    "Missing required environment variable in production: "
+                    env-var-name)
+                   {:type :config-retrieval-error :env-var env-var-name})))
          (or env-value
              (get-password-from-pass (or pass-path
                                          (env-var-to-pass-path env-var-name)))

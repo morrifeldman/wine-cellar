@@ -11,8 +11,7 @@
 
 (defstate model
   :start
-  (or (config-utils/get-config "OPENAI_MODEL")
-      "gpt-5"))
+  (config-utils/get-config "OPENAI_MODEL" :fallback "gpt-5"))
 
 (defstate api-key :start (config-utils/get-config "OPENAI_API_KEY"))
 
