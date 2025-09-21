@@ -11,8 +11,8 @@
 
 (defstate model
           :start
-          (or (config-utils/get-config "ANTHROPIC_MODEL")
-              "claude-sonnet-4-20250514")) ; Default to current model
+          (config-utils/get-config "ANTHROPIC_MODEL"
+                                   :fallback "claude-sonnet-4-20250514")) ; Default to current model
 
 (defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
 
