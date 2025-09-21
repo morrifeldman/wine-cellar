@@ -10,7 +10,9 @@
 
 (defstate default-provider
   :start
-  (let [configured (some-> (config-utils/get-config "AI_DEFAULT_PROVIDER")
+  (let [configured (some-> (config-utils/get-config
+                             "AI_DEFAULT_PROVIDER"
+                             :fallback "anthropic")
                            str/lower-case
                            keyword)]
     (if (supported-providers configured)
