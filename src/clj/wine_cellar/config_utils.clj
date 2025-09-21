@@ -65,10 +65,12 @@
                     "Missing required environment variable in production: "
                     env-var-name)
                    {:type :config-retrieval-error :env-var env-var-name})))
-         (or env-value
-             (get-password-from-pass (or pass-path
-                                         (env-var-to-pass-path env-var-name)))
-             fallback))
+         (cond
+           env-value env-value
+           production? fallback
+           :else (or (get-password-from-pass (or pass-path
+                                                 (env-var-to-pass-path env-var-name)))
+                     fallback)))
        (catch Exception e
          (if (instance? clojure.lang.ExceptionInfo e)
            (throw e) ;; Re-throw our custom exceptions
