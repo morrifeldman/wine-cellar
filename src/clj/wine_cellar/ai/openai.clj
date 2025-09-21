@@ -4,10 +4,10 @@
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
             [org.httpkit.client :as http]
-            [wine-cellar.ai.prompts :as prompts]
             [wine-cellar.config-utils :as config-utils]))
 
-(def api-url "https://api.openai.com/v1/responses")
+(def responses-url "https://api.openai.com/v1/responses")
+(def chat-url "https://api.openai.com/v1/chat/completions")
 
 (defstate model
   :start
@@ -28,66 +28,164 @@
 ;; Shared prompt helpers now live in wine-cellar.ai.prompts
 
 (defn- message->content
-  [{:keys [is-user text]}]
-  (let [role (if is-user "user" "assistant")
-        type (if is-user "input_text" "output_text")]
+  [{:keys [role content]}]
+  (let [input? (= role "user")
+        items (cond
+                (vector? content) content
+                (string? content) [{:type "text" :text content}]
+                :else [{:type "text" :text (or (:text content) "")}])]
     {:role role
-     :content [{:type type
-                :text (or text "")}]}))
+     :content (mapv (fn [item]
+                      (case (:type item)
+                        "image" {:type "input_image"
+                                  :image_base64 (get-in item [:source :data])
+                                  :mime_type (get-in item [:source :media_type])}
+                        "text" {:type (if input? "input_text" "output_text")
+                                 :text (:text item)}
+                        {:type (if input? "input_text" "output_text")
+                         :text (or (:text item) "")}))
+                    items)}))
 
 (defn- conversation->input
-  [conversation-history image]
-  (let [messages (map message->content conversation-history)]
-    (if (and image (seq messages))
-      (let [last-msg (last messages)]
-        (if (= "user" (:role last-msg))
-          (let [prefix (butlast messages)
-                image-content {:type "input_image"
-                               :image_base64 (-> image
-                                                 (str/replace #"^data:image/[^;]+;base64," ""))}]
-            (concat prefix
-                    [(update last-msg :content conj image-content)]))
-          messages))
-      messages)))
+  [messages]
+  (mapv message->content messages))
 
 (defn- build-request
-  [wines conversation-history image]
-  {:model model
-   :input (concat
-           [{:role "system"
-             :content [{:type "input_text"
-                        :text (prompts/wine-system-instructions)}]}
-            {:role "system"
-             :content [{:type "input_text"
-                        :text (prompts/wine-collection-context wines)}]}]
-           (conversation->input conversation-history image))
+  [{:keys [system-text context-text messages]}]
+  {:pre [(string? system-text) (string? context-text) (vector? messages)]}
+  {:input (into [{:role "system"
+                  :content [{:type "input_text"
+                             :text system-text}]}
+                 {:role "system"
+                  :content [{:type "input_text"
+                             :text context-text}]}]
+                (conversation->input messages))
    :max_output_tokens 1000})
+
+(defn- output-content
+  [response-body]
+  (mapcat :content (:output response-body)))
 
 (defn- extract-text
   [response-body]
-  (some->> (:output response-body)
-           (mapcat :content)
+  (some->> (output-content response-body)
            (filter #(= "output_text" (:type %)))
            (map :text)
            (remove str/blank?)
            (str/join "\n")))
 
-(defn chat-about-wines
-  [wines conversation-history image]
+(defn- extract-json-output
+  [response-body]
+  (let [content (output-content response-body)]
+    (cond
+      (seq (filter #(= "output_json" (:type %)) content))
+      (some (fn [item]
+              (when (= "output_json" (:type item)) (:json item)))
+            content)
+
+      (seq (filter #(= "output_data" (:type %)) content))
+      (some (fn [item]
+              (when (= "output_data" (:type item))
+                (some-> item :data first :json)))
+            content)
+
+      (seq (filter #(= "output_text" (:type %)) content))
+      (let [text (extract-text response-body)]
+        (when (seq text)
+          (json/read-value text json-mapper)))
+
+      :else nil)))
+
+(defn- call-openai-responses
+  [request parse-json?]
   (ensure-api-key!)
-  (let [request (build-request wines conversation-history image)]
-    (tap> ["openai-request" request])
-    (let [{:keys [status body error]} (deref (http/post api-url
+  (let [payload (-> request
+                    (assoc :model (or (:model request) model))
+                    (update :max_output_tokens #(or % 900))
+                    (assoc :reasoning {:effort "low"}))]
+    (tap> ["openai-request" payload])
+    (let [{:keys [status body error]} (deref (http/post responses-url
                                                        {:headers {"authorization" (str "Bearer " api-key)
                                                                   "content-type" "application/json"}
-                                                        :body (json/write-value-as-string request)
+                                                        :body (json/write-value-as-string payload)
                                                         :as :text
                                                         :timeout 60000}))
           parsed (when body (json/read-value body json-mapper))]
       (tap> ["openai-response" {:status status :error error :body parsed}])
       (if (= 200 status)
-        (or (extract-text parsed)
-            (throw (ex-info "OpenAI response missing assistant text"
-                            {:status status :response parsed})))
+        (if parse-json?
+          (try
+            (let [json-output (extract-json-output parsed)]
+              (if json-output
+                json-output
+                (throw (ex-info "OpenAI response missing JSON content"
+                                {:status status :response parsed}))))
+            (catch Exception e
+              (throw (ex-info "Failed to parse OpenAI JSON response"
+                              {:status 500 :response parsed}
+                              e))))
+          (let [text (extract-text parsed)]
+            (if (seq (str text))
+              text
+              (throw (ex-info "OpenAI response missing assistant text"
+                              {:status status :response parsed})))))
         (throw (ex-info "OpenAI Responses API call failed"
                         {:status status :response parsed :error error}))))))
+
+(defn chat-about-wines
+  [prompt]
+  (call-openai-responses (build-request prompt) false))
+
+(defn- call-openai-chat
+  [request]
+  (ensure-api-key!)
+  (let [payload (-> request
+                    (assoc :model (or (:model request) model)))]
+    (tap> ["openai-chat-request" payload])
+    (let [{:keys [status body error]} (deref (http/post chat-url
+                                                       {:headers {"authorization" (str "Bearer " api-key)
+                                                                  "content-type" "application/json"}
+                                                        :body (json/write-value-as-string payload)
+                                                        :as :text
+                                                        :timeout 60000}))
+          parsed (when body (json/read-value body json-mapper))]
+      (tap> ["openai-chat-response" {:status status :error error :body parsed}])
+      (if (= 200 status)
+        (get-in parsed [:choices 0 :message :content])
+        (throw (ex-info "OpenAI ChatCompletions call failed"
+                        {:status status :response parsed :error error}))))))
+
+(defn suggest-drinking-window
+  [{:keys [system user]}]
+  (assert (string? system) "Drinking-window prompt requires :system text")
+  (assert (string? user) "Drinking-window prompt requires :user text")
+  (let [request {:model "gpt-5"
+                 :messages [{:role "system" :content system}
+                            {:role "user" :content user}]
+                 :response_format {:type "json_schema"
+                                   :json_schema {:name "DrinkingWindow"
+                                                 :strict true
+                                                 :schema {:type "object"
+                                                          :properties {:drink_from_year {:type "integer"}
+                                                                       :drink_until_year {:type "integer"}
+                                                                       :confidence {:type "string"}
+                                                                       :reasoning {:type "string"}}
+                                                          :required [:drink_from_year :drink_until_year :confidence :reasoning]
+                                                          :additionalProperties false}}}
+                 :reasoning_effort "low"
+                 :verbosity "medium"}]
+    (-> (call-openai-chat request)
+        (json/read-value json-mapper))))
+
+(defn generate-wine-summary
+  [{:keys [system user]}]
+  (assert (string? system) "Wine-summary prompt requires :system text")
+  (assert (string? user) "Wine-summary prompt requires :user text")
+  (let [request {:input [{:role "system"
+                          :content [{:type "input_text"
+                                     :text system}]}
+                         {:role "user"
+                          :content [{:type "input_text"
+                                     :text user}]}]
+                 :max_output_tokens 800}]
+    (call-openai-responses request false)))

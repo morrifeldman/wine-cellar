@@ -1,6 +1,5 @@
 (ns wine-cellar.handlers
   (:require [wine-cellar.db.api :as db-api]
-            [wine-cellar.ai.anthropic :as anthropic]
             [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations]
@@ -283,8 +282,7 @@
   [{{:keys [label_image back_label_image]} :body-params}]
   (try (if (nil? label_image)
          {:status 400 :body {:error "Label image is required"}}
-         (let [result (anthropic/analyze-wine-label label_image
-                                                    back_label_image)]
+         (let [result (ai/analyze-wine-label label_image back_label_image)]
            (response/response result)))
        (catch clojure.lang.ExceptionInfo e
          (let [data (ex-data e)]
@@ -295,39 +293,47 @@
        (catch Exception e (server-error e))))
 
 (defn suggest-drinking-window
-  [{{:keys [wine]} :body-params}]
+  [{{:keys [wine provider]} :body-params}]
   (try (if (nil? wine)
          {:status 400 :body {:error "Wine details are required"}}
          (let [enriched-wine (if (:id wine)
                                (first (db-api/get-enriched-wines-by-ids
                                        [(:id wine)]))
                                wine)
-               result (anthropic/suggest-drinking-window enriched-wine)]
+               result (ai/suggest-drinking-window provider enriched-wine)]
            (response/response result)))
        (catch clojure.lang.ExceptionInfo e
-         (let [data (ex-data e)]
-           {:status 500
-            :body {:error "AI analysis failed"
-                   :details (.getMessage e)
-                   :response (:response data)}}))
+         (let [data (ex-data e)
+               status (or (:status data) 500)
+               error-message (or (:error data) "AI analysis failed")]
+           {:status status
+            :body (cond-> {:error error-message}
+                    (not= (:error data) (.getMessage e))
+                    (assoc :details (.getMessage e))
+                    (:response data)
+                    (assoc :response (:response data)))}))
        (catch Exception e (server-error e))))
 
 (defn generate-wine-summary
-  [{{:keys [wine]} :body-params}]
+  [{{:keys [wine provider]} :body-params}]
   (try (if (nil? wine)
          {:status 400 :body {:error "Wine details are required"}}
          (let [enriched-wine (if (:id wine)
                                (first (db-api/get-enriched-wines-by-ids
                                        [(:id wine)]))
                                wine)
-               result (anthropic/generate-wine-summary enriched-wine)]
+               result (ai/generate-wine-summary provider enriched-wine)]
            (response/response result)))
        (catch clojure.lang.ExceptionInfo e
-         (let [data (ex-data e)]
-           {:status 500
-            :body {:error "AI summary generation failed"
-                   :details (.getMessage e)
-                   :response (:response data)}}))
+         (let [data (ex-data e)
+               status (or (:status data) 500)
+               error-message (or (:error data) "AI summary generation failed")]
+           {:status status
+            :body (cond-> {:error error-message}
+                    (not= (:error data) (.getMessage e))
+                    (assoc :details (.getMessage e))
+                    (:response data)
+                    (assoc :response (:response data)))}))
        (catch Exception e (server-error e))))
 
 (defn health-check

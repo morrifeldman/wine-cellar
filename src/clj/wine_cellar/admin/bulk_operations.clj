@@ -1,6 +1,6 @@
 (ns wine-cellar.admin.bulk-operations
   (:require [wine-cellar.db.api :as db-api]
-            [wine-cellar.ai.anthropic :as anthropic]))
+            [wine-cellar.ai.core :as ai]))
 
 ;; Job state management
 (def active-jobs (atom {}))
@@ -48,8 +48,7 @@
                (fn [idx wine]
                  (try (tap> ["🍷 Processing wine" (inc idx) "of" total-count
                              "- ID:" (:id wine) "Producer:" (:producer wine)])
-                      (let [ai-response (anthropic/suggest-drinking-window
-                                         wine)]
+                      (let [ai-response (ai/suggest-drinking-window wine)]
                         (tap> ["🤖 AI response received for wine" (:id wine) ":"
                                ai-response])
                         (let [updates

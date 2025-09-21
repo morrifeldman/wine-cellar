@@ -121,6 +121,8 @@
          notes-summary
          ai-summary)))
 
+(def max-wines 50)
+
 (defn create-wine-context
   "Produces a multi-line summary of the wine collection, capped at 50 wines."
   [wines]
@@ -128,12 +130,12 @@
   (if (empty? wines)
     "The user has no wines in their collection yet."
     (let [wine-count (count wines)
-          wine-summaries (take 50 (map format-wine-summary wines))
+          wine-summaries (take max-wines (map format-wine-summary wines))
           summary (str "The user has "
                        wine-count
                        " wines in their collection:\n"
                        (str/join "\n" wine-summaries)
-                       (when (> wine-count 50) "\n... and more wines"))]
+                       (when (> wine-count max-wines) "\n... and more wines"))]
       (tap> ["wine cellar summary" summary])
       summary)))
 
@@ -164,3 +166,146 @@
      "- NO bullet points with -\n"
      "- NO numbered lists\n"
      "Write your response as simple, natural conversational text with normal punctuation only.")))
+
+(defn- strip-image-data-url
+  [image]
+  (some-> image
+          (str/replace #"^data:image/jpeg;base64," "")
+          (str/replace #"^data:image/png;base64," "")))
+
+(defn conversation-messages
+  "Normalizes conversation history into provider-agnostic chat messages.
+   Each message is a map with :role (\"user\" or \"assistant\") and :content, where
+   :content is either a string or a vector containing {:type \"text\" ...} / {:type \"image\" ...}."
+  ([conversation-history]
+   (conversation-messages conversation-history nil))
+  ([conversation-history image]
+   (let [base (mapv (fn [msg]
+                      (let [role (if (or (:is-user msg) (:is_user msg)) "user" "assistant")
+                            content (or (:content msg) (:text msg) "")]
+                        {:role role :content content}))
+                    conversation-history)]
+     (if (and image
+              (seq base)
+              (= "user" (:role (peek base))))
+       (let [idx (dec (count base))
+             last-msg (peek base)
+             existing-content (:content last-msg)
+             text-content (cond
+                            (vector? existing-content)
+                            (or (:text (first existing-content)) "")
+                            (string? existing-content) existing-content
+                            :else (str existing-content))
+             image-content [{:type "text" :text text-content}
+                            {:type "image"
+                             :source {:type "base64"
+                                      :media_type "image/jpeg"
+                                      :data (strip-image-data-url image)}}]
+             updated-last (assoc last-msg :content image-content)]
+        (assoc base idx updated-last))
+       base))))
+
+(defn- infer-media-type
+  [image]
+  (cond
+    (and image (str/starts-with? (str/lower-case image) "data:image/png")) "image/png"
+    :else "image/jpeg"))
+
+(defn- label-image-entry
+  [image]
+  (when-let [data (strip-image-data-url image)]
+    {:type "image"
+     :source {:type "base64"
+              :media_type (infer-media-type image)
+              :data data}}))
+
+(defn label-analysis-system-prompt
+  []
+  (let [style-options (str/join ", " (sort common/wine-styles))
+        level-options (str/join ", " (sort common/wine-levels))]
+    (str
+     "You are a wine expert tasked with extracting information from wine label images. "
+     "Analyze the provided wine label images and extract the following information in JSON format:\n\n"
+     "- producer: The wine producer/winery name\n"
+     "- name: The specific name of the wine (if different from producer)\n"
+     "- vintage: The year the wine was produced (numeric, or null for non-vintage)\n"
+     "- country: The country of origin\n"
+     "- region: The wine region within the country\n"
+     "- aoc: The appellation or controlled designation of origin (if applicable)\n"
+     "- vineyard: The specific vineyard name (if mentioned)\n"
+     "- classification: Any classification or quality designation\n"
+     "- style: The wine style. Must be one of: " style-options "\n"
+     "- level: The wine level. Must be one of: " level-options "\n"
+     "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"
+     "Return ONLY a valid parseable JSON object with these fields. If you cannot determine a value, use null for that field. "
+     "Do not nest the result in a markdown code block. Do not include any explanatory text outside the JSON object.")))
+
+(defn label-analysis-user-content
+  [front-image back-image]
+  (let [front-entry (label-image-entry front-image)
+        back-entry (label-image-entry back-image)
+        has-front (boolean front-entry)
+        has-back (boolean back-entry)
+        image-desc (cond
+                     (and has-front has-back) "front and back label images"
+                     has-front "front label image"
+                     has-back "back label image"
+                     :else "wine label image")
+        base [{:type "text" :text (str "Please analyze these " image-desc ":")}]
+        entries (cond-> base
+                  front-entry (conj front-entry)
+                  back-entry (conj back-entry))]
+    entries))
+
+(defn label-analysis-prompt
+  [front-image back-image]
+  {:system (label-analysis-system-prompt)
+   :user-content (label-analysis-user-content front-image back-image)})
+
+(defn drinking-window-system-prompt
+  []
+  (let [current-year (.getValue (java.time.Year/now))]
+    (str
+     "You are a wine expert tasked with suggesting the OPTIMAL drinking window for a wine. "
+     "Focus on when this wine will be at its absolute peak quality and most enjoyable, "
+     "not just when it's acceptable to drink. Based on wine characteristics "
+     "including tasting notes and grape varieties, suggest the ideal timeframe when "
+     "this wine will express its best characteristics.\n\n"
+     "The current year is " current-year ".\n\n"
+     "Return your response in JSON format with the following fields:\n"
+     "- drink_from_year: (integer) The year when the wine will reach optimal drinking condition\n"
+     "- drink_until_year: (integer) The year when the wine will still be at peak quality (not just drinkable)\n"
+     "- confidence: (string) \"high\", \"medium\", or \"low\" based on how confident you are in this assessment\n"
+     "- reasoning: (string) A brief explanation of your recommendation focusing on peak quality timing, and mention the broader window when the wine remains enjoyable to drink\n\n"
+     "Only return a valid parseable JSON object without any additional text. "
+     "Do not nest the response in a markdown code block.")))
+
+(defn drinking-window-user-message
+  [wine]
+  (let [wine-summary (format-wine-summary wine
+                                          :include-quantity? false
+                                          :bullet-prefix ""
+                                          :include-drinking-window? false
+                                          :include-ai-summary? false)]
+    (str "Wine details:\n" wine-summary)))
+
+(defn wine-summary-system-prompt
+  []
+  (str
+   "You are a wine expert tasked with creating a concise wine summary including taste profile and food pairing recommendations. "
+   "Based on wine details provided, create an informative but brief summary that would be helpful to someone deciding whether to drink this wine or what to pair it with.\n\n"
+   "Please provide a concise summary (2-3 paragraphs maximum) that includes:\n"
+   "1. Overall style and key taste characteristics\n"
+   "2. Top 3-4 food pairing suggestions\n"
+   "3. Basic serving recommendations\n\n"
+   "Write in a conversational, informative tone. Keep it concise and practical. "
+   "Focus on the most important information for enjoyment and pairing decisions. "
+   "Return only the summary text without any formatting or structure markers."))
+
+(defn wine-summary-user-message
+  [wine]
+  (let [wine-details (format-wine-summary wine
+                                          :include-quantity? false
+                                          :bullet-prefix ""
+                                          :include-ai-summary? false)]
+    (str "Wine details:\n" wine-details)))

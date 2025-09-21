@@ -60,6 +60,7 @@
 (s/def ::wine_varieties (s/coll-of ::wine_variety))
 (s/def ::message string?)
 (s/def ::wine-ids (s/coll-of int?))
+(s/def ::wine map?)
 (s/def ::conversation-history vector?)
 (s/def ::image (s/nilable string?))
 (s/def ::provider (s/nilable #{"anthropic" "openai"}))
@@ -298,14 +299,16 @@
              :handler handlers/analyze-wine-label}}]
     ["/suggest-drinking-window"
      {:post {:summary "Suggest optimal drinking window for a wine using AI"
-             :parameters {:body {:wine map?}}
+             :parameters {:body (s/keys :req-un [::wine]
+                                        :opt-un [::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/suggest-drinking-window}}]
     ["/generate-summary"
      {:post
       {:summary
        "Generate comprehensive wine summary with taste profile and food pairings using AI"
-       :parameters {:body {:wine map?}}
+       :parameters {:body (s/keys :req-un [::wine]
+                                  :opt-un [::provider])}
        :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
        :handler handlers/generate-wine-summary}}]
     ["/by-id/:id"

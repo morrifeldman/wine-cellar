@@ -329,8 +329,11 @@
   (swap! app-state assoc :suggesting-drinking-window? true)
   (js/Promise. (fn [resolve reject]
                  (go
-                  (let [result (<! (POST "/api/wines/suggest-drinking-window"
-                                         {:wine wine}
+                  (let [provider (some-> (get-in @app-state [:chat :provider]) name)
+                        payload (cond-> {:wine wine}
+                                   provider (assoc :provider provider))
+                        result (<! (POST "/api/wines/suggest-drinking-window"
+                                         payload
                                          "Failed to suggest drinking window"))]
                     (swap! app-state assoc :suggesting-drinking-window? false)
                     (if (:success result)
@@ -342,7 +345,9 @@
   [app-state wine]
   (js/Promise. (fn [resolve reject]
                  (go (let [result (<! (POST "/api/wines/generate-summary"
-                                            {:wine wine}
+                                            (let [provider (some-> (get-in @app-state [:chat :provider]) name)]
+                                              (cond-> {:wine wine}
+                                                provider (assoc :provider provider)))
                                             "Failed to generate wine summary"))]
                        (if (:success result)
                          (resolve (:data result))

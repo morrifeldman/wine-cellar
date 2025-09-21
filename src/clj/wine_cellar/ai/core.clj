@@ -4,6 +4,7 @@
             [mount.core :refer [defstate]]
             [wine-cellar.ai.anthropic :as anthropic]
             [wine-cellar.ai.openai :as openai]
+            [wine-cellar.ai.prompts :as prompts]
             [wine-cellar.config-utils :as config-utils]))
 
 (def supported-providers #{:anthropic :openai})
@@ -33,11 +34,45 @@
   ([provider wines conversation-history]
    (chat-about-wines provider wines conversation-history nil))
   ([provider wines conversation-history image]
-   (let [provider-key (normalize-provider provider)]
+   (tap> ["conversation-history" conversation-history])
+   (let [provider-key (normalize-provider provider)
+         prompt {:system-text (prompts/wine-system-instructions)
+                 :context-text (prompts/wine-collection-context wines)
+                 :messages (prompts/conversation-messages conversation-history image)}]
+     (tap> ["prompt" prompt])
      (case provider-key
-       :openai (openai/chat-about-wines wines conversation-history image)
-       :anthropic (anthropic/chat-about-wines wines conversation-history image)
+       :openai (openai/chat-about-wines prompt)
+       :anthropic (anthropic/chat-about-wines prompt)
        (throw (ex-info "Unsupported AI provider" {:provider provider-key}))))))
+
+(defn suggest-drinking-window
+  ([wine]
+   (suggest-drinking-window nil wine))
+  ([provider wine]
+   (let [provider-key (normalize-provider provider)
+         prompt-data {:system (prompts/drinking-window-system-prompt)
+                      :user (prompts/drinking-window-user-message wine)}]
+     (case provider-key
+       :openai (openai/suggest-drinking-window prompt-data)
+       :anthropic (anthropic/suggest-drinking-window prompt-data)
+       (throw (ex-info "Unsupported AI provider" {:provider provider-key}))))))
+
+(defn generate-wine-summary
+  ([wine]
+   (generate-wine-summary nil wine))
+  ([provider wine]
+   (let [provider-key (normalize-provider provider)
+         prompt-data {:system (prompts/wine-summary-system-prompt)
+                      :user (prompts/wine-summary-user-message wine)}]
+     (case provider-key
+       :openai (openai/generate-wine-summary prompt-data)
+       :anthropic (anthropic/generate-wine-summary prompt-data)
+       (throw (ex-info "Unsupported AI provider" {:provider provider-key}))))))
+
+(defn analyze-wine-label
+  [front-image back-image]
+  (let [prompt (prompts/label-analysis-prompt front-image back-image)]
+    (anthropic/analyze-wine-label prompt)))
 
 ;; TODO: add provider-aware wrappers for the non-chat Anthropic helpers as we extend
 ;; OpenAI support. For now other call sites continue to require anthropic directly.
