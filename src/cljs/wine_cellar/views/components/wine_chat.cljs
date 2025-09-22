@@ -120,6 +120,25 @@
            (when after-save (after-save conversation-id))
            (tap> ["conversation-message-persist-failed" error]))))))))
 
+(defn- context-wines
+  "Derive the set of wines currently in chat context."
+  [app-state]
+  (let [state @app-state
+        selected-id (:selected-wine-id state)
+        wines (or (:wines state) [])]
+    (cond
+      selected-id (into [] (filter #(= (:id %) selected-id) wines))
+      :else (vec (or (filtered-sorted-wines app-state) [])))))
+
+(defn- context-indicator-style
+  [count]
+  (cond
+    (zero? count) {:color "text.secondary" :label "No wines in context"}
+    (= count 1) {:color "success.main" :label "1 wine in context"}
+    (<= count 15) {:color "success.main" :label (str count " wines in context")}
+    (<= count 50) {:color "warning.main" :label (str count " wines in context")}
+    :else {:color "error.main" :label (str count " wines in context")}))
+
 (defn- conversation-label
   [{:keys [title id last_message_at]}]
   (or title
@@ -632,23 +651,34 @@
            message-ref
            is-editing?
            handle-cancel]}]
-  [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}
-   (when @show-camera?
-     [camera-capture handle-camera-capture handle-camera-cancel])
-   [chat-messages messages message-edit-handler]
-   (when (is-editing?)
-     [typography
-      {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
-      "Editing message - all responses after this will be regenerated"])
-   [chat-input message-ref handle-send is-sending? "chat-input" app-state
-    handle-image-capture pending-image handle-image-remove]
-   (when (is-editing?)
-     [button
-      {:variant "text"
-       :size "small"
-       :sx {:mt 1}
-       :on-click #(handle-cancel message-ref)}
-      "Cancel Edit"])])
+  (let [context-count (count (context-wines app-state))
+        {:keys [color label]} (context-indicator-style context-count)]
+    (let [components (concat
+                      (when @show-camera?
+                        [[camera-capture handle-camera-capture handle-camera-cancel]])
+                      [[chat-messages messages message-edit-handler]]
+                      (when (is-editing?)
+                        [[typography
+                          {:variant "caption"
+                           :sx {:color "warning.main" :px 2 :py 0.5}}
+                          "Editing message - all responses after this will be regenerated"]])
+                      [[chat-input message-ref handle-send is-sending? "chat-input" app-state
+                        handle-image-capture pending-image handle-image-remove]
+                       [box {:sx {:mt 1
+                                  :alignSelf "flex-start"
+                                  :color color
+                                  :fontSize "0.75rem"
+                                  :fontWeight 600}}
+                        label]]
+                      (when (is-editing?)
+                        [[button
+                          {:variant "text"
+                           :size "small"
+                           :sx {:mt 1}
+                           :on-click #(handle-cancel message-ref)}
+                          "Cancel Edit"]]))]
+      (into [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}]
+            components))))
 
 (defn chat-dialog-content
   [{:keys [dialog-content-ref sidebar main-column]}]
