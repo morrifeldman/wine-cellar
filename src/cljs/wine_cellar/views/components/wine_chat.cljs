@@ -139,6 +139,50 @@
     (<= count 50) {:color "warning.main" :label (str count " wines in context")}
     :else {:color "error.main" :label (str count " wines in context")}))
 
+(defn- normalize-provider
+  [value]
+  (cond
+    (keyword? value) value
+    (string? value) (-> value string/lower-case keyword)
+    (nil? value) :anthropic
+    :else :anthropic))
+
+(defn- provider-label
+  [provider]
+  (case (normalize-provider provider)
+    :openai "ChatGPT"
+    :anthropic "Claude"
+    (-> provider name string/capitalize)))
+
+(defn- toggle-provider!
+  [app-state]
+  (swap! app-state
+         update-in
+         [:chat :provider]
+         (fn [current]
+           (let [provider (normalize-provider current)]
+             (case provider
+               :anthropic :openai
+               :openai :anthropic
+               :anthropic)))))
+
+(defn- provider-toggle
+  [app-state]
+  (let [provider (normalize-provider (get-in @app-state [:chat :provider]))]
+    [button
+     {:variant "outlined"
+      :size "small"
+      :on-click #(toggle-provider! app-state)
+      :sx {:textTransform "none"
+           :fontSize "0.75rem"
+           :px 1.5
+           :py 0.25
+           :borderColor "divider"
+           :color "text.primary"
+           :minWidth "120px"}
+      :title "Toggle AI provider"}
+     (str "AI: " (provider-label provider))]))
+
 (defn- conversation-label
   [{:keys [title id last_message_at]}]
   (or title
@@ -319,7 +363,8 @@
 (defn chat-input
   "Chat input field with send button and camera button - uncontrolled for performance"
   [message-ref on-send disabled? reset-key app-state on-image-capture
-   attached-image on-image-remove]
+   attached-image on-image-remove {:keys [context-label context-color]
+                                   :or {context-color "text.secondary"}}]
   (let [has-image? @attached-image
         container-ref (r/atom nil)]
     (when has-image?
@@ -376,9 +421,24 @@
                           "Type your message here... (or paste a screenshot)")))
        :disabled @disabled?
        :on-paste #(handle-paste-event % attached-image)}]
-     [box {:sx {:display "flex" :justify-content "flex-end" :gap 1}}
+     [box {:sx {:display "flex"
+                :justify-content "space-between"
+                :align-items "center"
+                :gap 1
+                :flex-wrap "wrap"}}
+      [box {:sx {:display "flex"
+                 :align-items "center"
+                 :gap 1
+                 :flex-wrap "wrap"}}
+       [provider-toggle app-state]
+       (when context-label
+         [typography
+          {:variant "caption"
+           :sx {:color context-color
+                :fontWeight 600}}
+          context-label])]
       (let [is-mobile? (and js/navigator.maxTouchPoints (> js/navigator.maxTouchPoints 0))]
-        [:<>
+        [box {:sx {:display "flex" :align-items "center" :gap 1}}
          [:input {:type "file"
                   :accept "image/*"
                   :style {:display "none"}
@@ -394,27 +454,27 @@
                         (on-image-capture nil)
                         (when-let [input (js/document.getElementById "photo-picker-input")]
                           (.click input)))}
-          (if is-mobile? "Camera" "Upload")]])
-      [button
-       {:variant "contained"
-        :disabled @disabled?
-        :sx {:minWidth "60px" :px 1}
-        :startIcon (if @disabled?
-                     (r/as-element [circular-progress
-                                    {:size 14 :sx {:color "secondary.light"}}])
-                     (r/as-element [send {:size 14}]))
-        :on-click
-        #(when @message-ref
-           (let [message-text (.-value @message-ref)]
-             (when (or (seq (str message-text)) has-image?)
-               (on-send message-text)
-               (set! (.-value @message-ref) "")
-               (swap! app-state update :chat dissoc :draft-message))))}
-       [box
-        {:sx {:color (if @disabled? "text.disabled" "inherit")
-              :fontWeight (if @disabled? "600" "normal")
-              :fontSize (if @disabled? "0.8rem" "0.9rem")}}
-        (if @disabled? "Sending..." "Send")]]]]))
+          (if is-mobile? "Camera" "Upload")]
+         [button
+          {:variant "contained"
+           :disabled @disabled?
+           :sx {:minWidth "60px" :px 1}
+           :startIcon (if @disabled?
+                        (r/as-element [circular-progress
+                                       {:size 14 :sx {:color "secondary.light"}}])
+                        (r/as-element [send {:size 14}]))
+           :on-click
+           #(when @message-ref
+              (let [message-text (.-value @message-ref)]
+                (when (or (seq (str message-text)) has-image?)
+                  (on-send message-text)
+                  (set! (.-value @message-ref) "")
+                  (swap! app-state update :chat dissoc :draft-message))))}
+          [box
+           {:sx {:color (if @disabled? "text.disabled" "inherit")
+                 :fontWeight (if @disabled? "600" "normal")
+                 :fontSize (if @disabled? "0.8rem" "0.9rem")}}
+           (if @disabled? "Sending..." "Send")]]])]]))
 
 (defn chat-messages
   "Scrollable container for chat messages"
@@ -662,14 +722,16 @@
                           {:variant "caption"
                            :sx {:color "warning.main" :px 2 :py 0.5}}
                           "Editing message - all responses after this will be regenerated"]])
-                      [[chat-input message-ref handle-send is-sending? "chat-input" app-state
-                        handle-image-capture pending-image handle-image-remove]
-                       [box {:sx {:mt 1
-                                  :alignSelf "flex-start"
-                                  :color color
-                                  :fontSize "0.75rem"
-                                  :fontWeight 600}}
-                        label]]
+                      [[chat-input message-ref
+                                   handle-send
+                                   is-sending?
+                                   "chat-input"
+                                   app-state
+                                   handle-image-capture
+                                   pending-image
+                                   handle-image-remove
+                                   {:context-label label
+                                    :context-color color}]]
                       (when (is-editing?)
                         [[button
                           {:variant "text"
