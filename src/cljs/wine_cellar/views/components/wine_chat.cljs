@@ -21,6 +21,7 @@
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.send :refer [send]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
+            [reagent-mui.icons.photo-library :refer [photo-library]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [wine-cellar.views.components.image-upload :refer [camera-capture]]
             [wine-cellar.api :as api]
@@ -139,6 +140,12 @@
     (<= count 50) {:color "warning.main" :label (str count " wines in context")}
     :else {:color "error.main" :label (str count " wines in context")}))
 
+(defn- mobile?
+  []
+  (boolean
+   (and (exists? js/navigator)
+        (pos? (or (.-maxTouchPoints js/navigator) 0)))))
+
 (defn- normalize-provider
   [value]
   (cond
@@ -168,19 +175,21 @@
 
 (defn- provider-toggle
   [app-state]
-  (let [provider (normalize-provider (get-in @app-state [:chat :provider]))]
+  (let [provider (normalize-provider (get-in @app-state [:chat :provider]))
+        is-mobile? (mobile?)]
     [button
      {:variant "outlined"
       :size "small"
       :on-click #(toggle-provider! app-state)
       :sx {:textTransform "none"
-           :fontSize "0.75rem"
-           :px 1.5
-           :py 0.25
-           :borderColor "divider"
-           :color "text.primary"
-           :minWidth "120px"
-           :width {:xs "100%" :sm "auto"}}
+            :fontSize "0.75rem"
+            :px 1.5
+            :py 0.25
+            :borderColor "divider"
+            :color "text.primary"
+           :minWidth (if is-mobile? "96px" "120px")
+           :height "28px"
+           :lineHeight 1.2}
       :title "Toggle AI provider"}
      (str "AI: " (provider-label provider))]))
 
@@ -364,8 +373,7 @@
 (defn chat-input
   "Chat input field with send button and camera button - uncontrolled for performance"
   [message-ref on-send disabled? reset-key app-state on-image-capture
-   attached-image on-image-remove {:keys [context-label context-color]
-                                   :or {context-color "text.secondary"}}]
+   attached-image on-image-remove]
   (let [has-image? @attached-image
         container-ref (r/atom nil)]
     (when has-image?
@@ -423,41 +431,37 @@
        :disabled @disabled?
        :on-paste #(handle-paste-event % attached-image)}]
      [box {:sx {:display "flex"
-                :justify-content "space-between"
+                :justify-content "flex-end"
                 :align-items "center"
                 :gap 1
                 :flex-wrap "wrap"}}
-      [box {:sx {:display "flex"
-                 :align-items {:xs "flex-start" :sm "center"}
-                 :gap {:xs 0.5 :sm 1}
-                 :flex-direction {:xs "column" :sm "row"}}}
-       [provider-toggle app-state]
-       (when context-label
-         [typography
-          {:variant "caption"
-           :sx {:color context-color
-                :fontWeight 600
-                :whiteSpace "nowrap"
-                :width {:xs "100%" :sm "auto"}}}
-          context-label])]
-      (let [is-mobile? (and js/navigator.maxTouchPoints (> js/navigator.maxTouchPoints 0))]
-        [box {:sx {:display "flex" :align-items "center" :gap 1}}
+      (let [is-mobile? (and js/navigator.maxTouchPoints (> js/navigator.maxTouchPoints 0))
+            trigger-upload #(when-let [input (js/document.getElementById "photo-picker-input")]
+                              (.click input))]
+        [:<>
          [:input {:type "file"
                   :accept "image/*"
                   :style {:display "none"}
                   :id "photo-picker-input"
                   :on-change #(when-let [file (-> % .-target .-files (aget 0))]
                                 (handle-clipboard-image file attached-image))}]
+         (when is-mobile?
+           [button
+            {:variant "outlined"
+             :size "small"
+             :disabled @disabled?
+             :startIcon (r/as-element [camera-alt {:size 14}])
+             :on-click #(on-image-capture nil)
+             :sx {:minWidth "90px"}}
+            "Camera"])
          [button
           {:variant "outlined"
            :size "small"
            :disabled @disabled?
-           :startIcon (r/as-element [camera-alt {:size 14}])
-           :on-click #(if is-mobile?
-                        (on-image-capture nil)
-                        (when-let [input (js/document.getElementById "photo-picker-input")]
-                          (.click input)))}
-          (if is-mobile? "Camera" "Upload")]
+           :startIcon (r/as-element [photo-library {:size 14}])
+           :on-click trigger-upload
+           :sx {:minWidth (if is-mobile? "90px" "100px")}}
+          (if is-mobile? "Photos" "Upload")]
          [button
           {:variant "contained"
            :disabled @disabled?
@@ -494,7 +498,7 @@
       (fn [messages on-edit]
         [box
          {:ref #(reset! scroll-ref %)
-          :sx {:height "400px"
+          :sx {:height "360px"
                :overflow-y "auto"
                :p 2
                :background-color "background.default"
@@ -669,34 +673,68 @@
     (api/set-conversation-pinned! app-state id (not (true? pinned)))))
 
 (defn chat-dialog-header
-  [{:keys [app-state messages message-ref conversation-loading? sidebar-open? on-toggle-sidebar]}]
-  [dialog-title
-   [box
-    {:sx {:display "flex"
-          :justify-content "space-between"
-          :align-items "center"}}
-    [typography {:variant "h6"} "Wine Cellar Assistant"]
-    [box {:sx {:display "flex" :gap 1}}
-     [button
-      {:variant "outlined"
-       :size "small"
-       :disabled conversation-loading?
-       :on-click on-toggle-sidebar
-       :sx {:textTransform "none"
-            :display "flex"
-            :alignItems "center"
-            :gap 1}}
-      (if conversation-loading?
-        [circular-progress {:size 16 :sx {:color "primary.main"}}]
-        (if sidebar-open? "Hide Conversations" "Show Conversations"))]
-     [icon-button
-      {:on-click #(clear-chat! app-state messages)
-       :title "Clear chat history"
-       :sx {:color "secondary.main"}} [clear-all]]
-     [icon-button
-      {:on-click #(close-chat! app-state message-ref)
-       :title "Close chat"
-       :sx {:color "secondary.main"}} [close]]]]])
+  [{:keys [app-state messages message-ref conversation-loading? sidebar-open?
+           on-toggle-sidebar context-label context-color]}]
+  (let [is-mobile? (mobile?)
+        conversation-toggle
+        (if is-mobile?
+          [icon-button
+           {:on-click on-toggle-sidebar
+            :title (if sidebar-open? "Hide conversations" "Show conversations")
+            :sx {:color "secondary.main"}}
+           (if conversation-loading?
+             [circular-progress {:size 18}]
+             [chat {:fontSize "small"}])]
+          [button
+           {:variant "outlined"
+            :size "small"
+            :disabled conversation-loading?
+            :on-click on-toggle-sidebar
+            :sx {:textTransform "none"
+                 :display "flex"
+                 :alignItems "center"
+                 :gap 1}}
+           (if conversation-loading?
+             [circular-progress {:size 16 :sx {:color "primary.main"}}]
+             (if sidebar-open? "Hide Conversations" "Show Conversations"))])]
+    [dialog-title
+     [box
+      {:sx {:display "flex"
+            :justify-content "space-between"
+            :align-items "center"
+            :gap (if is-mobile? 0.5 1)
+            :flex-wrap "nowrap"}}
+      [box {:sx {:display "flex"
+                 :align-items "center"
+                 :gap 0.75
+                 :minWidth 0}}
+       [box {:sx {:display "flex"
+                  :flex-direction "column"
+                  :align-items "flex-start"
+                  :gap 0.25}}
+        [provider-toggle app-state]
+        (when context-label
+          [typography
+           {:variant "caption"
+            :sx {:color context-color
+                 :fontWeight 600
+                 :fontSize "0.7rem"
+                 :lineHeight 1.2}}
+           context-label])]]
+      [box {:sx {:display "flex"
+                 :align-items "center"
+                 :gap (if is-mobile? 0.5 1)}}
+       conversation-toggle
+       [icon-button
+        {:on-click #(clear-chat! app-state messages)
+         :title "Clear chat history"
+         :sx {:color "secondary.main"}}
+        [clear-all]]
+       [icon-button
+        {:on-click #(close-chat! app-state message-ref)
+         :title "Close chat"
+         :sx {:color "secondary.main"}}
+        [close]]]]]))
 
 (defn chat-main-column
   [{:keys [sidebar-open?
@@ -714,36 +752,32 @@
            message-ref
            is-editing?
            handle-cancel]}]
-  (let [context-count (count (context-wines app-state))
-        {:keys [color label]} (context-indicator-style context-count)]
-    (let [components (concat
-                      (when @show-camera?
-                        [[camera-capture handle-camera-capture handle-camera-cancel]])
-                      [[chat-messages messages message-edit-handler]]
-                      (when (is-editing?)
-                        [[typography
-                          {:variant "caption"
-                           :sx {:color "warning.main" :px 2 :py 0.5}}
-                          "Editing message - all responses after this will be regenerated"]])
-                      [[chat-input message-ref
-                                   handle-send
-                                   is-sending?
-                                   "chat-input"
-                                   app-state
-                                   handle-image-capture
-                                   pending-image
-                                   handle-image-remove
-                                   {:context-label label
-                                    :context-color color}]]
-                      (when (is-editing?)
-                        [[button
-                          {:variant "text"
-                           :size "small"
-                           :sx {:mt 1}
-                           :on-click #(handle-cancel message-ref)}
-                          "Cancel Edit"]]))]
-      (into [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}]
-            components))))
+  (let [components (concat
+                    (when @show-camera?
+                      [[camera-capture handle-camera-capture handle-camera-cancel]])
+                    [[chat-messages messages message-edit-handler]]
+                    (when (is-editing?)
+                      [[typography
+                        {:variant "caption"
+                         :sx {:color "warning.main" :px 2 :py 0.5}}
+                        "Editing message - all responses after this will be regenerated"]])
+                    [[chat-input message-ref
+                                 handle-send
+                                 is-sending?
+                                 "chat-input"
+                                 app-state
+                                 handle-image-capture
+                                 pending-image
+                                 handle-image-remove]]
+                    (when (is-editing?)
+                      [[button
+                        {:variant "text"
+                         :size "small"
+                         :sx {:mt 1}
+                         :on-click #(handle-cancel message-ref)}
+                        "Cancel Edit"]]))]
+    (into [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}]
+          components)))
 
 (defn chat-dialog-content
   [{:keys [dialog-content-ref sidebar main-column]}]
@@ -812,6 +846,8 @@
             pinning-id (:pinning-conversation-id chat-state)
             renaming-id (:renaming-conversation-id chat-state)
             conversation-messages (vec (or (:messages chat-state) []))
+            context-count (count (context-wines app-state))
+            {:keys [color label]} (context-indicator-style context-count)
             toggle-sidebar! (fn []
                               (let [opening? (not sidebar-open?)]
                                 (if opening?
@@ -858,7 +894,9 @@
                           :message-ref message-ref
                           :conversation-loading? conversation-loading?
                           :sidebar-open? sidebar-open?
-                          :on-toggle-sidebar toggle-sidebar!}
+                          :on-toggle-sidebar toggle-sidebar!
+                          :context-label label
+                          :context-color color}
             content-props {:dialog-content-ref dialog-content-ref
                            :sidebar sidebar
                            :main-column main-column}]
