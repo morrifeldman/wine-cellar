@@ -179,7 +179,8 @@
            :py 0.25
            :borderColor "divider"
            :color "text.primary"
-           :minWidth "120px"}
+           :minWidth "120px"
+           :width {:xs "100%" :sm "auto"}}
       :title "Toggle AI provider"}
      (str "AI: " (provider-label provider))]))
 
@@ -427,15 +428,17 @@
                 :gap 1
                 :flex-wrap "wrap"}}
       [box {:sx {:display "flex"
-                 :align-items "center"
-                 :gap 1
-                 :flex-wrap "wrap"}}
+                 :align-items {:xs "flex-start" :sm "center"}
+                 :gap {:xs 0.5 :sm 1}
+                 :flex-direction {:xs "column" :sm "row"}}}
        [provider-toggle app-state]
        (when context-label
          [typography
           {:variant "caption"
            :sx {:color context-color
-                :fontWeight 600}}
+                :fontWeight 600
+                :whiteSpace "nowrap"
+                :width {:xs "100%" :sm "auto"}}}
           context-label])]
       (let [is-mobile? (and js/navigator.maxTouchPoints (> js/navigator.maxTouchPoints 0))]
         [box {:sx {:display "flex" :align-items "center" :gap 1}}
