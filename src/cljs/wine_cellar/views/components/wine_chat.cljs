@@ -145,7 +145,11 @@
       (zero? count) {:color "text.secondary" :label base-label}
       (<= count 15) {:color "success.main" :label base-label}
       (<= count 50) {:color "warning.main" :label base-label}
-      :else {:color "error.main" :label base-label})))
+      :else {:color "error.main"
+             :label base-label
+             :sx {:backgroundColor "rgba(211, 47, 47, 0.12)"
+                  :padding "2px 6px"
+                  :borderRadius "999px"}})))
 
 (defn- mobile?
   []
@@ -681,7 +685,7 @@
 
 (defn chat-dialog-header
   [{:keys [app-state messages message-ref conversation-loading? sidebar-open?
-           on-toggle-sidebar context-label context-color]}]
+           on-toggle-sidebar context-label context-color context-sx]}]
   (let [is-mobile? (mobile?)
         conversation-toggle
         (if is-mobile?
@@ -722,11 +726,12 @@
         [provider-toggle app-state]
        (when context-label
          [typography
-          {:variant "caption"
-           :sx {:color context-color
-                :fontWeight 400
-                :fontSize "0.7rem"
-                :lineHeight 1.2}}
+           {:variant "caption"
+            :sx (merge {:color context-color
+                        :fontWeight 400
+                        :fontSize "0.7rem"
+                        :lineHeight 1.2}
+                       context-sx)}
            context-label])]]
       [box {:sx {:display "flex"
                  :align-items "center"
@@ -854,7 +859,7 @@
             renaming-id (:renaming-conversation-id chat-state)
             conversation-messages (vec (or (:messages chat-state) []))
             context-count (count (context-wines app-state))
-            {:keys [color label]} (context-indicator-style context-count)
+            {:keys [color label sx]} (context-indicator-style context-count)
             toggle-sidebar! (fn []
                               (let [opening? (not sidebar-open?)]
                                 (if opening?
@@ -903,7 +908,8 @@
                           :sidebar-open? sidebar-open?
                           :on-toggle-sidebar toggle-sidebar!
                           :context-label label
-                          :context-color color}
+                          :context-color color
+                          :context-sx sx}
             content-props {:dialog-content-ref dialog-content-ref
                            :sidebar sidebar
                            :main-column main-column}]
