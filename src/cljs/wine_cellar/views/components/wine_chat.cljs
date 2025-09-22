@@ -131,14 +131,21 @@
       selected-id (into [] (filter #(= (:id %) selected-id) wines))
       :else (vec (or (filtered-sorted-wines app-state) [])))))
 
-(defn- context-indicator-style
+(defn- context-label-element
   [count]
   (cond
-    (zero? count) {:color "text.secondary" :label "No wines in context"}
-    (= count 1) {:color "success.main" :label "1 wine in context"}
-    (<= count 15) {:color "success.main" :label (str count " wines in context")}
-    (<= count 50) {:color "warning.main" :label (str count " wines in context")}
-    :else {:color "error.main" :label (str count " wines in context")}))
+    (zero? count) "No wines in context"
+    (= count 1) [:<> [:span {:style {:fontWeight 700}} "1"] " wine in context"]
+    :else [:<> [:span {:style {:fontWeight 700}} (str count)] " wines in context"]))
+
+(defn- context-indicator-style
+  [count]
+  (let [base-label (context-label-element count)]
+    (cond
+      (zero? count) {:color "text.secondary" :label base-label}
+      (<= count 15) {:color "success.main" :label base-label}
+      (<= count 50) {:color "warning.main" :label base-label}
+      :else {:color "error.main" :label base-label})))
 
 (defn- mobile?
   []
@@ -713,13 +720,13 @@
                   :align-items "flex-start"
                   :gap 0.25}}
         [provider-toggle app-state]
-        (when context-label
-          [typography
-           {:variant "caption"
-            :sx {:color context-color
-                 :fontWeight 600
-                 :fontSize "0.7rem"
-                 :lineHeight 1.2}}
+       (when context-label
+         [typography
+          {:variant "caption"
+           :sx {:color context-color
+                :fontWeight 400
+                :fontSize "0.7rem"
+                :lineHeight 1.2}}
            context-label])]]
       [box {:sx {:display "flex"
                  :align-items "center"
