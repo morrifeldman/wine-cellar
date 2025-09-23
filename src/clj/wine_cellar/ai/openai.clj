@@ -62,6 +62,24 @@
   [messages]
   (mapv message->content messages))
 
+(defn- label-analysis-schema
+  []
+  {:type "object"
+   :properties {:producer {:type ["string" "null"]}
+                :name {:type ["string" "null"]}
+                :vintage {:type ["integer" "null"]}
+                :country {:type ["string" "null"]}
+                :region {:type ["string" "null"]}
+                :aoc {:type ["string" "null"]}
+                :vineyard {:type ["string" "null"]}
+                :classification {:type ["string" "null"]}
+                :style {:type ["string" "null"]}
+                :level {:type ["string" "null"]}
+                :alcohol_percentage {:type ["number" "null"]}}
+   :required [:producer :name :vintage :country :region :aoc :vineyard
+              :classification :style :level :alcohol_percentage]
+   :additionalProperties false})
+
 (defn- build-request
   [{:keys [system-text context-text messages]}]
   {:pre [(string? system-text) (string? context-text) (vector? messages)]}
@@ -127,11 +145,12 @@
       (if (= 200 status)
         (if parse-json?
           (try
-            (let [json-output (extract-json-output parsed)]
-              (if json-output
-                json-output
-                (throw (ex-info "OpenAI response missing JSON content"
-                                {:status status :response parsed}))))
+            (if-let [json-output (extract-json-output parsed)]
+              (do
+                (tap> ["parsed openai-response" json-output])
+                json-output)
+              (throw (ex-info "OpenAI response missing JSON content"
+                              {:status status :response parsed})))
             (catch Exception e
               (throw (ex-info "Failed to parse OpenAI JSON response"
                               {:status 500 :response parsed}
@@ -184,3 +203,21 @@
                                      :text user}]}]
                  :max_output_tokens 800}]
     (call-openai-responses request false)))
+
+(defn analyze-wine-label
+  [{:keys [system user-content]}]
+  (assert (string? system) "Label analysis prompt requires :system text")
+  (assert (vector? user-content) "Label analysis prompt requires :user-content vector")
+  (let [user-message (message->content {:role "user"
+                                        :content user-content})
+        request {:input (into [{:role "system"
+                                 :content [{:type "input_text"
+                                            :text system}]}]
+                               [user-message])
+                 :text {:format {:type "json_schema"
+                                 :name "WineLabelAnalysis"
+                                 :strict true
+                                 :schema (label-analysis-schema)}}
+                 :max_output_tokens 900
+                 :reasoning {:effort "low"}}]
+    (call-openai-responses request true)))

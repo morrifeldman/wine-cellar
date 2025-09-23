@@ -279,10 +279,10 @@
 
 ;; AI Analysis Handlers
 (defn analyze-wine-label
-  [{{:keys [label_image back_label_image]} :body-params}]
+  [{{:keys [label_image back_label_image provider]} :body-params}]
   (try (if (nil? label_image)
          {:status 400 :body {:error "Label image is required"}}
-         (let [result (ai/analyze-wine-label label_image back_label_image)]
+         (let [result (ai/analyze-wine-label provider label_image back_label_image)]
            (response/response result)))
        (catch clojure.lang.ExceptionInfo e
          (let [data (ex-data e)]

@@ -314,15 +314,19 @@
 (defn analyze-wine-label
   [app-state image-data]
   (swap! app-state assoc :analyzing-label? true)
-  (js/Promise. (fn [resolve reject]
-                 (go (let [result (<! (POST "/api/wines/analyze-label"
-                                            image-data
-                                            "Failed to analyze wine label"))]
-                       (swap! app-state assoc :analyzing-label? false)
-                       (if (:success result)
-                         (resolve (:data result))
-                         (do (swap! app-state assoc :error (:error result))
-                             (reject (:error result)))))))))
+  (let [provider (some-> (get-in @app-state [:chat :provider]) name)
+        payload (cond-> image-data
+                  provider (assoc :provider provider))]
+    (js/Promise.
+     (fn [resolve reject]
+       (go (let [result (<! (POST "/api/wines/analyze-label"
+                                   payload
+                                   "Failed to analyze wine label"))]
+             (swap! app-state assoc :analyzing-label? false)
+             (if (:success result)
+               (resolve (:data result))
+               (do (swap! app-state assoc :error (:error result))
+                   (reject (:error result))))))))))
 
 (defn suggest-drinking-window
   [app-state wine]

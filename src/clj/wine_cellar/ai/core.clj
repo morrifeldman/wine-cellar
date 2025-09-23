@@ -70,9 +70,15 @@
        (throw (ex-info "Unsupported AI provider" {:provider provider-key}))))))
 
 (defn analyze-wine-label
-  [front-image back-image]
-  (let [prompt (prompts/label-analysis-prompt front-image back-image)]
-    (anthropic/analyze-wine-label prompt)))
+  ([front-image back-image]
+   (analyze-wine-label nil front-image back-image))
+  ([provider front-image back-image]
+   (let [provider-key (normalize-provider provider)
+         prompt (prompts/label-analysis-prompt front-image back-image)]
+     (case provider-key
+       :openai (openai/analyze-wine-label prompt)
+       :anthropic (anthropic/analyze-wine-label prompt)
+       (throw (ex-info "Unsupported AI provider" {:provider provider-key}))))))
 
-;; TODO: add provider-aware wrappers for the non-chat Anthropic helpers as we extend
-;; OpenAI support. For now other call sites continue to require anthropic directly.
+;; TODO: add provider-aware wrappers for any remaining Anthropics-only helpers as we
+;; extend OpenAI support.
