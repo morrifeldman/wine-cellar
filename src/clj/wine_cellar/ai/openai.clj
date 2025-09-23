@@ -27,6 +27,14 @@
 
 ;; Shared prompt helpers now live in wine-cellar.ai.prompts
 
+(defn- ensure-data-url
+  [data media-type]
+  (when (and data (string? data))
+    (if (str/starts-with? data "data:")
+      data
+      (let [mt (or media-type "image/png")]
+        (format "data:%s;base64,%s" mt data)))))
+
 (defn- message->content
   [{:keys [role content]}]
   (let [input? (= role "user")
@@ -37,9 +45,14 @@
     {:role role
      :content (mapv (fn [item]
                       (case (:type item)
-                        "image" {:type "input_image"
-                                  :image_base64 (get-in item [:source :data])
-                                  :mime_type (get-in item [:source :media_type])}
+                        "image" (let [data (get-in item [:source :data])
+                                       media-type (get-in item [:source :media_type])
+                                       data-url (ensure-data-url data media-type)]
+                                   (if data-url
+                                     {:type "input_image"
+                                      :image_url data-url}
+                                     {:type (if input? "input_text" "output_text")
+                                      :text ""}))
                         "text" {:type (if input? "input_text" "output_text")
                                  :text (:text item)}
                         {:type (if input? "input_text" "output_text")
