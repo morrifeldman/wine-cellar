@@ -24,6 +24,7 @@
             [reagent-mui.icons.photo-library :refer [photo-library]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [wine-cellar.views.components.image-upload :refer [camera-capture]]
+            [wine-cellar.views.components.ai-provider-toggle :as ai-toggle]
             [wine-cellar.api :as api]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
@@ -156,53 +157,6 @@
   (boolean
    (and (exists? js/navigator)
         (pos? (or (.-maxTouchPoints js/navigator) 0)))))
-
-(defn- normalize-provider
-  [value]
-  (cond
-    (keyword? value) value
-    (string? value) (-> value string/lower-case keyword)
-    (nil? value) :anthropic
-    :else :anthropic))
-
-(defn- provider-label
-  [provider]
-  (case (normalize-provider provider)
-    :openai "ChatGPT"
-    :anthropic "Claude"
-    (-> provider name string/capitalize)))
-
-(defn- toggle-provider!
-  [app-state]
-  (swap! app-state
-         update-in
-         [:chat :provider]
-         (fn [current]
-           (let [provider (normalize-provider current)]
-             (case provider
-               :anthropic :openai
-               :openai :anthropic
-               :anthropic)))))
-
-(defn- provider-toggle
-  [app-state]
-  (let [provider (normalize-provider (get-in @app-state [:chat :provider]))
-        is-mobile? (mobile?)]
-    [button
-     {:variant "outlined"
-      :size "small"
-      :on-click #(toggle-provider! app-state)
-      :sx {:textTransform "none"
-            :fontSize "0.75rem"
-            :px 1.5
-            :py 0.25
-            :borderColor "divider"
-            :color "text.primary"
-           :minWidth (if is-mobile? "96px" "120px")
-           :height "28px"
-           :lineHeight 1.2}
-      :title "Toggle AI provider"}
-     (str "AI: " (provider-label provider))]))
 
 (defn- conversation-label
   [{:keys [title id last_message_at]}]
@@ -723,7 +677,10 @@
                   :flex-direction "column"
                   :align-items "flex-start"
                   :gap 0.25}}
-        [provider-toggle app-state]
+        [ai-toggle/provider-toggle-button
+         app-state
+         {:mobile-min-width (if is-mobile? "96px" "120px")
+          :sx {:alignSelf "flex-start"}}]
        (when context-label
          [typography
            {:variant "caption"

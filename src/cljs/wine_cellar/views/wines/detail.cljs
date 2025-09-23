@@ -27,7 +27,8 @@
             [wine-cellar.views.components.image-upload :refer [image-upload]]
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
             [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
-            [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]))
+            [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
+            [wine-cellar.views.components.ai-provider-toggle :refer [provider-toggle-button]]))
 
 (defn editable-location
   [app-state wine]
@@ -682,38 +683,46 @@
 
 (defn wine-tasting-window-suggestion
   [app-state wine]
-  [box {:sx {:mt 2}}
-   [button
-    {:variant "outlined"
-     :color "secondary"
-     :size "small"
-     :disabled (:suggesting-drinking-window? @app-state)
-     :startIcon (r/as-element [auto-awesome])
-     :onClick
-     (fn []
-       (-> (api/suggest-drinking-window app-state wine)
-           (.then (fn [{:keys [drink_from_year drink_until_year confidence
-                               reasoning]
-                        :as suggestion}]
-                    (swap! app-state assoc
-                      :window-suggestion
-                      (assoc suggestion
-                             :message
-                             (str "Drinking window suggested: " drink_from_year
-                                  " to " drink_until_year
-                                  " (" confidence
-                                  " confidence)\n\n" reasoning)))))
-           (.catch (fn [error]
-                     (swap! app-state assoc
-                       :error
-                       (str "Failed to suggest drinking window: " error))))))}
-    (if (:suggesting-drinking-window? @app-state)
-      [box {:sx {:display "flex" :alignItems "center"}}
-       [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
-      "Suggest Drinking Window")]
-   [typography {:variant "body2" :sx {:mt 1}}
-    (get-in @app-state [:window-suggestion :message])]
-   [wine-tasting-window-suggestion-buttons app-state wine]])
+  (let [suggesting? (:suggesting-drinking-window? @app-state)]
+    [box {:sx {:mt 2}}
+     [box {:sx {:display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
+      [button
+       {:variant "outlined"
+        :color "secondary"
+        :size "small"
+        :disabled suggesting?
+        :startIcon (when-not suggesting?
+                    (r/as-element [auto-awesome]))
+        :onClick
+        (fn []
+          (-> (api/suggest-drinking-window app-state wine)
+              (.then (fn [{:keys [drink_from_year drink_until_year confidence
+                                  reasoning]
+                           :as suggestion}]
+                       (swap! app-state assoc
+                         :window-suggestion
+                         (assoc suggestion
+                                :message
+                                (str "Drinking window suggested: " drink_from_year
+                                     " to " drink_until_year
+                                     " (" confidence
+                                     " confidence)\n\n" reasoning)))))
+              (.catch (fn [error]
+                        (swap! app-state assoc
+                          :error
+                          (str "Failed to suggest drinking window: " error))))))}
+       (if suggesting?
+         [box {:sx {:display "flex" :alignItems "center"}}
+          [circular-progress {:size 20 :sx {:mr 1}}]
+          "Suggesting..."]
+         "Suggest Drinking Window")]
+      [provider-toggle-button
+       app-state
+       {:mobile-min-width "auto"
+        :sx {:minWidth "auto" :px 1 :py 0.25}}]]
+     [typography {:variant "body2" :sx {:mt 1}}
+      (get-in @app-state [:window-suggestion :message])]
+     [wine-tasting-window-suggestion-buttons app-state wine]]))
 
 (defn wine-tasting-window-section
   [app-state wine]
@@ -740,43 +749,50 @@
 
 (defn wine-ai-summary-section
   [app-state wine]
-  [grid {:item true :xs 12}
-   [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-    [typography {:variant "body2" :color "text.secondary"} "AI Wine Summary"]
-    [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-     [editable-ai-summary app-state wine]
-     [box {:sx {:mt 1}}
-      [button
-       {:variant "outlined"
-        :color "secondary"
-        :size "small"
-        :disabled (:generating-ai-summary? @app-state)
-        :startIcon (r/as-element [auto-awesome])
-        :onClick
-        (fn []
-          (swap! app-state assoc :generating-ai-summary? true)
-          (-> (api/generate-wine-summary app-state wine)
-              (.then (fn [summary]
-                       (swap! app-state update
-                         :wines
-                         (fn [wines]
-                           (map #(if (= (:id %) (:id wine))
-                                   (assoc % :ai_summary summary)
-                                   %)
-                                wines)))
-                       (swap! app-state assoc-in
-                         [:force-edit-ai-summary (:id wine)]
-                         true)
-                       (swap! app-state dissoc :generating-ai-summary?)))
-              (.catch (fn [error]
-                        (swap! app-state assoc
-                          :error
-                          (str "Failed to generate summary: " error))
-                        (swap! app-state dissoc :generating-ai-summary?)))))}
-       (if (:generating-ai-summary? @app-state)
-         [box {:sx {:display "flex" :alignItems "center"}}
-          [circular-progress {:size 20 :sx {:mr 1}}] "Generating..."]
-         "Generate AI Summary")]]]]])
+  (let [generating? (:generating-ai-summary? @app-state)]
+    [grid {:item true :xs 12}
+     [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
+      [typography {:variant "body2" :color "text.secondary"} "AI Wine Summary"]
+      [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+       [editable-ai-summary app-state wine]
+       [box {:sx {:mt 1 :display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
+        [button
+         {:variant "outlined"
+          :color "secondary"
+          :size "small"
+          :disabled generating?
+          :startIcon (when-not generating?
+                      (r/as-element [auto-awesome]))
+          :onClick
+          (fn []
+            (swap! app-state assoc :generating-ai-summary? true)
+            (-> (api/generate-wine-summary app-state wine)
+                (.then (fn [summary]
+                         (swap! app-state update
+                           :wines
+                           (fn [wines]
+                             (map #(if (= (:id %) (:id wine))
+                                     (assoc % :ai_summary summary)
+                                     %)
+                                  wines)))
+                         (swap! app-state assoc-in
+                           [:force-edit-ai-summary (:id wine)]
+                           true)
+                         (swap! app-state dissoc :generating-ai-summary?)))
+                (.catch (fn [error]
+                          (swap! app-state assoc
+                            :error
+                            (str "Failed to generate summary: " error))
+                          (swap! app-state dissoc :generating-ai-summary?)))))}
+         (if generating?
+           [box {:sx {:display "flex" :alignItems "center"}}
+            [circular-progress {:size 20 :sx {:mr 1}}]
+            "Generating..."]
+           "Generate AI Summary")]
+        [provider-toggle-button
+         app-state
+         {:mobile-min-width "auto"
+          :sx {:minWidth "auto" :px 1 :py 0.25}}]]]]]))
 
 (defn wine-tasting-notes-section
   [app-state wine]

@@ -294,7 +294,7 @@
     ["/analyze-label"
      {:post {:summary "Analyze wine label images with AI"
              :parameters {:body (s/keys :req-un [::label_image]
-                                        :opt-un [::back_label_image])}
+                                        :opt-un [::back_label_image ::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/analyze-wine-label}}]
     ["/suggest-drinking-window"
