@@ -7,7 +7,6 @@
             [wine-cellar.config-utils :as config-utils]))
 
 (def responses-url "https://api.openai.com/v1/responses")
-(def chat-url "https://api.openai.com/v1/chat/completions")
 
 (defstate model
   :start
@@ -149,46 +148,29 @@
   [prompt]
   (call-openai-responses (build-request prompt) false))
 
-(defn- call-openai-chat
-  [request]
-  (ensure-api-key!)
-  (let [payload (-> request
-                    (assoc :model (or (:model request) model)))]
-    (tap> ["openai-chat-request" payload])
-    (let [{:keys [status body error]} (deref (http/post chat-url
-                                                       {:headers {"authorization" (str "Bearer " api-key)
-                                                                  "content-type" "application/json"}
-                                                        :body (json/write-value-as-string payload)
-                                                        :as :text
-                                                        :timeout 60000}))
-          parsed (when body (json/read-value body json-mapper))]
-      (tap> ["openai-chat-response" {:status status :error error :body parsed}])
-      (if (= 200 status)
-        (get-in parsed [:choices 0 :message :content])
-        (throw (ex-info "OpenAI ChatCompletions call failed"
-                        {:status status :response parsed :error error}))))))
-
 (defn suggest-drinking-window
   [{:keys [system user]}]
   (assert (string? system) "Drinking-window prompt requires :system text")
   (assert (string? user) "Drinking-window prompt requires :user text")
-  (let [request {:model "gpt-5"
-                 :messages [{:role "system" :content system}
-                            {:role "user" :content user}]
-                 :response_format {:type "json_schema"
-                                   :json_schema {:name "DrinkingWindow"
-                                                 :strict true
-                                                 :schema {:type "object"
-                                                          :properties {:drink_from_year {:type "integer"}
-                                                                       :drink_until_year {:type "integer"}
-                                                                       :confidence {:type "string"}
-                                                                       :reasoning {:type "string"}}
-                                                          :required [:drink_from_year :drink_until_year :confidence :reasoning]
-                                                          :additionalProperties false}}}
-                 :reasoning_effort "low"
-                 :verbosity "medium"}]
-    (-> (call-openai-chat request)
-        (json/read-value json-mapper))))
+  (let [request {:input [{:role "system"
+                          :content [{:type "input_text"
+                                     :text system}]}
+                         {:role "user"
+                          :content [{:type "input_text"
+                                     :text user}]}]
+                 :text {:format {:type "json_schema"
+                                 :name "DrinkingWindow"
+                                 :strict true
+                                 :schema {:type "object"
+                                          :properties {:drink_from_year {:type "integer"}
+                                                       :drink_until_year {:type "integer"}
+                                                       :confidence {:type "string"}
+                                                       :reasoning {:type "string"}}
+                                          :required [:drink_from_year :drink_until_year :confidence :reasoning]
+                                          :additionalProperties false}}}
+                 :max_output_tokens 600
+                 :reasoning {:effort "low"}}]
+    (call-openai-responses request true)))
 
 (defn generate-wine-summary
   [{:keys [system user]}]
