@@ -145,9 +145,9 @@
     (cond
       (zero? count) {:color "text.secondary" :label base-label}
       (> count 50)
-      {:color "error.main"
+      {:color "common.white"
        :label base-label
-       :sx {:backgroundColor "container.main"
+       :sx {:backgroundColor "error.main"
             :padding "2px 6px"
             :borderRadius "999px"}}
       (<= count 15) {:color "success.main" :label base-label}
