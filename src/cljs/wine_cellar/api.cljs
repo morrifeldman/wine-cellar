@@ -1,10 +1,25 @@
 (ns wine-cellar.api
-  (:require [reagent.core :as r]
+  (:require [clojure.string :as string]
+            [reagent.core :as r]
             [cljs-http.client :as http]
             [cljs.core.async :refer [<! go chan put!]]
             [wine-cellar.config :as config]
             [wine-cellar.state :refer [initial-app-state]]
             [wine-cellar.utils.filters :as filters]))
+
+(defn- normalize-provider
+  [value]
+  (let [normalized (cond
+                      (keyword? value) value
+                      (string? value) (-> value string/lower-case keyword)
+                      (nil? value) nil
+                      :else value)]
+    (or normalized :anthropic)))
+
+(defn- normalize-conversation
+  [conversation]
+  (let [provider (normalize-provider (:provider conversation))]
+    (assoc conversation :provider provider)))
 
 (def headless-mode? (r/atom false))
 
@@ -485,7 +500,8 @@
 
 (defn- apply-conversation-update!
   [state conversation]
-  (let [chat (:chat state)
+  (let [conversation (normalize-conversation conversation)
+        chat (:chat state)
         convs (or (:conversations chat) [])
         updated (upsert-conversation convs conversation)
         active? (= (:active-conversation-id chat) (:id conversation))
@@ -493,7 +509,10 @@
                  (assoc-in [:chat :conversations] updated)
                  (assoc-in [:chat :error] nil))]
     (if active?
-      (assoc-in base [:chat :active-conversation] conversation)
+      (-> base
+          (assoc-in [:chat :active-conversation] conversation)
+          (cond-> (:provider conversation)
+            (assoc-in [:chat :provider] (:provider conversation))))
       base)))
 
 (defn load-conversations!
@@ -515,7 +534,9 @@
         (let [result (<! (GET "/api/conversations"
                                "Failed to load conversations"))]
           (if (:success result)
-            (let [conversations (vec (:data result))
+            (let [conversations (->> (:data result)
+                                     (map normalize-conversation)
+                                     vec)
                   sorted (sort-conversations conversations)]
               (tap> ["conversations-loaded" (count conversations)])
               (swap! app-state
@@ -527,6 +548,8 @@
                              (assoc-in [:chat :conversations-loaded?] true)
                              (assoc-in [:chat :conversations] sorted)
                              (assoc-in [:chat :active-conversation] active)
+                             (cond-> (:provider active)
+                               (assoc-in [:chat :provider] (:provider active)))
                              (assoc-in [:chat :error] nil))))))
             (do
               (tap> ["conversations-load-error" (:error result)])
@@ -546,7 +569,7 @@
                            payload
                            "Failed to create conversation"))]
       (if (:success result)
-        (let [conversation (:data result)]
+        (let [conversation (normalize-conversation (:data result))]
           (tap> ["conversation-created" (:id conversation)])
           (swap! app-state
                  (fn [state]
@@ -556,6 +579,9 @@
                                                       conversation))
                        (assoc-in [:chat :active-conversation] conversation)
                        (assoc-in [:chat :active-conversation-id] (:id conversation))
+                       (cond-> (:provider conversation)
+                         (assoc-in [:chat :provider]
+                                   (normalize-provider (:provider conversation))))
                        (assoc-in [:chat :conversations-loaded?] true)
                        (assoc-in [:chat :error] nil))))
           (when callback
@@ -604,6 +630,18 @@
            (load-conversations! app-state {:force? true}))
          (do (tap> ["conversation-pin-error" (:error result)])
              (swap! app-state assoc-in [:chat :error] (:error result))))))))
+
+(defn update-conversation-provider!
+  [app-state conversation-id provider]
+  (let [normalized (normalize-provider provider)]
+    (when (and conversation-id normalized)
+      (go
+       (let [result (<! (PUT (str "/api/conversations/" conversation-id)
+                             {:provider (name normalized)}
+                             "Failed to update conversation"))]
+       (if (:success result)
+         (swap! app-state apply-conversation-update! (:data result))
+         (swap! app-state assoc-in [:chat :error] (:error result))))))))
 
 (defn delete-conversation!
   [app-state conversation-id]

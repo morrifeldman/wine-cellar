@@ -77,6 +77,7 @@
                   [:wine_ids :integer :array]
                   [:wine_search_state :jsonb]
                   [:auto_tags :varchar :array]
+                  [:provider :varchar [:default "anthropic"]]
                   [:pinned :boolean [:default false]]
                   [:total_tokens_used :integer [:default 0]]
                   [:created_at :timestamp [:default [:now]]]
@@ -87,6 +88,10 @@
 (def ai-conversations-add-pinned-column
   {:raw
    ["ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS pinned boolean DEFAULT false"]})
+
+(def ai-conversations-add-provider-column
+  {:raw
+   ["ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS provider varchar"]})
 
 
 (def ai-conversation-messages-table-schema

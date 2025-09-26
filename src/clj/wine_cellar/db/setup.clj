@@ -51,6 +51,7 @@
     (sql-execute-helper tx schema/wines-table-schema)
     (sql-execute-helper tx schema/tasting-notes-table-schema)
     (sql-execute-helper tx schema/ai-conversations-table-schema)
+    (sql-execute-helper tx schema/ai-conversations-add-provider-column)
     (sql-execute-helper tx schema/ai-conversations-add-pinned-column)
     (sql-execute-helper tx schema/ai-conversation-messages-table-schema)
    (sql-execute-helper tx schema/grape-varieties-table-schema)

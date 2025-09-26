@@ -394,13 +394,14 @@
 (defn create-conversation
   [request]
   (try (let [email (ensure-user-email request)
-             {:keys [title wine_ids wine_search_state auto_tags pinned]}
+             {:keys [title wine_ids wine_search_state auto_tags pinned provider]}
              (:body-params request)
              payload (cond-> {:user_email email
                               :title title
                               :wine_ids wine_ids
                               :wine_search_state wine_search_state
-                              :auto_tags auto_tags}
+                              :auto_tags auto_tags
+                              :provider provider}
                        (some? pinned) (assoc :pinned pinned))
              conversation (db-api/create-conversation! payload)]
          (-> (response/response conversation)

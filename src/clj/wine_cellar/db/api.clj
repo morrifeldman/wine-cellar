@@ -70,10 +70,18 @@
                       #(sql-cast :jsonb (json/write-value-as-string %)))))
 
 (defn conversation->db-conversation
-  [{:keys [wine_ids auto_tags wine_search_state] :as conversation}]
+  [{:keys [wine_ids auto_tags wine_search_state provider] :as conversation}]
   (cond-> conversation
     wine_ids (update :wine_ids #(->pg-array %))
     auto_tags (update :auto_tags #(->pg-array %))
+    (contains? conversation :provider)
+    (update :provider
+            (fn [value]
+              (cond
+                (keyword? value) (name value)
+                (string? value) (str/lower-case value)
+                (nil? value) nil
+                :else (str value))))
     wine_search_state
     (update :wine_search_state
             #(sql-cast :jsonb (json/write-value-as-string %)))))
@@ -87,6 +95,15 @@
   [{:keys [image_data] :as message}]
   (cond-> message
     image_data (update :image_data bytes->base64)))
+
+(defn db-conversation->conversation
+  [conversation]
+  (cond-> conversation
+    (contains? conversation :provider)
+    (update :provider
+            (fn [value]
+              (when value
+                (-> value str/lower-case keyword))))))
 
 (defn db-wine->wine
   [{:keys [label_image label_thumbnail back_label_image] :as db-wine}]
@@ -120,33 +137,39 @@
                     (dissoc :user_email)
                     (conversation->db-conversation)
                     (assoc :user_email user_email))]
-     (jdbc/execute-one!
-      tx-or-ds
-      (sql/format {:insert-into :ai_conversations
-                   :values [db-row]
-                   :returning :*})
-      db-opts))))
+     (some->
+      (jdbc/execute-one!
+       tx-or-ds
+       (sql/format {:insert-into :ai_conversations
+                    :values [db-row]
+                    :returning :*})
+       db-opts)
+      db-conversation->conversation))))
 
 (defn list-conversations-for-user
   "Return conversations for the given user ordered by recent activity."
   [user-email]
-  (jdbc/execute! ds
-                 (sql/format {:select :*
-                              :from :ai_conversations
-                              :where [:= :user_email user-email]
-                              :order-by [[:pinned :desc]
-                                         [:last_message_at :desc]
-                                         [:created_at :desc]]})
-                 db-opts))
+  (->> (jdbc/execute! ds
+                      (sql/format {:select :*
+                                   :from :ai_conversations
+                                   :where [:= :user_email user-email]
+                                   :order-by [[:pinned :desc]
+                                              [:last_message_at :desc]
+                                              [:created_at :desc]]})
+                      db-opts)
+       (map db-conversation->conversation)
+       vec))
 
 (defn get-conversation
   [conversation-id]
-  (jdbc/execute-one!
-   ds
-   (sql/format {:select :*
-                :from :ai_conversations
-                :where [:= :id conversation-id]})
-   db-opts))
+  (some->
+   (jdbc/execute-one!
+    ds
+    (sql/format {:select :*
+                 :from :ai_conversations
+                 :where [:= :id conversation-id]})
+    db-opts)
+   db-conversation->conversation))
 
 (defn append-conversation-message!
   "Insert a message and update parent metadata atomically."
@@ -202,13 +225,15 @@
          set-map (cond-> sanitized
                    true (assoc :updated_at [:now]))]
      (if (seq sanitized)
-       (jdbc/execute-one!
-        tx-or-ds
-        (sql/format {:update :ai_conversations
-                     :set set-map
-                     :where [:= :id conversation-id]
-                     :returning :*})
-        db-opts)
+       (some->
+        (jdbc/execute-one!
+         tx-or-ds
+         (sql/format {:update :ai_conversations
+                      :set set-map
+                      :where [:= :id conversation-id]
+                      :returning :*})
+         db-opts)
+        db-conversation->conversation)
        (get-conversation conversation-id)))))
 
 (defn wine-exists?

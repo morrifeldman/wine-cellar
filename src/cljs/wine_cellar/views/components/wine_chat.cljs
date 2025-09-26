@@ -32,6 +32,14 @@
 (def ^:private edit-icon-size "0.8rem")
 (def ^:private edit-button-spacing 4)
 
+(defn- normalize-provider
+  [value]
+  (let [normalized (cond
+                     (keyword? value) value
+                     (string? value) (-> value string/lower-case keyword)
+                     :else nil)]
+    (or normalized :anthropic)))
+
 
 (defn- handle-clipboard-image
   "Process an image file/blob from clipboard and set it as attached image"
@@ -76,6 +84,8 @@
        (swap! app-state assoc-in [:chat :sidebar-open?] false))
      (swap! app-state assoc-in [:chat :active-conversation-id] id)
      (swap! app-state assoc-in [:chat :active-conversation] conversation)
+     (when-let [provider (normalize-provider (:provider conversation))]
+       (swap! app-state assoc-in [:chat :provider] provider))
      (reset! messages [])
      (swap! app-state assoc-in [:chat :messages] [])
      (api/fetch-conversation-messages! app-state id))))
@@ -504,7 +514,7 @@
           wines (if-let [current-wine-id (:selected-wine-id @app-state)]
                   (filter #(= (:id %) current-wine-id) (:wines @app-state))
                   (filtered-sorted-wines app-state))
-          provider (get-in @app-state [:chat :provider] :anthropic)]
+          provider (normalize-provider (get-in @app-state [:chat :provider]))]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
       (persist-conversation-message!
@@ -530,7 +540,12 @@
             app-state
             wines
             {:is_user false :content response}
-            (fn [_]
+            (fn [conversation-id]
+              (when conversation-id
+                (api/update-conversation-provider!
+                 app-state
+                 conversation-id
+                 provider))
               (api/load-conversations! app-state {:force? true})))
            (reset! is-sending? false)))))))
 
@@ -569,7 +584,7 @@
                         (filter #(= (:id %) current-wine-id)
                                 (:wines @app-state))
                         (filtered-sorted-wines app-state))
-                provider (get-in @app-state [:chat :provider] :anthropic)]
+                provider (normalize-provider (get-in @app-state [:chat :provider]))]
             (persist-conversation-message!
              app-state
              wines
@@ -587,12 +602,17 @@
                                  :timestamp (.getTime (js/Date.))}]
                  (swap! messages conj ai-message)
                  (swap! app-state assoc-in [:chat :messages] @messages)
-                 (persist-conversation-message!
-                  app-state
-                  wines
-                  {:is_user false :content response}
-                  (fn [_]
-                    (api/load-conversations! app-state {:force? true})))
+                (persist-conversation-message!
+                 app-state
+                 wines
+                 {:is_user false :content response}
+                 (fn [conversation-id]
+                   (when conversation-id
+                     (api/update-conversation-provider!
+                      app-state
+                      conversation-id
+                      provider))
+                   (api/load-conversations! app-state {:force? true})))
                  (reset! is-sending? false))))))
         (do (reset! editing-message-id nil)
             (set! (.-value @message-ref) ""))))))
