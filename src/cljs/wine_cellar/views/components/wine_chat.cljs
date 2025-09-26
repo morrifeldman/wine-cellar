@@ -144,13 +144,14 @@
   (let [base-label (context-label-element count)]
     (cond
       (zero? count) {:color "text.secondary" :label base-label}
+      (> count 50)
+      {:color "error.main"
+       :label base-label
+       :sx {:backgroundColor "container.main"
+            :padding "2px 6px"
+            :borderRadius "999px"}}
       (<= count 15) {:color "success.main" :label base-label}
-      (<= count 50) {:color "warning.main" :label base-label}
-      :else {:color "error.main"
-             :label base-label
-             :sx {:backgroundColor "rgba(211, 47, 47, 0.12)"
-                  :padding "2px 6px"
-                  :borderRadius "999px"}})))
+      (<= count 50) {:color "warning.main" :label base-label})))
 
 (defn- mobile?
   []
