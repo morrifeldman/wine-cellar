@@ -270,7 +270,10 @@
 
 (defn average-internal-rating
   [wines]
-  (let [ratings (->> wines (keep :latest_rating) (filter number?))]
+  (let [ratings (->> wines
+                     (keep (fn [wine]
+                             (parse-number (:latest_internal_rating wine))))
+                     (filter number?))]
     (when (seq ratings)
       (js/Math.round (/ (reduce + ratings) (count ratings))))))
 
@@ -307,22 +310,45 @@
 (defn collection-stats
   ([wines] (collection-stats wines {}))
   ([wines {:keys [visible-wines]}]
-   (let [visible (or visible-wines wines)
-         totals {:total-wines (count wines)
-                 :visible-wines (count visible)
-                 :total-bottles (total-bottles wines)
-                 :avg-rating (average-internal-rating wines)
-                 :total-value (js/Math.round (total-value wines))}
-         style-data (style-breakdown wines)
-         country-data (country-breakdown wines)
-         price-data (price-breakdown wines)
-         window-data (drinking-window-breakdown wines)
-         variety-data (variety-breakdown wines)
-         inventory (inventory-by-year wines)
-         optimal-window {:overall (optimal-window-timeline wines)
-                          :style (optimal-window-timeline wines {:group-by :style})
-                          :country (optimal-window-timeline wines {:group-by :country})
-                          :price (optimal-window-timeline wines {:group-by :price})}]
+   (let [visible (->> (or visible-wines wines)
+                      (vec))
+         in-stock-wines (->> wines
+                             (filter #(pos? (or (:quantity %) 0)))
+                             (vec))
+         subsets {:all wines
+                  :in-stock in-stock-wines
+                  :selected visible}
+         chart-wines in-stock-wines
+         counts (into {}
+                      (map (fn [[subset coll]]
+                             [subset (count coll)])
+                           subsets))
+         bottle-totals (into {}
+                             (map (fn [[subset coll]]
+                                    [subset (total-bottles coll)])
+                                  subsets))
+         rating-totals (into {}
+                             (map (fn [[subset coll]]
+                                    [subset (average-internal-rating coll)])
+                                  subsets))
+         value-totals (into {}
+                            (map (fn [[subset coll]]
+                                   [subset (js/Math.round (total-value coll))])
+                                 subsets))
+         totals {:counts counts
+                 :bottles bottle-totals
+                 :avg-rating rating-totals
+                 :value value-totals}
+         style-data (style-breakdown chart-wines)
+         country-data (country-breakdown chart-wines)
+         price-data (price-breakdown chart-wines)
+         window-data (drinking-window-breakdown chart-wines)
+         variety-data (variety-breakdown chart-wines)
+         inventory (inventory-by-year chart-wines)
+         optimal-window {:overall (optimal-window-timeline chart-wines)
+                          :style (optimal-window-timeline chart-wines {:group-by :style})
+                          :country (optimal-window-timeline chart-wines {:group-by :country})
+                          :price (optimal-window-timeline chart-wines {:group-by :price})}]
      {:totals totals
       :style style-data
       :country country-data

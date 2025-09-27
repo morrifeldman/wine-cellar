@@ -1,5 +1,6 @@
 (ns wine-cellar.views.wines.list
-  (:require [wine-cellar.utils.stats :as stats]
+  (:require [clojure.string :as str]
+            [wine-cellar.utils.stats :as stats]
             [wine-cellar.views.components.stats-charts :as stats-charts]
             [wine-cellar.views.components.wine-card :refer
              [wine-card get-rating-color]]
@@ -125,28 +126,52 @@
     (when subtitle
       [typography {:variant "body2" :color "text.secondary"} subtitle])]])
 
+(def subset-order [:all :in-stock :selected])
+
+(defn- format-breakdown
+  [values formatter]
+  (->> subset-order
+       (map (fn [subset]
+              (formatter (get values subset))))
+       (str/join " / ")))
+
+(defn- format-rating-segment
+  [rating]
+  (if (some? rating)
+    (str rating)
+    "—"))
+
 (defn- stats-summary-grid
-  [{:keys [total-wines visible-wines total-bottles avg-rating total-value]}]
-  (let [rating-color (if avg-rating (get-rating-color avg-rating) "text.secondary")
-        rating-text (if avg-rating (str avg-rating "/100") "—")]
-    [grid {:container true :spacing 3}
-     [stats-summary-card
-      {:title "Wines"
-       :value (str visible-wines "/" total-wines)
-       :subtitle "Visible / total"}]
-     [stats-summary-card
-      {:title "Bottles"
-       :value (format-number total-bottles)
-       :subtitle "In-stock bottles"}]
-     [stats-summary-card
-      {:title "Avg. Rating"
-       :value rating-text
-       :subtitle "Internal tastings"
-       :color rating-color}]
-     [stats-summary-card
-      {:title "Collection Value"
-       :value (format-currency total-value)
-       :subtitle "Estimated at purchase price"}]]))
+  [{:keys [counts bottles avg-rating value]}]
+  (let [rating-for-color (get avg-rating :in-stock)
+        rating-color (if (some? rating-for-color) (get-rating-color rating-for-color) "text.secondary")
+        wines-text (format-breakdown counts #(format-number (or % 0)))
+        bottles-text (format-breakdown bottles #(format-number (or % 0)))
+        rating-text (format-breakdown avg-rating format-rating-segment)
+        value-text (format-breakdown value #(format-currency (or % 0)))]
+    [:<>
+     [typography {:variant "caption"
+                  :color "text.secondary"
+                  :sx {:textTransform "uppercase"
+                       :letterSpacing "0.08em"
+                       :display "block"
+                       :mb 1}}
+      "All History / In Stock / Selected"]
+     [grid {:container true :spacing 3}
+      [stats-summary-card
+       {:title "Wines"
+        :value wines-text}]
+      [stats-summary-card
+       {:title "Bottles"
+        :value bottles-text}]
+      [stats-summary-card
+       {:title "Avg. Rating"
+        :value rating-text
+        :subtitle "Internal tastings"
+        :color rating-color}]
+      [stats-summary-card
+       {:title "Collection Value"
+        :value value-text}]]]))
 
 (defn- breakdown-card
   [{:keys [title items totals]}
