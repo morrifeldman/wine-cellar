@@ -405,6 +405,8 @@
                           "Type your message here..."
                           "Type your message here... (or paste a screenshot)")))
        :disabled @disabled?
+       :on-change #(swap! app-state assoc-in [:chat :draft-message]
+                          (.. % -target -value))
        :on-paste #(handle-paste-event % attached-image)}]
      [box {:sx {:display "flex"
                 :justify-content "flex-end"
@@ -618,17 +620,23 @@
             (set! (.-value @message-ref) ""))))))
 
 (defn clear-chat!
-  [app-state messages]
-  (reset! messages [])
-  (swap! app-state
-         (fn [state]
-           (-> state
-               (assoc-in [:chat :messages] [])
-               (assoc-in [:chat :active-conversation-id] nil)
-               (assoc-in [:chat :active-conversation] nil)
-               (assoc-in [:chat :messages-loading?] false)
-               (assoc-in [:chat :creating-conversation?] false)
-               (assoc-in [:chat :draft-message] nil)))))
+  ([app-state messages]
+   (clear-chat! app-state messages nil nil))
+  ([app-state messages message-ref pending-image]
+   (reset! messages [])
+   (when (and message-ref @message-ref)
+     (set! (.-value @message-ref) ""))
+   (when pending-image
+     (reset! pending-image nil))
+   (swap! app-state
+          (fn [state]
+            (-> state
+                (assoc-in [:chat :messages] [])
+                (assoc-in [:chat :active-conversation-id] nil)
+                (assoc-in [:chat :active-conversation] nil)
+                (assoc-in [:chat :messages-loading?] false)
+                (assoc-in [:chat :creating-conversation?] false)
+                (assoc-in [:chat :draft-message] nil))))))
 
 (defn close-chat!
   [app-state message-ref]
@@ -659,8 +667,8 @@
     (api/set-conversation-pinned! app-state id (not (true? pinned)))))
 
 (defn chat-dialog-header
-  [{:keys [app-state messages message-ref conversation-loading? sidebar-open?
-           on-toggle-sidebar context-label context-color context-sx]}]
+  [{:keys [app-state messages message-ref pending-image conversation-loading?
+           sidebar-open? on-toggle-sidebar context-label context-color context-sx]}]
   (let [is-mobile? (mobile?)
         conversation-toggle
         (if is-mobile?
@@ -716,7 +724,7 @@
                  :gap (if is-mobile? 0.5 1)}}
        conversation-toggle
        [icon-button
-        {:on-click #(clear-chat! app-state messages)
+        {:on-click #(clear-chat! app-state messages message-ref pending-image)
          :title "Clear chat history"
          :sx {:color "secondary.main"}}
         [clear-all]]
@@ -882,6 +890,7 @@
             header-props {:app-state app-state
                           :messages messages
                           :message-ref message-ref
+                          :pending-image pending-image
                           :conversation-loading? conversation-loading?
                           :sidebar-open? sidebar-open?
                           :on-toggle-sidebar toggle-sidebar!
