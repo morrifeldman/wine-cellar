@@ -167,7 +167,7 @@
       [stats-summary-card
        {:title "Avg. Rating"
         :value rating-text
-        :subtitle "Internal tastings"
+        :subtitle "Per wine (internal tastings)"
         :color rating-color}]
       [stats-summary-card
        {:title "Collection Value"

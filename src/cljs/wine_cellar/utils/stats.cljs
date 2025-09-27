@@ -51,6 +51,12 @@
   [wine]
   (max 0 (or (:quantity wine) 0)))
 
+(defn- historical-quantity
+  [wine]
+  (max 0 (or (:original_quantity wine)
+             (:quantity wine)
+             0)))
+
 (defn- aggregate-labels
   [entries metric]
   (let [aggregate
@@ -256,17 +262,21 @@
         :group-by group-by}))))
 
 (defn total-bottles
-  [wines]
-  (reduce + 0 (map wine-quantity wines)))
+  ([wines]
+   (total-bottles wines wine-quantity))
+  ([wines quantity-fn]
+   (reduce + 0 (map quantity-fn wines))))
 
 (defn total-value
-  [wines]
+  ([wines]
+   (total-value wines wine-quantity))
+  ([wines quantity-fn]
   (reduce
    (fn [acc wine]
      (let [price (parse-number (:price wine))
-           qty (max 0 (or (:quantity wine) 0))]
+           qty (quantity-fn wine)]
        (+ acc (* (or price 0) qty))))
-   0 wines))
+   0 wines)))
 
 (defn average-internal-rating
   [wines]
@@ -325,7 +335,10 @@
                            subsets))
          bottle-totals (into {}
                              (map (fn [[subset coll]]
-                                    [subset (total-bottles coll)])
+                                    (let [quantity-fn (if (= subset :all)
+                                                        historical-quantity
+                                                        wine-quantity)]
+                                      [subset (total-bottles coll quantity-fn)]))
                                   subsets))
          rating-totals (into {}
                              (map (fn [[subset coll]]
@@ -333,7 +346,10 @@
                                   subsets))
          value-totals (into {}
                             (map (fn [[subset coll]]
-                                   [subset (js/Math.round (total-value coll))])
+                                   (let [quantity-fn (if (= subset :all)
+                                                       historical-quantity
+                                                       wine-quantity)]
+                                     [subset (js/Math.round (total-value coll quantity-fn))]))
                                  subsets))
          totals {:counts counts
                  :bottles bottle-totals

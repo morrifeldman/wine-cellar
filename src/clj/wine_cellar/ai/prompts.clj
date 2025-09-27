@@ -128,35 +128,48 @@
 (defn summary->text-lines
   "Convert condensed summary data into text lines for prompt consumption."
   [summary-data]
-  (let [{:keys [totals countries styles vintages]}
+  (let [{:keys [totals countries styles regions vintages varieties price-bands drinking-window]}
         (or summary-data (summary/condensed-summary []))
-        {:keys [wines bottles]} totals
-        {country-top :top country-other :other} countries
-        {style-top :top style-other :other} styles
-        {:keys [bands non-vintage]} vintages
-        format-entry (fn [{:keys [label bottles bottle-share]}]
-                      (let [pct (when bottle-share (Math/round (* 100 bottle-share)))]
-                        (cond-> (str label " - " bottles " bottles")
-                          (and pct (pos? pct)) (str " (" pct "%)"))))
-        top-countries (->> country-top (map format-entry) (remove str/blank?) (str/join ", "))
-        top-styles (->> style-top (map format-entry) (remove str/blank?) (str/join ", "))
-        country-line (when (seq top-countries)
-                       (str "Top countries: " top-countries
-                            (when (and country-other (:bottles country-other))
-                              (str ", Other - " (:bottles country-other) " bottles"))))
-        style-line (when (seq top-styles)
-                     (str "Styles: " top-styles
-                          (when (and style-other (:bottles style-other))
-                            (str ", Other - " (:bottles style-other) " bottles"))))
-        vintage-parts (->> bands (map format-entry) (remove str/blank?) vec)
-        vintage-line (when (or (seq vintage-parts) non-vintage)
-                       (let [parts (cond-> vintage-parts
-                                     non-vintage (conj (format-entry non-vintage)))]
-                         (str "Vintages: " (str/join ", " parts))))]
-    (cond-> [(str "Cellar snapshot: " wines " wines / " bottles " bottles.")]
+        {:keys [wines bottles]} (or totals {:wines 0 :bottles 0})
+        format-entry (fn [entry]
+                       (when-let [{:keys [label bottles bottle-share]} entry]
+                         (let [bottle-count (or bottles 0)
+                               pct (when bottle-share (Math/round (* 100 bottle-share)))]
+                           (when (pos? bottle-count)
+                             (cond-> (str label " - " bottle-count " bottles")
+                               (and pct (pos? pct)) (str " (" pct "%)"))))))
+        format-group (fn [prefix {:keys [top other]}]
+                       (let [parts (->> top (map format-entry) (remove str/blank?) vec)
+                             other-part (format-entry other)
+                             all-parts (cond-> parts other-part (conj other-part))]
+                         (when (seq all-parts)
+                           (str prefix (str/join ", " all-parts)))))
+        country-line (format-group "Top countries: " countries)
+        style-line (format-group "Styles: " styles)
+        region-line (format-group "Regions: " regions)
+        variety-line (format-group "Top varieties: " varieties)
+        price-line (format-group "Price bands: " price-bands)
+        vintage-line (let [{:keys [bands non-vintage]} vintages
+                           band-parts (->> bands (map format-entry) (remove str/blank?))
+                           non-v (format-entry non-vintage)
+                           all (cond-> (vec band-parts) non-v (conj non-v))]
+                       (when (seq all)
+                         (str "Vintages: " (str/join ", " all))))
+        ready-line (let [ready (get drinking-window :ready)
+                         style-parts (->> (:styles ready) (map format-entry) (remove str/blank?))
+                         ready-year (:year ready)]
+                     (when (seq style-parts)
+                       (str "Ready to drink now"
+                            (when ready-year (str " (" ready-year ")"))
+                            ": " (str/join ", " style-parts))))]
+    (cond-> [(str "Cellar snapshot (in stock): " wines " wines / " bottles " bottles.")]
       country-line (conj country-line)
       style-line (conj style-line)
-      vintage-line (conj vintage-line))))
+      region-line (conj region-line)
+      variety-line (conj variety-line)
+      price-line (conj price-line)
+      vintage-line (conj vintage-line)
+      ready-line (conj ready-line))))
 
 (defn- condensed-summary-text
   [summary-data]
