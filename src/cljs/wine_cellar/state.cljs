@@ -11,6 +11,8 @@
    :show-out-of-stock? false
    :show-wine-form? false
    :show-stats? false
+   :stats-metric :bottles
+   :stats-window-group :overall
    :show-filters? false
    :show-debug-controls? false
    :tasting-notes []

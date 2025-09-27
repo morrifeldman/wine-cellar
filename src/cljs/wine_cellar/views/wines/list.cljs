@@ -1,5 +1,6 @@
 (ns wine-cellar.views.wines.list
   (:require [wine-cellar.utils.stats :as stats]
+            [wine-cellar.views.components.stats-charts :as stats-charts]
             [wine-cellar.views.components.wine-card :refer
              [wine-card get-rating-color]]
             [wine-cellar.views.wines.filters :refer [filter-bar]]
@@ -13,6 +14,8 @@
             [reagent-mui.material.collapse :refer [collapse]]
             [reagent-mui.material.linear-progress :refer [linear-progress]]
             [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.material.toggle-button-group :refer [toggle-button-group]]
+            [reagent-mui.material.toggle-button :refer [toggle-button]]
             [reagent-mui.icons.expand-more :refer [expand-more]]
             [reagent-mui.icons.expand-less :refer [expand-less]]
             [reagent-mui.material.modal :refer [modal]]
@@ -41,9 +44,69 @@
                              :maximumFractionDigits 0
                              :minimumFractionDigits 0})))
 
-(defn- wines-label
-  [count]
-  (str count " " (if (= count 1) "wine" "wines")))
+(defn- metric-label
+  [metric value]
+  (case metric
+    :bottles (str value " " (if (= value 1) "bottle" "bottles"))
+    (str value " " (if (= value 1) "wine" "wines"))))
+
+(defn- default-detail
+  [item metric percent]
+  (let [value (get item metric 0)
+        label (metric-label metric value)]
+    (if percent
+      (str label " (" percent "%)")
+      label)))
+
+(def toggle-style
+  {:borderRadius 2
+   :backgroundColor "rgba(255,255,255,0.04)"
+   :border "1px solid rgba(255,255,255,0.16)"
+   "& .MuiToggleButton-root"
+   {:color "rgba(255,255,255,0.72)"
+    :border "none"
+    :textTransform "uppercase"
+    :fontSize "0.75rem"
+    :fontWeight 600
+    :px 1.5
+    :py 0.5
+    "&:hover" {:backgroundColor "rgba(255,255,255,0.12)"}
+    "&.Mui-selected"
+    {:backgroundColor "rgba(100,181,246,0.24)"
+     :color "#ffffff"
+     "&:hover" {:backgroundColor "rgba(100,181,246,0.32)"}}}})
+
+(defn- stats-metric-toggle
+  [app-state]
+  (let [metric (or (:stats-metric @app-state) :wines)]
+    [toggle-button-group
+     {:size "small"
+      :color "primary"
+      :exclusive true
+      :value (name metric)
+      :onChange (fn [_ value]
+                  (when (some? value)
+                    (swap! app-state assoc :stats-metric (keyword value))))
+       :sx toggle-style}
+     [toggle-button {:value "wines"} "Wines"]
+     [toggle-button {:value "bottles"} "Bottles"]]))
+
+(defn- window-group-toggle
+  [app-state]
+  (let [group (or (:stats-window-group @app-state) :overall)]
+    [toggle-button-group
+     {:size "small"
+      :color "primary"
+      :exclusive true
+      :value (name group)
+      :onChange (fn [_ value]
+                  (when (some? value)
+                    (swap! app-state assoc :stats-window-group (keyword value))))
+      :sx toggle-style}
+     [toggle-button {:value "overall"} "Overall"]
+     [toggle-button {:value "style"} "Style"]
+     [toggle-button {:value "country"} "Country"]
+     [toggle-button {:value "price"} "Price bands"]]))
 
 (defn- stats-summary-card
   [{:keys [title value subtitle color]}]
@@ -86,26 +149,30 @@
        :subtitle "Estimated at purchase price"}]]))
 
 (defn- breakdown-card
-  [{:keys [title items total]}
+  [{:keys [title items totals]}
+   metric
    {:keys [max-items empty-copy progress? detail-fn]
     :or {max-items 5 empty-copy "No data yet"}}]
   (let [progress? (if (some? progress?) progress? true)
-        default-detail (fn [{:keys [count]} pct]
-                         (if pct
-                           (str (wines-label count) " (" pct "%)")
-                           (wines-label count)))
-        detail-fn (or detail-fn default-detail)
-        display-items (take max-items items)]
+        total (get totals metric 0)
+        display-items (->> items
+                           (sort-by #(get % metric 0) >)
+                           (take max-items))
+        render-detail (fn [item percent]
+                        (if detail-fn
+                          (detail-fn item {:metric metric :percent percent})
+                          (default-detail item metric percent)))]
     [grid {:item true :xs 12 :md 6}
      [paper {:elevation 1
              :sx {:p 2.5 :height "100%" :display "flex" :flexDirection "column" :gap 1.5}}
       [typography {:variant "subtitle1" :sx {:fontWeight 600}} title]
       (if (seq display-items)
-        (for [[idx {:keys [label count] :as item}] (map-indexed vector display-items)]
-          (let [percent (when (and progress? (pos? total))
-                          (* 100 (/ count total)))
+        (for [[idx {:keys [label] :as item}] (map-indexed vector display-items)]
+          (let [value (get item metric 0)
+                percent (when (and progress? (pos? total))
+                          (* 100 (/ value total)))
                 rounded (when percent (js/Math.round percent))
-                detail (detail-fn item rounded)]
+                detail (render-detail item rounded)]
             ^{:key (str title "-" idx "-" label)}
             [box {:sx {:display "flex" :flexDirection "column" :gap 0.5}}
              [box {:sx {:display "flex" :justifyContent "space-between" :alignItems "center"}}
@@ -142,70 +209,119 @@
                    (str (format-number remaining) " remaining")]
                   [typography {:variant "body2"}
                    (str (format-number purchased) " original")]]])
-              rows))
+               rows))
         [typography {:variant "body2" :color "text.secondary"}
          "Add purchase dates to see inventory trends."])]]))
 
+(defn- optimal-window-card
+  [app-state optimal-window metric]
+  (let [group (or (:stats-window-group @app-state) :overall)
+        dataset (or (get optimal-window group)
+                     (get optimal-window :overall))
+        series (or (:series dataset) [])
+        current-year (:current-year dataset)
+        unscheduled (or (:unscheduled dataset) {:wines 0 :bottles 0})
+        metric-label-text (case metric
+                            :bottles "Bottles"
+                            "Wines")
+        group-label (case group
+                      :style " by style"
+                      :country " by country"
+                      :price " by price band"
+                      "")
+        title (str metric-label-text " in optimal window" group-label)
+        unscheduled-value (get unscheduled metric 0)]
+    [grid {:item true :xs 12}
+     [paper {:elevation 1
+             :sx {:p 2.5
+                  :height "100%"
+                  :display "flex"
+                  :flexDirection "column"
+                  :gap 1.5}}
+      [box {:sx {:display "flex" :justifyContent "space-between" :alignItems "center"}}
+       [typography {:variant "subtitle1" :sx {:fontWeight 600}}
+        title]
+       [window-group-toggle app-state]]
+      [stats-charts/optimal-window-chart
+       {:series series
+        :current-year current-year
+        :metric metric}]
+      (when (pos? unscheduled-value)
+        (let [plural? (not= unscheduled-value 1)]
+          [typography {:variant "caption" :color "text.secondary"}
+           (str (metric-label metric unscheduled-value)
+                (if plural? " do not" " does not")
+                " have a tasting window yet.")]))]]))
+
 (defn- stats-content
-  [stats {:keys [compact?]}]
-  (let [{:keys [totals style price drinking-window country varieties inventory]} stats
+  [app-state stats metric {:keys [compact?]}]
+  (let [{:keys [totals style price drinking-window country varieties inventory optimal-window]} stats
         max-items (if compact? 4 7)]
     [:<>
      [stats-summary-grid totals]
      [grid {:container true :spacing 3 :sx {:mt 0.5}}
       [breakdown-card {:title "By style"
                        :items (:items style)
-                       :total (:total style)}
+                       :totals (:totals style)}
+       metric
        {:max-items max-items
         :empty-copy "Add wine styles to see this breakdown."}]
       [breakdown-card {:title "By country"
                        :items (:items country)
-                       :total (:total country)}
+                       :totals (:totals country)}
+       metric
        {:max-items max-items
         :empty-copy "Record country details to populate this view."}]
       [breakdown-card {:title "Price bands"
                        :items (:items price)
-                       :total (:total price)}
+                       :totals (:totals price)}
+       metric
        {:max-items max-items
         :empty-copy "Add prices to compare value bands."}]
       [breakdown-card {:title "Drinking window"
                        :items (:items drinking-window)
-                       :total (:total drinking-window)}
+                       :totals (:totals drinking-window)}
+       metric
        {:max-items max-items
         :empty-copy "Set tasting windows to track readiness."}]
       [breakdown-card {:title "Top varieties"
                        :items (:items varieties)
-                       :total (:total varieties)}
+                       :totals (:totals varieties)}
+       metric
        {:max-items (if compact? 5 8)
         :progress? false
-        :detail-fn (fn [{:keys [count]} _] (wines-label count))
         :empty-copy "Capture grape varieties to surface favorites."}]
-      [inventory-card inventory {:compact? compact?}]]]))
+      [inventory-card inventory {:compact? compact?}]
+      [optimal-window-card app-state optimal-window metric]]]))
 
 (defn wine-stats
   [app-state]
   (let [wines (:wines @app-state)
         visible-wines (filtered-sorted-wines app-state)
-        stats-data (stats/collection-stats wines {:visible-wines visible-wines})]
+        stats-data (stats/collection-stats wines {:visible-wines visible-wines})
+        metric (or (:stats-metric @app-state) :wines)]
     [paper {:elevation 2 :sx {:p 3 :mb 3 :borderRadius 2}}
      [box {:sx {:display "flex" :justifyContent "space-between" :alignItems "center" :mb 2}}
       [typography {:variant "h6" :component "h3"} "Collection Overview"]
-      [icon-button
-       {:onClick #(swap! app-state update :show-stats? not)
-        :size "small"}
-       (if (:show-stats? @app-state)
-         [expand-less {:sx {:color "text.secondary"}}]
-         [expand-more {:sx {:color "text.secondary"}}])]]
+      [box {:sx {:display "flex" :alignItems "center" :gap 1.5}}
+       [stats-metric-toggle app-state]
+       [icon-button
+        {:onClick #(swap! app-state update :show-stats? not)
+         :size "small"}
+        (if (:show-stats? @app-state)
+          [expand-less {:sx {:color "text.secondary"}}]
+          [expand-more {:sx {:color "text.secondary"}}])]]]
      [collapse {:in (:show-stats? @app-state) :timeout "auto"}
       [box {:sx {:pt 1}}
-       [stats-content stats-data {:compact? true}]]]]))
+       [stats-content app-state stats-data metric {:compact? true}]]]]))
 
 (defn collection-stats-modal
   [app-state]
   (let [open? (boolean (get @app-state :show-collection-stats?))
         wines (:wines @app-state)
         visible-wines (filtered-sorted-wines app-state)
-        stats-data (stats/collection-stats wines {:visible-wines visible-wines})]
+        stats-data (stats/collection-stats wines {:visible-wines visible-wines})
+        metric (or (:stats-metric @app-state) :wines)]
     [modal {:open open?
             :onClose #(swap! app-state dissoc :show-collection-stats?)
             :closeAfterTransition true}
@@ -226,10 +342,12 @@
                   :overflow "auto"}}
        [box {:sx {:display "flex" :justifyContent "space-between" :alignItems "center" :mb 3}}
         [typography {:variant "h5"} "Collection Overview"]
-        [icon-button {:onClick #(swap! app-state dissoc :show-collection-stats?)
-                      :sx {:minWidth "auto" :p 1 :color "text.secondary"}}
-         [close]]]
-       [stats-content stats-data {:compact? false}]]]]))
+        [box {:sx {:display "flex" :alignItems "center" :gap 1.5}}
+         [stats-metric-toggle app-state]
+         [icon-button {:onClick #(swap! app-state dissoc :show-collection-stats?)
+                       :sx {:minWidth "auto" :p 1 :color "text.secondary"}}
+          [close]]]]
+        [stats-content app-state stats-data metric {:compact? false}]]]]))
 
 (defn wine-list
   [app-state]

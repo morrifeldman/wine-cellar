@@ -36,34 +36,72 @@
   (let [label (some-> value str str/trim)]
     (if (str/blank? label) fallback label)))
 
+(defn- series-key
+  [group-by label]
+  (let [prefix (name (or group-by :overall))
+        base (-> (str label)
+                 str/lower-case
+                 (str/replace #"[^a-z0-9]+" "-")
+                 (str/replace #"^-+|-+$" ""))]
+    (if (str/blank? base)
+      prefix
+      (str prefix "-" base))))
+
+(defn- wine-quantity
+  [wine]
+  (max 0 (or (:quantity wine) 0)))
+
+(defn- aggregate-labels
+  [entries metric]
+  (let [aggregate
+        (reduce (fn [acc {:keys [label wines bottles]}]
+                  (if (str/blank? label)
+                    acc
+                    (let [current (get acc label {:label label :wines 0 :bottles 0})
+                          wines (or wines 0)
+                          bottles (or bottles 0)]
+                      (assoc acc label
+                             (-> current
+                                 (update :wines + wines)
+                                 (update :bottles + bottles))))))
+                {}
+                entries)
+        items (->> aggregate
+                   vals
+                   (sort-by #(get % metric 0) >))
+        totals {:wines (reduce + (map :wines items))
+                :bottles (reduce + (map :bottles items))}]
+    {:items items :totals totals}))
+
 (defn style-breakdown
   [wines]
-  (->> wines
-       (map #(normalized-label (:style %) "Unspecified"))
-       (remove nil?)
-       frequencies
-       (map (fn [[label count]] {:label label :count count}))
-       (sort-by (juxt (comp - :count) :label))))
+  (aggregate-labels
+   (map (fn [wine]
+          {:label (normalized-label (:style wine) "Unspecified")
+           :wines 1
+           :bottles (wine-quantity wine)})
+        wines)
+    :wines))
 
 (defn country-breakdown
   [wines]
-  (->> wines
-       (map #(normalized-label (:country %) "Unspecified"))
-       (remove nil?)
-       frequencies
-       (map (fn [[label count]] {:label label :count count}))
-       (sort-by (juxt (comp - :count) :label))))
+  (aggregate-labels
+   (map (fn [wine]
+          {:label (normalized-label (:country wine) "Unspecified")
+           :wines 1
+           :bottles (wine-quantity wine)})
+        wines)
+    :wines))
 
 (defn price-breakdown
   [wines]
-  (let [items (->> wines
-                   (map price->band-label)
-                   (remove nil?)
-                   frequencies
-                   (map (fn [[label count]] {:label label :count count}))
-                   (sort-by (juxt (comp - :count) :label)))]
-    {:items items
-     :total (reduce + (map :count items))}))
+  (aggregate-labels
+   (map (fn [wine]
+          {:label (price->band-label (:price wine))
+           :wines 1
+           :bottles (wine-quantity wine)})
+        wines)
+    :wines))
 
 (defn unique-varieties
   [wine]
@@ -75,14 +113,15 @@
 
 (defn variety-breakdown
   [wines]
-  (let [items (->> wines
-                   (mapcat unique-varieties)
-                   (remove nil?)
-                   frequencies
-                   (map (fn [[label count]] {:label label :count count}))
-                   (sort-by (juxt (comp - :count) :label)))]
-    {:items items
-     :total (reduce + (map :count items))}))
+  (aggregate-labels
+   (mapcat (fn [wine]
+             (let [qty (wine-quantity wine)]
+               (for [variety (unique-varieties wine)]
+                 {:label variety
+                  :wines 1
+                  :bottles qty})))
+           wines)
+    :wines))
 
 (defn- current-year
   []
@@ -101,19 +140,124 @@
       (or from-num to-num) "Ready to drink"
       :else "No window set")))
 
+(defn- normalized-window
+  [wine]
+  (let [from (:drink_from_year wine)
+        to (:drink_until_year wine)
+        from-num (when (number? from) from)
+        to-num (when (number? to) to)]
+    (cond
+      (and from-num to-num)
+      {:from (min from-num to-num)
+       :to (max from-num to-num)}
+      from-num
+      {:from from-num :to from-num}
+      to-num
+      {:from to-num :to to-num}
+      :else nil)))
+
 (defn drinking-window-breakdown
   [wines]
-  (let [items (->> wines
-                   (map drinking-window-status)
-                   frequencies
-                   (map (fn [[label count]] {:label label :count count}))
-                   (sort-by (juxt (comp - :count) :label)))]
-    {:items items
-     :total (reduce + (map :count items))}))
+  (aggregate-labels
+   (map (fn [wine]
+          {:label (drinking-window-status wine)
+           :wines 1
+           :bottles (wine-quantity wine)})
+        wines)
+    :wines))
+
+(defn- bounded-range
+  [{min-value :min max-value :max}]
+  (let [current (current-year)
+        min-value (if (number? min-value) min-value current)
+        max-value (if (number? max-value) max-value current)
+        floor (js/Math.min min-value current)
+        ceil (js/Math.max max-value current)
+        start (js/Math.max (- floor 1) (- current 5))
+        end (js/Math.max (+ ceil 1) (+ current 2))]
+    {:start start :end end}))
+
+(defn- window-entry
+  [group-by wine]
+  (let [label (case group-by
+                :style (normalized-label (:style wine) "Unspecified")
+                :country (normalized-label (:country wine) "Unspecified")
+                :price (price->band-label (:price wine))
+                "All wines")]
+    {:wine wine
+     :label label
+     :window (normalized-window wine)
+     :quantity (wine-quantity wine)}))
+
+(defn- tally-unscheduled
+  [entries]
+  (reduce (fn [{:keys [wines bottles] :as acc} {:keys [window quantity]}]
+            (if window
+              acc
+              {:wines (inc wines)
+               :bottles (+ bottles quantity)}))
+          {:wines 0 :bottles 0}
+          entries))
+
+(defn- ensure-overall-group
+  [grouped entries add-overall?]
+  (if add-overall?
+    (assoc grouped "All wines" entries)
+    grouped))
+
+(defn- points-for-year
+  [year entries]
+  (let [matching (filter (fn [{:keys [window]}]
+                           (let [{:keys [from to]} window]
+                             (and (<= from year)
+                                  (<= year to))))
+                         entries)
+        total-bottles (reduce + 0 (map :quantity matching))]
+    {:year year
+     :wines (count matching)
+     :bottles total-bottles}))
+
+(defn- build-series
+  [group-by years grouped]
+  (->> grouped
+       (map (fn [[label entries]]
+              {:key (series-key group-by label)
+               :label label
+               :points (vec (map #(points-for-year % entries) years))}))
+       (sort-by (fn [{:keys [label]}]
+                  (if (= label "All wines") "" label)))))
+
+(defn optimal-window-timeline
+  ([wines] (optimal-window-timeline wines {}))
+  ([wines {:keys [group-by]}]
+   (let [entries (map #(window-entry group-by %) wines)
+         windows (filter :window entries)
+         current (current-year)
+         unscheduled (tally-unscheduled entries)]
+     (if (seq windows)
+      (let [min-year (apply min (map (comp :from :window) windows))
+            max-year (apply max (map (comp :to :window) windows))
+            {:keys [start end]} (bounded-range {:min min-year :max max-year})
+            years (range start (inc end))
+             grouped (ensure-overall-group
+                      (cljs.core/group-by :label windows)
+                      windows
+                      (some? group-by))
+            series (build-series group-by years grouped)]
+         {:series (vec series)
+          :years (vec years)
+          :current-year current
+          :unscheduled unscheduled
+          :group-by group-by})
+       {:series []
+        :years []
+        :current-year current
+        :unscheduled unscheduled
+        :group-by group-by}))))
 
 (defn total-bottles
   [wines]
-  (reduce + 0 (map #(max 0 (or (:quantity %) 0)) wines)))
+  (reduce + 0 (map wine-quantity wines)))
 
 (defn total-value
   [wines]
@@ -169,16 +313,21 @@
                  :total-bottles (total-bottles wines)
                  :avg-rating (average-internal-rating wines)
                  :total-value (js/Math.round (total-value wines))}
-         style-items (style-breakdown wines)
-         country-items (country-breakdown wines)
+         style-data (style-breakdown wines)
+         country-data (country-breakdown wines)
          price-data (price-breakdown wines)
          window-data (drinking-window-breakdown wines)
          variety-data (variety-breakdown wines)
-         inventory (inventory-by-year wines)]
+         inventory (inventory-by-year wines)
+         optimal-window {:overall (optimal-window-timeline wines)
+                          :style (optimal-window-timeline wines {:group-by :style})
+                          :country (optimal-window-timeline wines {:group-by :country})
+                          :price (optimal-window-timeline wines {:group-by :price})}]
      {:totals totals
-      :style {:items style-items :total (:total-wines totals)}
-      :country {:items country-items :total (:total-wines totals)}
+      :style style-data
+      :country country-data
       :price price-data
       :drinking-window window-data
       :varieties variety-data
-      :inventory inventory})))
+      :inventory inventory
+      :optimal-window optimal-window})))
