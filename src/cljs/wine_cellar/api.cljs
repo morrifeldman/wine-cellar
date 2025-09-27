@@ -643,6 +643,21 @@
          (swap! app-state apply-conversation-update! (:data result))
          (swap! app-state assoc-in [:chat :error] (:error result))))))))
 
+(defn update-conversation-context!
+  [app-state conversation-id {:keys [wine-ids wine-search-state]}]
+  (when conversation-id
+    (go
+     (let [payload (cond-> {}
+                     (some? wine-ids) (assoc :wine_ids (vec wine-ids))
+                     (some? wine-search-state) (assoc :wine_search_state wine-search-state))]
+       (when (seq payload)
+         (let [result (<! (PUT (str "/api/conversations/" conversation-id)
+                               payload
+                               "Failed to update conversation"))]
+           (if (:success result)
+             (swap! app-state apply-conversation-update! (:data result))
+             (swap! app-state assoc-in [:chat :error] (:error result)))))))))
+
 (defn delete-conversation!
   [app-state conversation-id]
   (when conversation-id
@@ -725,14 +740,15 @@
 (defn send-chat-message
   "Send a message to the AI chat endpoint with wine IDs and conversation history.
    Optionally includes provider override and image data."
-  ([message wines conversation-history provider callback]
-   (send-chat-message message wines conversation-history provider nil callback))
-  ([message wines conversation-history provider image callback]
+  ([message wines include? conversation-history provider callback]
+   (send-chat-message message wines include? conversation-history provider nil callback))
+  ([message wines include? conversation-history provider image callback]
    (go
-    (let [wine-ids (mapv :id wines)
-          payload (cond-> {:wine-ids wine-ids
-                           :conversation-history conversation-history}
+    (let [wine-ids (->> wines (map :id) (remove nil?) vec)
+          payload (cond-> {:conversation-history conversation-history
+                           :include-visible-wines? include?}
                     (seq message) (assoc :message message)
+                    (and include? (seq wine-ids)) (assoc :wine-ids wine-ids)
                     provider (assoc :provider (if (keyword? provider)
                                                 (name provider)
                                                 provider))

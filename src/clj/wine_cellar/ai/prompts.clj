@@ -1,7 +1,8 @@
 (ns wine-cellar.ai.prompts
   "Shared prompt helpers for AI providers."
   (:require [clojure.string :as str]
-            [wine-cellar.common :as common]))
+            [wine-cellar.common :as common]
+            [wine-cellar.summary :as summary]))
 
 (defn format-wine-summary
   "Creates a formatted summary of a single wine including tasting notes and varieties.
@@ -123,27 +124,67 @@
 
 (def max-wines 50)
 
-(defn create-wine-context
-  "Produces a multi-line summary of the wine collection, capped at 50 wines."
+
+(defn summary->text-lines
+  "Convert condensed summary data into text lines for prompt consumption."
+  [summary-data]
+  (let [{:keys [totals countries styles vintages]}
+        (or summary-data (summary/condensed-summary []))
+        {:keys [wines bottles]} totals
+        {country-top :top country-other :other} countries
+        {style-top :top style-other :other} styles
+        {:keys [bands non-vintage]} vintages
+        format-entry (fn [{:keys [label bottles bottle-share]}]
+                      (let [pct (when bottle-share (Math/round (* 100 bottle-share)))]
+                        (cond-> (str label " - " bottles " bottles")
+                          (and pct (pos? pct)) (str " (" pct "%)"))))
+        top-countries (->> country-top (map format-entry) (remove str/blank?) (str/join ", "))
+        top-styles (->> style-top (map format-entry) (remove str/blank?) (str/join ", "))
+        country-line (when (seq top-countries)
+                       (str "Top countries: " top-countries
+                            (when (and country-other (:bottles country-other))
+                              (str ", Other - " (:bottles country-other) " bottles"))))
+        style-line (when (seq top-styles)
+                     (str "Styles: " top-styles
+                          (when (and style-other (:bottles style-other))
+                            (str ", Other - " (:bottles style-other) " bottles"))))
+        vintage-parts (->> bands (map format-entry) (remove str/blank?) vec)
+        vintage-line (when (or (seq vintage-parts) non-vintage)
+                       (let [parts (cond-> vintage-parts
+                                     non-vintage (conj (format-entry non-vintage)))]
+                         (str "Vintages: " (str/join ", " parts))))]
+    (cond-> [(str "Cellar snapshot: " wines " wines / " bottles " bottles.")]
+      country-line (conj country-line)
+      style-line (conj style-line)
+      vintage-line (conj vintage-line))))
+
+(defn- condensed-summary-text
+  [summary-data]
+  (str/join "\n" (summary->text-lines summary-data)))
+
+(defn- selected-wines-context
   [wines]
-  (tap> ["create-wine-context-wines" wines])
-  (if (empty? wines)
-    "The user has no wines in their collection yet."
+  (when (seq wines)
     (let [wine-count (count wines)
           wine-summaries (take max-wines (map format-wine-summary wines))
-          summary (str "The user has "
-                       wine-count
-                       " wines in their collection:\n"
-                       (str/join "\n" wine-summaries)
-                       (when (> wine-count max-wines) "\n... and more wines"))]
-      (tap> ["wine cellar summary" summary])
-      summary)))
+          header (if (= wine-count 1)
+                   "Currently selected wine:"
+                   (str "Currently selected wines (" wine-count "):"))
+          body (str/join "\n" wine-summaries)
+          truncated? (> wine-count max-wines)
+          suffix (when truncated? "\n... and more wines")]
+      (str header "\n" body suffix))))
 
 (defn wine-collection-context
-  "Wraps the wine context with an explanatory prefix for system prompts."
-  [wines]
-  (str "Here is information about the user's wine collection:\n\n"
-       (create-wine-context wines)))
+  "Wraps the condensed cellar snapshot with optional selected wines details."
+  [{:keys [summary selected-wines]}]
+  (let [summary-text (condensed-summary-text summary)
+        selection-text (selected-wines-context selected-wines)
+        base (str "Here is information about the user's wine collection:\n\n"
+                  summary-text)]
+    (if selection-text
+      (str base "\n\n" selection-text)
+      base)))
 
 (defn wine-system-instructions
   "Baseline system instructions shared across AI providers for chat."

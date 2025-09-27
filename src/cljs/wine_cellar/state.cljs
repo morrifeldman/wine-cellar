@@ -34,4 +34,5 @@
           :renaming-conversation-id nil
           :deleting-conversation-id nil
           :sidebar-open? false
+          :include-visible-wines? true
           :error nil}})

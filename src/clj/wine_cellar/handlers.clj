@@ -3,7 +3,8 @@
             [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations]
-            [ring.util.response :as response]))
+            [ring.util.response :as response]
+            [wine-cellar.summary :as summary]))
 
 (defn- no-content [] {:status 204 :headers {} :body nil})
 
@@ -350,15 +351,26 @@
 
 (defn chat-with-ai
   [request]
-  (try (let [{:keys [wine-ids conversation-history image provider]} (-> request
-                                                                        :parameters
-                                                                        :body)]
+  (try (let [body (-> request :parameters :body)
+             {:keys [wine-ids conversation-history image provider include-visible-wines?]} body
+             include? (if (contains? body :include-visible-wines?)
+                        (boolean include-visible-wines?)
+                        true)
+             selected-ids (if include?
+                            (vec (remove nil? wine-ids))
+                            [])]
          (if (and (empty? conversation-history) (empty? image))
            {:status 400
             :body {:error "Conversation history or image is required"}}
-           (let [enriched-wines (db-api/get-enriched-wines-by-ids wine-ids)
+           (let [enriched-wines (if (seq selected-ids)
+                                   (db-api/get-enriched-wines-by-ids selected-ids)
+                                   [])
+                 cellar-wines (or (db-api/get-wines-for-list) [])
+                 condensed (summary/condensed-summary cellar-wines)
+                 context {:summary condensed
+                          :selected-wines (vec enriched-wines)}
                  response (ai/chat-about-wines provider
-                                               enriched-wines
+                                               context
                                                conversation-history
                                                image)]
              (response/response response))))

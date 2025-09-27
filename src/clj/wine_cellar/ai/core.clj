@@ -29,21 +29,21 @@
     :else (throw (ex-info "Unknown AI provider type" {:provider provider}))))
 
 (defn chat-about-wines
-  ([wines conversation-history]
-   (chat-about-wines nil wines conversation-history nil))
-  ([provider wines conversation-history]
-   (chat-about-wines provider wines conversation-history nil))
-  ([provider wines conversation-history image]
-   (tap> ["conversation-history" conversation-history])
-   (let [provider-key (normalize-provider provider)
-         prompt {:system-text (prompts/wine-system-instructions)
-                 :context-text (prompts/wine-collection-context wines)
-                 :messages (prompts/conversation-messages conversation-history image)}]
-     (tap> ["prompt" prompt])
-     (case provider-key
-       :openai (openai/chat-about-wines prompt)
-       :anthropic (anthropic/chat-about-wines prompt)
-       (throw (ex-info "Unsupported AI provider" {:provider provider-key}))))))
+  [provider context conversation-history image]
+  {:pre [(map? context) (contains? context :summary)]}
+  (tap> ["chat-about-wines" provider context conversation-history])
+  (let [{:keys [summary selected-wines]} context
+        provider-key (normalize-provider provider)
+        prompt {:system-text (prompts/wine-system-instructions)
+                :context-text (prompts/wine-collection-context
+                               {:summary summary
+                                :selected-wines selected-wines})
+                :messages (prompts/conversation-messages conversation-history image)}]
+    (tap> ["prompt" prompt])
+    (case provider-key
+      :openai (openai/chat-about-wines prompt)
+      :anthropic (anthropic/chat-about-wines prompt)
+      (throw (ex-info "Unsupported AI provider" {:provider provider-key})))))
 
 (defn suggest-drinking-window
   ([wine]

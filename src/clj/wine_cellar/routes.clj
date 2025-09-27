@@ -68,6 +68,7 @@
 (s/def ::wine_search_state (s/nilable map?))
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
 (s/def ::pinned boolean?)
+(s/def ::include_visible_wines? boolean?)
 (s/def ::conversation-create
   (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned ::provider]))
 (s/def ::conversation-update
@@ -173,7 +174,8 @@
     {:post {:summary "Chat with AI about your wine collection"
             :parameters {:body (s/keys :opt-un
                                        [::message ::wine-ids
-                                        ::conversation-history ::image ::provider])}
+                                        ::conversation-history ::image ::provider
+                                        ::include_visible_wines?])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
   ["/conversations"

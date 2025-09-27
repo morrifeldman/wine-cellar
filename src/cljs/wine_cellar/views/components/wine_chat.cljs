@@ -12,6 +12,7 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.material.switch :refer [switch]]
             [reagent-mui.icons.chat :refer [chat]]
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
@@ -73,7 +74,11 @@
           (when-let [file (.getAsFile item)]
             (handle-clipboard-image file attached-image)))))))
 
-(declare persist-conversation-message!)
+(declare persist-conversation-message!
+         apply-wine-search-state!
+         build-wine-search-state
+         sync-conversation-context!
+         context-wines)
 
 (defn- open-conversation!
   ([app-state messages conversation]
@@ -88,6 +93,8 @@
        (swap! app-state assoc-in [:chat :provider] provider))
      (reset! messages [])
      (swap! app-state assoc-in [:chat :messages] [])
+     (when-let [search-state (:wine_search_state conversation)]
+       (apply-wine-search-state! app-state search-state))
      (api/fetch-conversation-messages! app-state id))))
 
 (defn- ensure-conversation!
@@ -101,8 +108,9 @@
                         (callback conversation-id))
       creating? (js/setTimeout #(ensure-conversation! app-state wines callback) 100)
       :else
-      (let [wine-ids (->> wines (map :id) (remove nil?) vec)
-            payload (cond-> {}
+      (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
+            wine-ids (->> wines (map :id) (remove nil?) vec)
+            payload (cond-> {:wine_search_state (build-wine-search-state app-state include?)}
                        (seq wine-ids) (assoc :wine_ids wine-ids))]
         (swap! app-state assoc-in [:chat :creating-conversation?] true)
         (api/create-conversation!
@@ -136,32 +144,80 @@
   "Derive the set of wines currently in chat context."
   [app-state]
   (let [state @app-state
+        include? (get-in state [:chat :include-visible-wines?] true)
         selected-id (:selected-wine-id state)
         wines (or (:wines state) [])]
-    (cond
-      selected-id (into [] (filter #(= (:id %) selected-id) wines))
-      :else (vec (or (filtered-sorted-wines app-state) [])))))
+    (if-not include?
+      []
+      (cond
+        selected-id (into [] (filter #(= (:id %) selected-id) wines))
+        :else (vec (or (filtered-sorted-wines app-state) []))))))
 
 (defn- context-label-element
-  [count]
-  (cond
-    (zero? count) "No wines in context"
-    (= count 1) [:<> [:span {:style {:fontWeight 700}} "1"] " wine in context"]
-    :else [:<> [:span {:style {:fontWeight 700}} (str count)] " wines in context"]))
+  [include? count]
+  (if-not include?
+    "Summary only"
+    (cond
+      (zero? count) "No wines in context"
+      (= count 1) [:<> [:span {:style {:fontWeight 700}} "1"] " wine in context"]
+      :else [:<> [:span {:style {:fontWeight 700}} (str count)] " wines in context"])))
 
 (defn- context-indicator-style
-  [count]
-  (let [base-label (context-label-element count)]
-    (cond
-      (zero? count) {:color "text.secondary" :label base-label}
-      (> count 50)
-      {:color "common.white"
-       :label base-label
-       :sx {:backgroundColor "error.main"
-            :padding "2px 6px"
-            :borderRadius "999px"}}
-      (<= count 15) {:color "success.main" :label base-label}
-      (<= count 50) {:color "warning.main" :label base-label})))
+  [include? count]
+  (if-not include?
+    {:color "text.secondary" :label "Summary only"}
+    (let [base-label (context-label-element true count)]
+      (cond
+        (zero? count) {:color "text.secondary" :label base-label}
+        (> count 50)
+        {:color "common.white"
+         :label base-label
+         :sx {:backgroundColor "error.main"
+              :padding "2px 6px"
+              :borderRadius "999px"}}
+        (<= count 15) {:color "success.main" :label base-label}
+        (<= count 50) {:color "warning.main" :label base-label}))))
+
+(defn- build-wine-search-state
+  [app-state include?]
+  (let [state @app-state]
+    {:filters (:filters state)
+     :sort (:sort state)
+     :show-out-of-stock? (:show-out-of-stock? state)
+     :selected-wine-id (:selected-wine-id state)
+     :include-visible-wines? include?}))
+
+(defn- apply-wine-search-state!
+  [app-state search-state]
+  (when (map? search-state)
+    (swap! app-state
+           (fn [state]
+             (-> state
+                 (cond-> (contains? search-state :filters)
+                   (assoc :filters (:filters search-state)))
+                 (cond-> (contains? search-state :sort)
+                   (assoc :sort (:sort search-state)))
+                 (cond-> (contains? search-state :show-out-of-stock?)
+                   (assoc :show-out-of-stock? (:show-out-of-stock? search-state)))
+                 (cond-> (contains? search-state :selected-wine-id)
+                   (assoc :selected-wine-id (:selected-wine-id search-state))))))
+    (when (contains? search-state :include-visible-wines?)
+      (swap! app-state assoc-in [:chat :include-visible-wines?]
+             (boolean (:include-visible-wines? search-state))))))
+
+(defn- sync-conversation-context!
+  ([app-state wines]
+   (when-let [conversation-id (get-in @app-state [:chat :active-conversation-id])]
+     (sync-conversation-context! app-state wines conversation-id)))
+  ([app-state wines conversation-id]
+   (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
+         wine-ids (->> wines (map :id) (remove nil?) vec)
+         search-state (build-wine-search-state app-state include?)]
+     (api/update-conversation-context!
+      app-state
+      conversation-id
+      {:wine-ids wine-ids
+       :wine-search-state search-state}))))
 
 (defn- mobile?
   []
@@ -498,11 +554,11 @@
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with conversation history, provider, and optional image"
-  ([message wines conversation-history provider callback]
-   (send-chat-message message wines conversation-history provider nil callback))
-  ([message wines conversation-history provider image callback]
-   (tap> ["send-chat-message" message conversation-history {:provider provider}])
-   (api/send-chat-message message wines conversation-history provider image callback)))
+  ([message wines include? conversation-history provider callback]
+   (send-chat-message message wines include? conversation-history provider nil callback))
+  ([message wines include? conversation-history provider image callback]
+   (tap> ["send-chat-message" message conversation-history {:provider provider :include? include?}])
+   (api/send-chat-message message wines include? conversation-history provider image callback)))
 
 (defn- handle-send-message
   "Handle sending a message to the AI assistant with optional image"
@@ -513,9 +569,8 @@
                         :text (or message-text "")
                         :is-user true
                         :timestamp (.getTime (js/Date.))}
-          wines (if-let [current-wine-id (:selected-wine-id @app-state)]
-                  (filter #(= (:id %) current-wine-id) (:wines @app-state))
-                  (filtered-sorted-wines app-state))
+          include? (get-in @app-state [:chat :include-visible-wines?] true)
+          wines (context-wines app-state)
           provider (normalize-provider (get-in @app-state [:chat :provider]))]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
@@ -524,10 +579,13 @@
        wines
        (cond-> {:is_user true
                 :content (or message-text "")}
-         image (assoc :image_data image)))
+         image (assoc :image_data image))
+        (fn [conversation-id]
+          (sync-conversation-context! app-state wines conversation-id)))
       (send-chat-message
        message-text
        wines
+       include?
        @messages
        provider
        image
@@ -582,19 +640,20 @@
           (reset! editing-message-id nil)
           (set! (.-value @message-ref) "")
           (reset! is-sending? true)
-          (let [wines (if-let [current-wine-id (:selected-wine-id @app-state)]
-                        (filter #(= (:id %) current-wine-id)
-                                (:wines @app-state))
-                        (filtered-sorted-wines app-state))
+          (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
+                wines (context-wines app-state)
                 provider (normalize-provider (get-in @app-state [:chat :provider]))]
             (persist-conversation-message!
              app-state
              wines
              {:is_user true
-              :content (or (:text updated-message) "")})
+              :content (or (:text updated-message) "")}
+             (fn [conversation-id]
+               (sync-conversation-context! app-state wines conversation-id)))
             (send-chat-message
              (:text updated-message)
              wines
+             include?
              @messages
              provider
              (fn [response]
@@ -668,7 +727,7 @@
 
 (defn chat-dialog-header
   [{:keys [app-state messages message-ref pending-image conversation-loading?
-           sidebar-open? on-toggle-sidebar context-label context-color context-sx]}]
+           sidebar-open? on-toggle-sidebar context-indicator]}]
   (let [is-mobile? (mobile?)
         conversation-toggle
         (if is-mobile?
@@ -706,19 +765,11 @@
                   :flex-direction "column"
                   :align-items "flex-start"
                   :gap 0.25}}
-        [ai-toggle/provider-toggle-button
+       [ai-toggle/provider-toggle-button
          app-state
          {:mobile-min-width (if is-mobile? "96px" "120px")
           :sx {:alignSelf "flex-start"}}]
-       (when context-label
-         [typography
-           {:variant "caption"
-            :sx (merge {:color context-color
-                        :fontWeight 400
-                        :fontSize "0.7rem"
-                        :lineHeight 1.2}
-                       context-sx)}
-           context-label])]]
+       (when context-indicator context-indicator)]]
       [box {:sx {:display "flex"
                  :align-items "center"
                  :gap (if is-mobile? 0.5 1)}}
@@ -843,9 +894,30 @@
             deleting-id (:deleting-conversation-id chat-state)
             pinning-id (:pinning-conversation-id chat-state)
             renaming-id (:renaming-conversation-id chat-state)
+            include-visible? (:include-visible-wines? chat-state)
+            context-wine-list (context-wines app-state)
             conversation-messages (vec (or (:messages chat-state) []))
-            context-count (count (context-wines app-state))
-            {:keys [color label sx]} (context-indicator-style context-count)
+            context-count (count context-wine-list)
+            {:keys [color label sx]} (context-indicator-style include-visible? context-count)
+            toggle-context! (fn [checked]
+                              (swap! app-state assoc-in [:chat :include-visible-wines?] checked)
+                              (when-let [conversation-id (:active-conversation-id (:chat @app-state))]
+                                (sync-conversation-context! app-state (context-wines app-state))))
+            context-indicator [box {:sx {:display "flex"
+                                         :align-items "center"
+                                         :gap 0.5}}
+                               [switch {:checked include-visible?
+                                        :size "small"
+                                        :onChange (fn [event]
+                                                    (let [checked (.. event -target -checked)]
+                                                      (toggle-context! checked)))}]
+                               [typography {:variant "caption"
+                                            :sx (merge {:color color
+                                                        :fontWeight 400
+                                                        :fontSize "0.7rem"
+                                                        :lineHeight 1.2}
+                                                       sx)}
+                                label]]
             toggle-sidebar! (fn []
                               (let [opening? (not sidebar-open?)]
                                 (if opening?
@@ -887,16 +959,14 @@
                                            :message-ref message-ref
                                            :is-editing? is-editing?
                                            :handle-cancel handle-cancel})
-            header-props {:app-state app-state
-                          :messages messages
-                          :message-ref message-ref
-                          :pending-image pending-image
-                          :conversation-loading? conversation-loading?
-                          :sidebar-open? sidebar-open?
-                          :on-toggle-sidebar toggle-sidebar!
-                          :context-label label
-                          :context-color color
-                          :context-sx sx}
+           header-props {:app-state app-state
+                         :messages messages
+                         :message-ref message-ref
+                         :pending-image pending-image
+                         :conversation-loading? conversation-loading?
+                         :sidebar-open? sidebar-open?
+                         :on-toggle-sidebar toggle-sidebar!
+                          :context-indicator context-indicator}
             content-props {:dialog-content-ref dialog-content-ref
                            :sidebar sidebar
                            :main-column main-column}]
