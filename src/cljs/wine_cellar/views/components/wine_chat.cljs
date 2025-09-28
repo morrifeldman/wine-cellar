@@ -108,7 +108,7 @@
                         (callback conversation-id))
       creating? (js/setTimeout #(ensure-conversation! app-state wines callback) 100)
       :else
-      (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
+      (let [include? (get-in @app-state [:chat :include-visible-wines?] false)
             wine-ids (->> wines (map :id) (remove nil?) vec)
             payload (cond-> {:wine_search_state (build-wine-search-state app-state include?)}
                        (seq wine-ids) (assoc :wine_ids wine-ids))]
@@ -144,7 +144,7 @@
   "Derive the set of wines currently in chat context."
   [app-state]
   (let [state @app-state
-        include? (get-in state [:chat :include-visible-wines?] true)
+        include? (get-in state [:chat :include-visible-wines?] false)
         selected-id (:selected-wine-id state)
         wines (or (:wines state) [])]
     (if-not include?
@@ -210,7 +210,7 @@
    (when-let [conversation-id (get-in @app-state [:chat :active-conversation-id])]
      (sync-conversation-context! app-state wines conversation-id)))
   ([app-state wines conversation-id]
-   (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
+   (let [include? (get-in @app-state [:chat :include-visible-wines?] false)
          wine-ids (->> wines (map :id) (remove nil?) vec)
          search-state (build-wine-search-state app-state include?)]
      (api/update-conversation-context!
@@ -569,7 +569,7 @@
                         :text (or message-text "")
                         :is-user true
                         :timestamp (.getTime (js/Date.))}
-          include? (get-in @app-state [:chat :include-visible-wines?] true)
+          include? (get-in @app-state [:chat :include-visible-wines?] false)
           wines (context-wines app-state)
           provider (normalize-provider (get-in @app-state [:chat :provider]))]
       (swap! messages conj user-message)

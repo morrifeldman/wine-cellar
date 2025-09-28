@@ -355,7 +355,7 @@
              {:keys [wine-ids conversation-history image provider include-visible-wines?]} body
              include? (if (contains? body :include-visible-wines?)
                         (boolean include-visible-wines?)
-                        true)
+                        false)
              selected-ids (if include?
                             (vec (remove nil? wine-ids))
                             [])]
@@ -368,7 +368,9 @@
                  cellar-wines (or (db-api/get-wines-for-list) [])
                  condensed (summary/condensed-summary cellar-wines)
                  context {:summary condensed
-                          :selected-wines (vec enriched-wines)}
+                          :selected-wines (if include?
+                                            (vec enriched-wines)
+                                            [])}
                  response (ai/chat-about-wines provider
                                                context
                                                conversation-history

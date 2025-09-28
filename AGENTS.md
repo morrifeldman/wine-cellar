@@ -7,7 +7,7 @@ The backend Clojure source lives in `src/clj/wine_cellar` (config, routes, db, a
 Run `npm install` once to sync JS dependencies. Use `clj -M:dev-all` to boot backend + shadow-cljs watcher together via `wine-cellar.dev`. For a frontend-only loop, run `npx shadow-cljs watch app` (outputs to `public/js`). Start just the API with `clj -M:run-server`. Package a production bundle through `npx shadow-cljs release app` before deploying.
 
 ## Coding Style & Naming Conventions
-Stick to 2-space indentation in `.clj`/`.cljs` files and align maps for readability. Namespaces mirror directory layout (`wine-cellar.<area>`); functions and vars use kebab-case, records and React components use PascalCase. Format code with `clj -M:format` (zprint wrapper) or `scripts/format-clj.sh` prior to committing. Prefer immutable data structures and threading macros for request pipelines.
+Stick to 2-space indentation in `.clj`/`.cljs` files and align maps for readability. Namespaces mirror directory layout (`wine-cellar.<area>`); functions and vars use kebab-case, records and React components use PascalCase. Format code with `clj -M:format` (zprint wrapper) or `scripts/format-clj.sh` prior to committing. Prefer immutable data structures and threading macros for request pipelines. Avoid shadowing core vars (e.g. reusing names like `group-by` or `map`) when binding locals so that calls to the standard library continue to work without namespace qualifiers.
 
 ## Testing Guidelines
 Run `clj -M:clj-kondo --lint src --report-level error` after every set of changes to catch syntax or lint issues early. Prefer to keep functions short and make incremental edits so mismatched parentheses are easier to spot; lint between small steps.

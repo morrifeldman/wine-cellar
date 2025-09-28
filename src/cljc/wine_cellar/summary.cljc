@@ -36,12 +36,28 @@
         #?(:clj (try (Double/parseDouble trimmed)
                     (catch NumberFormatException _ nil))
            :cljs (let [parsed (js/parseFloat trimmed)]
-                   (when-not (js/isNaN parsed) parsed)))))
+           (when-not (js/isNaN parsed) parsed)))))
     :else nil))
+
+(defn- round-number
+  [value]
+  (let [numeric (or value 0)]
+    #?(:clj (Math/round (double numeric))
+       :cljs (js/Math.round numeric))))
 
 (defn- positive-quantity
   [wine]
   (max 0 (or (:quantity wine) 0)))
+
+(defn wine-quantity
+  [wine]
+  (positive-quantity wine))
+
+(defn historical-quantity
+  [wine]
+  (max 0 (or (:original_quantity wine)
+             (:quantity wine)
+             0)))
 
 (defn- in-stock?
   [wine]
@@ -104,6 +120,39 @@
            :bottles (positive-quantity wine)})
         wines)))
 
+(defn- totals-from-items
+  [items]
+  {:wines (reduce + 0 (map :wines items))
+   :bottles (reduce + 0 (map :bottles items))})
+
+(defn style-breakdown
+  "Aggregate wines by style, returning {:items [...], :totals {...}}."
+  [wines]
+  (let [items (aggregate-by wines #(canonical-style (:style %)))]
+    {:items items :totals (totals-from-items items)}))
+
+(defn country-breakdown
+  [wines]
+  (let [items (aggregate-by wines #(normalize-string (:country %)))]
+    {:items items :totals (totals-from-items items)}))
+
+(defn- price->band-label
+  [price]
+  (let [numeric (parse-number price)]
+    (if (number? numeric)
+      (or (some (fn [{:keys [label min max]}]
+                  (when (and (or (nil? min) (>= numeric min))
+                             (or (nil? max) (< numeric max)))
+                    label))
+                price-bands)
+          "Other")
+      "Unspecified")))
+
+(defn price-breakdown
+  [wines]
+  (let [items (aggregate-by wines #(price->band-label (:price %)))]
+    {:items items :totals (totals-from-items items)}))
+
 (defn- add-share
   [entries total]
   (mapv (fn [{:keys [bottles] :as entry}]
@@ -143,6 +192,25 @@
   [wines total-bottles]
   (top-n-with-other (aggregate-by wines #(normalize-string (:region %))) total-bottles 3 "Other"))
 
+(defn- unique-varieties
+  [wine]
+  (->> (:varieties wine)
+       (keep (fn [variety]
+               (normalize-string (or (:name variety)
+                                     (:variety variety)))))
+       (remove str/blank?)
+       set))
+
+(defn variety-breakdown
+  [wines]
+  (let [entries (mapcat (fn [wine]
+                          (let [qty (positive-quantity wine)]
+                            (for [variety (unique-varieties wine)]
+                              {:label variety :wines 1 :bottles qty})))
+                        wines)
+        items (aggregate-custom entries)]
+    {:items items :totals (totals-from-items items)}))
+
 (defn- summarize-vintages
   [wines total-bottles]
   (let [{:keys [entries non-vintage]}
@@ -165,14 +233,6 @@
     {:bands band-entries
      :non-vintage non-vintage-entry}))
 
-(defn- unique-varieties
-  [wine]
-  (->> (:varieties wine)
-       (keep (fn [variety]
-               (normalize-string (or (:name variety) (:variety variety)))))
-       (remove str/blank?)
-       set))
-
 (defn- summarize-varieties
   [wines total-bottles]
   (let [entries (mapcat (fn [wine]
@@ -182,18 +242,6 @@
                         wines)
         aggregated (aggregate-custom entries)]
     (top-n-with-other aggregated total-bottles 4 "Other varieties")))
-
-(defn- price->band-label
-  [price]
-  (let [numeric (parse-number price)]
-    (if (number? numeric)
-      (or (some (fn [{:keys [label min max]}]
-                  (when (and (or (nil? min) (>= numeric min))
-                             (or (nil? max) (< numeric max)))
-                    label))
-                price-bands)
-          "Other")
-      "Unspecified")))
 
 (defn- summarize-price-bands
   [wines total-bottles]
@@ -214,6 +262,24 @@
   (and (or (nil? from) (<= from year))
        (or (nil? to) (>= to year))))
 
+(defn- drinking-window-status
+  [wine]
+  (let [year (current-year)
+        from (:drink_from_year wine)
+        to (:drink_until_year wine)
+        from-num (when (number? from) from)
+        to-num (when (number? to) to)]
+    (cond
+      (and to-num (> year to-num)) "Past window"
+      (and from-num (< year from-num)) "Hold for later"
+      (or from-num to-num) "Ready to drink"
+      :else "No window set")))
+
+(defn drinking-window-breakdown
+  [wines]
+  (let [items (aggregate-by wines #(drinking-window-status %))]
+    {:items items :totals (totals-from-items items)}))
+
 (defn- ready-to-drink-summary
   [wines]
   (let [year (current-year)
@@ -227,6 +293,225 @@
       {:year year
        :total-bottles ready-bottles
        :styles (add-share (aggregate-by ready-wines #(canonical-style (:style %))) ready-bottles)})))
+
+(defn total-bottles
+  ([wines]
+   (total-bottles wines wine-quantity))
+  ([wines quantity-fn]
+   (reduce + 0 (map quantity-fn wines))))
+
+(defn total-value
+  ([wines]
+   (total-value wines wine-quantity))
+  ([wines quantity-fn]
+   (reduce
+    (fn [acc wine]
+      (let [price (parse-number (:price wine))
+            qty (quantity-fn wine)]
+        (+ acc (* (or price 0) qty))))
+    0 wines)))
+
+(defn average-internal-rating
+  [wines]
+  (let [ratings (->> wines
+                     (keep (comp parse-number :latest_internal_rating))
+                     (filter number?))]
+    (when (seq ratings)
+      (let [denominator (max 1 (count ratings))
+            total (reduce + ratings)]
+        (round-number (/ total denominator))))))
+
+(defn- purchase-year
+  [wine]
+  (when-let [date (:purchase_date wine)]
+    (let [value (normalize-string date)]
+      (when (and value (>= (count value) 4))
+        (let [year-str (subs value 0 4)
+              parsed (parse-year year-str)]
+          (when parsed parsed))))))
+
+(defn inventory-by-year
+  [wines]
+  (->> wines
+       (map (fn [wine]
+              (when-let [year (purchase-year wine)]
+                {:year year
+                 :remaining (wine-quantity wine)
+                 :purchased (max 0 (or (:original_quantity wine)
+                                      (:quantity wine) 0))})))
+       (remove nil?)
+       (reduce (fn [acc {:keys [year remaining purchased]}]
+                 (update acc year
+                         (fnil (fn [data]
+                                 (-> data
+                                     (update :remaining (fnil + 0) remaining)
+                                     (update :purchased (fnil + 0) purchased)))
+                               {:year year :remaining 0 :purchased 0})))
+               {})
+       vals
+       (sort-by :year)))
+
+(defn- normalized-label
+  [value fallback]
+  (let [label (normalize-string value)]
+    (if (str/blank? label) fallback label)))
+
+(defn- series-key
+  [group-by label]
+  (let [prefix (name (or group-by :overall))
+        base (-> (str label)
+                 str/lower-case
+                 (str/replace #"[^a-z0-9]+" "-")
+                 (str/replace #"^-+|-+$" ""))]
+    (if (str/blank? base)
+      prefix
+      (str prefix "-" base))))
+
+(defn- bounded-range
+  [{min-value :min max-value :max}]
+  (let [current (current-year)
+        min-value (if (number? min-value) min-value current)
+        max-value (if (number? max-value) max-value current)
+        floor (min min-value current)
+        ceil (max max-value current)
+        start (max (- floor 1) (- current 5))
+        end (max (+ ceil 1) (+ current 2))]
+    {:start start :end end}))
+
+(defn- window-entry
+  [group-by wine]
+  (let [label (case group-by
+                :style (canonical-style (:style wine))
+                :country (normalized-label (:country wine) "Unspecified")
+                :price (price->band-label (:price wine))
+                "All wines")]
+    {:wine wine
+     :label label
+     :window (normalized-window wine)
+     :quantity (wine-quantity wine)}))
+
+(defn- tally-unscheduled
+  [entries]
+  (reduce (fn [{:keys [wines bottles] :as acc} {:keys [window quantity]}]
+            (if window
+              acc
+              {:wines (inc wines)
+               :bottles (+ bottles quantity)}))
+          {:wines 0 :bottles 0}
+          entries))
+
+(defn- ensure-overall-group
+  [grouped entries add-overall?]
+  (if add-overall?
+    (assoc grouped "All wines" entries)
+    grouped))
+
+(defn- points-for-year
+  [year entries]
+  (let [matching (filter (fn [{:keys [window]}]
+                           (let [{:keys [from to]} window]
+                             (and (<= (or from year) year)
+                                  (<= year (or to year)))))
+                         entries)
+        total-bottles (reduce + 0 (map :quantity matching))]
+    {:year year
+     :wines (count matching)
+     :bottles total-bottles}))
+
+(defn- build-series
+  [group-by years grouped]
+  (->> grouped
+       (map (fn [[label entries]]
+              {:key (series-key group-by label)
+               :label label
+               :points (vec (map #(points-for-year % entries) years))}))
+       (sort-by (fn [{:keys [label]}]
+                  (if (= label "All wines") "" label)))))
+
+(defn optimal-window-timeline
+  ([wines] (optimal-window-timeline wines {}))
+  ([wines {grouping :group-by}]
+   (let [entries (map #(window-entry grouping %) wines)
+         windows (filter :window entries)
+         current (current-year)
+         unscheduled (tally-unscheduled entries)]
+     (if (seq windows)
+       (let [min-year (apply min (map (comp :from :window) windows))
+             max-year (apply max (map (comp :to :window) windows))
+             {:keys [start end]} (bounded-range {:min min-year :max max-year})
+             years (range start (inc end))
+             grouped (ensure-overall-group
+                      (clojure.core/group-by :label windows)
+                      windows
+                      (some? grouping))
+             series (build-series grouping years grouped)]
+         {:series (vec series)
+          :years (vec years)
+          :current-year current
+          :unscheduled unscheduled
+          :group-by grouping})
+        {:series []
+         :years []
+         :current-year current
+         :unscheduled unscheduled
+         :group-by grouping}))))
+
+(defn collection-stats
+  "Compute detailed collection stats for front-end displays.
+   Mirrors the previous cljs implementation so CLJ/CLJS can share logic."
+  ([wines] (collection-stats wines {}))
+  ([wines {:keys [visible-wines]}]
+   (let [all-wines (vec (or wines []))
+         visible (vec (or visible-wines all-wines))
+         in-stock-wines (vec (filter in-stock? all-wines))
+         subsets {:all all-wines
+                  :in-stock in-stock-wines
+                  :selected visible}
+         counts (into {}
+                       (map (fn [[subset coll]]
+                              [subset (count coll)])
+                            subsets))
+         bottle-totals (into {}
+                             (map (fn [[subset coll]]
+                                    (let [quantity-fn (if (= subset :all)
+                                                        historical-quantity
+                                                        wine-quantity)]
+                                      [subset (total-bottles coll quantity-fn)]))
+                                  subsets))
+         rating-totals (into {}
+                             (map (fn [[subset coll]]
+                                    [subset (average-internal-rating coll)])
+                                  subsets))
+         value-totals (into {}
+                            (map (fn [[subset coll]]
+                                   (let [quantity-fn (if (= subset :all)
+                                                       historical-quantity
+                                                       wine-quantity)]
+                                     [subset (round-number (total-value coll quantity-fn))]))
+                                 subsets))
+         totals {:counts counts
+                 :bottles bottle-totals
+                 :avg-rating rating-totals
+                 :value value-totals}
+         chart-wines in-stock-wines
+         style-data (style-breakdown chart-wines)
+         country-data (country-breakdown chart-wines)
+         price-data (price-breakdown chart-wines)
+         drinking-window-data (drinking-window-breakdown chart-wines)
+         variety-data (variety-breakdown chart-wines)
+         inventory (inventory-by-year chart-wines)
+         optimal-window {:overall (optimal-window-timeline chart-wines)
+                         :style (optimal-window-timeline chart-wines {:group-by :style})
+                         :country (optimal-window-timeline chart-wines {:group-by :country})
+                         :price (optimal-window-timeline chart-wines {:group-by :price})}]
+     {:totals totals
+      :style style-data
+      :country country-data
+      :price price-data
+      :drinking-window drinking-window-data
+      :varieties variety-data
+      :inventory inventory
+      :optimal-window optimal-window})))
 
 (defn condensed-summary
   "Produce a condensed breakdown for in-stock wines.
