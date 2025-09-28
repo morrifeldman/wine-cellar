@@ -35,6 +35,8 @@
           (when (:classification wine)
             (str "\n  Classification: " (:classification wine)))
           (when (:level wine) (str "\n  Level: " (:level wine)))
+          (when (:closure_type wine)
+            (str "\n  Closure: " (:closure_type wine)))
           (when (:disgorgement_year wine)
             (str "\n  Disgorgement Year: " (:disgorgement_year wine)))
           (when (:alcohol_percentage wine)

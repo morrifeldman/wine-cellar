@@ -9,6 +9,23 @@
     "Riserva" "Gran Selezione" ; Chianti
     "Reserve"})
 
+(def closure-type-options
+  ["Natural cork"
+   "Technical cork"
+   "Micro-agglomerated cork"
+   "Colmated cork"
+   "Agglomerated cork"
+   "Screw cap"
+   "Synthetic cork (extruded)"
+   "Synthetic cork (molded)"
+   "Glass stopper"
+   "Crown cap"
+   "T-top"
+   "Zork"
+   "Other/Unknown"])
+
+(def closure-types (set closure-type-options))
+
 ;; Location validation
 (defn valid-location?
   [location]

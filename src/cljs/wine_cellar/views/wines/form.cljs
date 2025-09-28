@@ -211,6 +211,14 @@
         :options common/wine-styles
         :sx {"& .MuiAutocomplete-popupIndicator" {:color "text.secondary"}}
         :on-change #(swap! app-state assoc-in [:new-wine :style] %)}]]
+     [form-row
+      [select-field
+       {:label "Closure"
+        :value (:closure_type new-wine)
+        :required false
+        :multiple false
+        :options common/closure-type-options
+        :on-change #(swap! app-state assoc-in [:new-wine :closure_type] %)}]]
      ;; Wine Classification Section
      [form-divider "Grape Varieties"]
      [form-row

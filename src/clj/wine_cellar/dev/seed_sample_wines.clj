@@ -14,6 +14,7 @@
            :country "France"
            :region "Rhône Valley"
            :style "Red"
+           :closure_type "Natural cork"
            :price 95.00M
            :quantity 6
            :original_quantity 12
@@ -35,6 +36,7 @@
            :country "USA"
            :region "Santa Cruz Mountains"
            :style "Red"
+           :closure_type "Colmated cork"
            :price 285.00M
            :quantity 2
            :original_quantity 6
@@ -57,6 +59,7 @@
            :country "New Zealand"
            :region "Marlborough"
            :style "White"
+           :closure_type "Screw cap"
            :price 34.00M
            :quantity 5
            :original_quantity 6
@@ -76,6 +79,7 @@
            :country "France"
            :region "Champagne"
            :style "Rosé Sparkling"
+           :closure_type "Crown cap"
            :price 80.00M
            :quantity 3
            :original_quantity 3
@@ -98,6 +102,7 @@
            :country "Australia"
            :region "South Australia"
            :style "Red"
+           :closure_type "Synthetic cork (extruded)"
            :price 65.00M
            :quantity 8
            :original_quantity 12
@@ -118,6 +123,7 @@
            :country "Chile"
            :region "Colchagua Valley"
            :style "Red"
+           :closure_type "Micro-agglomerated cork"
            :price 130.00M
            :quantity 4
            :original_quantity 6
@@ -140,6 +146,7 @@
            :country "Germany"
            :region "Mosel"
            :style "White"
+           :closure_type "Synthetic cork (molded)"
            :price 22.00M
            :quantity 12
            :original_quantity 12
@@ -159,6 +166,7 @@
            :country "Portugal"
            :region "Douro Valley"
            :style "Fortified"
+           :closure_type "T-top"
            :price 180.00M
            :quantity 1
            :original_quantity 6
@@ -180,6 +188,7 @@
            :country "France"
            :region "Sauternes"
            :style "Dessert"
+           :closure_type "Natural cork"
            :price 350.00M
            :quantity 1
            :original_quantity 3
@@ -200,6 +209,7 @@
            :country "Italy"
            :region "Tuscany"
            :style "Red"
+           :closure_type "Agglomerated cork"
            :price 55.00M
            :quantity 9
            :original_quantity 12
@@ -221,6 +231,7 @@
           :country "France"
           :region "Ventoux"
           :style "White"
+          :closure_type "Zork"
           :price 12.00M
           :quantity 15
           :original_quantity 24
@@ -243,6 +254,7 @@
            :country "USA"
            :region "Napa Valley"
            :style "Red"
+           :closure_type "Natural cork"
            :price 320.00M
            :quantity 6
            :original_quantity 6
@@ -264,6 +276,7 @@
            :country "Lebanon"
            :region "Bekaa Valley"
            :style "Red"
+           :closure_type "Other/Unknown"
            :price 75.00M
            :quantity 2
            :original_quantity 12
@@ -285,6 +298,7 @@
            :country "Germany"
            :region "Rheinhessen"
            :style "White"
+           :closure_type "Glass stopper"
            :price 120.00M
            :quantity 6
            :original_quantity 6
@@ -304,6 +318,7 @@
            :country "USA"
            :region "Santa Maria Valley"
            :style "White"
+           :closure_type "Technical cork"
            :price nil
            :quantity 7
            :original_quantity 9
@@ -321,6 +336,7 @@
            :country "Italy"
            :region "Lombardy"
            :style "Red"
+           :closure_type "Natural cork"
            :price 32.00M
            :quantity 10
            :original_quantity 12

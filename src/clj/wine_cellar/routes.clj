@@ -45,6 +45,7 @@
 (s/def ::tasting_window_commentary (s/nilable string?))
 (s/def ::verified boolean?)
 (s/def ::ai_summary (s/nilable string?))
+(s/def ::closure_type (s/nilable (set common/closure-types)))
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source (s/nilable string?))
@@ -88,7 +89,7 @@
                    ::drink_from_year ::drink_until_year ::vintage ::price
                    ::purchase_date ::alcohol_percentage ::wine_varieties
                    ::disgorgement_year ::tasting_window_commentary ::verified
-                   ::ai_summary ::original_quantity]))
+                   ::ai_summary ::original_quantity ::closure_type]))
 
 (def wine-update-schema
   (s/keys :req-un [(or ::producer ::country
@@ -103,14 +104,14 @@
                        ::drink_from_year ::drink_until_year
                        ::purchase_date ::alcohol_percentage
                        ::disgorgement_year ::tasting_window_commentary
-                       ::verified ::ai_summary)]
+                       ::verified ::ai_summary ::closure_type)]
           :opt-un [::producer ::country ::region ::aoc ::classification
                    ::vineyard ::name ::vintage ::style ::level ::location
                    ::quantity ::original_quantity ::price ::purveyor
                    ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::purchase_date
                    ::alcohol_percentage ::disgorgement_year
-                   ::tasting_window_commentary ::verified ::ai_summary]))
+                   ::tasting_window_commentary ::verified ::ai_summary ::closure_type]))
 
 (def image-update-schema
   (s/nilable (s/keys :opt-un

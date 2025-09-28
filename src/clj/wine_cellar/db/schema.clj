@@ -39,7 +39,8 @@
     [:region :varchar [:not nil]] [:aoc :varchar] [:classification :varchar]
     [:vineyard :varchar] [:level :wine_level] [:name :varchar]
     [:vintage :integer :null] [:style :wine_style] [:location :varchar]
-    [:purveyor :varchar] [:quantity :integer [:not nil] [:default 0]]
+    [:closure_type :varchar] [:purveyor :varchar]
+    [:quantity :integer [:not nil] [:default 0]]
     [:original_quantity :integer] [:price :decimal [10 2]]
     [:purchase_date :date] [:drink_from_year :integer]
     [:drink_until_year :integer] [:alcohol_percentage :decimal [4 2]]
@@ -53,6 +54,10 @@
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]]})
 #_(sql/format wines-table-schema)
+
+(def wines-add-closure-type-column
+  {:raw
+   ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS closure_type varchar"]})
 
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]
