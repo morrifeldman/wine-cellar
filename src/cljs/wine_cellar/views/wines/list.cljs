@@ -1,6 +1,6 @@
 (ns wine-cellar.views.wines.list
   (:require [clojure.string :as str]
-            [wine-cellar.utils.stats :as stats]
+            [wine-cellar.summary :as summary]
             [wine-cellar.views.components.stats-charts :as stats-charts]
             [wine-cellar.views.components.wine-card :refer
              [wine-card get-rating-color]]
@@ -319,33 +319,12 @@
       [inventory-card inventory {:compact? compact?}]
       [optimal-window-card app-state optimal-window metric]]]))
 
-(defn wine-stats
-  [app-state]
-  (let [wines (:wines @app-state)
-        visible-wines (filtered-sorted-wines app-state)
-        stats-data (stats/collection-stats wines {:visible-wines visible-wines})
-        metric (or (:stats-metric @app-state) :wines)]
-    [paper {:elevation 2 :sx {:p 3 :mb 3 :borderRadius 2}}
-     [box {:sx {:display "flex" :justifyContent "space-between" :alignItems "center" :mb 2}}
-      [typography {:variant "h6" :component "h3"} "Collection Overview"]
-      [box {:sx {:display "flex" :alignItems "center" :gap 1.5}}
-       [stats-metric-toggle app-state]
-       [icon-button
-        {:onClick #(swap! app-state update :show-stats? not)
-         :size "small"}
-        (if (:show-stats? @app-state)
-          [expand-less {:sx {:color "text.secondary"}}]
-          [expand-more {:sx {:color "text.secondary"}}])]]]
-     [collapse {:in (:show-stats? @app-state) :timeout "auto"}
-      [box {:sx {:pt 1}}
-       [stats-content app-state stats-data metric {:compact? true}]]]]))
-
 (defn collection-stats-modal
   [app-state]
   (let [open? (boolean (get @app-state :show-collection-stats?))
         wines (:wines @app-state)
         visible-wines (filtered-sorted-wines app-state)
-        stats-data (stats/collection-stats wines {:visible-wines visible-wines})
+        stats-data (summary/collection-stats wines {:visible-wines visible-wines})
         metric (or (:stats-metric @app-state) :wines)]
     [modal {:open open?
             :onClose #(swap! app-state dissoc :show-collection-stats?)
