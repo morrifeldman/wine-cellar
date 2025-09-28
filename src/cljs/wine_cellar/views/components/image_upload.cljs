@@ -33,7 +33,9 @@
   [on-capture on-cancel]
   (let [video-ref (r/atom nil)
         stream-ref (r/atom nil)
-        camera-active (r/atom false)]
+        camera-active (r/atom false)
+        capture-handler on-capture
+        cancel-handler on-cancel]
     (r/create-class
      {:component-did-mount
       (fn []
@@ -65,7 +67,7 @@
                                   (doseq [track (.getTracks stream)]
                                     (.stop track))))
       :reagent-render
-      (fn [on-capture on-cancel]
+      (fn []
         [box
          {:sx {:position "fixed"
                :top 0
@@ -79,7 +81,7 @@
                :alignItems "center"
                :justifyContent "center"}}
          [icon-button
-          {:onClick on-cancel
+          {:onClick cancel-handler
            :sx {:position "absolute" :top 16 :right 16 :color "white"}} [close]]
          [box
           {:sx {:position "relative"
@@ -110,8 +112,8 @@
                             (create-thumbnail
                              data-url
                              (fn [thumbnail]
-                               (on-capture {:label_image data-url
-                                            :label_thumbnail thumbnail})))))))
+                               (capture-handler {:label_image data-url
+                                                  :label_thumbnail thumbnail})))))))
            :sx {:mb 2}} "Take Photo"]])})))
 
 ;; Image preview component
@@ -152,51 +154,50 @@
    - on-image-remove: Function to call when image is removed
    - disabled: Whether the upload controls should be disabled
    - label-type: Type of label ('front' or 'back')"
-  [{:keys [image-data on-image-change on-image-remove disabled label-type]}]
+  [_props]
   (let [show-camera (r/atom false)
-        uploading (r/atom false)
-        label-text (if (= label-type "back") "back" "front")]
-    (fn [{:keys [image-data on-image-change on-image-remove disabled
-                 label-type]}]
-      [box {:sx {:width "100%"}}
-       ;; Show camera modal if active
-       (when @show-camera
-         [camera-capture
-          (fn [image-data]
-            (reset! show-camera false)
-            (if (= label-type "back")
-              ;; For back label, we don't need a thumbnail
-              (on-image-change {:back_label_image (:label_image image-data)})
-              ;; For front label, we keep the existing behavior
-              (on-image-change image-data))) #(reset! show-camera false)])
-       ;; Image preview or camera controls
-       (if image-data
-         ;; Show image with remove button
-         [render-image-preview image-data on-image-remove disabled]
-         ;; Show camera controls
-         [box
-          {:sx {:display "flex"
-                :flexDirection "column"
-                :alignItems "center"
-                :p 2
-                :border "1px dashed rgba(0,0,0,0.2)"
-                :borderRadius 1}}
-          [typography
-           {:variant "body2"
-            :color "text.secondary"
-            :sx {:mb 2 :textAlign "center"}}
-           (str "Add " label-text " label image")]
-          ;; Camera button
-          [button
-           {:variant "contained"
-            :color "primary"
-            :disabled (or disabled @uploading)
-            :onClick #(reset! show-camera true)
-            :startIcon (r/as-element [camera-alt])
-            :size "medium"} (str "Take " (str/capitalize label-text) " Photo")]
-          ;; Loading indicator
-          (when @uploading
-            [box {:sx {:mt 2 :display "flex" :justifyContent "center"}}
-             [typography {:variant "body2" :color "text.secondary"}
-              "Processing image..."]])])])))
-
+        uploading (r/atom false)]
+    (fn [{:keys [image-data on-image-change on-image-remove disabled label-type]}]
+      (let [label-text (if (= label-type "back") "back" "front")]
+        [box {:sx {:width "100%"}}
+         ;; Show camera modal if active
+         (when @show-camera
+           [camera-capture
+            (fn [image-data]
+              (reset! show-camera false)
+              (if (= label-type "back")
+                ;; For back label, we don't need a thumbnail
+                (on-image-change {:back_label_image (:label_image image-data)})
+                ;; For front label, we keep the existing behavior
+                (on-image-change image-data)))
+            #(reset! show-camera false)])
+         ;; Image preview or camera controls
+         (if image-data
+           ;; Show image with remove button
+           [render-image-preview image-data on-image-remove disabled]
+           ;; Show camera controls
+           [box
+            {:sx {:display "flex"
+                  :flexDirection "column"
+                  :alignItems "center"
+                  :p 2
+                  :border "1px dashed rgba(0,0,0,0.2)"
+                  :borderRadius 1}}
+            [typography
+             {:variant "body2"
+              :color "text.secondary"
+              :sx {:mb 2 :textAlign "center"}}
+             (str "Add " label-text " label image")]
+            ;; Camera button
+            [button
+             {:variant "contained"
+              :color "primary"
+              :disabled (or disabled @uploading)
+              :onClick #(reset! show-camera true)
+              :startIcon (r/as-element [camera-alt])
+              :size "medium"} (str "Take " (str/capitalize label-text) " Photo")]
+            ;; Loading indicator
+            (when @uploading
+              [box {:sx {:mt 2 :display "flex" :justifyContent "center"}}
+               [typography {:variant "body2" :color "text.secondary"}
+                "Processing image..."]])])]))))

@@ -4,10 +4,7 @@
             [reagent-mui.material.form-control :refer [form-control]]
             [reagent-mui.material.form-label :refer [form-label]]
             [reagent-mui.material.slider :refer [slider]]
-            [reagent-mui.material.avatar :refer [avatar]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.chip :refer [chip]]))
+            [reagent-mui.material.typography :refer [typography]]))
 
 ;; Wine Folly colors extracted from poster
 (def wine-folly-colors
@@ -192,7 +189,7 @@
 
 (defn wine-color-display
   "Display selected wine color as small wine glass on white background"
-  [{:keys [wine-style selected-color selected-intensity size show-label?]}]
+  [{:keys [selected-color selected-intensity size show-label?]}]
   (when (and selected-color selected-intensity)
     (let [glass-size (case size
                        :small 24

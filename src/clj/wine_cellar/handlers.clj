@@ -453,7 +453,7 @@
            (not= email (:user_email conversation))
            {:status 403 :body {:error "Forbidden"}}
            :else
-           (let [{:keys [is_user content image_data tokens_used] :as body}
+           (let [{:keys [is_user content image_data tokens_used]} ; body map used individual keys only
                  (:body-params request)
                  message {:conversation_id conversation-id
                           :is_user (boolean is_user)
@@ -511,7 +511,7 @@
 
 (defn reset-database
   "Admin function to drop and recreate all database tables"
-  [request]
+  [_request]
   (try (println "🔥 ADMIN: Dropping all database tables...")
        (db-setup/drop-tables)
        (println "🛠️  ADMIN: Recreating database schema...")

@@ -752,22 +752,22 @@
                     provider (assoc :provider (if (keyword? provider)
                                                 (name provider)
                                                 provider))
-                    image (assoc :image image))]
-      (let [result (<!
-                    (POST "/api/chat" payload "Failed to send chat message"))]
+                    image (assoc :image image))
+          fallback-msg "Sorry, I'm having trouble connecting right now. Please try again later."]
+      (if-let [result (<! (POST "/api/chat" payload "Failed to send chat message"))]
         (if (:success result)
           (callback (:data result))
-          (callback
-           "Sorry, I'm having trouble connecting right now. Please try again later.")))))))
+          (callback fallback-msg))
+        (callback fallback-msg))))))
 
 ;; Admin endpoints
 
 (defn mark-all-wines-unverified
   "Admin function to mark all wines as unverified"
   [app-state]
-  (go (let [result (<! (POST "/api/admin/mark-all-unverified"
-                             {}
-                             "Failed to mark wines as unverified"))]
+  (go (if-let [result (<! (POST "/api/admin/mark-all-unverified"
+                                {}
+                                "Failed to mark wines as unverified"))]
         (if (:success result)
           (do
             ;; Refresh the wines list to show updated verification status
@@ -777,7 +777,8 @@
               (str "Successfully marked "
                    (get-in result [:data :wines-updated])
                    " wines as unverified")))
-          (swap! app-state assoc :error (:error result))))))
+          (swap! app-state assoc :error (:error result)))
+        (swap! app-state assoc :error "Failed to mark wines as unverified"))))
 
 (defn poll-job-status
   "Poll job status until completion"
@@ -863,17 +864,19 @@
   "Admin function to reset the database"
   [app-state]
   (go (swap! app-state assoc :resetting-database? true)
-      (let [result (<! (POST "/api/admin/reset-database"
-                             {}
-                             "Failed to reset database"))]
-        (swap! app-state assoc :resetting-database? false)
-        (if (:success result)
-          (do
-            ;; Completely reset app state to initial values
+      (if-let [result (<! (POST "/api/admin/reset-database"
+                                 {}
+                                 "Failed to reset database"))]
+        (do
+          (swap! app-state assoc :resetting-database? false)
+          (if (:success result)
             (reset! app-state (assoc initial-app-state
                                      :success
-                                     "Database reset successfully!")))
-          (swap! app-state assoc :error (:error result))))))
+                                     "Database reset successfully!"))
+            (swap! app-state assoc :error (:error result))))
+        (do
+          (swap! app-state assoc :resetting-database? false)
+          (swap! app-state assoc :error "Failed to reset database")))))
 
 (defn load-wine-detail-page
   "Load all data needed for the wine detail page"

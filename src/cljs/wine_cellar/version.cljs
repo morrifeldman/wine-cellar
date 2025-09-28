@@ -12,7 +12,7 @@
              (if (:success response)
                (reset! version-cache (:body response))
                (reset! version-cache {:version "unknown" :commit "unknown"})))
-           (catch :default e
+           (catch :default _e
              (reset! version-cache {:version "error" :commit "error"})))))
 
 (defn get-version-info [] @version-cache)

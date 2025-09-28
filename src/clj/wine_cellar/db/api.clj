@@ -70,7 +70,7 @@
                       #(sql-cast :jsonb (json/write-value-as-string %)))))
 
 (defn conversation->db-conversation
-  [{:keys [wine_ids auto_tags wine_search_state provider] :as conversation}]
+  [{:keys [wine_ids auto_tags wine_search_state] :as conversation}]
   (cond-> conversation
     wine_ids (update :wine_ids #(->pg-array %))
     auto_tags (update :auto_tags #(->pg-array %))

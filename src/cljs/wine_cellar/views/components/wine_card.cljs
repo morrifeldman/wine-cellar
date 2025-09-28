@@ -1,8 +1,8 @@
 (ns wine-cellar.views.components.wine-card
-  (:require [goog.string :as gstring]
+  (:require [clojure.string :as str]
+            [goog.string :as gstring]
             [goog.string.format]
             [reagent.core :as r]
-            [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.paper :refer [paper]]
@@ -23,7 +23,7 @@
         :else "rating.low"))
 
 (defn wine-thumbnail
-  [app-state wine]
+  [_app-state wine]
   [box
    {:sx {:mr 2
          :width 120
@@ -145,7 +145,7 @@
                      (if (:percentage v)
                        (str (:name v) " " (:percentage v) "%")
                        (:name v))))
-              (clojure.string/join ", "))
+              (str/join ", "))
          "-")
        "-")]]])
 

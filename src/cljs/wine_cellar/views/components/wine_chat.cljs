@@ -273,8 +273,7 @@
 
 (defn- conversation-row
   [app-state messages
-   {:keys [active-id deleting-id renaming-id pinning-id on-delete on-rename on-pin]
-    :as opts}
+   {:keys [active-id deleting-id renaming-id pinning-id on-delete on-rename on-pin]}
    {:keys [id] :as conversation}]
   (let [active? (= id active-id)
         deleting? (= id deleting-id)
@@ -413,7 +412,8 @@
        #(when @container-ref
           (.scrollIntoView @container-ref #js {:behavior "smooth" :block "nearest"}))
        100))
-    [box {:sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}
+    [box {:key reset-key
+          :sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}
           :ref #(reset! container-ref %)}
      (when has-image?
        [box
@@ -521,7 +521,9 @@
   "Scrollable container for chat messages"
   [messages on-edit]
   (let [scroll-ref (r/atom nil)
-        last-ai-message-ref (r/atom nil)]
+        last-ai-message-ref (r/atom nil)
+        messages-atom messages
+        edit-handler on-edit]
     (r/create-class
      {:component-did-update (fn [_]
                               (when @last-ai-message-ref
@@ -529,7 +531,7 @@
                                                  #js {:behavior "smooth"
                                                       :block "start"})))
       :reagent-render
-      (fn [messages on-edit]
+      (fn []
         [box
          {:ref #(reset! scroll-ref %)
           :sx {:height "360px"
@@ -539,7 +541,7 @@
                :border "1px solid"
                :border-color "divider"
                :border-radius 1}}
-         (let [current-messages @messages]
+         (let [current-messages @messages-atom]
            (if (empty? current-messages)
              [typography
               {:variant "body2"
@@ -548,7 +550,7 @@
              (doall (for [message current-messages]
                       (let [is-last-message? (= message (last current-messages))]
                         ^{:key (:id message)}
-                        [message-bubble message on-edit
+                        [message-bubble message edit-handler
                          (when is-last-message?
                            #(reset! last-ai-message-ref %))])))))])})))
 
@@ -901,7 +903,7 @@
             {:keys [color label sx]} (context-indicator-style include-visible? context-count)
             toggle-context! (fn [checked]
                               (swap! app-state assoc-in [:chat :include-visible-wines?] checked)
-                              (when-let [conversation-id (:active-conversation-id (:chat @app-state))]
+                              (when-let [_conversation-id (:active-conversation-id (:chat @app-state))]
                                 (sync-conversation-context! app-state (context-wines app-state))))
             context-indicator [box {:sx {:display "flex"
                                          :align-items "center"

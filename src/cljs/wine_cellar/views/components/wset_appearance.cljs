@@ -6,13 +6,12 @@
     [reagent-mui.material.radio-group :refer [radio-group]]
     [reagent-mui.material.form-control-label :refer [form-control-label]]
     [reagent-mui.material.radio :refer [radio]]
-    [reagent-mui.material.text-field :as mui-text-field]
     [reagent-mui.material.collapse :refer [collapse]]
     [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.icons.expand-more :refer [expand-more]]
     [wine-cellar.common :refer [wset-lexicon]]
     [wine-cellar.views.components.form :refer
-     [select-field uncontrolled-text-area-field]]
+     [uncontrolled-text-area-field]]
     [wine-cellar.views.components.wine-color :refer [wine-color-selector]]))
 
 (defn- radio-group-field

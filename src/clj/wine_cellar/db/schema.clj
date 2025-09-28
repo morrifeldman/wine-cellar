@@ -1,7 +1,5 @@
 (ns wine-cellar.db.schema
-  (:require [clojure.string :as str]
-            [wine-cellar.common :as common]
-            [honey.sql :as sql]))
+  (:require [wine-cellar.common :as common]))
 
 ;; Type definitions
 (def create-wine-level-type

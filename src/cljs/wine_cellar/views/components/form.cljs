@@ -19,8 +19,7 @@
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.autocomplete :refer [autocomplete]]
     [reagent-mui.material.circular-progress :refer [circular-progress]]
-    [reagent-mui.util :refer [react-component]]
-    [clojure.string :as str]))
+    [reagent-mui.util :refer [react-component]]))
 
 ;; Form container components
 (defn form-container

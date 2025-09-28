@@ -129,7 +129,7 @@
                        (update :vintage (fn [v] (js/parseInt v 10)))
                        (update :quantity (fn [q] (js/parseInt q 10)))
                        (update :original_quantity
-                               (fn [q] (js/parseInt (:quantity new-wine) 10)))
+                               (fn [_] (js/parseInt (:quantity new-wine) 10)))
                        (assoc :tasting_window_commentary commentary)
                        (assoc :create-classification-if-needed true)))))))]
     [form-container {:title "Add New Wine" :on-submit submit-handler}

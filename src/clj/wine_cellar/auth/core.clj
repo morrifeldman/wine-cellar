@@ -186,7 +186,7 @@
         (response/redirect "/login")))))
 
 (defn logout
-  [request]
+  [_request]
   (-> (response/redirect "/")
       (assoc-in [:cookies "auth-token"]
                 {:value ""
@@ -194,4 +194,3 @@
                  :max-age 0 ; Expire immediately
                  :same-site :lax
                  :path "/"})))
-

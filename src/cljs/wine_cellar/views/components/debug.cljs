@@ -2,8 +2,6 @@
   (:require [reagent.core :as r]
             [wine-cellar.api :as api]
             [cljs.reader :as reader]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.text-field :as mui-text-field]))
 
 ;; Helper functions for managing saved states

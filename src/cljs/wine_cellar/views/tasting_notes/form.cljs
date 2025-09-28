@@ -6,12 +6,7 @@
             [wine-cellar.utils.formatting :refer [format-date-iso]]
             [wine-cellar.views.components.form :refer
              [checkbox-field date-field form-actions form-container form-row
-              number-field select-field uncontrolled-text-area-field]]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.collapse :refer [collapse]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.expand-more :refer [expand-more]]
+              number-field select-field]]
             [reagent-mui.material.divider :refer [divider]]
             [wine-cellar.views.components.wset-appearance :refer
              [wset-appearance-section]]
@@ -286,4 +281,3 @@
                        #(swap! app-state assoc
                           :editing-note-id nil
                           :new-tasting-note {}))}]]))))
-

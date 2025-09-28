@@ -213,7 +213,7 @@
 
 (defn editable-classification-field
   "Classification field implementation of editable-field for country, region, AOC, and classification"
-  [{:keys [field-type app-state wine classifications] :as props}]
+  [{:keys [field-type wine classifications] :as props}]
   (let [country (:country wine)
         region (:region wine)
         aoc (:aoc wine)
