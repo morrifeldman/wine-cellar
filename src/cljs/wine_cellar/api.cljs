@@ -846,11 +846,13 @@
   [app-state]
   (let [filtered-wines (filters/filtered-sorted-wines app-state)
         wine-ids (map :id filtered-wines)
-        wine-count (count wine-ids)]
+        wine-count (count wine-ids)
+        provider (some-> (get-in @app-state [:chat :provider]) name)]
     (when (> wine-count 0)
       (swap! app-state assoc :regenerating-drinking-windows? true)
       (go (let [result (<! (POST "/api/admin/start-drinking-window-job"
-                                 {:wine-ids wine-ids}
+                                 (cond-> {:wine-ids wine-ids}
+                                   provider (assoc :provider provider))
                                  "Failed to start drinking window job"))]
             (if (:success result)
               (let [job-id (get-in result [:data :job-id])]

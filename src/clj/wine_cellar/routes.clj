@@ -225,7 +225,8 @@
              :handler handlers/mark-all-wines-unverified}}]
     ["/start-drinking-window-job"
      {:post {:summary "Start async job to regenerate drinking windows"
-             :parameters {:body map?}
+             :parameters {:body (s/keys :req-un [::wine-ids]
+                                       :opt-un [::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/start-drinking-window-job}}]
     ["/job-status/:job-id"

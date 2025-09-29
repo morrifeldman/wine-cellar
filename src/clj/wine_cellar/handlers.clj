@@ -546,6 +546,7 @@
   [request]
   (try (let [body (:body-params request)
              wine-ids (:wine-ids body)
+             provider (:provider body)
              wine-count (count wine-ids)]
          (println "🔄 ADMIN: Starting drinking window job for"
                   wine-count
@@ -554,7 +555,8 @@
            {:status 400 :body {:error "No wine IDs provided"}}
            (let [job-id
                  (wine-cellar.admin.bulk-operations/start-drinking-window-job
-                  wine-ids)]
+                  {:wine-ids wine-ids
+                   :provider provider})]
              (println "✅ ADMIN: Started drinking window job" job-id)
              {:status 200
               :body {:job-id job-id

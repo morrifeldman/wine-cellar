@@ -27,9 +27,10 @@
 
 (defn start-drinking-window-job
   "Start async job to regenerate drinking windows for wine IDs"
-  [wine-ids]
+  [{:keys [wine-ids provider]}]
   (let [job-id (generate-job-id)
-        total-count (count wine-ids)]
+        total-count (count wine-ids)
+        provider-key (some-> provider keyword)]
     (tap> ["🍷 Starting async drinking window job" job-id "for" total-count
            "wines"])
     (update-job-status! job-id :running 0 total-count)
@@ -48,7 +49,7 @@
                (fn [idx wine]
                  (try (tap> ["🍷 Processing wine" (inc idx) "of" total-count
                              "- ID:" (:id wine) "Producer:" (:producer wine)])
-                      (let [ai-response (ai/suggest-drinking-window wine)]
+                      (let [ai-response (ai/suggest-drinking-window provider-key wine)]
                         (tap> ["🤖 AI response received for wine" (:id wine) ":"
                                ai-response])
                         (let [updates
