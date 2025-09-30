@@ -3,6 +3,7 @@
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
             [org.httpkit.client :as http]
+            [wine-cellar.common :as common]
             [wine-cellar.config-utils :as config-utils]))
 
 (def api-url "https://api.anthropic.com/v1/messages")
@@ -17,51 +18,56 @@
 (def drinking-window-tool-name "record_drinking_window")
 
 (def drinking-window-tool
-  {:name drinking-window-tool-name
-   :description "Return the optimal drinking window as structured JSON."
-   :input_schema {:type "object"
-                  :properties {:drink_from_year {:type "integer"
-                                                 :description "Year the wine reaches optimal drinking."}
-                               :drink_until_year {:type "integer"
-                                                  :description "Last year the wine should be enjoyed."}
-                               :confidence {:type "string"
-                                            :description "Short description of confidence in the window."}
-                               :reasoning {:type "string"
-                                           :description "Concise rationale for the suggested window."}}
-                  :required [:drink_from_year :drink_until_year :confidence :reasoning]
-                  :additionalProperties false}})
+  (let [confidence-desc "Confidence level for this assessment; must be one of \"high\", \"medium\", or \"low\" per the drinking-window prompt."
+        reasoning-desc "Brief justification focusing on the wine's peak-quality years and mentioning the broader enjoyable window."]
+    {:name drinking-window-tool-name
+     :description "Structured schema matching wine-cellar.ai.prompts/drinking-window-system-prompt."
+     :input_schema {:type "object"
+                    :properties {:drink_from_year {:type "integer"
+                                                   :description "Year the wine reaches optimal drinking condition (integer)."}
+                                 :drink_until_year {:type "integer"
+                                                    :description "Final year the wine remains at peak quality (integer)."}
+                                 :confidence {:type "string"
+                                              :description confidence-desc}
+                                 :reasoning {:type "string"
+                                             :description reasoning-desc}}
+                    :required [:drink_from_year :drink_until_year :confidence :reasoning]
+                    :additionalProperties false}}))
 
 (def label-analysis-tool-name "record_wine_label")
 
 (def label-analysis-tool
-  {:name label-analysis-tool-name
-   :description "Extract structured wine label details as JSON."
-   :input_schema {:type "object"
-                  :properties {:producer {:type ["string" "null"]
-                                          :description "Producer or winery name."}
-                               :name {:type ["string" "null"]
-                                      :description "Specific wine name."}
-                               :vintage {:type ["integer" "null"]
-                                         :description "Vintage year or null for NV."}
-                               :country {:type ["string" "null"]
-                                          :description "Country of origin."}
-                               :region {:type ["string" "null"]
-                                         :description "Region within the country."}
-                               :aoc {:type ["string" "null"]
-                                     :description "Appellation or controlled designation."}
-                               :vineyard {:type ["string" "null"]
-                                          :description "Specific vineyard if stated."}
-                               :classification {:type ["string" "null"]
-                                                :description "Quality classification or designation."}
-                               :style {:type ["string" "null"]
-                                       :description "Wine style."}
-                               :level {:type ["string" "null"]
-                                       :description "Wine level."}
-                               :alcohol_percentage {:type ["number" "null"]
-                                                    :description "ABV percentage if shown."}}
-                  :required [:producer :name :vintage :country :region :aoc :vineyard
-                             :classification :style :level :alcohol_percentage]
-                  :additionalProperties false}})
+  (let [style-options (str/join ", " (sort common/wine-styles))
+        level-options (str/join ", " (sort common/wine-levels))
+        null-note "Return null when the label does not provide this information."]
+    {:name label-analysis-tool-name
+     :description "Structured schema matching wine-cellar.ai.prompts/label-analysis-system-prompt."
+     :input_schema {:type "object"
+                    :properties {:producer {:type ["string" "null"]
+                                            :description (str "Producer or winery name. " null-note)}
+                                 :name {:type ["string" "null"]
+                                        :description (str "Specific wine name if distinct from the producer. " null-note)}
+                                 :vintage {:type ["integer" "null"]
+                                           :description (str "Vintage year as an integer, or null for non-vintage. " null-note)}
+                                 :country {:type ["string" "null"]
+                                            :description (str "Country of origin printed on the label. " null-note)}
+                                 :region {:type ["string" "null"]
+                                          :description (str "Region or sub-region within the country. " null-note)}
+                                 :aoc {:type ["string" "null"]
+                                       :description (str "Appellation / controlled designation text. " null-note)}
+                                 :vineyard {:type ["string" "null"]
+                                            :description (str "Specific vineyard name if mentioned. " null-note)}
+                                 :classification {:type ["string" "null"]
+                                                  :description (str "Quality classification or other designation. " null-note)}
+                                 :style {:type ["string" "null"]
+                                         :description (str "Wine style wording; align with: " style-options ". " null-note)}
+                                 :level {:type ["string" "null"]
+                                         :description (str "Production tier or quality/aging designation (e.g. " level-options "), often indicating longer maturation or specially selected lots. " null-note)}
+                                 :alcohol_percentage {:type ["number" "null"]
+                                                      :description (str "Alcohol percentage as a number (e.g. 12.5). " null-note)}}
+                    :required [:producer :name :vintage :country :region :aoc :vineyard
+                               :classification :style :level :alcohol_percentage]
+                    :additionalProperties false}}))
 
 (defn- build-request-body
   [{:keys [system messages tools tool_choice max_tokens temperature metadata stop_sequences]}

@@ -1,8 +1,9 @@
-(ns wine-cellar.dev.anthropic-label-demo
-  "Helpers for exercising the Anthropic wine-label JSON tool with local sample images."
+(ns wine-cellar.dev.label-demo
+  "Helpers for exercising the wine-label JSON tool across Anthropic and OpenAI with local sample images."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [wine-cellar.ai.anthropic :as anthropic]
+            [wine-cellar.ai.openai :as openai]
             [wine-cellar.ai.prompts :as prompts])
   (:import (java.nio.file Files Paths)
            (java.util Base64)))
@@ -43,7 +44,7 @@
     (format "data:%s;base64,%s" (mime-type path) encoded)))
 
 (defn sample-label-request
-  "Build the Anthropic label-analysis request using optional overrides for front/back images.
+  "Build the shared label-analysis prompt map using optional overrides for front/back images.
   Arguments may be nil to skip (e.g. only front)."
   ([front back]
    (let [front-uri (when front (file->data-uri front))
@@ -52,24 +53,45 @@
   ([]
    (sample-label-request default-front-image default-back-image)))
 
-(defn run-sample!
+(defn run-anthropic!
   "Calls Anthropic's label analysis tool using the sample (or provided) images.
   Returns the parsed JSON response map."
   ([]
-   (run-sample! default-front-image default-back-image))
+   (run-anthropic! default-front-image default-back-image))
   ([front back]
    (let [request (sample-label-request front back)]
      (anthropic/analyze-wine-label request))))
+
+(defn run-openai!
+  "Calls OpenAI's label analysis tool using the sample (or provided) images.
+  Returns the parsed JSON response map."
+  ([]
+   (run-openai! default-front-image default-back-image))
+  ([front back]
+   (let [prompt (sample-label-request front back)]
+     (openai/analyze-wine-label prompt))))
+
+(defn run-all!
+  "Execute both providers and return {:anthropic … :openai …} for quick comparison."
+  ([]
+   (run-all! default-front-image default-back-image))
+  ([front back]
+   {:anthropic (run-anthropic! front back)
+    :openai (run-openai! front back)}))
 
 (comment
   ;; Evaluate forms in this block from a connected REPL to try the workflow.
   ;; 1. Place the supplied Klimt Grüner JPGs into dev/assets/klimt-front.jpg and .../klimt-back.jpg
   ;; 2. Require this namespace: (require 'wine-cellar.dev.anthropic-label-demo)
-  ;; 3. Run the request and inspect the parsed response map:
-  (run-sample!)
+  ;; 3. Run either provider and inspect the parsed response map:
+  (run-anthropic!)
+  (run-openai!)
+
+  ;; Compare both providers in one call:
+  (run-all!)
 
   ;; To test with alternate image paths:
-  (run-sample! "dev/assets/other-front.jpg" "dev/assets/other-back.jpg")
+  (run-openai! "dev/assets/other-front.jpg" "dev/assets/other-back.jpg")
 
   ;; To inspect just the constructed prompt data:
   (sample-label-request)
