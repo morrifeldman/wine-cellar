@@ -780,66 +780,95 @@
           (swap! app-state assoc :error (:error result)))
         (swap! app-state assoc :error "Failed to mark wines as unverified"))))
 
+(defn- job-type-config
+  [job-type]
+  (case job-type
+    :wine-summary {:in-progress-key :regenerating-wine-summaries?
+                   :success-label "wine summaries"}
+    {:in-progress-key :regenerating-drinking-windows?
+     :success-label "drinking windows"}))
+
+(defn- format-success-message
+  [job-type total failed-wines]
+  (let [{:keys [success-label]} (job-type-config job-type)
+        failed-count (count failed-wines)
+        success-count (- total failed-count)
+        failures-text (when (> failed-count 0)
+                        (str " " failed-count " failed: "
+                             (string/join
+                              ", "
+                              (map #(str "ID " (:wine-id %)) failed-wines))))]
+    (if (> failed-count 0)
+      (str "Regenerated " success-count "/" total " wines successfully." failures-text)
+      (str "Successfully regenerated " success-label " for " total " wines"))))
+
+(defn- format-failure-message
+  [job-type status]
+  (let [{:keys [success-label]} (job-type-config job-type)]
+    (str "Job failed while regenerating " success-label ": " (:error status))))
+
 (defn poll-job-status
   "Poll job status until completion"
-  [app-state job-id]
-  (tap> ["🔍 Polling job status for" job-id])
-  (go
-   (let [result (<! (GET (str "/api/admin/job-status/" job-id)
-                         "Failed to get job status"))]
-     (tap> ["📊 Job status result:" result])
-     (if (:success result)
-       (let [status (:data result)
-             job-status (:status status)
-             progress (:progress status)
-             total (:total status)]
-         (tap> ["📈 Job status details:" "job-status" job-status "progress"
-                progress "total" total])
-         (swap! app-state assoc
-           :job-progress
-           {:progress (or progress 0) :total (or total 0) :status job-status})
-         (tap> ["🔄 Updated app-state with progress"])
-         (cond (= job-status "completed")
-               (do (swap! app-state dissoc
-                     :regenerating-drinking-windows?
-                     :job-progress)
-                   (fetch-wines app-state)
-                   (let [failed-wines (:failed-wines status)
-                         failed-count (count failed-wines)
-                         success-count (- total failed-count)
-                         message
-                         (if (> failed-count 0)
-                           (str "Regenerated " success-count
-                                "/" total
-                                " wines successfully. " failed-count
-                                " failed: " (clojure.string/join
-                                             ", "
-                                             (map #(str "ID " (:wine-id %))
-                                                  failed-wines)))
-                           (str "Successfully regenerated drinking windows for "
-                                total
-                                " wines"))]
-                     (swap! app-state assoc :success message))
-                   (js/setTimeout #(swap! app-state dissoc :success) 8000))
-               (= job-status "failed") (do (swap! app-state dissoc
-                                             :regenerating-drinking-windows?
-                                             :job-progress)
-                                           (swap! app-state assoc
-                                             :error
-                                             (str "Job failed: "
-                                                  (:error status))))
-               (= job-status "running")
-               ;; Continue polling
-               (js/setTimeout #(poll-job-status app-state job-id) 2000)
-               :else
-               ;; Unknown status, stop polling
-               (swap! app-state dissoc
-                 :regenerating-drinking-windows?
-                 :job-progress)))
-       ;; Error getting status
-       (do
-         (swap! app-state dissoc :regenerating-drinking-windows? :job-progress)
-         (swap! app-state assoc :error "Failed to check job status"))))))
+  ([app-state job-id]
+   (poll-job-status app-state job-id {:job-type :drinking-window}))
+  ([app-state job-id {:keys [job-type]}]
+   (let [job-type (or job-type :drinking-window)]
+     (tap> ["🔍 Polling job status for" job-id "job-type" job-type])
+     (go
+      (let [result (<! (GET (str "/api/admin/job-status/" job-id)
+                            "Failed to get job status"))]
+        (tap> ["📊 Job status result:" result])
+        (if (:success result)
+          (let [status (:data result)
+                derived-job-type (let [value (:job-type status)]
+                                   (cond
+                                     (keyword? value) value
+                                     (string? value) (keyword value)
+                                     :else nil))
+                job-type (or derived-job-type job-type)
+                {:keys [in-progress-key]} (job-type-config job-type)
+                job-status (:status status)
+                progress (:progress status)
+                total (:total status)]
+            (tap> ["📈 Job status details:" {:job-status job-status
+                                              :progress progress
+                                              :total total
+                                              :job-type job-type}])
+            (swap! app-state assoc
+              :job-progress
+              {:progress (or progress 0)
+               :total (or total 0)
+               :status job-status
+               :job-type job-type})
+            (tap> ["🔄 Updated app-state with progress"])
+            (cond
+              (= job-status "completed")
+              (do (swap! app-state dissoc in-progress-key :job-progress)
+                  (fetch-wines app-state)
+                  (let [failed-wines (:failed-wines status)
+                        message (format-success-message job-type (or total 0)
+                                                        failed-wines)]
+                    (swap! app-state assoc :success message)
+                    (js/setTimeout #(swap! app-state dissoc :success) 8000)))
+
+              (= job-status "failed")
+              (do (swap! app-state dissoc in-progress-key :job-progress)
+                  (swap! app-state assoc
+                    :error
+                    (format-failure-message job-type status)))
+
+              (= job-status "running")
+              (js/setTimeout #(poll-job-status app-state job-id {:job-type job-type})
+                             2000)
+
+              :else
+              (swap! app-state dissoc in-progress-key :job-progress)))
+          (do
+            (tap> ["⚠️ Failed to get job status" result])
+            (swap! app-state dissoc :regenerating-drinking-windows?
+                                   :regenerating-wine-summaries?
+                                   :job-progress)
+            (swap! app-state assoc :error "Failed to check job status"))))))))
 
 (defn regenerate-filtered-drinking-windows
   "Admin function to regenerate drinking windows for currently filtered wines"
@@ -860,6 +889,26 @@
                 ;; Start polling for job status
                 (poll-job-status app-state job-id))
               (do (swap! app-state dissoc :regenerating-drinking-windows?)
+                  (swap! app-state assoc :error (:error result)))))))))
+
+(defn regenerate-filtered-wine-summaries
+  "Admin function to regenerate wine summaries for currently filtered wines"
+  [app-state]
+  (let [filtered-wines (filters/filtered-sorted-wines app-state)
+        wine-ids (map :id filtered-wines)
+        wine-count (count wine-ids)
+        provider (some-> (get-in @app-state [:chat :provider]) name)]
+    (when (> wine-count 0)
+      (swap! app-state assoc :regenerating-wine-summaries? true)
+      (go (let [result (<! (POST "/api/admin/start-wine-summary-job"
+                                 (cond-> {:wine-ids wine-ids}
+                                   provider (assoc :provider provider))
+                                 "Failed to start wine summary job"))]
+            (if (:success result)
+              (let [job-id (get-in result [:data :job-id])]
+                (tap> ["🚀 Starting polling for wine summary job:" job-id])
+                (poll-job-status app-state job-id {:job-type :wine-summary}))
+              (do (swap! app-state dissoc :regenerating-wine-summaries?)
                   (swap! app-state assoc :error (:error result)))))))))
 
 (defn reset-database

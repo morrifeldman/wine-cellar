@@ -34,6 +34,30 @@
   [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
    "Logout"])
 
+(defn- job-progress-card
+  [state {:keys [flag job-type running-text starting-text]}]
+  (let [running? (get state flag)
+        progress (:job-progress state)
+        relevant-progress (when (= (:job-type progress) job-type) progress)]
+    (when running?
+      [paper
+       {:elevation 3
+        :sx {:p 2 :mb 3 :bgcolor "info.light" :color "info.dark"}}
+       (if relevant-progress
+         (let [processed (or (:progress relevant-progress) 0)
+               total (max 0 (or (:total relevant-progress) 0))
+               raw (if (pos? total) (* 100 (/ processed total)) 0)
+               percent (-> raw (js/Math.max 0) (js/Math.min 100))]
+           [box
+            [typography {:variant "body1"}
+             (str running-text " " processed "/" total " wines processed")]
+            [box {:sx {:width "100%" :mt 1}}
+             [box {:sx {:width (str percent "%")
+                        :height 8
+                        :bgcolor "info.main"
+                        :borderRadius 1}}]]])
+         [typography {:variant "body1"} starting-text])])))
+
 (defn admin-menu
   [app-state]
   (let [anchor-el (r/atom nil)]
@@ -155,6 +179,23 @@
          {:on-click
           (fn []
             (reset! anchor-el nil)
+            (let [filtered-count
+                  (count (wine-cellar.utils.filters/filtered-sorted-wines
+                          app-state))]
+              (when
+                (js/confirm
+                 (str "Regenerate wine summaries for "
+                      filtered-count
+                      " currently visible wines? This may take several minutes and will use AI API credits."))
+                (api/regenerate-filtered-wine-summaries app-state))))
+          :disabled (:regenerating-wine-summaries? @app-state)}
+         (if (:regenerating-wine-summaries? @app-state)
+           "Regenerating Wine Summaries..."
+           "Regenerate Filtered Wine Summaries")]
+        [menu-item
+         {:on-click
+          (fn []
+            (reset! anchor-el nil)
             (when
               (js/confirm
                "⚠️ DANGER: This will DELETE ALL DATA and reset the database schema!\n\nAre you absolutely sure you want to continue?")
@@ -190,54 +231,47 @@
 
 (defn main-app
   [app-state]
-  [box {:sx {:p 3 :maxWidth "1200px" :mx "auto"}}
-   (when-let [error (:error @app-state)]
-     [paper
-      {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
-      [typography {:variant "body1"} error]])
-   (when (:success @app-state)
-     [paper
-      {:elevation 3
-       :sx {:p 2 :mb 3 :bgcolor "success.light" :color "success.dark"}}
-      [typography {:variant "body1"} (:success @app-state)]])
-   (when (:regenerating-drinking-windows? @app-state)
-     [paper
-      {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "info.light" :color "info.dark"}}
-      (if-let [progress (:job-progress @app-state)]
-        [box
-         [typography {:variant "body1"}
-          (str "🍷 Regenerating drinking windows... "
-               (:progress progress)
-               "/"
-               (:total progress)
-               " wines processed")]
-         [box {:sx {:width "100%" :mt 1}}
-          [box
-           {:sx {:width (str (* 100 (/ (:progress progress) (:total progress)))
-                             "%")
-                 :height 8
-                 :bgcolor "info.main"
-                 :borderRadius 1}}]]]
-        [typography {:variant "body1"}
-         "🍷 Starting drinking window regeneration..."])])
-   (cond (= (:view @app-state) :grape-varieties)
-         [:div [grape-varieties-page app-state]
-          [button
-           {:variant "outlined"
-            :color "primary"
-            :on-click #(swap! app-state dissoc :view)
-            :sx {:mt 2}} "Back to Wine List"]]
-         (= (:view @app-state) :classifications)
-         [:div [classifications-page app-state]
-          [button
-           {:variant "outlined"
-            :color "primary"
-            :on-click #(swap! app-state dissoc :view)
-            :sx {:mt 2}} "Back to Wine List"]]
-         ;; Wine views
-         (:selected-wine-id @app-state) [:div [wine-details-section app-state]]
-         (:show-wine-form? @app-state) [:div [top-controls app-state]
-                                        [wine-form app-state]]
-         :else [:div [top-controls app-state] [wine-list app-state]])
-   (when (:show-debug-controls? @app-state) [debug-sidebar app-state])
-   [wine-chat app-state]])
+  (let [state @app-state]
+    [box {:sx {:p 3 :maxWidth "1200px" :mx "auto"}}
+     (when-let [error (:error state)]
+       [paper
+        {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
+        [typography {:variant "body1"} error]])
+     (when (:success state)
+       [paper
+        {:elevation 3
+         :sx {:p 2 :mb 3 :bgcolor "success.light" :color "success.dark"}}
+        [typography {:variant "body1"} (:success state)]])
+     (when-let [card (job-progress-card state
+                                        {:flag :regenerating-drinking-windows?
+                                         :job-type :drinking-window
+                                         :running-text "🍷 Regenerating drinking windows..."
+                                         :starting-text "🍷 Starting drinking window regeneration..."})]
+       card)
+     (when-let [card (job-progress-card state
+                                        {:flag :regenerating-wine-summaries?
+                                         :job-type :wine-summary
+                                         :running-text "📝 Regenerating wine summaries..."
+                                         :starting-text "📝 Starting wine summary regeneration..."})]
+       card)
+     (cond (= (:view state) :grape-varieties)
+           [:div [grape-varieties-page app-state]
+            [button
+             {:variant "outlined"
+              :color "primary"
+              :on-click #(swap! app-state dissoc :view)
+              :sx {:mt 2}} "Back to Wine List"]]
+           (= (:view state) :classifications)
+           [:div [classifications-page app-state]
+            [button
+             {:variant "outlined"
+              :color "primary"
+              :on-click #(swap! app-state dissoc :view)
+              :sx {:mt 2}} "Back to Wine List"]]
+           ;; Wine views
+           (:selected-wine-id state) [:div [wine-details-section app-state]]
+           (:show-wine-form? state) [:div [top-controls app-state]
+                                     [wine-form app-state]]
+           :else [:div [top-controls app-state] [wine-list app-state]])
+     (when (:show-debug-controls? state) [debug-sidebar app-state])
+     [wine-chat app-state]]))

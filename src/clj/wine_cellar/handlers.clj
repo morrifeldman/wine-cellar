@@ -563,9 +563,32 @@
                      :message "Drinking window regeneration job started"
                      :total-wines wine-count}})))
        (catch Exception e
-         (println "❌ ADMIN: Failed to start drinking window job:"
-                  (.getMessage e))
-         (server-error e))))
+       (println "❌ ADMIN: Failed to start drinking window job:"
+                (.getMessage e))
+       (server-error e))))
+
+(defn start-wine-summary-job
+  "Admin function to start async wine summary regeneration job"
+  [request]
+  (try
+    (let [body (:body-params request)
+          wine-ids (:wine-ids body)
+          provider (:provider body)
+          wine-count (count wine-ids)]
+      (println "🔄 ADMIN: Starting wine summary job for" wine-count "wines...")
+      (if (empty? wine-ids)
+        {:status 400 :body {:error "No wine IDs provided"}}
+        (let [job-id (wine-cellar.admin.bulk-operations/start-wine-summary-job
+                      {:wine-ids wine-ids
+                       :provider provider})]
+          (println "✅ ADMIN: Started wine summary job" job-id)
+          {:status 200
+           :body {:job-id job-id
+                  :message "Wine summary regeneration job started"
+                  :total-wines wine-count}})))
+    (catch Exception e
+      (println "❌ ADMIN: Failed to start wine summary job:" (.getMessage e))
+      (server-error e))))
 
 (defn get-job-status
   "Get status of an async job"

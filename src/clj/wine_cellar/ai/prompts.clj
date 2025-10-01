@@ -47,9 +47,7 @@
           (when (and include-drinking-window?
                      (or (:drink_from_year wine) (:drink_until_year wine)))
             (str "\n  Drinking Window: " (or (:drink_from_year wine) "?")
-                 " - " (or (:drink_until_year wine) "?")))
-          (when (and include-drinking-window? (:tasting_window_commentary wine))
-            (str "\n  Drinking Notes: " (:tasting_window_commentary wine)))])
+                 " - " (or (:drink_until_year wine) "?")))])
         varieties (:varieties wine)
         varieties-summary
         (when (seq varieties)

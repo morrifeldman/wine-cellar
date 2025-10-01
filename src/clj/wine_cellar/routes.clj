@@ -229,6 +229,12 @@
                                        :opt-un [::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/start-drinking-window-job}}]
+    ["/start-wine-summary-job"
+     {:post {:summary "Start async job to regenerate wine summaries"
+             :parameters {:body (s/keys :req-un [::wine-ids]
+                                       :opt-un [::provider])}
+             :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/start-wine-summary-job}}]
     ["/job-status/:job-id"
      {:get {:summary "Get status of async job"
             :parameters {:path {:job-id string?}}
