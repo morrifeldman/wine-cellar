@@ -351,17 +351,31 @@
 
 (defn wine-list
   [app-state]
-  [box {:sx {:width "100%" :mt 3}}
-   (if (:loading? @app-state)
-     [box {:display "flex" :justifyContent "center" :p 4} [circular-progress]]
-     (if (empty? (:wines @app-state))
+  (let [state @app-state
+        wines (:wines state)]
+    [box {:sx {:width "100%" :mt 3}}
+     (cond
+       (:loading? state)
+       [box {:display "flex" :justifyContent "center" :p 4}
+        [circular-progress]]
+
+       (empty? wines)
        [paper {:elevation 2 :sx {:p 3 :textAlign "center"}}
         [typography {:variant "h6"} "No wines yet. Add your first wine above!"]]
-       [:<>
-        ;; Collection stats modal
-        [collection-stats-modal app-state]
-        ;; Wine details view or card grid with filtering
-        (if (:selected-wine-id @app-state)
-          [:div] ;; Wine details are rendered separately
-          [:<> [filter-bar app-state]
-           [wine-card-grid app-state (filtered-sorted-wines app-state)]])]))])
+
+       :else
+       (let [visible-wines (filtered-sorted-wines app-state)
+             show-out-of-stock? (:show-out-of-stock? state)
+             base-wines (if show-out-of-stock?
+                          wines
+                          (filter #(pos? (or (:quantity %) 0)) wines))
+             visible-count (count visible-wines)
+             total-count (count base-wines)]
+         [:<>
+          [collection-stats-modal app-state]
+          (if (:selected-wine-id state)
+            [:div]
+            [:<>
+             [filter-bar app-state {:visible visible-count
+                                    :total total-count}]
+             [wine-card-grid app-state visible-wines]])]))]))
