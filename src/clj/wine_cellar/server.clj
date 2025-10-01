@@ -6,13 +6,15 @@
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.session.cookie :refer [cookie-store]]
             [wine-cellar.auth.config :as auth-config]
-            [wine-cellar.config-utils :refer [backend-port]]
+            [wine-cellar.config-utils :refer [backend-port production?]]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.routes :refer [app]]))
 
 (defn start-server!
   [port]
   (db-setup/initialize-db)
+  ;; Add stdout tap handler for production logging (coexists with Portal in dev)
+  (when production? (add-tap #(println "tap>" (pr-str %))))
   (let [session-store (cookie-store {:key (.getBytes
                                            (auth-config/get-cookie-store-key))})
         wrapped-app (-> app
