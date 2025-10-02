@@ -1,31 +1,15 @@
 (ns wine-cellar.views.components.ai-provider-toggle
-  (:require [clojure.string :as string]
+  (:require [wine-cellar.common :as common]
             [reagent-mui.material.button :refer [button]]))
-
-(defn normalize-provider
-  [value]
-  (cond
-    (keyword? value) value
-    (string? value) (-> value string/lower-case keyword)
-    (nil? value) :anthropic
-    :else :anthropic))
-
-(defn provider-label
-  [provider]
-  (case (normalize-provider provider)
-    :openai "ChatGPT"
-    :anthropic "Claude"
-    (-> provider name string/capitalize)))
 
 (defn toggle-provider!
   [app-state]
   (swap! app-state update-in [:chat :provider]
          (fn [current]
-           (let [provider (normalize-provider current)]
-             (case provider
-               :anthropic :openai
-               :openai :anthropic
-               :anthropic)))))
+           (let [providers (vec common/ai-providers)
+                 current-idx (.indexOf providers current)
+                 next-idx (mod (inc current-idx) (count providers))]
+             (get providers next-idx)))))
 
 (defn- mobile?
   []
@@ -40,8 +24,8 @@
                :or {size "small"
                     variant "outlined"
                     title "Toggle AI provider"}}]
-   (let [provider (normalize-provider (get-in @app-state [:chat :provider]))
-         provider-name (provider-label provider)
+   (let [provider (get-in @app-state [:chat :provider])
+         provider-name (common/provider-label provider)
          display-label (cond
                          (some? label) label
                          (fn? label-fn) (label-fn provider provider-name)

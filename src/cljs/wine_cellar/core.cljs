@@ -71,6 +71,9 @@
   (.addEventListener js/window "hashchange" handle-hashchange)
   ;; Sync initial state with URL
   (sync-state-with-url)
+  ;; Fetch model info and default provider on app load
+  (when-not @api/headless-mode?
+    (api/fetch-model-info app-state))
   ;; Only fetch data if we don't already have it and we're not in headless
   ;; mode
   (when (and (empty? (:wines @app-state)) (not @api/headless-mode?))

@@ -224,17 +224,7 @@ Database schemas are defined in `src/clj/wine_cellar/db/schema.clj` using HoneyS
 
 ## Credential Management
 
-### Local Development
-Uses the `pass` password manager for secure credential storage. Required credentials:
-- `wine-cellar/anthropic-api-key`
-- `wine-cellar/jwt-secret`
-- `wine-cellar/cookie-store-key`
-- `wine-cellar/admin-email`
-- `wine-cellar/google-client-id`
-- `wine-cellar/google-client-secret`
-
-### Production (Fly.io)
-Credentials are managed through Fly.io secrets. See README.md for deployment instructions.
+See [docs/environment-variables.md](docs/environment-variables.md) for complete list of required credentials and environment variables for both local development and production.
 
 ## Frontend Development
 
@@ -266,3 +256,4 @@ Wine label images are stored as bytea in PostgreSQL with both full images and th
 ## Json Processing Recommendations
 
 - **Use Jsonista**: Recommend using jsonista for json processing
+- To confirm thte code is valid, run `clj -M:clj-kondo --lint src/<FILE CHANGED>` or `clj -M:clj-kondo --lint src` for larger changes.  Do this after each change.

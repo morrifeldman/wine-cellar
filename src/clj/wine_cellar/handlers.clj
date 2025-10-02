@@ -509,6 +509,11 @@
 
 ;; Admin Handlers
 
+(defn get-model-info
+  "Get current AI model configuration for all providers"
+  [_request]
+  (response/response (wine-cellar.ai.core/get-model-info)))
+
 (defn reset-database
   "Admin function to drop and recreate all database tables"
   [_request]

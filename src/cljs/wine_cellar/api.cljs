@@ -7,19 +7,6 @@
             [wine-cellar.state :refer [initial-app-state]]
             [wine-cellar.utils.filters :as filters]))
 
-(defn- normalize-provider
-  [value]
-  (let [normalized (cond
-                      (keyword? value) value
-                      (string? value) (-> value string/lower-case keyword)
-                      (nil? value) nil
-                      :else value)]
-    (or normalized :anthropic)))
-
-(defn- normalize-conversation
-  [conversation]
-  (let [provider (normalize-provider (:provider conversation))]
-    (assoc conversation :provider provider)))
 
 (def headless-mode? (r/atom false))
 
@@ -93,6 +80,17 @@
   []
   (js/console.log "Logging out...")
   (set! (.-href (.-location js/window)) (str api-base-url "/auth/logout")))
+
+(defn fetch-model-info
+  [app-state]
+  (go (let [result (<! (GET "/api/admin/model-info" "Failed to fetch model info"))]
+        (when (:success result)
+          (let [data (:data result)
+                default-provider (keyword (:default-provider data))]
+            (swap! app-state assoc-in [:ai :models] (:models data))
+            ;; Set default provider if none is currently set
+            (when-not (get-in @app-state [:chat :provider])
+              (swap! app-state assoc-in [:chat :provider] default-provider)))))))
 
 ;; Classification endpoints
 
@@ -329,9 +327,8 @@
 (defn analyze-wine-label
   [app-state image-data]
   (swap! app-state assoc :analyzing-label? true)
-  (let [provider (some-> (get-in @app-state [:chat :provider]) name)
-        payload (cond-> image-data
-                  provider (assoc :provider provider))]
+  (let [provider (get-in @app-state [:chat :provider])
+        payload (assoc image-data :provider provider)]
     (js/Promise.
      (fn [resolve reject]
        (go (let [result (<! (POST "/api/wines/analyze-label"
@@ -348,9 +345,8 @@
   (swap! app-state assoc :suggesting-drinking-window? true)
   (js/Promise. (fn [resolve reject]
                  (go
-                  (let [provider (some-> (get-in @app-state [:chat :provider]) name)
-                        payload (cond-> {:wine wine}
-                                   provider (assoc :provider provider))
+                  (let [provider (get-in @app-state [:chat :provider])
+                        payload {:wine wine :provider provider}
                         result (<! (POST "/api/wines/suggest-drinking-window"
                                          payload
                                          "Failed to suggest drinking window"))]
@@ -500,8 +496,7 @@
 
 (defn- apply-conversation-update!
   [state conversation]
-  (let [conversation (normalize-conversation conversation)
-        chat (:chat state)
+  (let [chat (:chat state)
         convs (or (:conversations chat) [])
         updated (upsert-conversation convs conversation)
         active? (= (:active-conversation-id chat) (:id conversation))
@@ -534,9 +529,7 @@
         (let [result (<! (GET "/api/conversations"
                                "Failed to load conversations"))]
           (if (:success result)
-            (let [conversations (->> (:data result)
-                                     (map normalize-conversation)
-                                     vec)
+            (let [conversations (vec (:data result))
                   sorted (sort-conversations conversations)]
               (tap> ["conversations-loaded" (count conversations)])
               (swap! app-state
@@ -569,7 +562,7 @@
                            payload
                            "Failed to create conversation"))]
       (if (:success result)
-        (let [conversation (normalize-conversation (:data result))]
+        (let [conversation (:data result)]
           (tap> ["conversation-created" (:id conversation)])
           (swap! app-state
                  (fn [state]
@@ -580,8 +573,7 @@
                        (assoc-in [:chat :active-conversation] conversation)
                        (assoc-in [:chat :active-conversation-id] (:id conversation))
                        (cond-> (:provider conversation)
-                         (assoc-in [:chat :provider]
-                                   (normalize-provider (:provider conversation))))
+                         (assoc-in [:chat :provider] (:provider conversation)))
                        (assoc-in [:chat :conversations-loaded?] true)
                        (assoc-in [:chat :error] nil))))
           (when callback
@@ -633,15 +625,14 @@
 
 (defn update-conversation-provider!
   [app-state conversation-id provider]
-  (let [normalized (normalize-provider provider)]
-    (when (and conversation-id normalized)
-      (go
-       (let [result (<! (PUT (str "/api/conversations/" conversation-id)
-                             {:provider (name normalized)}
-                             "Failed to update conversation"))]
+  (when (and conversation-id provider)
+    (go
+     (let [result (<! (PUT (str "/api/conversations/" conversation-id)
+                           {:provider provider}
+                           "Failed to update conversation"))]
        (if (:success result)
          (swap! app-state apply-conversation-update! (:data result))
-         (swap! app-state assoc-in [:chat :error] (:error result))))))))
+         (swap! app-state assoc-in [:chat :error] (:error result)))))))
 
 (defn update-conversation-context!
   [app-state conversation-id {:keys [wine-ids wine-search-state]}]
@@ -739,19 +730,18 @@
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with wine IDs and conversation history.
-   Optionally includes provider override and image data."
-  ([message wines include? conversation-history provider callback]
-   (send-chat-message message wines include? conversation-history provider nil callback))
-  ([message wines include? conversation-history provider image callback]
+   Provider is read from app-state. Optionally includes image data."
+  ([app-state message wines include? conversation-history callback]
+   (send-chat-message app-state message wines include? conversation-history nil callback))
+  ([app-state message wines include? conversation-history image callback]
    (go
-    (let [wine-ids (->> wines (map :id) (remove nil?) vec)
+    (let [provider (get-in @app-state [:chat :provider])
+          wine-ids (->> wines (map :id) (remove nil?) vec)
           payload (cond-> {:conversation-history conversation-history
-                           :include-visible-wines? include?}
+                           :include-visible-wines? include?
+                           :provider provider}
                     (seq message) (assoc :message message)
                     (and include? (seq wine-ids)) (assoc :wine-ids wine-ids)
-                    provider (assoc :provider (if (keyword? provider)
-                                                (name provider)
-                                                provider))
                     image (assoc :image image))
           fallback-msg "Sorry, I'm having trouble connecting right now. Please try again later."]
       (if-let [result (<! (POST "/api/chat" payload "Failed to send chat message"))]
@@ -876,12 +866,11 @@
   (let [filtered-wines (filters/filtered-sorted-wines app-state)
         wine-ids (map :id filtered-wines)
         wine-count (count wine-ids)
-        provider (some-> (get-in @app-state [:chat :provider]) name)]
+        provider (get-in @app-state [:chat :provider])]
     (when (> wine-count 0)
       (swap! app-state assoc :regenerating-drinking-windows? true)
       (go (let [result (<! (POST "/api/admin/start-drinking-window-job"
-                                 (cond-> {:wine-ids wine-ids}
-                                   provider (assoc :provider provider))
+                                 {:wine-ids wine-ids :provider provider}
                                  "Failed to start drinking window job"))]
             (if (:success result)
               (let [job-id (get-in result [:data :job-id])]
@@ -897,12 +886,11 @@
   (let [filtered-wines (filters/filtered-sorted-wines app-state)
         wine-ids (map :id filtered-wines)
         wine-count (count wine-ids)
-        provider (some-> (get-in @app-state [:chat :provider]) name)]
+        provider (get-in @app-state [:chat :provider])]
     (when (> wine-count 0)
       (swap! app-state assoc :regenerating-wine-summaries? true)
       (go (let [result (<! (POST "/api/admin/start-wine-summary-job"
-                                 (cond-> {:wine-ids wine-ids}
-                                   provider (assoc :provider provider))
+                                 {:wine-ids wine-ids :provider provider}
                                  "Failed to start wine summary job"))]
             (if (:success result)
               (let [job-id (get-in result [:data :job-id])]

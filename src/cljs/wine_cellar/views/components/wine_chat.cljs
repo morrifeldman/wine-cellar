@@ -33,15 +33,6 @@
 (def ^:private edit-icon-size "0.8rem")
 (def ^:private edit-button-spacing 4)
 
-(defn- normalize-provider
-  [value]
-  (let [normalized (cond
-                     (keyword? value) value
-                     (string? value) (-> value string/lower-case keyword)
-                     :else nil)]
-    (or normalized :anthropic)))
-
-
 (defn- handle-clipboard-image
   "Process an image file/blob from clipboard and set it as attached image"
   [file-or-blob attached-image]
@@ -89,7 +80,7 @@
        (swap! app-state assoc-in [:chat :sidebar-open?] false))
      (swap! app-state assoc-in [:chat :active-conversation-id] id)
      (swap! app-state assoc-in [:chat :active-conversation] conversation)
-     (when-let [provider (normalize-provider (:provider conversation))]
+     (when-let [provider (:provider conversation)]
        (swap! app-state assoc-in [:chat :provider] provider))
      (reset! messages [])
      (swap! app-state assoc-in [:chat :messages] [])
@@ -555,12 +546,13 @@
                            #(reset! last-ai-message-ref %))])))))])})))
 
 (defn send-chat-message
-  "Send a message to the AI chat endpoint with conversation history, provider, and optional image"
-  ([message wines include? conversation-history provider callback]
-   (send-chat-message message wines include? conversation-history provider nil callback))
-  ([message wines include? conversation-history provider image callback]
-   (tap> ["send-chat-message" message conversation-history {:provider provider :include? include?}])
-   (api/send-chat-message message wines include? conversation-history provider image callback)))
+  "Send a message to the AI chat endpoint with conversation history and optional image.
+   Provider is read from app-state by api.cljs."
+  ([app-state message wines include? conversation-history callback]
+   (send-chat-message app-state message wines include? conversation-history nil callback))
+  ([app-state message wines include? conversation-history image callback]
+   (tap> ["send-chat-message" message conversation-history {:include? include?}])
+   (api/send-chat-message app-state message wines include? conversation-history image callback)))
 
 (defn- handle-send-message
   "Handle sending a message to the AI assistant with optional image"
@@ -572,8 +564,7 @@
                         :is-user true
                         :timestamp (.getTime (js/Date.))}
           include? (get-in @app-state [:chat :include-visible-wines?] false)
-          wines (context-wines app-state)
-          provider (normalize-provider (get-in @app-state [:chat :provider]))]
+          wines (context-wines app-state)]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
       (persist-conversation-message!
@@ -585,11 +576,11 @@
         (fn [conversation-id]
           (sync-conversation-context! app-state wines conversation-id)))
       (send-chat-message
+       app-state
        message-text
        wines
        include?
        @messages
-       provider
        image
        (fn [response]
          (let [ai-message {:id (random-uuid)
@@ -607,7 +598,7 @@
                 (api/update-conversation-provider!
                  app-state
                  conversation-id
-                 provider))
+                 (get-in @app-state [:chat :provider])))
               (api/load-conversations! app-state {:force? true})))
            (reset! is-sending? false)))))))
 
@@ -643,8 +634,7 @@
           (set! (.-value @message-ref) "")
           (reset! is-sending? true)
           (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
-                wines (context-wines app-state)
-                provider (normalize-provider (get-in @app-state [:chat :provider]))]
+                wines (context-wines app-state)]
             (persist-conversation-message!
              app-state
              wines
@@ -653,11 +643,11 @@
              (fn [conversation-id]
                (sync-conversation-context! app-state wines conversation-id)))
             (send-chat-message
+             app-state
              (:text updated-message)
              wines
              include?
              @messages
-             provider
              (fn [response]
                (let [ai-message {:id (random-uuid)
                                  :text response
@@ -674,7 +664,7 @@
                      (api/update-conversation-provider!
                       app-state
                       conversation-id
-                      provider))
+                      (get-in @app-state [:chat :provider])))
                    (api/load-conversations! app-state {:force? true})))
                  (reset! is-sending? false))))))
         (do (reset! editing-message-id nil)

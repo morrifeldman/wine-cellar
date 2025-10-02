@@ -1,8 +1,10 @@
 (ns wine-cellar.views.main
   (:require
     [wine-cellar.api :as api]
+    [wine-cellar.common :as common]
     [wine-cellar.views.wines.form :refer [wine-form]]
     [wine-cellar.views.components :refer [toggle-button]]
+    [wine-cellar.views.components.ai-provider-toggle :as provider-toggle]
     [wine-cellar.views.wines.list :refer [wine-list]]
     [wine-cellar.views.wines.detail :refer [wine-details-section]]
     [wine-cellar.views.grape-varieties.list :refer [grape-varieties-page]]
@@ -20,14 +22,6 @@
     [wine-cellar.portal-debug :as pd]
     [wine-cellar.version :as version]
     [wine-cellar.utils.filters]))
-
-(defn- normalize-provider
-  [value]
-  (cond
-    (keyword? value) value
-    (string? value) (keyword value)
-    (nil? value) :anthropic
-    :else :anthropic))
 
 (defn logout
   []
@@ -67,7 +61,8 @@
         {:variant "outlined"
          :color "primary"
          :on-click #(do (reset! anchor-el (.-currentTarget %))
-                        (version/fetch-version!))} "Admin"]
+                        (version/fetch-version!)
+                        (api/fetch-model-info app-state))} "Admin"]
        [menu
         {:anchor-el @anchor-el
          :open (boolean @anchor-el)
@@ -78,27 +73,28 @@
           :sx {:fontSize "0.875rem"
                :color "text.secondary"
                :fontFamily "monospace"}} (version/version-string)] [divider]
-        (let [provider (normalize-provider (get-in @app-state [:chat :provider]))]
+        (let [provider (get-in @app-state [:chat :provider])
+              models (get-in @app-state [:ai :models])
+              model (get models provider)]
           [menu-item
-           {:on-click (fn []
-                        (swap! app-state
-                               update-in
-                               [:chat :provider]
-                               (fn [current]
-                                 (let [current* (normalize-provider current)]
-                                   (if (= current* :anthropic)
-                                     :openai
-                                     :anthropic)))))
+           {:on-click #(provider-toggle/toggle-provider! app-state)
             :sx {:display "flex"
-                 :justify-content "space-between"
-                 :gap 1}}
-           [:span "AI Provider"]
-           [:span {:style {:fontSize "0.85rem"
-                           :fontWeight 600}}
-            (case provider
-              :openai "ChatGPT"
-              :anthropic "Claude"
-              (name provider))]])
+                 :flex-direction "column"
+                 :align-items "flex-start"
+                 :gap 0.5}}
+           [:div {:style {:display "flex"
+                          :justify-content "space-between"
+                          :width "100%"}}
+            [:span "AI Provider"]
+            [:span {:style {:fontSize "0.85rem"
+                            :fontWeight 600}}
+             (common/provider-label provider)]]
+           (when model
+             [:div {:style {:align-self "flex-end"
+                            :fontSize "0.75rem"
+                            :color "rgba(255, 255, 255, 0.7)"
+                            :font-family "monospace"}}
+              model])])
         [divider]
         [menu-item
          {:on-click (fn []

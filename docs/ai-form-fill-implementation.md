@@ -21,7 +21,7 @@ This feature uses Anthropic's Claude API to analyze wine label images and automa
 
 ## Configuration
 
-The feature requires an Anthropic API key to be set in the environment variable `ANTHROPIC_API_KEY`.
+See [environment-variables.md](environment-variables.md) for configuration details.
 
 ## Usage
 

@@ -64,16 +64,18 @@
 (s/def ::wine map?)
 (s/def ::conversation-history vector?)
 (s/def ::image (s/nilable string?))
-(s/def ::provider (s/nilable #{"anthropic" "openai"}))
+(s/def ::provider common/ai-providers)
 (s/def ::title (s/nilable string?))
 (s/def ::wine_search_state (s/nilable map?))
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
 (s/def ::pinned boolean?)
 (s/def ::include_visible_wines? boolean?)
 (s/def ::conversation-create
-  (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned ::provider]))
+  (s/keys :req-un [::provider]
+          :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
 (s/def ::conversation-update
-  (s/keys :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned ::provider]))
+  (s/keys :req-un [::provider]
+          :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
 (s/def ::conversation-message
   (s/keys :req-un [::is_user ::content]
           :opt-un [::image ::tokens_used]))
@@ -173,10 +175,10 @@
    ;; Grape Varieties Routes
   ["/chat"
     {:post {:summary "Chat with AI about your wine collection"
-            :parameters {:body (s/keys :opt-un
-                                       [::message ::wine-ids
-                                        ::conversation-history ::image ::provider
-                                        ::include_visible_wines?])}
+            :parameters {:body (s/keys :req-un [::provider]
+                                       :opt-un [::message ::wine-ids
+                                                ::conversation-history ::image
+                                                ::include_visible_wines?])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
   ["/conversations"
@@ -214,6 +216,10 @@
            :responses {200 {:body ::tasting-sources} 500 {:body map?}}
            :handler handlers/get-tasting-note-sources}}]
    ["/admin"
+    ["/model-info"
+     {:get {:summary "Get current AI model configuration"
+            :responses {200 {:body map?}}
+            :handler handlers/get-model-info}}]
     ["/reset-database"
      {:post {:summary "Admin: Drop and recreate all database tables"
              :responses {200 {:body map?} 500 {:body map?}}
@@ -225,14 +231,12 @@
              :handler handlers/mark-all-wines-unverified}}]
     ["/start-drinking-window-job"
      {:post {:summary "Start async job to regenerate drinking windows"
-             :parameters {:body (s/keys :req-un [::wine-ids]
-                                       :opt-un [::provider])}
+             :parameters {:body (s/keys :req-un [::wine-ids ::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/start-drinking-window-job}}]
     ["/start-wine-summary-job"
      {:post {:summary "Start async job to regenerate wine summaries"
-             :parameters {:body (s/keys :req-un [::wine-ids]
-                                       :opt-un [::provider])}
+             :parameters {:body (s/keys :req-un [::wine-ids ::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/start-wine-summary-job}}]
     ["/job-status/:job-id"
@@ -303,22 +307,20 @@
             :handler handlers/get-wines-for-list}}]
     ["/analyze-label"
      {:post {:summary "Analyze wine label images with AI"
-             :parameters {:body (s/keys :req-un [::label_image]
-                                        :opt-un [::back_label_image ::provider])}
+             :parameters {:body (s/keys :req-un [::label_image ::provider]
+                                        :opt-un [::back_label_image])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/analyze-wine-label}}]
     ["/suggest-drinking-window"
      {:post {:summary "Suggest optimal drinking window for a wine using AI"
-             :parameters {:body (s/keys :req-un [::wine]
-                                        :opt-un [::provider])}
+             :parameters {:body (s/keys :req-un [::wine ::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/suggest-drinking-window}}]
     ["/generate-summary"
      {:post
       {:summary
        "Generate comprehensive wine summary with taste profile and food pairings using AI"
-       :parameters {:body (s/keys :req-un [::wine]
-                                  :opt-un [::provider])}
+       :parameters {:body (s/keys :req-un [::wine ::provider])}
        :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
        :handler handlers/generate-wine-summary}}]
     ["/by-id/:id"

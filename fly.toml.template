@@ -1,9 +1,9 @@
 # fly.toml app configuration file
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-# 
+#
 # Note: This template uses environment variable substitution for deployment.
-# Set FLY_APP_NAME, FLY_PRIMARY_REGION, ANTHROPIC_MODEL and OPENAI_MODEL in your deployment environment.
+# See docs/environment-variables.md for complete list of required environment variables.
 #
 
 app = '${FLY_APP_NAME}'

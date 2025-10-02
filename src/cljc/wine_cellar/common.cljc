@@ -1,5 +1,15 @@
 (ns wine-cellar.common)
 
+(def ai-providers #{:anthropic :openai})
+
+(defn provider-label
+  "Get display label for provider"
+  [provider]
+  (case provider
+    :openai "OpenAI"
+    :anthropic "Anthropic"
+    nil "..."))
+
 (def wine-styles
   #{"Red" "White" "Rosé" "Sparkling" "Rosé Sparkling" "Fortified" "Orange"
     "Dessert"})

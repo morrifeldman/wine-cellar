@@ -134,14 +134,12 @@ To set up CI/CD:
 2. Add the following secrets in your GitHub repository:
    - Go to your repository on GitHub
    - Navigate to Settings > Secrets and variables > Actions > Repository secrets
-   - Create these repository secrets:
-
-   | Secret Name | Description | Example |
-   |-------------|-------------|---------|
-   | `FLY_API_TOKEN` | Fly.io API token for deployment | `fo1_xxx...` |
-   | `FLY_APP_NAME` | Your Fly.io app name | `my-wine-cellar` |
-   | `FLY_PRIMARY_REGION` | Fly.io deployment region | `iad` |
-   | `ANTHROPIC_MODEL` | Claude model to use | `claude-sonnet-4-20250514` |
+   - Create the required repository secrets (see [docs/environment-variables.md](docs/environment-variables.md) for complete list)
+   - At minimum you need:
+     - `FLY_API_TOKEN` - Fly.io API token for deployment
+     - `FLY_APP_NAME` - Your Fly.io app name
+     - `FLY_PRIMARY_REGION` - Fly.io deployment region (e.g., `iad`)
+     - All environment variables listed in environment-variables.md
 
 3. The workflow uses `fly.toml.template` and generates the actual `fly.toml` during deployment using your secret values.
 
