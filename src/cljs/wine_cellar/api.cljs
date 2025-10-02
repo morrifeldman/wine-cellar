@@ -89,8 +89,8 @@
                 default-provider (keyword (:default-provider data))]
             (swap! app-state assoc-in [:ai :models] (:models data))
             ;; Set default provider if none is currently set
-            (when-not (get-in @app-state [:chat :provider])
-              (swap! app-state assoc-in [:chat :provider] default-provider)))))))
+            (when-not (get-in @app-state [:ai :provider])
+              (swap! app-state assoc-in [:ai :provider] default-provider)))))))
 
 ;; Classification endpoints
 
@@ -327,7 +327,7 @@
 (defn analyze-wine-label
   [app-state image-data]
   (swap! app-state assoc :analyzing-label? true)
-  (let [provider (get-in @app-state [:chat :provider])
+  (let [provider (get-in @app-state [:ai :provider])
         payload (assoc image-data :provider provider)]
     (js/Promise.
      (fn [resolve reject]
@@ -345,7 +345,7 @@
   (swap! app-state assoc :suggesting-drinking-window? true)
   (js/Promise. (fn [resolve reject]
                  (go
-                  (let [provider (get-in @app-state [:chat :provider])
+                  (let [provider (get-in @app-state [:ai :provider])
                         payload {:wine wine :provider provider}
                         result (<! (POST "/api/wines/suggest-drinking-window"
                                          payload
@@ -360,7 +360,7 @@
   [app-state wine]
   (js/Promise. (fn [resolve reject]
                  (go (let [result (<! (POST "/api/wines/generate-summary"
-                                            (let [provider (some-> (get-in @app-state [:chat :provider]) name)]
+                                            (let [provider (some-> (get-in @app-state [:ai :provider]) name)]
                                               (cond-> {:wine wine}
                                                 provider (assoc :provider provider)))
                                             "Failed to generate wine summary"))]
@@ -507,7 +507,7 @@
       (-> base
           (assoc-in [:chat :active-conversation] conversation)
           (cond-> (:provider conversation)
-            (assoc-in [:chat :provider] (:provider conversation))))
+            (assoc-in [:ai :provider] (keyword (:provider conversation)))))
       base)))
 
 (defn load-conversations!
@@ -542,7 +542,7 @@
                              (assoc-in [:chat :conversations] sorted)
                              (assoc-in [:chat :active-conversation] active)
                              (cond-> (:provider active)
-                               (assoc-in [:chat :provider] (:provider active)))
+                               (assoc-in [:ai :provider] (keyword (:provider active))))
                              (assoc-in [:chat :error] nil))))))
             (do
               (tap> ["conversations-load-error" (:error result)])
@@ -573,7 +573,7 @@
                        (assoc-in [:chat :active-conversation] conversation)
                        (assoc-in [:chat :active-conversation-id] (:id conversation))
                        (cond-> (:provider conversation)
-                         (assoc-in [:chat :provider] (:provider conversation)))
+                         (assoc-in [:ai :provider] (keyword (:provider conversation))))
                        (assoc-in [:chat :conversations-loaded?] true)
                        (assoc-in [:chat :error] nil))))
           (when callback
@@ -638,7 +638,8 @@
   [app-state conversation-id {:keys [wine-ids wine-search-state]}]
   (when conversation-id
     (go
-     (let [payload (cond-> {}
+     (let [provider (get-in @app-state [:ai :provider])
+           payload (cond-> {:provider provider}
                      (some? wine-ids) (assoc :wine_ids (vec wine-ids))
                      (some? wine-search-state) (assoc :wine_search_state wine-search-state))]
        (when (seq payload)
@@ -735,7 +736,7 @@
    (send-chat-message app-state message wines include? conversation-history nil callback))
   ([app-state message wines include? conversation-history image callback]
    (go
-    (let [provider (get-in @app-state [:chat :provider])
+    (let [provider (get-in @app-state [:ai :provider])
           wine-ids (->> wines (map :id) (remove nil?) vec)
           payload (cond-> {:conversation-history conversation-history
                            :include-visible-wines? include?
@@ -866,7 +867,7 @@
   (let [filtered-wines (filters/filtered-sorted-wines app-state)
         wine-ids (map :id filtered-wines)
         wine-count (count wine-ids)
-        provider (get-in @app-state [:chat :provider])]
+        provider (get-in @app-state [:ai :provider])]
     (when (> wine-count 0)
       (swap! app-state assoc :regenerating-drinking-windows? true)
       (go (let [result (<! (POST "/api/admin/start-drinking-window-job"
@@ -886,7 +887,7 @@
   (let [filtered-wines (filters/filtered-sorted-wines app-state)
         wine-ids (map :id filtered-wines)
         wine-count (count wine-ids)
-        provider (get-in @app-state [:chat :provider])]
+        provider (get-in @app-state [:ai :provider])]
     (when (> wine-count 0)
       (swap! app-state assoc :regenerating-wine-summaries? true)
       (go (let [result (<! (POST "/api/admin/start-wine-summary-job"

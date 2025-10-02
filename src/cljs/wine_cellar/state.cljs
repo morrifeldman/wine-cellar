@@ -20,8 +20,9 @@
    :sort {:field :created_at :direction :desc}
    :filters {:search "" :country nil :region nil :styles [] :style nil :varieties []}
    :view nil
+   :ai {:provider nil  ; Will be set from backend default
+        :models nil}
    :chat {:open? false
-          :provider nil  ; Will be set from backend default
           :messages []
           :conversations []
           :active-conversation nil

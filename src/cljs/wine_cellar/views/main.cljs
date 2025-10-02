@@ -73,7 +73,7 @@
           :sx {:fontSize "0.875rem"
                :color "text.secondary"
                :fontFamily "monospace"}} (version/version-string)] [divider]
-        (let [provider (get-in @app-state [:chat :provider])
+        (let [provider (get-in @app-state [:ai :provider])
               models (get-in @app-state [:ai :models])
               model (get models provider)]
           [menu-item

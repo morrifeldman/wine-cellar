@@ -81,7 +81,7 @@
      (swap! app-state assoc-in [:chat :active-conversation-id] id)
      (swap! app-state assoc-in [:chat :active-conversation] conversation)
      (when-let [provider (:provider conversation)]
-       (swap! app-state assoc-in [:chat :provider] provider))
+       (swap! app-state assoc-in [:ai :provider] (keyword provider)))
      (reset! messages [])
      (swap! app-state assoc-in [:chat :messages] [])
      (when-let [search-state (:wine_search_state conversation)]
@@ -101,7 +101,8 @@
       :else
       (let [include? (get-in @app-state [:chat :include-visible-wines?] false)
             wine-ids (->> wines (map :id) (remove nil?) vec)
-            payload (cond-> {:wine_search_state (build-wine-search-state app-state include?)}
+            payload (cond-> {:wine_search_state (build-wine-search-state app-state include?)
+                             :provider (get-in @app-state [:ai :provider])}
                        (seq wine-ids) (assoc :wine_ids wine-ids))]
         (swap! app-state assoc-in [:chat :creating-conversation?] true)
         (api/create-conversation!
@@ -598,7 +599,7 @@
                 (api/update-conversation-provider!
                  app-state
                  conversation-id
-                 (get-in @app-state [:chat :provider])))
+                 (get-in @app-state [:ai :provider])))
               (api/load-conversations! app-state {:force? true})))
            (reset! is-sending? false)))))))
 
@@ -664,7 +665,7 @@
                      (api/update-conversation-provider!
                       app-state
                       conversation-id
-                      (get-in @app-state [:chat :provider])))
+                      (get-in @app-state [:ai :provider])))
                    (api/load-conversations! app-state {:force? true})))
                  (reset! is-sending? false))))))
         (do (reset! editing-message-id nil)

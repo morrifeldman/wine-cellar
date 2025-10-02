@@ -4,7 +4,7 @@
 
 (defn toggle-provider!
   [app-state]
-  (swap! app-state update-in [:chat :provider]
+  (swap! app-state update-in [:ai :provider]
          (fn [current]
            (let [providers (vec common/ai-providers)
                  current-idx (.indexOf providers current)
@@ -24,7 +24,7 @@
                :or {size "small"
                     variant "outlined"
                     title "Toggle AI provider"}}]
-   (let [provider (get-in @app-state [:chat :provider])
+   (let [provider (get-in @app-state [:ai :provider])
          provider-name (common/provider-label provider)
          display-label (cond
                          (some? label) label

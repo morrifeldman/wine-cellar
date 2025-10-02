@@ -64,7 +64,7 @@
 (s/def ::wine map?)
 (s/def ::conversation-history vector?)
 (s/def ::image (s/nilable string?))
-(s/def ::provider common/ai-providers)
+(s/def ::provider (s/and keyword? common/ai-providers))
 (s/def ::title (s/nilable string?))
 (s/def ::wine_search_state (s/nilable map?))
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
