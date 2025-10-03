@@ -604,35 +604,63 @@
            (reset! is-sending? false)))))))
 
 (defn- use-edit-state
-  []
-  (let [editing-message-id (r/atom nil)]
+  [app-state messages]
+  (let [editing-message-id (r/atom nil)
+        original-messages (r/atom nil)]
     {:editing-message-id editing-message-id
-     :handle-edit (fn [message-id message-text message-ref]
-                    (reset! editing-message-id message-id)
-                    (when @message-ref
-                      (set! (.-value @message-ref) message-text)
-                      (let [input-event (js/Event. "input" #js {:bubbles true})]
-                        (.dispatchEvent @message-ref input-event))
-                      (.focus @message-ref)))
-     :handle-cancel (fn [message-ref]
-                      (reset! editing-message-id nil)
-                      (when @message-ref (set! (.-value @message-ref) "")))
+     :handle-edit
+     (fn [message-id message-text message-ref]
+       (reset! editing-message-id message-id)
+       (let [text (or message-text "")
+             current @messages
+             message-idx (->> current
+                              (keep-indexed
+                               (fn [idx message]
+                                 (when (= (:id message) message-id)
+                                   idx)))
+                              first)
+             truncated (if (some? message-idx)
+                         (conj (vec (take message-idx current))
+                               (assoc (nth current message-idx) :text text))
+                         current)]
+         (reset! original-messages current)
+         (swap! app-state assoc-in [:chat :draft-message] text)
+         (when (and (some? message-idx)
+                    (< (inc message-idx) (count current)))
+           (reset! messages truncated)
+           (swap! app-state assoc-in [:chat :messages] truncated))
+         (when @message-ref
+           (set! (.-value @message-ref) text)
+           (let [input-event (js/Event. "input" #js {:bubbles true})]
+             (.dispatchEvent @message-ref input-event))
+           (.focus @message-ref))))
+     :handle-cancel
+     (fn [message-ref]
+       (when-let [original @original-messages]
+         (reset! messages original)
+         (swap! app-state assoc-in [:chat :messages] original))
+       (reset! original-messages nil)
+       (reset! editing-message-id nil)
+       (swap! app-state update :chat dissoc :draft-message)
+       (when @message-ref (set! (.-value @message-ref) "")))
+     :handle-commit #(reset! original-messages nil)
      :is-editing? #(some? @editing-message-id)}))
 
 (defn- handle-edit-send
-  [app-state editing-message-id message-ref messages is-sending?]
+  [app-state editing-message-id message-ref messages is-sending? on-edit-complete]
   (when @message-ref
     (let [message-text (.-value @message-ref)]
       (if-let [message-idx (->> @messages
                                 (keep-indexed
                                  #(when (= (:id %2) @editing-message-id) %1))
                                 first)]
-        (let [updated-message
-              (assoc (nth @messages message-idx) :text message-text)]
+        (let [updated-message (assoc (nth @messages message-idx) :text message-text)]
           (reset! messages (conj (vec (take message-idx @messages))
                                  updated-message))
           (reset! editing-message-id nil)
           (set! (.-value @message-ref) "")
+          (swap! app-state update :chat dissoc :draft-message)
+          (when on-edit-complete (on-edit-complete))
           (reset! is-sending? true)
           (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
                 wines (context-wines app-state)]
@@ -656,20 +684,22 @@
                                  :timestamp (.getTime (js/Date.))}]
                  (swap! messages conj ai-message)
                  (swap! app-state assoc-in [:chat :messages] @messages)
-                (persist-conversation-message!
-                 app-state
-                 wines
-                 {:is_user false :content response}
-                 (fn [conversation-id]
-                   (when conversation-id
-                     (api/update-conversation-provider!
-                      app-state
-                      conversation-id
-                      (get-in @app-state [:ai :provider])))
-                   (api/load-conversations! app-state {:force? true})))
+                 (persist-conversation-message!
+                  app-state
+                  wines
+                  {:is_user false :content response}
+                  (fn [conversation-id]
+                    (when conversation-id
+                      (api/update-conversation-provider!
+                       app-state
+                       conversation-id
+                       (get-in @app-state [:ai :provider])))
+                    (api/load-conversations! app-state {:force? true})))
                  (reset! is-sending? false))))))
         (do (reset! editing-message-id nil)
-            (set! (.-value @message-ref) ""))))))
+            (set! (.-value @message-ref) "")
+            (swap! app-state update :chat dissoc :draft-message)
+            (when on-edit-complete (on-edit-complete)))))))
 
 (defn clear-chat!
   ([app-state messages]
@@ -853,15 +883,16 @@
         dialog-opened (r/atom false)
         sidebar-scroll-ref (r/atom nil)
         sidebar-scroll-requested? (r/atom false)
-        edit-state (use-edit-state)
-        {:keys [editing-message-id handle-edit handle-cancel is-editing?]} edit-state
+        edit-state (use-edit-state app-state messages)
+        {:keys [editing-message-id handle-edit handle-cancel handle-commit is-editing?]} edit-state
         handle-send (fn [message-text]
                       (if (is-editing?)
                         (handle-edit-send app-state
                                           editing-message-id
                                           message-ref
                                           messages
-                                          is-sending?)
+                                          is-sending?
+                                          handle-commit)
                         (do (handle-send-message app-state
                                                  message-text
                                                  messages
