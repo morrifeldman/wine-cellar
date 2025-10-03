@@ -97,7 +97,7 @@
 (s/def ::wine_search_state (s/nilable map?))
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
 (s/def ::pinned boolean?)
-(s/def ::include_visible_wines? boolean?)
+(s/def ::include-visible-wines? boolean?)
 (s/def ::conversation-create
   (s/keys :req-un [::provider]
           :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
@@ -206,7 +206,7 @@
             :parameters {:body (s/keys :req-un [::provider]
                                        :opt-un [::message ::wine-ids
                                                 ::conversation-history ::image
-                                                ::include_visible_wines?])}
+                                                ::include-visible-wines?])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
   ["/conversations"
