@@ -16,7 +16,35 @@
             [muuntaja.core :as m]
             [expound.alpha :as expound]
             [wine-cellar.config-utils :as config-utils]
+            [wine-cellar.logging :as logging :refer [summarize-request]]
             [mount.core :refer [defstate]]))
+
+(defn- tap-middleware-wrap
+  [handler]
+  (fn [request]
+    (if-not (logging/tap-logging-enabled?)
+      (handler request)
+      (let [request-id (str (random-uuid))
+            start (System/nanoTime)]
+        (tap> [:http/request (assoc request
+                                    :request-id request-id)])
+        (try
+          (let [response (handler request)
+                duration-ms (/ (double (- (System/nanoTime) start)) 1e6)]
+            (tap> [:http/response (assoc response
+                                         :request-id request-id
+                                         :duration-ms duration-ms)])
+            response)
+          (catch Exception e
+            (let [duration-ms (/ (double (- (System/nanoTime) start)) 1e6)]
+              (tap> [:http/error {:request-id request-id
+                                  :duration-ms duration-ms
+                                  :message (.getMessage e)}])
+              (throw e))))))))
+
+(def tap-middleware
+  {:name ::tap
+   :wrap tap-middleware-wrap})
 
 ;; Specs for individual fields
 (s/def ::producer string?)
@@ -81,6 +109,7 @@
           :opt-un [::image ::tokens_used]))
 (s/def ::tasting-source string?)
 (s/def ::tasting-sources (s/coll-of ::tasting-source))
+(s/def ::enabled? boolean?)
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
@@ -239,6 +268,14 @@
              :parameters {:body (s/keys :req-un [::wine-ids ::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/start-wine-summary-job}}]
+    ["/tap-logging"
+     {:get {:summary "Get HTTP tap logging state"
+            :responses {200 {:body map?} 500 {:body map?}}
+            :handler handlers/get-tap-logging-state}
+      :post {:summary "Set HTTP tap logging state"
+             :parameters {:body (s/keys :req-un [::enabled?])}
+             :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/set-tap-logging-state}}]
     ["/job-status/:job-id"
      {:get {:summary "Get status of async job"
             :parameters {:path {:job-id string?}}
@@ -399,12 +436,8 @@
   [status]
   (fn [exception _]
     (let [data (ex-data exception)
-          ;; Generate the human-readable error message with expound
           human-readable-error (expound/expound-str (:spec data) (:value data))]
-      ;; Print to server logs
-      (println "Validation error:")
-      (println human-readable-error)
-      ;; Return the expound output directly to the client
+      (tap> ["Validation error:" human-readable-error])
       {:status status :body human-readable-error})))
 
 (defstate
@@ -429,10 +462,11 @@
               {:reitit.coercion/request-coercion (coercion-error-handler 400)
                :reitit.coercion/response-coercion (coercion-error-handler
                                                    500)}))
-      parameters/parameters-middleware muuntaja/format-negotiate-middleware
+     parameters/parameters-middleware muuntaja/format-negotiate-middleware
       muuntaja/format-response-middleware muuntaja/format-request-middleware
       coercion/coerce-request-middleware coercion/coerce-response-middleware
-      swagger/swagger-feature auth/wrap-auth]}})
+      swagger/swagger-feature auth/wrap-auth
+      tap-middleware]}})
   ; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
   (ring/routes (ring/create-file-handler {:path "/"})
                (ring/create-default-handler))))

@@ -4,7 +4,8 @@
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations]
             [ring.util.response :as response]
-            [wine-cellar.summary :as summary]))
+            [wine-cellar.summary :as summary]
+            [wine-cellar.logging :as logging]))
 
 (defn- no-content [] {:status 204 :headers {} :body nil})
 
@@ -32,8 +33,8 @@
          (catch Exception e (server-error e)))))
 
 (defn get-classification
-  [{{:keys [id]} :path-params}]
-  (try (if-let [classification (db-api/get-classification (parse-long id))]
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if-let [classification (db-api/get-classification id)]
          (response/response classification)
          (response/not-found {:error "Classification not found"}))
        (catch Exception e (server-error e))))
@@ -45,8 +46,8 @@
        (catch Exception e (server-error e))))
 
 (defn update-classification
-  [{{:keys [id]} :path-params {:keys [body]} :parameters}]
-  (try (if-let [updated (db-api/update-classification! (parse-long id) body)]
+  [{{{:keys [id]} :path body :body} :parameters}]
+  (try (if-let [updated (db-api/update-classification! id body)]
          (response/response updated)
          (response/not-found {:error "Classification not found"}))
        (catch org.postgresql.util.PSQLException e
@@ -56,20 +57,20 @@
        (catch Exception e (server-error e))))
 
 (defn delete-classification
-  [{{:keys [id]} :path-params}]
-  (try (if (db-api/delete-classification! (parse-long id))
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if (db-api/delete-classification! id)
          (no-content)
          (response/not-found {:error "Classification not found"}))
        (catch Exception e (server-error e))))
 
 (defn get-regions-by-country
-  [{{:keys [country]} :path-params}]
+  [{{{:keys [country]} :path} :parameters}]
   (try (let [regions (db-api/get-regions-by-country country)]
          (response/response regions))
        (catch Exception e (server-error e))))
 
 (defn get-aocs-by-region
-  [{{:keys [country region]} :path-params}]
+  [{{{:keys [country region]} :path} :parameters}]
   (try (let [aocs (db-api/get-aocs-by-region country region)]
          (response/response aocs))
        (catch Exception e (server-error e))))
@@ -80,8 +81,7 @@
        (catch Exception e (server-error e))))
 
 (defn get-wine
-  [{{{:keys [id]} :path {:keys [include_images]} :query} :parameters
-    :as request}]
+  [{{{:keys [id]} :path {:keys [include_images]} :query} :parameters}]
   (try (if-let [wine (db-api/get-wine id include_images)]
          (response/response wine)
          (response/not-found {:error "Wine not found"}))
@@ -105,9 +105,9 @@
          (catch Exception e (server-error e)))))
 
 (defn update-wine
-  [{{:keys [id]} :path-params {:keys [body]} :parameters}]
-  (try (if (db-api/wine-exists? (parse-long id))
-         (let [updated (db-api/update-wine! (parse-long id) body)]
+  [{{{:keys [id]} :path body :body} :parameters}]
+  (try (if (db-api/wine-exists? id)
+         (let [updated (db-api/update-wine! id body)]
            (response/response updated))
          (response/not-found {:error "Wine not found"}))
        (catch org.postgresql.util.PSQLException e
@@ -116,38 +116,38 @@
        (catch Exception e (server-error e))))
 
 (defn delete-wine
-  [{{:keys [id]} :path-params}]
-  (try (if (db-api/wine-exists? (parse-long id))
-         (do (db-api/delete-wine! (parse-long id)) (no-content))
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if (db-api/wine-exists? id)
+         (do (db-api/delete-wine! id) (no-content))
          (response/not-found {:error "Wine not found"}))
        (catch Exception e (server-error e))))
 
 (defn adjust-quantity
-  [{{:keys [id]} :path-params {:keys [adjustment]} :body-params}]
-  (try (if (db-api/wine-exists? (parse-long id))
-         (let [updated (db-api/adjust-quantity (parse-long id) adjustment)]
+  [{{{:keys [id]} :path {:keys [adjustment]} :body} :parameters}]
+  (try (if (db-api/wine-exists? id)
+         (let [updated (db-api/adjust-quantity id adjustment)]
            (response/response updated))
          (response/not-found {:error "Wine not found"}))
        (catch Exception e (server-error e))))
 
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine
-  [{{:keys [id]} :path-params}]
-  (try (let [tasting-notes (db-api/get-tasting-notes-by-wine (parse-long id))]
+  [{{{:keys [id]} :path} :parameters}]
+  (try (let [tasting-notes (db-api/get-tasting-notes-by-wine id)]
          (response/response tasting-notes))
        (catch Exception e (server-error e))))
 
 (defn get-tasting-note
-  [{{:keys [note-id]} :path-params}]
-  (try (if-let [note (db-api/get-tasting-note (parse-long note-id))]
+  [{{{:keys [note-id]} :path} :parameters}]
+  (try (if-let [note (db-api/get-tasting-note note-id)]
          (response/response note)
          (response/not-found {:error "Tasting note not found"}))
        (catch Exception e (server-error e))))
 
 (defn create-tasting-note
-  [{{:keys [id]} :path-params {:keys [body]} :parameters}]
-  (try (if (db-api/wine-exists? (parse-long id))
-         (let [note-with-wine-id (assoc body :wine_id (parse-long id))
+  [{{{:keys [id]} :path body :body} :parameters}]
+  (try (if (db-api/wine-exists? id)
+         (let [note-with-wine-id (assoc body :wine_id id)
                created-note (db-api/create-tasting-note note-with-wine-id)]
            {:status 201 :body created-note})
          (response/not-found {:error "Wine not found"}))
@@ -157,9 +157,9 @@
        (catch Exception e (server-error e))))
 
 (defn update-tasting-note
-  [{{:keys [note-id]} :path-params {:keys [body]} :parameters}]
-  (try (if (db-api/get-tasting-note (parse-long note-id))
-         (let [updated (db-api/update-tasting-note! (parse-long note-id) body)]
+  [{{{:keys [note-id]} :path body :body} :parameters}]
+  (try (if (db-api/get-tasting-note note-id)
+         (let [updated (db-api/update-tasting-note! note-id body)]
            (response/response updated))
          (response/not-found {:error "Tasting note not found"}))
        (catch org.postgresql.util.PSQLException e
@@ -168,9 +168,9 @@
        (catch Exception e (server-error e))))
 
 (defn delete-tasting-note
-  [{{:keys [note-id]} :path-params}]
-  (try (if (db-api/get-tasting-note (parse-long note-id))
-         (do (db-api/delete-tasting-note! (parse-long note-id)) (no-content))
+  [{{{:keys [note-id]} :path} :parameters}]
+  (try (if (db-api/get-tasting-note note-id)
+         (do (db-api/delete-tasting-note! note-id) (no-content))
          (response/not-found {:error "Tasting note not found"}))
        (catch Exception e (server-error e))))
 
@@ -188,98 +188,87 @@
        (catch Exception e (server-error e))))
 
 (defn create-grape-variety
-  [{:keys [body-params]}]
-  (try (let [variety (db-api/create-grape-variety (:variety_name body-params))]
+  [{{{:keys [variety_name]} :body} :parameters}]
+  (try (let [variety (db-api/create-grape-variety variety_name)]
          {:status 201 :body variety})
        (catch Exception e (server-error e))))
 
 (defn get-grape-variety
-  [{:keys [path-params]}]
-  (try (let [id (Integer/parseInt (:id path-params))
-             variety (db-api/get-grape-variety id)]
+  [{{{:keys [id]} :path} :parameters}]
+  (try (let [variety (db-api/get-grape-variety id)]
          (if variety
            {:status 200 :body variety}
            {:status 404 :body {:error "Grape variety not found"}}))
        (catch Exception e (server-error e))))
 
 (defn update-grape-variety
-  [{:keys [path-params body-params]}]
-  (try (let [id (Integer/parseInt (:id path-params))
-             variety (db-api/update-grape-variety! id
-                                                   (:variety_name body-params))]
+  [{{{:keys [id]} :path {:keys [variety_name]} :body} :parameters}]
+  (try (let [variety (db-api/update-grape-variety! id variety_name)]
          (if variety
            {:status 200 :body variety}
            {:status 404 :body {:error "Grape variety not found"}}))
        (catch Exception e (server-error e))))
 
 (defn delete-grape-variety
-  [{:keys [path-params]}]
-  (try (let [id (Integer/parseInt (:id path-params))]
-         (db-api/delete-grape-variety! id)
-         (no-content))
+  [{{{:keys [id]} :path} :parameters}]
+  (try (do (db-api/delete-grape-variety! id)
+           (no-content))
        (catch Exception e (server-error e))))
 
 ;; Wine Varieties Handlers
 (defn get-wine-varieties
-  [{:keys [path-params]}]
-  (try (let [wine-id (Integer/parseInt (:id path-params))]
-         (if (db-api/wine-exists? wine-id)
-           (let [varieties (db-api/get-wine-grape-varieties wine-id)]
-             {:status 200 :body varieties})
-           {:status 404 :body {:error "Wine not found"}}))
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if (db-api/wine-exists? id)
+         (let [varieties (db-api/get-wine-grape-varieties id)]
+           {:status 200 :body varieties})
+         {:status 404 :body {:error "Wine not found"}})
        (catch Exception e (server-error e))))
 
 (defn add-variety-to-wine
-  [{:keys [path-params body-params]}]
-  (tap> ["add-variety-to-wine" path-params body-params])
-  (try (let [wine-id (Integer/parseInt (:id path-params))
-             variety-id (:variety_id body-params)
-             percentage (:percentage body-params)]
-         (if (db-api/wine-exists? wine-id)
-           (let [variety (db-api/get-grape-variety variety-id)]
-             (if variety
-               (let [result (db-api/associate-grape-variety-with-wine
-                             wine-id
-                             variety-id
-                             percentage)]
-                 {:status 201 :body result})
-               {:status 404 :body {:error "Grape variety not found"}}))
-           {:status 404 :body {:error "Wine not found"}}))
+  [{{{:keys [id]} :path {:keys [variety_id percentage]} :body} :parameters}]
+  (tap> ["add-variety-to-wine" {:wine-id id
+                                 :variety-id variety_id
+                                 :percentage percentage}])
+  (try (if (db-api/wine-exists? id)
+         (let [variety (db-api/get-grape-variety variety_id)]
+           (if variety
+             (let [result (db-api/associate-grape-variety-with-wine
+                           id
+                           variety_id
+                           percentage)]
+               {:status 201 :body result})
+             {:status 404 :body {:error "Grape variety not found"}}))
+         {:status 404 :body {:error "Wine not found"}})
        (catch Exception e (server-error e))))
 
 (defn update-wine-variety-percentage
-  [{:keys [path-params body-params]}]
-  (try (let [wine-id (Integer/parseInt (:id path-params))
-             variety-id (Integer/parseInt (:variety-id path-params))
-             percentage (:percentage body-params)]
-         (if (db-api/wine-exists? wine-id)
-           (let [variety (db-api/get-grape-variety variety-id)]
-             (if variety
-               (let [result (db-api/associate-grape-variety-with-wine
-                             wine-id
-                             variety-id
-                             percentage)]
-                 {:status 200 :body result})
-               {:status 404 :body {:error "Grape variety not found"}}))
-           {:status 404 :body {:error "Wine not found"}}))
+  [{{{:keys [id variety-id]} :path {:keys [percentage]} :body} :parameters}]
+  (try (if (db-api/wine-exists? id)
+         (let [variety (db-api/get-grape-variety variety-id)]
+           (if variety
+             (let [result (db-api/associate-grape-variety-with-wine
+                           id
+                           variety-id
+                           percentage)]
+               {:status 200 :body result})
+             {:status 404 :body {:error "Grape variety not found"}}))
+         {:status 404 :body {:error "Wine not found"}})
        (catch Exception e (server-error e))))
 
 (defn remove-variety-from-wine
-  [{:keys [path-params]}]
-  (try (let [wine-id (Integer/parseInt (:id path-params))
-             variety-id (Integer/parseInt (:variety-id path-params))]
-         (if (db-api/wine-exists? wine-id)
-           (let [variety (db-api/get-grape-variety variety-id)]
-             (if variety
-               (do (db-api/remove-grape-variety-from-wine wine-id variety-id)
-                   (no-content))
-               {:status 404 :body {:error "Grape variety not found"}}))
-           {:status 404 :body {:error "Wine not found"}}))
+  [{{{:keys [id variety-id]} :path} :parameters}]
+  (try (if (db-api/wine-exists? id)
+         (let [variety (db-api/get-grape-variety variety-id)]
+           (if variety
+             (do (db-api/remove-grape-variety-from-wine id variety-id)
+                 (no-content))
+             {:status 404 :body {:error "Grape variety not found"}}))
+         {:status 404 :body {:error "Wine not found"}})
        (catch Exception e (server-error e))))
 
 ;; AI Analysis Handlers
 (defn analyze-wine-label
-  [{{:keys [label_image back_label_image provider]} :body-params}]
+  [{{{:keys [label_image back_label_image provider]} :body} :parameters}]
   (try (if (nil? label_image)
          {:status 400 :body {:error "Label image is required"}}
          (let [result (ai/analyze-wine-label provider label_image back_label_image)]
@@ -293,7 +282,7 @@
        (catch Exception e (server-error e))))
 
 (defn suggest-drinking-window
-  [{{:keys [wine provider]} :body-params}]
+  [{{{:keys [wine provider]} :body} :parameters}]
   (try (if (nil? wine)
          {:status 400 :body {:error "Wine details are required"}}
          (let [enriched-wine (if (:id wine)
@@ -315,7 +304,7 @@
        (catch Exception e (server-error e))))
 
 (defn generate-wine-summary
-  [{{:keys [wine provider]} :body-params}]
+  [{{{:keys [wine provider]} :body} :parameters}]
   (try (if (nil? wine)
          {:status 400 :body {:error "Wine details are required"}}
          (let [enriched-wine (if (:id wine)
@@ -408,7 +397,7 @@
   [request]
   (try (let [email (ensure-user-email request)
              {:keys [title wine_ids wine_search_state auto_tags pinned provider]}
-             (:body-params request)
+             (get-in request [:parameters :body])
              payload (cond-> {:user_email email
                               :title title
                               :wine_ids wine_ids
@@ -427,7 +416,7 @@
 (defn list-conversation-messages
   [request]
   (try (let [email (ensure-user-email request)
-             conversation-id (some-> request :path-params :id parse-long)
+             conversation-id (get-in request [:parameters :path :id])
              conversation (db-api/get-conversation conversation-id)]
          (cond
            (nil? conversation)
@@ -444,7 +433,7 @@
 (defn append-conversation-message
   [request]
   (try (let [email (ensure-user-email request)
-             conversation-id (some-> request :path-params :id parse-long)
+             conversation-id (get-in request [:parameters :path :id])
              conversation (db-api/get-conversation conversation-id)]
          (cond
            (nil? conversation)
@@ -453,7 +442,7 @@
            {:status 403 :body {:error "Forbidden"}}
            :else
            (let [{:keys [is_user content image_data tokens_used]} ; body map used individual keys only
-                 (:body-params request)
+                 (get-in request [:parameters :body])
                  message {:conversation_id conversation-id
                           :is_user (boolean is_user)
                           :content content
@@ -470,7 +459,7 @@
 (defn delete-conversation
   [request]
   (try (let [email (ensure-user-email request)
-             conversation-id (some-> request :path-params :id parse-long)
+             conversation-id (get-in request [:parameters :path :id])
              conversation (db-api/get-conversation conversation-id)]
          (cond
            (nil? conversation)
@@ -488,7 +477,7 @@
 (defn update-conversation
   [request]
   (try (let [email (ensure-user-email request)
-             conversation-id (some-> request :path-params :id parse-long)
+             conversation-id (get-in request [:parameters :path :id])
              conversation (db-api/get-conversation conversation-id)]
          (cond
            (nil? conversation)
@@ -496,7 +485,7 @@
            (not= email (:user_email conversation))
            {:status 403 :body {:error "Forbidden"}}
            :else
-           (let [updates (:body-params request)]
+           (let [updates (get-in request [:parameters :body])]
              (if (seq updates)
                (response/response
                 (db-api/update-conversation! conversation-id updates))
@@ -545,10 +534,22 @@
                   (.getMessage e))
          (server-error e))))
 
+(defn get-tap-logging-state
+  [_]
+  (response/response (logging/tap-logging-state)))
+
+(defn set-tap-logging-state
+  [{{{:keys [enabled?]} :body} :parameters}]
+  (if (nil? enabled?)
+    {:status 400 :body {:error "enabled? flag is required"}}
+    (do
+      (logging/set-tap-logging! enabled?)
+      (response/response (logging/tap-logging-state)))))
+
 (defn start-drinking-window-job
   "Admin function to start async drinking window regeneration job"
   [request]
-  (try (let [body (:body-params request)
+  (try (let [body (get-in request [:parameters :body])
              wine-ids (:wine-ids body)
              provider (:provider body)
              wine-count (count wine-ids)]
@@ -575,7 +576,7 @@
   "Admin function to start async wine summary regeneration job"
   [request]
   (try
-    (let [body (:body-params request)
+    (let [body (get-in request [:parameters :body])
           wine-ids (:wine-ids body)
           provider (:provider body)
           wine-count (count wine-ids)]
@@ -597,7 +598,7 @@
 (defn get-job-status
   "Get status of an async job"
   [request]
-  (try (let [job-id (get-in request [:path-params :job-id])
+  (try (let [job-id (get-in request [:parameters :path :job-id])
              status (wine-cellar.admin.bulk-operations/get-job-status job-id)]
          (if status
            {:status 200 :body status}

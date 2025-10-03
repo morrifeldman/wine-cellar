@@ -134,6 +134,16 @@
          {:on-click
           (fn [] (reset! anchor-el nil) (pd/toggle-debugging! app-state))}
          (if (pd/debugging?) "Stop Portal Debugging" "Start Portal Debugging")]
+        (let [tap-logging (get @app-state :tap-logging)
+              tap-enabled? (:enabled? tap-logging)
+              tap-updating? (:updating? tap-logging)]
+          [menu-item
+           {:disabled tap-updating?
+            :on-click (fn []
+                        (reset! anchor-el nil)
+                        (api/set-tap-logging-state app-state (not tap-enabled?)))}
+           (str (if tap-enabled? "Disable" "Enable") " HTTP tap logging"
+                (when tap-updating? "…"))])
         (when (pd/debugging?)
           [menu-item
            {:on-click (fn [] (reset! anchor-el nil) (pd/reconnect-if-needed))}

@@ -790,6 +790,39 @@
           (swap! app-state assoc :error (:error result)))
         (swap! app-state assoc :error "Failed to mark wines as unverified"))))
 
+(defn fetch-tap-logging-state
+  [app-state]
+  (swap! app-state
+         (fn [state]
+           (-> state
+               (assoc-in [:tap-logging :loading?] true)
+               (assoc-in [:tap-logging :error] nil))))
+  (go (let [result (<! (GET "/api/admin/tap-logging"
+                            "Failed to get tap logging state"))]
+        (swap! app-state assoc-in [:tap-logging :loading?] false)
+        (if (:success result)
+          (let [verbose? (boolean (get-in result [:data :verbose?]))]
+            (swap! app-state assoc-in [:tap-logging :enabled?] verbose?)
+            (swap! app-state assoc-in [:tap-logging :error] nil))
+          (swap! app-state assoc-in [:tap-logging :error] (:error result))))))
+
+(defn set-tap-logging-state
+  [app-state enabled?]
+  (swap! app-state
+         (fn [state]
+           (-> state
+               (assoc-in [:tap-logging :updating?] true)
+               (assoc-in [:tap-logging :error] nil))))
+  (go (let [result (<! (POST "/api/admin/tap-logging"
+                              {:enabled? enabled?}
+                              "Failed to update tap logging state"))]
+        (swap! app-state assoc-in [:tap-logging :updating?] false)
+        (if (:success result)
+          (let [verbose? (boolean (get-in result [:data :verbose?]))]
+            (swap! app-state assoc-in [:tap-logging :enabled?] verbose?)
+            (swap! app-state assoc-in [:tap-logging :error] nil))
+          (swap! app-state assoc-in [:tap-logging :error] (:error result))))))
+
 (def max-job-status-retries 5)
 (def base-job-status-delay-ms 2000)
 (def max-job-status-delay-ms 20000)

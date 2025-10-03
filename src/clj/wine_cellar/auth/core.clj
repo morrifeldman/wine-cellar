@@ -147,7 +147,6 @@
 (defn verify-token
   [token]
   (try (let [decoded (jwt/unsign token (config/get-jwt-secret) {:alg :hs256})]
-         (tap> ["verify-token" "decoded" decoded])
          decoded)
        (catch Exception e (tap> ["verify-token" "error" (.getMessage e)]) nil)))
 
@@ -164,7 +163,6 @@
 (defn require-authentication
   [handler]
   (fn [request]
-    (tap> ["require-authentication" (:uri request)])
     (if (authenticated? request)
       (handler request)
       ;; Check if this is an API request

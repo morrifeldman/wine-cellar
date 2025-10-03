@@ -115,11 +115,10 @@
                                 :timeout 60000}))
              parsed-body (json/read-value body json/keyword-keys-object-mapper)
              content (:content parsed-body)]
-         (tap> ["anthropic-response" "status" status "body" body "parsed-body"
-                parsed-body "error" error])
+         (tap> ["anthropic-response" (assoc response
+                                            :parsed-body parsed-body)])
          (if (= 200 status)
            (let [text-content (extract-text-content content)]
-             (tap> ["anthropic-text-content" text-content])
              (if parse-json?
                (try (let [parsed-response (parse-json-content content)]
                       (when-not parsed-response

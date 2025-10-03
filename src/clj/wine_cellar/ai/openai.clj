@@ -134,14 +134,15 @@
                     (update :max_output_tokens #(or % 900))
                     (assoc :reasoning {:effort "low"}))]
     (tap> ["openai-request" payload])
-    (let [{:keys [status body error]} (deref (http/post responses-url
-                                                       {:headers {"authorization" (str "Bearer " api-key)
-                                                                  "content-type" "application/json"}
-                                                        :body (json/write-value-as-string payload)
-                                                        :as :text
-                                                        :timeout 60000}))
+    (let [{:keys [status body error] :as response}
+          (deref (http/post responses-url
+                            {:headers {"authorization" (str "Bearer " api-key)
+                                       "content-type" "application/json"}
+                             :body (json/write-value-as-string payload)
+                             :as :text
+                             :timeout 60000}))
           parsed (when body (json/read-value body json-mapper))]
-      (tap> ["openai-response" {:status status :error error :body parsed}])
+      (tap> ["openai-response" (assoc response :parsed-body parsed)])
       (if (= 200 status)
         (if parse-json?
           (try
