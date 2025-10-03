@@ -12,11 +12,13 @@
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.button :refer [button]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.material.typography :refer [typography]]
     [reagent-mui.material.menu :refer [menu]]
     [reagent-mui.material.menu-item :refer [menu-item]]
     [reagent-mui.material.divider :refer [divider]]
     [reagent.core :as r]
+    [reagent-mui.icons.close :refer [close]]
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.views.components.wine-chat :refer [wine-chat]]
     [wine-cellar.portal-debug :as pd]
@@ -41,10 +43,23 @@
          (let [processed (or (:progress relevant-progress) 0)
                total (max 0 (or (:total relevant-progress) 0))
                raw (if (pos? total) (* 100 (/ processed total)) 0)
-               percent (-> raw (js/Math.max 0) (js/Math.min 100))]
+               percent (-> raw (js/Math.max 0) (js/Math.min 100))
+               status (:status relevant-progress)
+               retry-attempt (:retry-attempt relevant-progress)
+               retry-max (:retry-max relevant-progress)
+               retry-delay-ms (:retry-delay relevant-progress)
+               retry-seconds (when retry-delay-ms (js/Math.round (/ retry-delay-ms 1000)))]
            [box
             [typography {:variant "body1"}
              (str running-text " " processed "/" total " wines processed")]
+            (when (= status "retrying")
+              [typography {:variant "body2"
+                           :sx {:mt 0.5 :fontStyle "italic"}}
+               (str "Retrying status check"
+                    (when (and retry-attempt retry-max)
+                      (str " (attempt " retry-attempt "/" retry-max ")"))
+                    (when retry-seconds
+                      (str " in " retry-seconds "s")))])
             [box {:sx {:width "100%" :mt 1}}
              [box {:sx {:width (str percent "%")
                         :height 8
@@ -231,13 +246,28 @@
     [box {:sx {:p 3 :maxWidth "1200px" :mx "auto"}}
      (when-let [error (:error state)]
        [paper
-        {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"}}
-        [typography {:variant "body1"} error]])
-     (when (:success state)
+        {:elevation 3
+         :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"
+              :position "relative"}}
+        [box {:sx {:display "flex" :alignItems "flex-start"}}
+         [typography {:variant "body1" :sx {:flex 1 :pr 2}} error]
+         [icon-button {:aria-label "Dismiss error"
+                       :size "small"
+                       :onClick #(swap! app-state dissoc :error)
+                       :sx {:color "error.dark"}}
+          [close {:fontSize "small"}]]]])
+     (when-let [success (:success state)]
        [paper
         {:elevation 3
-         :sx {:p 2 :mb 3 :bgcolor "success.light" :color "success.dark"}}
-        [typography {:variant "body1"} (:success state)]])
+         :sx {:p 2 :mb 3 :bgcolor "success.light" :color "success.dark"
+              :position "relative"}}
+        [box {:sx {:display "flex" :alignItems "flex-start"}}
+         [typography {:variant "body1" :sx {:flex 1 :pr 2}} success]
+         [icon-button {:aria-label "Dismiss success"
+                       :size "small"
+                       :onClick #(swap! app-state dissoc :success)
+                       :sx {:color "success.dark"}}
+          [close {:fontSize "small"}]]]])
      (when-let [card (job-progress-card state
                                         {:flag :regenerating-drinking-windows?
                                          :job-type :drinking-window

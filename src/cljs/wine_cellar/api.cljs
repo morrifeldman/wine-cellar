@@ -9,6 +9,7 @@
 
 
 (def headless-mode? (r/atom false))
+(def job-status-failure-test (r/atom nil))
 
 (defn enable-headless-mode!
   []
@@ -20,6 +21,24 @@
   (reset! headless-mode? false)
   (js/console.log
    "Headless mode disabled - API calls will be processed normally"))
+
+(defn enable-job-status-failure-test!
+  ([attempts]
+   (enable-job-status-failure-test!
+     attempts
+     "Simulated job status failure (test)"))
+  ([attempts error-msg]
+   (reset! job-status-failure-test
+     {:remaining (max 0 (or attempts 0))
+      :error error-msg})
+   (js/console.log "Job status failure test enabled" @job-status-failure-test)))
+
+(defn disable-job-status-failure-test!
+  []
+  (reset! job-status-failure-test nil)
+  (js/console.log "Job status failure test disabled"))
+
+#_(enable-job-status-failure-test! 3 "Simulated network failure")
 
 (def api-base-url (config/get-api-base-url))
 
@@ -771,6 +790,10 @@
           (swap! app-state assoc :error (:error result)))
         (swap! app-state assoc :error "Failed to mark wines as unverified"))))
 
+(def max-job-status-retries 5)
+(def base-job-status-delay-ms 2000)
+(def max-job-status-delay-ms 20000)
+
 (defn- job-type-config
   [job-type]
   (case job-type
@@ -798,16 +821,47 @@
   (let [{:keys [success-label]} (job-type-config job-type)]
     (str "Job failed while regenerating " success-label ": " (:error status))))
 
+(defn- retryable-job-status-error?
+  [error-message]
+  (if-not (string? error-message)
+    true
+    (not (some #(string/includes? error-message %)
+               ["Authentication required" "Job not found"]))))
+
 (defn poll-job-status
   "Poll job status until completion"
   ([app-state job-id]
    (poll-job-status app-state job-id {:job-type :drinking-window}))
-  ([app-state job-id {:keys [job-type]}]
-   (let [job-type (or job-type :drinking-window)]
+  ([app-state job-id {:keys [job-type retry-state]}]
+   (let [job-type (or job-type :drinking-window)
+         retry-state (merge {:failure-count 0
+                             :delay-ms base-job-status-delay-ms}
+                            retry-state)
+         {:keys [failure-count delay-ms]} retry-state
+         {:keys [in-progress-key]} (job-type-config job-type)
+         schedule (fn [opts wait-ms]
+                    (js/setTimeout
+                     (fn []
+                       (poll-job-status app-state job-id opts))
+                     wait-ms))]
      (tap> ["🔍 Polling job status for" job-id "job-type" job-type])
      (go
-      (let [result (<! (GET (str "/api/admin/job-status/" job-id)
-                            "Failed to get job status"))]
+      (let [test-state @job-status-failure-test
+            simulate? (and test-state
+                           (> (:remaining test-state) 0))
+            result (if simulate?
+                     (let [updated-state
+                           (swap! job-status-failure-test
+                             (fn [{:keys [remaining] :as state}]
+                               (let [next (dec (or remaining 0))]
+                                 (when (> next 0)
+                                   (assoc state :remaining next)))))]
+                       (when-not updated-state
+                         (reset! job-status-failure-test nil))
+                       (tap> ["🧪 Simulating job status failure" test-state])
+                       {:success false :error (:error test-state)})
+                     (<! (GET (str "/api/admin/job-status/" job-id)
+                              "Failed to get job status")))]
         (tap> ["📊 Job status result:" result])
         (if (:success result)
           (let [status (:data result)
@@ -834,32 +888,64 @@
             (tap> ["🔄 Updated app-state with progress"])
             (cond
               (= job-status "completed")
-              (do (swap! app-state dissoc in-progress-key :job-progress)
-                  (fetch-wines app-state)
-                  (let [failed-wines (:failed-wines status)
-                        message (format-success-message job-type (or total 0)
-                                                        failed-wines)]
-                    (swap! app-state assoc :success message)
-                    (js/setTimeout #(swap! app-state dissoc :success) 8000)))
+              (do
+                (swap! app-state dissoc in-progress-key :job-progress)
+                (fetch-wines app-state)
+                (let [failed-wines (:failed-wines status)
+                      message (format-success-message job-type (or total 0)
+                                                      failed-wines)]
+                  (swap! app-state assoc :success message)))
 
               (= job-status "failed")
-              (do (swap! app-state dissoc in-progress-key :job-progress)
-                  (swap! app-state assoc
-                    :error
-                    (format-failure-message job-type status)))
+              (do
+                (swap! app-state dissoc in-progress-key :job-progress)
+                (swap! app-state assoc
+                  :error
+                  (format-failure-message job-type status)))
 
               (= job-status "running")
-              (js/setTimeout #(poll-job-status app-state job-id {:job-type job-type})
-                             2000)
+              (schedule {:job-type job-type
+                         :retry-state {:failure-count 0
+                                       :delay-ms base-job-status-delay-ms}}
+                        base-job-status-delay-ms)
 
               :else
               (swap! app-state dissoc in-progress-key :job-progress)))
-          (do
-            (tap> ["⚠️ Failed to get job status" result])
-            (swap! app-state dissoc :regenerating-drinking-windows?
-                                   :regenerating-wine-summaries?
-                                   :job-progress)
-            (swap! app-state assoc :error "Failed to check job status"))))))))
+          (let [error-message (:error result)
+                next-count (inc failure-count)
+                existing-progress (:job-progress @app-state)
+                processed (or (:progress existing-progress) 0)
+                total (or (:total existing-progress) 0)]
+            (tap> ["⚠️ Failed to get job status" {:error error-message
+                                                  :attempt next-count}])
+            (if (and (< next-count max-job-status-retries)
+                     (retryable-job-status-error? error-message))
+              (let [next-delay (-> (* 2 delay-ms)
+                                   (max base-job-status-delay-ms)
+                                   (min max-job-status-delay-ms))
+                    retry-opts {:job-type job-type
+                                :retry-state {:failure-count next-count
+                                              :delay-ms next-delay}}
+                    retry-progress {:job-type job-type
+                                     :progress processed
+                                     :total total
+                                     :status "retrying"
+                                     :retry-attempt next-count
+                                     :retry-max max-job-status-retries
+                                     :retry-delay next-delay}]
+                (tap> ["⏳ Retrying job status poll" {:attempt next-count
+                                                       :max max-job-status-retries
+                                                       :delay-ms next-delay
+                                                       :error error-message}])
+                (swap! app-state assoc :job-progress retry-progress)
+                (schedule retry-opts next-delay))
+              (do
+                (swap! app-state dissoc in-progress-key :job-progress)
+                (swap! app-state assoc :error
+                  (str "Failed to check job status"
+                       (when (> max-job-status-retries 0)
+                         (str " after " max-job-status-retries " attempts"))
+                       (when error-message (str ": " error-message)))))))))))))
 
 (defn regenerate-filtered-drinking-windows
   "Admin function to regenerate drinking windows for currently filtered wines"
