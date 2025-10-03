@@ -13,7 +13,7 @@
                 bullet-prefix "- "
                 include-drinking-window? true
                 include-ai-summary? true}}]
-  (tap> ["format-wine-summary" wine])
+  (tap> ["format-wine-summary" (dissoc wine :label_thumbnail)])
   (let [basic-info (str bullet-prefix
                         (:producer wine)
                         (when (:name wine) (str " " (:name wine)))

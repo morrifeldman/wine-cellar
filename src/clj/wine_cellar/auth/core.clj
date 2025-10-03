@@ -157,7 +157,6 @@
     (let [token (get-in request [:cookies "auth-token" :value])
           user-info (when token (verify-token token))
           authenticated-request (assoc request :user user-info)]
-      (tap> ["authenticated-request" authenticated-request])
       (handler authenticated-request))))
 
 (defn authenticated? [request] (boolean (:user request)))
