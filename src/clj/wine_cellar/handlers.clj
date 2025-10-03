@@ -82,7 +82,6 @@
 (defn get-wine
   [{{{:keys [id]} :path {:keys [include_images]} :query} :parameters
     :as request}]
-  (tap> ["request" request id include_images])
   (try (if-let [wine (db-api/get-wine id include_images)]
          (response/response wine)
          (response/not-found {:error "Wine not found"}))
