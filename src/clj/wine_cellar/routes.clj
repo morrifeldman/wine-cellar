@@ -102,8 +102,7 @@
   (s/keys :req-un [::provider]
           :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
 (s/def ::conversation-update
-  (s/keys :req-un [::provider]
-          :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
+  (s/keys :opt-un [::provider ::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
 (s/def ::conversation-message
   (s/keys :req-un [::is_user ::content]
           :opt-un [::image ::tokens_used]))
