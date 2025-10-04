@@ -93,9 +93,32 @@
     :varieties [{:name "Chardonnay" :percentage 40.0M}
                 {:name "Pinot Noir" :percentage 30.0M}
                 {:name "Pinot Meunier" :percentage 30.0M}]
-    :tasting-notes [{:tasting_date "2024-02-14"
-                     :rating 94
-                     :notes "Wild berries, citrus peel and brioche. Ultra-fine bubbles."}]}
+   :tasting-notes [{:tasting_date "2024-02-14"
+                    :rating 94
+                    :notes "Wild berries, citrus peel and brioche. Ultra-fine bubbles."}]}
+   {:wine {:producer "Jacquesson"
+           :name "Cuvée 746"
+           :vintage nil
+           :country "France"
+           :region "Champagne"
+           :style "Sparkling"
+           :closure_type "Natural cork"
+           :price 78.00M
+           :quantity 4
+           :original_quantity 6
+           :purchase_date "2024-02-18"
+           :drink_from_year 2024
+           :drink_until_year 2027
+           :location "B3"
+           :purveyor "Flatiron"
+           :disgorgement_year 2023
+           :tasting_window_commentary "Disgorged May 2023; tense citrus, chalk and toasted brioche."}
+    :varieties [{:name "Chardonnay" :percentage 57.0M}
+                {:name "Pinot Noir" :percentage 28.0M}
+                {:name "Pinot Meunier" :percentage 15.0M}]
+    :tasting-notes [{:tasting_date "2024-05-18"
+                     :rating 93
+                     :notes "Disgorged 2023-05-12; laser-cut citrus, toasted almond and saline finish."}]}
    {:wine {:producer "Penfolds"
            :name "Bin 389 Cabernet Shiraz"
            :vintage 2019
