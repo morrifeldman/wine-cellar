@@ -186,7 +186,7 @@
            (fn [state]
              (-> state
                  (cond-> (contains? search-state :filters)
-                   (assoc :filters (:filters search-state)))
+                   (assoc :filters (update (:filters search-state) :tasting-window keyword)))
                  (cond-> (contains? search-state :sort)
                    (assoc :sort (:sort search-state)))
                  (cond-> (contains? search-state :show-out-of-stock?)
