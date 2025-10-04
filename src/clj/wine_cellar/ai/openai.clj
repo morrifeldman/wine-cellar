@@ -89,8 +89,7 @@
                  {:role "system"
                   :content [{:type "input_text"
                              :text context-text}]}]
-                (conversation->input messages))
-   :max_output_tokens 1000})
+                (conversation->input messages))})
 
 (defn- output-content
   [response-body]
@@ -131,7 +130,6 @@
   (ensure-api-key!)
   (let [payload (-> request
                     (assoc :model (or (:model request) model))
-                    (update :max_output_tokens #(or % 900))
                     (assoc :reasoning {:effort "low"}))]
     (tap> ["openai-request" payload])
     (let [{:keys [status body error] :as response}
