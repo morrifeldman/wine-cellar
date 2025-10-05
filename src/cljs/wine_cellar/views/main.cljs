@@ -134,16 +134,16 @@
          {:on-click
           (fn [] (reset! anchor-el nil) (pd/toggle-debugging! app-state))}
          (if (pd/debugging?) "Stop Portal Debugging" "Start Portal Debugging")]
-        (let [tap-logging (get @app-state :tap-logging)
-              tap-enabled? (:enabled? tap-logging)
-              tap-updating? (:updating? tap-logging)]
+        (let [verbose-logging (get @app-state :verbose-logging)
+              verbose-enabled? (:enabled? verbose-logging)
+              verbose-updating? (:updating? verbose-logging)]
           [menu-item
-           {:disabled tap-updating?
+           {:disabled verbose-updating?
             :on-click (fn []
                         (reset! anchor-el nil)
-                        (api/set-tap-logging-state app-state (not tap-enabled?)))}
-           (str (if tap-enabled? "Disable" "Enable") " HTTP tap logging"
-                (when tap-updating? "…"))])
+                        (api/set-verbose-logging-state app-state (not verbose-enabled?)))}
+           (str (if verbose-enabled? "Disable" "Enable") " verbose backend logging"
+                (when verbose-updating? "…"))])
         (when (pd/debugging?)
           [menu-item
            {:on-click (fn [] (reset! anchor-el nil) (pd/reconnect-if-needed))}

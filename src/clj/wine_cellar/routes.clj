@@ -16,31 +16,40 @@
             [muuntaja.core :as m]
             [expound.alpha :as expound]
             [wine-cellar.config-utils :as config-utils]
-            [wine-cellar.logging :as logging :refer [summarize-request]]
+            [wine-cellar.logging :as logging]
             [mount.core :refer [defstate]]))
 
 (defn- tap-middleware-wrap
   [handler]
   (fn [request]
-    (if-not (logging/tap-logging-enabled?)
-      (handler request)
-      (let [request-id (str (random-uuid))
-            start (System/nanoTime)]
-        (tap> [:http/request (assoc request
-                                    :request-id request-id)])
-        (try
-          (let [response (handler request)
-                duration-ms (/ (double (- (System/nanoTime) start)) 1e6)]
-            (tap> [:http/response (assoc response
-                                         :request-id request-id
-                                         :duration-ms duration-ms)])
-            response)
-          (catch Exception e
-            (let [duration-ms (/ (double (- (System/nanoTime) start)) 1e6)]
-              (tap> [:http/error {:request-id request-id
-                                  :duration-ms duration-ms
-                                  :message (.getMessage e)}])
-              (throw e))))))))
+    (let [log-details? (logging/verbose-logging-enabled?)
+              request-id (str (random-uuid))
+              start (System/nanoTime)
+              uri (:uri request)
+              request-summary (logging/summarize-request
+                                request
+                                request-id
+                                log-details?)]
+          (tap> request-summary)
+          (try
+            (let [response (handler request)
+                  duration-ms (/ (double (- (System/nanoTime) start)) 1e6)
+                  response-summary (logging/summarize-response
+                                     response
+                                     uri
+                                     request-id
+                                     duration-ms
+                                     log-details?)]
+              (tap> response-summary)
+              response)
+            (catch Exception e
+              (let [duration-ms (/ (double (- (System/nanoTime) start)) 1e6)
+                    ex-info-e (ex-info "Http Request Error"
+                                       {:request-id request-id
+                                        :duration-ms duration-ms}
+                                       e)]
+                (tap> ex-info-e)
+                (throw ex-info-e)))))))
 
 (def tap-middleware
   {:name ::tap
@@ -267,14 +276,14 @@
              :parameters {:body (s/keys :req-un [::wine-ids ::provider])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
              :handler handlers/start-wine-summary-job}}]
-    ["/tap-logging"
-     {:get {:summary "Get HTTP tap logging state"
+    ["/verbose-logging"
+     {:get {:summary "Get HTTP verbose logging state"
             :responses {200 {:body map?} 500 {:body map?}}
-            :handler handlers/get-tap-logging-state}
+            :handler handlers/get-verbose-logging-state}
       :post {:summary "Set HTTP tap logging state"
              :parameters {:body (s/keys :req-un [::enabled?])}
              :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
-             :handler handlers/set-tap-logging-state}}]
+             :handler handlers/set-verbose-logging-state}}]
     ["/job-status/:job-id"
      {:get {:summary "Get status of async job"
             :parameters {:path {:job-id string?}}

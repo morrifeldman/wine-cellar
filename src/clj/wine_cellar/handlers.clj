@@ -534,17 +534,17 @@
                   (.getMessage e))
          (server-error e))))
 
-(defn get-tap-logging-state
+(defn get-verbose-logging-state
   [_]
-  (response/response (logging/tap-logging-state)))
+  (response/response (logging/verbose-logging-status)))
 
-(defn set-tap-logging-state
+(defn set-verbose-logging-state
   [{{{:keys [enabled?]} :body} :parameters}]
   (if (nil? enabled?)
     {:status 400 :body {:error "enabled? flag is required"}}
     (do
-      (logging/set-tap-logging! enabled?)
-      (response/response (logging/tap-logging-state)))))
+      (logging/set-verbose-logging! enabled?)
+      (response/response (logging/verbose-logging-status)))))
 
 (defn start-drinking-window-job
   "Admin function to start async drinking window regeneration job"

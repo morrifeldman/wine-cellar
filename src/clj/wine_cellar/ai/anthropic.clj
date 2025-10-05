@@ -103,49 +103,44 @@
   ([request parse-json? model-override]
    (let [request-body (build-request-body request model-override)]
      (tap> ["anthropic-request-body" request-body])
-     (try
-       (let [{:keys [status body error] :as response}
-             (deref (http/post api-url
-                               {:body (json/write-value-as-string request-body)
-                                :headers {"x-api-key" api-key
-                                          "anthropic-version" "2023-06-01"
-                                          "content-type" "application/json"}
-                                :as :text
-                                :keepalive 60000
-                                :timeout 60000}))
-             parsed-body (json/read-value body json/keyword-keys-object-mapper)
-             content (:content parsed-body)]
-         (tap> ["anthropic-response" (assoc response
-                                            :parsed-body parsed-body)])
-         (if (= 200 status)
-           (let [text-content (extract-text-content content)]
-             (if parse-json?
-               (try (let [parsed-response (parse-json-content content)]
-                      (when-not parsed-response
-                        (throw (ex-info "Anthropic response missing JSON payload"
-                                        {:response parsed-body})))
-                      (tap> ["anthropic-parsed-response" parsed-response])
-                      parsed-response)
-                    (catch Exception e
-                      (throw (ex-info "Failed to parse AI response as JSON"
-                                      {:error (.getMessage e)
-                                       :response response}
-                                     e))))
-               text-content))
-           (throw (ex-info "Anthropic API request failed"
-                           {:status status :body body}))))
-       (catch java.net.SocketTimeoutException e
-         (tap> ["anthropic-timeout-error" (.getMessage e)])
-         (throw (ex-info "Anthropic API request timed out"
-                         {:error (.getMessage e)})))
-       (catch java.net.ConnectException e
-         (tap> ["anthropic-connection-error" (.getMessage e)])
-         (throw (ex-info "Failed to connect to Anthropic API"
-                         {:error (.getMessage e)})))
-       (catch Exception e
-         (tap> ["anthropic-unexpected-error" (.getMessage e) (type e)])
-         (throw (ex-info "Unexpected error calling Anthropic API"
-                         {:error (.getMessage e)})))))))
+     (let [{:keys [status body error] :as response}
+           (deref (http/post api-url
+                             {:body (json/write-value-as-string request-body)
+                              :headers {"x-api-key" api-key
+                                        "anthropic-version" "2023-06-01"
+                                        "content-type" "application/json"}
+                              :as :text
+                              :keepalive 60000
+                              :timeout 60000}))
+           parsed (when body (json/read-value body json/keyword-keys-object-mapper))
+           response-with-parsed (assoc response :parsed parsed)
+           content (:content parsed)]
+       (when error
+         (tap> ["anthropic-request-error" error])
+         (throw (ex-info "Anthropic API request failed"
+                         response-with-parsed
+                         error)))
+       (when (not= 200 status)
+         (tap> ["anthropic-request-non-200" error])
+         (throw (ex-info "Anthropic API request failed"
+                         response-with-parsed)))
+       (if parse-json?
+         (try
+           (if-let [parsed-response (parse-json-content content)]
+             (do
+               (tap> ["anthropic-parsed-response" parsed-response])
+               parsed-response)
+             (throw (ex-info "Anthropic response missing JSON payload"
+                             response-with-parsed)))
+           (catch Exception e
+             (throw (ex-info "Failed to parse AI response as JSON"
+                             response-with-parsed
+                             e))))
+         (let [text-content (extract-text-content content)]
+           (if (seq (str text-content))
+             text-content
+             (throw (ex-info "Anthropic response missing assistant text"
+                             response-with-parsed)))))))))
 
 (defn suggest-drinking-window
   "Suggests an optimal drinking window for a wine using Anthropic's Claude API.
@@ -159,7 +154,6 @@
                  :tools [drinking-window-tool]
                  :tool_choice {:type "tool" :name drinking-window-tool-name}
                  :max_tokens 600}]
-    (tap> ["suggest-window-request" request])
     (call-anthropic-api request true)))
 
 (defn analyze-wine-label
@@ -174,7 +168,6 @@
                  :tools [label-analysis-tool]
                  :tool_choice {:type "tool" :name label-analysis-tool-name}
                  :max_tokens 900}]
-    (tap> ["label-analysis-request" request])
     (call-anthropic-api request true)))
 
 (defn chat-about-wines
@@ -191,7 +184,6 @@
                            :text context-text
                            :cache_control {:type "ephemeral"}}]
                  :messages messages}]
-    (tap> ["chat-messages" request])
     (call-anthropic-api request false)))
 
 (defn generate-wine-summary
@@ -202,5 +194,4 @@
   (assert (string? user) "Wine-summary prompt requires :user text")
   (let [request {:system system
                  :messages [{:role "user" :content user}]}]
-    (tap> ["wine-summary-request" request])
     (call-anthropic-api request false)))

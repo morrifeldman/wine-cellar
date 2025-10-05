@@ -139,8 +139,8 @@
                              :body (json/write-value-as-string payload)
                              :as :text
                              :timeout 60000}))
-          parsed (when body (json/read-value body json-mapper))]
-      (tap> ["openai-response" (assoc response :parsed-body parsed)])
+          parsed (when body (json/read-value body json-mapper))
+          response-with-parsed (assoc response :parsed parsed)]
       (if (= 200 status)
         (if parse-json?
           (try
@@ -149,18 +149,17 @@
                 (tap> ["parsed openai-response" json-output])
                 json-output)
               (throw (ex-info "OpenAI response missing JSON content"
-                              {:status status :response parsed})))
+                              response-with-parsed)))
             (catch Exception e
               (throw (ex-info "Failed to parse OpenAI JSON response"
-                              {:status 500 :response parsed}
-                              e))))
+                              response-with-parsed e))))
           (let [text (extract-text parsed)]
             (if (seq (str text))
               text
               (throw (ex-info "OpenAI response missing assistant text"
-                              {:status status :response parsed})))))
+                              response-with-parsed)))))
         (throw (ex-info "OpenAI Responses API call failed"
-                        {:status status :response parsed :error error}))))))
+                        response-with-parsed))))))
 
 (defn chat-about-wines
   [prompt]

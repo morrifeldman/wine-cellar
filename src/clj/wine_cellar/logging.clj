@@ -1,34 +1,43 @@
 (ns wine-cellar.logging)
 
-(defonce tap-logging-enabled (atom false))
+(defonce verbose-logging-state (atom false))
 
-(defn tap-logging-enabled?
+(defn verbose-logging-enabled?
   []
-  @tap-logging-enabled)
+  @verbose-logging-state)
 
-(defn set-tap-logging!
+(defn set-verbose-logging!
   [flag]
-  (reset! tap-logging-enabled (boolean flag)))
+  (reset! verbose-logging-state (boolean flag)))
 
-(defn toggle-tap-logging!
+(defn verbose-logging-status
   []
-  (swap! tap-logging-enabled not))
-
-(defn tap-logging-state
-  []
-  {:verbose? (tap-logging-enabled?)})
+  {:verbose? (verbose-logging-enabled?)})
 
 (defn summarize-request
   "Returns a trimmed request map safe for tap logging."
-  [request request-id]
+  [request request-id verbose?]
   (let [params (:parameters request)
         path (:path params)
         query (:query params)
         base {:request-id request-id
-              :method (:request-method request)
+              :request-method (:request-method request)
               :uri (:uri request)}]
-    (cond-> base
-      (:query-string request) (assoc :query-string (:query-string request))
-      (seq path) (assoc :path-params path)
-      (seq query) (assoc :query-params query)
-      (get-in request [:user :email]) (assoc :user-email (get-in request [:user :email])))))
+    (if verbose?
+      (cond-> base
+        (:query-string request) (assoc :query-string (:query-string request))
+        (seq path) (assoc :path-parameters path)
+        (seq query) (assoc :query-parameters query)
+        (get-in request [:user :email]) (assoc :user-email (get-in request [:user :email])))
+      base)))
+
+(defn summarize-response
+  "Returns a trimmed request map safe for tap logging."
+  [response uri request-id duration-ms verbose?]
+  (let [high-level {:uri uri
+                    :request-id request-id
+                    :duration-ms duration-ms
+                    :status (:status response)}]
+    (if verbose?
+      (merge high-level response)
+      high-level)))

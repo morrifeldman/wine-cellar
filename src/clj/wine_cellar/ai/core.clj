@@ -19,14 +19,12 @@
 (defn chat-about-wines
   [provider context conversation-history image]
   {:pre [(map? context) (contains? context :summary)]}
-  (tap> ["chat-about-wines" provider context conversation-history])
   (let [{:keys [summary selected-wines]} context
         prompt {:system-text (prompts/wine-system-instructions)
                 :context-text (prompts/wine-collection-context
                                {:summary summary
                                 :selected-wines selected-wines})
                 :messages (prompts/conversation-messages conversation-history image)}]
-    (tap> ["prompt" prompt])
     (case provider
       :openai (openai/chat-about-wines prompt)
       :anthropic (anthropic/chat-about-wines prompt))))
