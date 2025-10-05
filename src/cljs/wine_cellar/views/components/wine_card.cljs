@@ -276,12 +276,8 @@
 (defn wine-card
   [app-state wine]
   (let [status (tasting-window-status wine)
-        drink-from-year (or (:drink_from_year wine)
-                            (when-let [date (:drink_from wine)]
-                              (.getFullYear (js/Date. date))))
-        drink-until-year (or (:drink_until_year wine)
-                             (when-let [date (:drink_until wine)]
-                               (.getFullYear (js/Date. date))))]
+        drink-from-year (:drink_from_year wine)
+        drink-until-year (:drink_until_year wine)]
     [paper
      {:elevation 2
       :sx

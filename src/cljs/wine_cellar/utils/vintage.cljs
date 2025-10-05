@@ -1,34 +1,22 @@
-(ns wine-cellar.utils.vintage
-  (:require [clojure.string :as str]))
+(ns wine-cellar.utils.vintage)
 
-(defn parse-date
-  [date-str]
-  (when (and date-str (not (str/blank? date-str))) (js/Date. date-str)))
-
-(defn today
-  []
-  (let [now (js/Date.)]
-    (js/Date. (.getFullYear now) (.getMonth now) (.getDate now))))
-
-(defn get-year-date [year] (when year (js/Date. (str year "-01-01"))))
+(defn current-year [] (type (.getFullYear (js/Date.))))
 
 ;; Enhanced to handle both the wine map structure from detail.cljs and the
 ;; existing structure
 (defn tasting-window-status
   [wine]
-  (let [today-date (today)
+  (let [this-year (current-year)
         ;; Support both date strings and year numbers
-        drink-from (or (parse-date (:drink_from wine))
-                       (get-year-date (:drink_from_year wine)))
-        drink-until (or (parse-date (:drink_until wine))
-                        (get-year-date (:drink_until_year wine)))]
+        drink-from (:drink_from_year wine)
+        drink-until (:drink_until_year wine)]
     (cond
       ;; No tasting window defined
       (and (nil? drink-from) (nil? drink-until)) :unknown
       ;; Before drinking window
-      (and drink-from (< today-date drink-from)) :too-young
+      (and drink-from (< this-year drink-from)) :too-young
       ;; After drinking window
-      (and drink-until (> today-date drink-until)) :too-old
+      (and drink-until (> this-year drink-until)) :too-old
       ;; Within drinking window
       :else :ready)))
 
@@ -51,8 +39,6 @@
 (defn matches-tasting-window?
   [wine status]
   (or (nil? status) (= status (tasting-window-status wine))))
-
-(defn current-year [] (js/parseInt (.getFullYear (js/Date.))))
 
 ;; Configuration for drinking window years
 (def drink-from-future-years 10)  ;; How many future years to show in "Drink From" dropdown
