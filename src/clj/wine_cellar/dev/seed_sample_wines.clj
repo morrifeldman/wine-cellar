@@ -29,7 +29,43 @@
                 {:name "Mourvèdre" :percentage 20.0M}]
     :tasting-notes [{:tasting_date "2024-03-18"
                      :rating 97
-                     :notes "Silky red fruit, dried herbs and a long mineral finish."}]}
+                     :notes "Silky red fruit, dried herbs and a long mineral finish."}
+                    {:tasting_date "2025-07-18"
+                     :rating 96
+                     :notes "WSET grid practice note highlighting the wine's layered Grenache-led profile."
+                     :wset_data {:note_type "wset_level_3"
+                                 :version "1.0"
+                                 :wset_wine_style "RED"
+                                 :appearance {:clarity "CLEAR"
+                                              :colour :medium-garnet
+                                              :intensity :medium
+                                              :other_observations "Clear core with a faint brick rim."}
+                                 :nose {:condition "CLEAN"
+                                        :intensity "PRONOUNCED"
+                                        :development "DEVELOPING"
+                                        :aroma-characteristics {:primary {:red-fruit ["RED CHERRY" "RED PLUM"]
+                                                                         :black-fruit ["BLACKBERRY"]
+                                                                         :herbal ["LAVENDER"]
+                                                                         :pungent-spice ["BLACK/WHITE PEPPER"]}
+                                                                :secondary {:oak ["CEDAR" "SMOKE"]}
+                                                                :tertiary {:bottle-age ["LEATHER" "FOREST FLOOR"]}}
+                                        :other_observations "Hints of dried lavender lift the aromatics."}
+                                 :palate {:sweetness "DRY"
+                                          :acidity "MEDIUM+"
+                                          :tannin "MEDIUM"
+                                          :alcohol "MEDIUM+"
+                                          :body "MEDIUM+"
+                                          :flavor-intensity "PRONOUNCED"
+                                          :finish "LONG"
+                                          :flavor-characteristics {:primary {:red-fruit ["RED PLUM" "RED CHERRY"]
+                                                                             :black-fruit ["BLACKBERRY"]
+                                                                             :herbal ["LAVENDER"]}
+                                                                   :secondary {:oak ["CEDAR" "SMOKE"]}
+                                                                   :tertiary {:bottle-age ["LEATHER" "FOREST FLOOR"]}}
+                                          :other_observations "Supple tannins with a warm garrigue finish."}
+                                 :conclusions {:quality-level "OUTSTANDING"
+                                               :readiness "DRINK OR HOLD"
+                                               :final_comments "Ideal with lamb roasted with Provençal herbs."}}}]}
    {:wine {:producer "Ridge"
            :name "Monte Bello"
            :vintage 2015
@@ -72,7 +108,39 @@
     :varieties [{:name "Sauvignon Blanc" :percentage 100.0M}]
     :tasting-notes [{:tasting_date "2024-04-02"
                      :rating 92
-                     :notes "Passionfruit, lime zest and a crunchy saline finish."}]}
+                     :notes "Passionfruit, lime zest and a crunchy saline finish."}
+                    {:tasting_date "2025-07-12"
+                     :rating 93
+                     :notes "Structured WSET tasting grid note capturing the wine's citrus-herbal drive."
+                     :wset_data {:note_type "wset_level_3"
+                                 :version "1.0"
+                                 :wset_wine_style "WHITE"
+                                 :appearance {:clarity "CLEAR"
+                                              :colour :medium-straw
+                                              :intensity :medium
+                                              :other_observations "Fine legs; no deposit."}
+                                 :nose {:condition "CLEAN"
+                                        :intensity "MEDIUM+"
+                                        :development "YOUTHFUL"
+                                        :aroma-characteristics {:primary {:citrus-fruit ["GRAPEFRUIT" "LEMON"]
+                                                                         :tropical-fruit ["PASSION FRUIT"]
+                                                                         :herbaceous ["BLACKCURRANT LEAF" "GRASS"]}
+                                                                :secondary {:yeast ["BREAD DOUGH"]}}
+                                        :other_observations "Subtle wet-stone accent."}
+                                 :palate {:sweetness "DRY"
+                                          :acidity "HIGH"
+                                          :alcohol "MEDIUM"
+                                          :body "MEDIUM"
+                                          :flavor-intensity "MEDIUM+"
+                                          :finish "MEDIUM+"
+                                          :flavor-characteristics {:primary {:citrus-fruit ["GRAPEFRUIT" "LIME (JUICE OR ZEST?)"]
+                                                                             :tropical-fruit ["PASSION FRUIT"]
+                                                                             :herbaceous ["BLACKCURRANT LEAF"]}
+                                                                   :secondary {:yeast ["BREAD"]}}
+                                          :other_observations "Piercing acidity; saline snap."}
+                                 :conclusions {:quality-level "VERY GOOD"
+                                               :readiness "DRINK OR HOLD"
+                                               :final_comments "Perfect with goat cheese and citrus-dressed greens."}}}]}
    {:wine {:producer "Billecart-Salmon"
            :name "Brut Rosé"
            :vintage nil

@@ -1,6 +1,6 @@
 (ns wine-cellar.utils.vintage)
 
-(defn current-year [] (type (.getFullYear (js/Date.))))
+(defn current-year [] (.getFullYear (js/Date.)))
 
 ;; Enhanced to handle both the wine map structure from detail.cljs and the
 ;; existing structure
