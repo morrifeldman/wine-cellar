@@ -348,7 +348,7 @@
   (str
    "You are a wine expert tasked with creating a concise wine summary including taste profile and food pairing recommendations. "
    "Based on wine details provided, create an informative but brief summary that would be helpful to someone deciding whether to drink this wine or what to pair it with.\n\n"
-   "Please provide a concise summary (2-3 paragraphs maximum) that includes:\n"
+   "Please provide a concise summary (2-3 sentences maximum) that includes as appropriate:\n"
    "1. Overall style and key taste characteristics\n"
    "2. Top 3-4 food pairing suggestions\n"
    "3. Basic serving recommendations\n\n"
