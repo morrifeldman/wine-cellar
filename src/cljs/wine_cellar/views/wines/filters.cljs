@@ -464,7 +464,7 @@
       [filter-header app-state count-info]
       [box {:sx {:mt 2}} [search-field app-state]]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}
-       [filter-controls-grid app-state classifications 3]]
+       [filter-controls-grid app-state classifications 2]]
       (sort-controls-row app-state {:compact? false})])))
 
 (defn compact-filter-bar
