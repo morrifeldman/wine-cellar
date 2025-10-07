@@ -33,14 +33,15 @@
   (.toLocaleString (js/Number. (or value 0)) "en-US"))
 
 (defn- visible-wine-indicator
-  [{:keys [visible total]}]
+  [{:keys [visible total compact?]}]
   (when (and (some? visible) (some? total))
     (let [visible-text (format-number visible)
           total-text (format-number total)
           total-line (str total-text " Total")
           filtered-line (str visible-text " (" total-text " Total)")
-          same-count? (= visible total)]
-      [box {:sx {:mt 0.5}}
+          same-count? (= visible total)
+          margin-top (if compact? 0.25 0.5)]
+      [box {:sx {:mt margin-top}}
        (if same-count?
          [typography {:variant "body2" :color "text.secondary"}
           total-line]
@@ -323,48 +324,136 @@
 
 
 (defn filter-header
-  [app-state count-info]
-  [box {:sx {:display "flex"
-             :flexDirection "column"
-             :gap 0.75
-             :mb 2}}
-   [box {:sx {:display "flex"
-              :justifyContent "space-between"
-              :alignItems "center"}}
-    [box {:sx {:display "flex" :alignItems "center" :gap 1}}
-     [typography {:variant "subtitle1" :sx {:fontWeight "medium"}}
-      "Filter Wines"]
-     [icon-button
-      {:onClick #(swap! app-state update :show-filters? not)
-       :size "small"}
-      (if (:show-filters? @app-state)
-        [expand-less {:sx {:color "text.secondary"}}]
-        [expand-more {:sx {:color "text.secondary"}}])]]
-    [box {:sx {:display "flex" :gap 1}}
-     [button
-      {:variant "outlined"
-       :size "small"
-       :color (if (:show-out-of-stock? @app-state) "secondary" "primary")
-       :onClick #(swap! app-state update :show-out-of-stock? not)}
-      (if (:show-out-of-stock? @app-state) "In Cellar Only" "All History")]
-     [button
-      {:variant "outlined"
-       :size "small"
-       :color "secondary"
-       :onClick #(swap! app-state assoc
-                   :filters
-                   {:search ""
-                    :country nil
-                    :region nil
-                    :styles []
-                    :style nil
-                    :varieties []
-                    :variety nil
-                    :price-range nil
-                    :tasting-window nil
-                    :verification nil
-                    :columns #{}})} "Clear Filters"]]]
-   (visible-wine-indicator count-info)])
+  ([app-state count-info]
+   (filter-header app-state count-info nil))
+  ([app-state count-info {:keys [compact?]}]
+   (let [gap (if compact? 0.4 0.75)
+         margin-bottom (if compact? 0.75 2)
+         button-gap (if compact? 0.75 1)
+         button-color (if (:show-out-of-stock? @app-state) "secondary" "primary")
+         show-controls? (if compact?
+                          (:show-filters? @app-state)
+                          true)]
+     [box {:sx {:display "flex"
+                :flexDirection "column"
+                :gap gap
+                :mb margin-bottom}}
+      [box {:sx {:display "flex"
+                 :justifyContent "space-between"
+                 :alignItems "center"
+                 :flexWrap "wrap"
+                 :rowGap 0.35}}
+       [box {:sx {:display "flex" :alignItems "center" :gap gap}}
+        [typography {:variant (if compact? "subtitle2" "subtitle1")
+                     :sx {:fontWeight "medium"
+                          :lineHeight 1.1}}
+         "Filter Wines"]
+        [icon-button
+         {:onClick #(swap! app-state update :show-filters? not)
+          :size "small"
+          :sx {:color "text.secondary" :p 0.5}}
+         (if (:show-filters? @app-state)
+           [expand-less]
+           [expand-more])]]
+       (when show-controls?
+         [box {:sx {:display "flex" :gap button-gap :flexWrap "wrap"}}
+          [button
+           {:variant "outlined"
+            :size "small"
+            :color button-color
+            :onClick #(swap! app-state update :show-out-of-stock? not)}
+           (if (:show-out-of-stock? @app-state) "In Cellar Only" "All History")]
+          [button
+           {:variant "outlined"
+            :size "small"
+            :color "secondary"
+            :onClick #(swap! app-state assoc
+                        :filters
+                        {:search ""
+                         :country nil
+                         :region nil
+                         :styles []
+                         :style nil
+                         :varieties []
+                         :variety nil
+                         :price-range nil
+                         :tasting-window nil
+                         :verification nil
+                         :columns #{}})}
+           "Clear Filters"]])]
+      (when (and (not compact?) count-info)
+        (visible-wine-indicator (assoc count-info :compact? compact?)))])))
+
+(defn- filter-controls-grid
+  [app-state classifications spacing]
+  [grid {:container true :spacing spacing}
+   [country-filter app-state classifications]
+   [region-filter app-state classifications]
+   [style-filter app-state]
+   [variety-filter app-state]
+   [price-range-filter app-state]
+   [tasting-window-filter app-state]
+   [verification-filter app-state]
+   [column-filter app-state]])
+
+(defn- sort-controls-row
+  [app-state {:keys [compact?]}]
+  (let [gap (if compact? 1.5 2)
+        margin-top (if compact? 1.5 2)
+        padding-top (if compact? 1 2)
+        min-width (if compact? 160 180)]
+    [box {:sx {:mt margin-top
+               :pt padding-top
+               :borderTop "1px solid rgba(0,0,0,0.08)"}}
+     [box {:sx {:display "flex"
+                :alignItems "center"
+                :gap gap
+                :flexWrap "wrap"}}
+      [typography
+       {:variant "subtitle2"
+        :sx {:height "40px"
+             :display "flex"
+             :alignItems "center"}}
+       "Sort by:"]
+      [form-control {:variant "outlined"
+                     :size "small"
+                     :sx {:minWidth min-width}}
+       [select
+        {:value (let [sort-state (:sort @app-state)
+                      current-field (:field sort-state)]
+                  (if current-field (name current-field) "producer"))
+         :size "small"
+         :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
+         :onChange #(swap! app-state update
+                      :sort
+                      (fn [sort]
+                        (let [new-field (keyword (.. % -target -value))]
+                          (if (= new-field (:field sort))
+                            sort
+                            {:field new-field :direction :asc}))))}
+        [menu-item {:value "location"} "Location"]
+        [menu-item {:value "producer"} "Producer"]
+        [menu-item {:value "name"} "Name"]
+        [menu-item {:value "vintage"} "Vintage"]
+        [menu-item {:value "region"} "Region"]
+        [menu-item {:value "latest_internal_rating"} "Internal Rating"]
+        [menu-item {:value "average_external_rating"} "External Rating"]
+        [menu-item {:value "quantity"} "Quantity"]
+        [menu-item {:value "price"} "Price"]
+        [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]
+        [menu-item {:value "drink_from_year"} "Drinking Window Open"]
+        [menu-item {:value "drink_until_year"} "Drinking Window Close"]
+        [menu-item {:value "created_at"} "Date Added"]
+        [menu-item {:value "updated_at"} "Last Updated"]]]
+      [icon-button
+       {:size "small"
+        :onClick #(swap! app-state update-in
+                    [:sort :direction]
+                    (fn [dir] (if (= :asc dir) :desc :asc)))
+        :sx {:color "text.secondary"}}
+       (let [sort-state (:sort @app-state)
+             current-direction (:direction sort-state)]
+         (if (= current-direction :asc) [arrow-upward] [arrow-downward]))]]]))
 
 (defn filter-bar
   ([app-state]
@@ -375,52 +464,26 @@
       [filter-header app-state count-info]
       [box {:sx {:mt 2}} [search-field app-state]]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}
-       [grid {:container true :spacing 3}
-        [country-filter app-state classifications]
-        [region-filter app-state classifications] [style-filter app-state]
-        [variety-filter app-state] [price-range-filter app-state]
-        [tasting-window-filter app-state] [verification-filter app-state]
-        [column-filter app-state]]]
-      ;; Sort controls - always visible
-      [box {:sx {:mt 2 :pt 2 :borderTop "1px solid rgba(0,0,0,0.08)"}}
-       [box {:sx {:display "flex" :alignItems "center" :gap 2}}
-        [typography
-         {:variant "subtitle2"
-          :sx {:height "40px" :display "flex" :alignItems "center"}} "Sort by:"]
-        [form-control {:variant "outlined" :size "small" :sx {:minWidth 180}}
-         [select
-          {:value (let [sort-state (:sort @app-state)
-                        current-field (:field sort-state)]
-                    (if current-field (name current-field) "producer"))
-           :size "small"
-           :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
-           :onChange #(swap! app-state update
-                        :sort
-                        (fn [sort]
-                          (let [new-field (keyword (.. % -target -value))]
-                            (if (= new-field (:field sort))
-                              sort
-                              {:field new-field :direction :asc}))))}
-          [menu-item {:value "location"} "Location"]
-          [menu-item {:value "producer"} "Producer"]
-          [menu-item {:value "name"} "Name"]
-          [menu-item {:value "vintage"} "Vintage"]
-          [menu-item {:value "region"} "Region"]
-          [menu-item {:value "latest_internal_rating"} "Internal Rating"]
-          [menu-item {:value "average_external_rating"} "External Rating"]
-          [menu-item {:value "quantity"} "Quantity"]
-          [menu-item {:value "price"} "Price"]
-          [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]
-          [menu-item {:value "drink_from_year"} "Drinking Window Open"]
-          [menu-item {:value "drink_until_year"} "Drinking Window Close"]
-          [menu-item {:value "created_at"} "Date Added"]
-          [menu-item {:value "updated_at"} "Last Updated"]]]
-        [icon-button
-         {:size "small"
-          :onClick #(swap! app-state update-in
-                      [:sort :direction]
-                      (fn [dir] (if (= :asc dir) :desc :asc)))
-          :sx {:color "text.secondary"}}
-         (let [sort-state (:sort @app-state)
-               current-direction (:direction sort-state)]
-           (if (= current-direction :asc) [arrow-upward] [arrow-downward]))]]]])))
+       [filter-controls-grid app-state classifications 3]]
+      (sort-controls-row app-state {:compact? false})])))
+
+(defn compact-filter-bar
+  ([app-state]
+   (compact-filter-bar app-state nil))
+  ([app-state count-info]
+   (let [classifications (:classifications @app-state)]
+     [box {:sx {:px 1.5
+                :py 1
+                :mb 1.25
+                :border "1px solid"
+                :borderColor "divider"
+                :borderRadius 2
+                :backgroundColor "background.default"}}
+      [filter-header app-state count-info {:compact? true}]
+      [collapse {:in (:show-filters? @app-state) :timeout "auto"}
+       [box {:sx {:display "flex"
+                  :flexDirection "column"
+                  :gap 1.5}}
+        [box [search-field app-state]]
+        [filter-controls-grid app-state classifications 2]
+        (sort-controls-row app-state {:compact? true})]]])))

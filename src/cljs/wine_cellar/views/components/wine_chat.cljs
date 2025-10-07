@@ -26,6 +26,7 @@
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [wine-cellar.views.components.image-upload :refer [camera-capture]]
             [wine-cellar.views.components.ai-provider-toggle :as ai-toggle]
+            [wine-cellar.views.wines.filters :as wine-filters]
             [wine-cellar.api :as api]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
@@ -823,38 +824,43 @@
            handle-image-remove
            message-ref
            is-editing?
-           handle-cancel]}]
-  (let [components (concat
-                    (when @show-camera?
-                      [[camera-capture handle-camera-capture handle-camera-cancel]])
-                    [[chat-messages messages message-edit-handler]]
-                    (when (is-editing?)
-                      [[typography
-                        {:variant "caption"
-                         :sx {:color "warning.main" :px 2 :py 0.5}}
-                        "Editing message - all responses after this will be regenerated"]])
-                    [[chat-input message-ref
-                                 handle-send
-                                 is-sending?
-                                 "chat-input"
-                                 app-state
-                                 handle-image-capture
-                                 pending-image
-                                 handle-image-remove]]
-                    (when (is-editing?)
-                      [[button
-                        {:variant "text"
-                         :size "small"
-                         :sx {:mt 1}
-                         :on-click #(handle-cancel message-ref)}
-                        "Cancel Edit"]]))]
+           handle-cancel
+           filter-panel]}]
+  (let [components (-> []
+                       (cond-> filter-panel (conj filter-panel))
+                       (cond-> @show-camera?
+                         (conj [camera-capture
+                                handle-camera-capture
+                                handle-camera-cancel]))
+                       (conj [chat-messages messages message-edit-handler])
+                       (cond-> (is-editing?)
+                         (conj [typography
+                                {:variant "caption"
+                                 :sx {:color "warning.main" :px 2 :py 0.5}}
+                                "Editing message - all responses after this will be regenerated"]))
+                       (conj [chat-input message-ref
+                                      handle-send
+                                      is-sending?
+                                      "chat-input"
+                                      app-state
+                                      handle-image-capture
+                                      pending-image
+                                      handle-image-remove])
+                       (cond-> (is-editing?)
+                         (conj [button
+                                {:variant "text"
+                                 :size "small"
+                                 :sx {:mt 1}
+                                 :on-click #(handle-cancel message-ref)}
+                                "Cancel Edit"])))]
     (into [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}]
           components)))
 
 (defn chat-dialog-content
   [{:keys [dialog-content-ref sidebar main-column]}]
   [dialog-content
-   {:ref #(reset! dialog-content-ref %)}
+   {:ref #(reset! dialog-content-ref %)
+    :sx {:pt 1.5 :pb 1.5 :px 2}}
    (into [grid {:container true :spacing 2}]
          (cond-> []
            sidebar (conj sidebar)
@@ -863,10 +869,11 @@
 (defn chat-dialog-shell
   [{:keys [app-state is-open header-props content-props]}]
   [dialog
-   {:open is-open
+  {:open is-open
     :on-close #(swap! app-state assoc-in [:chat :open?] false)
     :max-width "md"
-    :full-width true}
+    :full-width true
+    :PaperProps {:sx {:py 2 :px 2}}}
    (chat-dialog-header header-props)
    (chat-dialog-content content-props)])
 
@@ -908,7 +915,8 @@
         message-edit-handler (fn [id text]
                                (handle-edit id text message-ref))]
     (fn [app-state]
-      (let [chat-state (:chat @app-state)
+      (let [state @app-state
+            chat-state (:chat state)
             is-open (:open? chat-state false)
             sidebar-open? (:sidebar-open? chat-state)
             conversation-loading? (:conversation-loading? chat-state)
@@ -921,6 +929,14 @@
             include-visible? (:include-visible-wines? chat-state)
             context-wine-list (context-wines app-state)
             conversation-messages (vec (or (:messages chat-state) []))
+            wines (or (:wines state) [])
+            show-out-of-stock? (:show-out-of-stock? state)
+            base-wines (if show-out-of-stock?
+                         wines
+                         (filter #(pos? (or (:quantity %) 0)) wines))
+            visible-wines (or (filtered-sorted-wines app-state) [])
+            visible-count (count visible-wines)
+            total-count (count base-wines)
             context-count (count context-wine-list)
             {:keys [color label sx]} (context-indicator-style include-visible? context-count)
             toggle-context! (fn [checked]
@@ -942,6 +958,9 @@
                                                         :lineHeight 1.2}
                                                        sx)}
                                 label]]
+            filter-count-info {:visible visible-count :total total-count}
+            filter-panel (when (and include-visible? (pos? context-count))
+                           (wine-filters/compact-filter-bar app-state filter-count-info))
             toggle-sidebar! (fn []
                               (let [opening? (not sidebar-open?)]
                                 (if opening?
@@ -982,7 +1001,8 @@
                                            :handle-image-remove handle-image-remove
                                            :message-ref message-ref
                                            :is-editing? is-editing?
-                                           :handle-cancel handle-cancel})
+                                           :handle-cancel handle-cancel
+                                           :filter-panel filter-panel})
            header-props {:app-state app-state
                          :messages messages
                          :message-ref message-ref
