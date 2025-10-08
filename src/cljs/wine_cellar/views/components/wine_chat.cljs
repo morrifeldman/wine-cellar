@@ -74,7 +74,7 @@
 
 (defn- open-conversation!
   ([app-state messages conversation]
-   (open-conversation! app-state messages conversation true))
+   (open-conversation! app-state messages conversation false))
   ([app-state messages {:keys [id] :as conversation} close-sidebar?]
    (when id
      (when close-sidebar?
@@ -266,14 +266,16 @@
 
 (defn- conversation-row
   [app-state messages
-   {:keys [active-id deleting-id renaming-id pinning-id on-delete on-rename on-pin]}
+   {:keys [active-id deleting-id renaming-id pinning-id on-delete on-rename on-pin on-select]}
    {:keys [id] :as conversation}]
   (let [active? (= id active-id)
         deleting? (= id deleting-id)
         renaming? (= id renaming-id)
         pinning? (= id pinning-id)]
     [box
-     {:on-click #(open-conversation! app-state messages conversation true)
+     {:on-click #(if on-select
+                   (on-select conversation)
+                   (open-conversation! app-state messages conversation true))
       :sx {:px 2 :py 1.5 :cursor "pointer"
            :background-color (if active? "action.hover" "transparent")
            :border-bottom "1px solid"
@@ -310,7 +312,7 @@
     (into [:<>] items)))
 
 (defn- conversation-sidebar
-  [app-state messages {:keys [open? conversations loading? active-id deleting-id renaming-id pinning-id scroll-ref scroll-requested? on-delete on-rename on-pin]}]
+  [app-state messages {:keys [open? conversations loading? active-id deleting-id renaming-id pinning-id scroll-ref scroll-requested? on-delete on-rename on-pin on-select]}]
   (if open?
     (let [items (conversations->items
                  app-state
@@ -321,7 +323,8 @@
                   :pinning-id pinning-id
                   :on-delete on-delete
                   :on-rename on-rename
-                  :on-pin on-pin}
+                  :on-pin on-pin
+                  :on-select on-select}
                  conversations)
           status (cond
                    loading? :loading
@@ -512,24 +515,34 @@
 
 (defn chat-messages
   "Scrollable container for chat messages"
-  [messages on-edit]
+  [messages on-edit auto-scroll? scroll-container-ref]
   (let [scroll-ref (r/atom nil)
         last-ai-message-ref (r/atom nil)
         messages-atom messages
-        edit-handler on-edit]
+        edit-handler on-edit
+        should-scroll? auto-scroll?]
     (r/create-class
      {:component-did-update (fn [_]
-                              (when @last-ai-message-ref
+                              (when (and should-scroll?
+                                         @should-scroll?
+                                         @last-ai-message-ref)
                                 (.scrollIntoView @last-ai-message-ref
                                                  #js {:behavior "smooth"
-                                                      :block "start"})))
+                                                      :block "start"})
+                                (reset! should-scroll? false)))
+      :component-will-unmount (fn []
+                                (when scroll-container-ref
+                                  (reset! scroll-container-ref nil)))
       :reagent-render
       (fn []
+        (when should-scroll?
+          @should-scroll?)
         [box
-         {:ref #(reset! scroll-ref %)
-          :sx {:height "360px"
-               :overflow-y "auto"
-               :p 2
+         {:ref #(do (reset! scroll-ref %)
+                    (when scroll-container-ref (reset! scroll-container-ref %)))
+         :sx {:height "360px"
+              :overflow-y "auto"
+              :p 2
                :background-color "background.default"
                :border "1px solid"
                :border-color "divider"
@@ -825,14 +838,16 @@
            message-ref
            is-editing?
            handle-cancel
-           filter-panel]}]
+           filter-panel
+           auto-scroll?
+           messages-scroll-ref]}]
   (let [components (-> []
                        (cond-> filter-panel (conj filter-panel))
                        (cond-> @show-camera?
                          (conj [camera-capture
                                 handle-camera-capture
                                 handle-camera-cancel]))
-                       (conj [chat-messages messages message-edit-handler])
+                       (conj [chat-messages messages message-edit-handler auto-scroll? messages-scroll-ref])
                        (cond-> (is-editing?)
                          (conj [typography
                                 {:variant "caption"
@@ -890,9 +905,12 @@
         dialog-opened (r/atom false)
         sidebar-scroll-ref (r/atom nil)
         sidebar-scroll-requested? (r/atom false)
+        auto-scroll? (r/atom true)
+        messages-scroll-ref (r/atom nil)
         edit-state (use-edit-state app-state messages)
         {:keys [editing-message-id handle-edit handle-cancel handle-commit is-editing?]} edit-state
         handle-send (fn [message-text]
+                      (reset! auto-scroll? true)
                       (if (is-editing?)
                         (handle-edit-send app-state
                                           editing-message-id
@@ -961,6 +979,9 @@
             filter-count-info {:visible visible-count :total total-count}
             filter-panel (when (and include-visible? (pos? context-count))
                            (wine-filters/compact-filter-bar app-state filter-count-info))
+            select-conversation! (fn [conversation]
+                                   (reset! auto-scroll? false)
+                                   (open-conversation! app-state messages conversation false))
             toggle-sidebar! (fn []
                               (let [opening? (not sidebar-open?)]
                                 (if opening?
@@ -968,10 +989,19 @@
                                     (reset! sidebar-scroll-requested? true)
                                     (js/setTimeout
                                      #(when-let [el @dialog-content-ref]
-                                        (.scrollTo el 0 0))
+                                        (.scrollTo el #js {:top 0 :behavior "smooth"}))
                                      50))
-                                  (reset! sidebar-scroll-requested? false))
+                                  (do
+                                    (reset! sidebar-scroll-requested? false)
+                                    (reset! auto-scroll? true)
+                                    (js/setTimeout
+                                     #(when-let [el @messages-scroll-ref]
+                                        (.scrollTo el #js {:top (.-scrollHeight el)
+                                                           :behavior "smooth"}))
+                                     60)))
                                 (reset! sidebar-scroll-ref nil)
+                                (when opening?
+                                  (reset! auto-scroll? false))
                                 (swap! app-state update-in [:chat :sidebar-open?] not)))
             sidebar (conversation-sidebar app-state
                                           messages
@@ -986,7 +1016,8 @@
                                            :scroll-requested? sidebar-scroll-requested?
                                            :on-delete #(delete-conversation-with-confirm! app-state %)
                                            :on-rename #(rename-conversation-with-prompt! app-state %)
-                                           :on-pin #(toggle-pin! app-state % )})
+                                           :on-pin #(toggle-pin! app-state % )
+                                           :on-select select-conversation!})
             main-column (chat-main-column {:sidebar-open? sidebar-open?
                                            :show-camera? show-camera?
                                            :handle-camera-capture handle-camera-capture
@@ -1002,7 +1033,9 @@
                                            :message-ref message-ref
                                            :is-editing? is-editing?
                                            :handle-cancel handle-cancel
-                                           :filter-panel filter-panel})
+                                           :filter-panel filter-panel
+                                           :auto-scroll? auto-scroll?
+                                           :messages-scroll-ref messages-scroll-ref})
            header-props {:app-state app-state
                          :messages messages
                          :message-ref message-ref
@@ -1020,12 +1053,19 @@
           (api/fetch-conversation-messages! app-state active-id))
         (when (and is-open (not @dialog-opened) @dialog-content-ref)
           (reset! dialog-opened true)
+          (reset! auto-scroll? true)
           (js/setTimeout
-            #(when @dialog-content-ref
-               (.scrollTo @dialog-content-ref 0 (.-scrollHeight @dialog-content-ref)))
+            #(do
+               (when @dialog-content-ref
+                 (.scrollTo @dialog-content-ref #js {:top (.-scrollHeight @dialog-content-ref)
+                                                     :behavior "smooth"}))
+               (when-let [el @messages-scroll-ref]
+                 (.scrollTo el #js {:top (.-scrollHeight el)
+                                    :behavior "smooth"})))
             200))
         (when (not is-open)
-          (reset! dialog-opened false))
+          (reset! dialog-opened false)
+          (reset! auto-scroll? true))
         (chat-dialog-shell {:app-state app-state
                             :is-open is-open
                             :header-props header-props
