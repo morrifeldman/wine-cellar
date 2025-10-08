@@ -571,7 +571,7 @@
 
 (defn- handle-send-message
   "Handle sending a message to the AI assistant with optional image"
-  [app-state message-text messages is-sending? & [image]]
+  [app-state message-text messages is-sending? auto-scroll? & [image]]
   (when (and (not @is-sending?) (or (seq message-text) image))
     (reset! is-sending? true)
     (let [user-message {:id (random-uuid)
@@ -582,6 +582,8 @@
           wines (context-wines app-state)]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
+      (when auto-scroll?
+        (reset! auto-scroll? true))
       (persist-conversation-message!
        app-state
        wines
@@ -604,6 +606,8 @@
                            :timestamp (.getTime (js/Date.))}]
            (swap! messages conj ai-message)
            (swap! app-state assoc-in [:chat :messages] @messages)
+           (when auto-scroll?
+             (reset! auto-scroll? true))
            (persist-conversation-message!
             app-state
             wines
@@ -661,7 +665,7 @@
      :is-editing? #(some? @editing-message-id)}))
 
 (defn- handle-edit-send
-  [app-state editing-message-id message-ref messages is-sending? on-edit-complete]
+  [app-state editing-message-id message-ref messages is-sending? auto-scroll? on-edit-complete]
   (when @message-ref
     (let [message-text (.-value @message-ref)]
       (if-let [message-idx (->> @messages
@@ -674,6 +678,8 @@
           (reset! editing-message-id nil)
           (set! (.-value @message-ref) "")
           (swap! app-state update :chat dissoc :draft-message)
+          (when auto-scroll?
+            (reset! auto-scroll? true))
           (when on-edit-complete (on-edit-complete))
           (reset! is-sending? true)
           (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
@@ -698,6 +704,8 @@
                                  :timestamp (.getTime (js/Date.))}]
                  (swap! messages conj ai-message)
                  (swap! app-state assoc-in [:chat :messages] @messages)
+                 (when auto-scroll?
+                   (reset! auto-scroll? true))
                  (persist-conversation-message!
                   app-state
                   wines
@@ -917,11 +925,13 @@
                                           message-ref
                                           messages
                                           is-sending?
+                                          auto-scroll?
                                           handle-commit)
                         (do (handle-send-message app-state
                                                  message-text
                                                  messages
                                                  is-sending?
+                                                 auto-scroll?
                                                  @pending-image)
                             (reset! pending-image nil))))
         handle-image-capture (fn [] (reset! show-camera? true))
