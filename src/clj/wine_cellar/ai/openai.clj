@@ -12,6 +12,10 @@
   :start
   (config-utils/get-config "OPENAI_MODEL" :fallback "gpt-5"))
 
+(defstate light-model
+  :start
+  (config-utils/get-config "OPENAI_LIGHT_MODEL" :fallback "gpt-5-mini"))
+
 (defstate api-key :start (config-utils/get-config "OPENAI_API_KEY"))
 
 (def ^:private json-mapper json/keyword-keys-object-mapper)
@@ -132,7 +136,7 @@
                     (assoc :model (or (:model request) model))
                     (assoc :reasoning {:effort "low"}))]
     (tap> ["openai-request" payload])
-    (let [{:keys [status body error] :as response}
+    (let [{:keys [status body] :as response}
           (deref (http/post responses-url
                             {:headers {"authorization" (str "Bearer " api-key)
                                        "content-type" "application/json"}
@@ -219,3 +223,18 @@
                  :max_output_tokens 900
                  :reasoning {:effort "low"}}]
     (call-openai-responses request true)))
+
+(defn generate-conversation-title
+  [{:keys [system user]}]
+  {:pre [(string? system) (string? user)]}
+  (let [request {:model light-model
+                 :input [{:role "system"
+                          :content [{:type "input_text"
+                                     :text system}]}
+                         {:role "user"
+                          :content [{:type "input_text"
+                                     :text user}]}]
+                 :max_output_tokens 40
+                 :temperature 0.2
+                 :reasoning {:effort "low"}}]
+    (call-openai-responses request false)))

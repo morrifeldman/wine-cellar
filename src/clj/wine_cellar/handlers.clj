@@ -1,5 +1,6 @@
 (ns wine-cellar.handlers
-  (:require [wine-cellar.db.api :as db-api]
+  (:require [clojure.string :as str]
+            [wine-cellar.db.api :as db-api]
             [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations]
@@ -448,9 +449,21 @@
                           :content content
                           :image_data image_data
                           :tokens_used tokens_used}
-                 inserted (db-api/append-conversation-message! message)]
-             (-> (response/response inserted)
-                 (response/status 201)))))
+                 inserted (db-api/append-conversation-message! message)
+                 title-needed? (and (:is_user inserted)
+                                    (str/blank? (:title conversation))
+                                    (not (str/blank? content)))
+                 updated-conversation (when title-needed?
+                                        (when-let [title (ai/generate-conversation-title
+                                                           (:provider conversation)
+                                                           content)]
+                                          (db-api/update-conversation!
+                                            conversation-id {:title title})))]
+             (-> (response/response (cond-> {:message inserted}
+                                      updated-conversation (assoc
+                                                             :conversation
+                                                             updated-conversation)))
+                  (response/status 201)))))
        (catch Exception e
          (if-let [status (:status (ex-data e))]
            {:status status :body {:error (.getMessage e)}}

@@ -13,6 +13,11 @@
           (config-utils/get-config "ANTHROPIC_MODEL"
                                    :fallback "claude-sonnet-4-20250514")) ; Default to current model
 
+(defstate light-model
+          :start
+          (config-utils/get-config "ANTHROPIC_LIGHT_MODEL"
+                                   :fallback "claude-3-5-haiku-20241022"))
+
 (defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
 
 (def drinking-window-tool-name "record_drinking_window")
@@ -195,3 +200,14 @@
   (let [request {:system system
                  :messages [{:role "user" :content user}]}]
     (call-anthropic-api request false)))
+
+(defn generate-conversation-title
+  "Create a concise conversation title using Anthropic's lightweight model."
+  [{:keys [system user]}]
+  {:pre [(string? system) (string? user)]}
+  (let [request {:system system
+                 :messages [{:role "user"
+                             :content [{:type "text" :text user}]}]
+                 :max_tokens 40
+                 :temperature 0.2}]
+    (call-anthropic-api request false light-model)))

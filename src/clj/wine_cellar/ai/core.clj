@@ -1,6 +1,7 @@
 (ns wine-cellar.ai.core
   "Provider dispatch layer for AI functionality."
-  (:require [mount.core :refer [defstate]]
+  (:require [clojure.string :as str]
+            [mount.core :refer [defstate]]
             [wine-cellar.ai.anthropic :as anthropic]
             [wine-cellar.ai.openai :as openai]
             [wine-cellar.ai.prompts :as prompts]
@@ -51,6 +52,17 @@
     (case provider
       :openai (openai/analyze-wine-label prompt)
       :anthropic (anthropic/analyze-wine-label prompt))))
+
+(defn generate-conversation-title
+  [provider first-message]
+  (let [prompt (prompts/conversation-title-prompt first-message)
+        raw (case provider
+              :openai (openai/generate-conversation-title prompt)
+              :anthropic (anthropic/generate-conversation-title prompt)
+              nil)
+        title (some-> raw str str/trim (str/replace #"\s+" " "))]
+    (when-not (str/blank? title)
+      title)))
 
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"

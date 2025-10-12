@@ -714,11 +714,18 @@
                               payload
                               "Failed to save conversation message"))]
         (if (:success result)
-          (let [saved (:data result)]
-            (tap> ["conversation-message-saved" (:id saved)])
+          (let [saved (:data result)
+                message (:message saved)
+                conversation (:conversation saved)
+                message (or message saved)]
+            (tap> ["conversation-message-saved" (:id message)])
+            (when conversation
+              (swap! app-state apply-conversation-update! conversation))
             (swap! app-state assoc-in [:chat :error] nil)
             (when callback
-              (callback {:success true :message saved})))
+              (callback {:success true
+                         :message message
+                         :conversation conversation})))
           (do (tap> ["conversation-message-save-error" (:error result)])
               (swap! app-state assoc-in [:chat :error] (:error result))
               (when callback

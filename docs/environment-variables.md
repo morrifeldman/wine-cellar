@@ -22,8 +22,10 @@ In production (when `CLOJURE_ENV=production`), the following environment variabl
 
 - `ANTHROPIC_API_KEY`: API key for Anthropic's Claude API (required for wine label analysis)
 - `ANTHROPIC_MODEL`: Claude model to use (optional, defaults to claude-sonnet-4-20250514)
+- `ANTHROPIC_LIGHT_MODEL`: Lightweight Claude model for quick tasks like conversation titles (optional, defaults to claude-3-5-haiku-20241022)
 - `OPENAI_API_KEY`: API key for OpenAI Responses (optional, required for ChatGPT support)
 - `OPENAI_MODEL`: OpenAI model to use (optional, defaults to gpt-5)
+- `OPENAI_LIGHT_MODEL`: Lightweight OpenAI model for quick tasks like conversation titles (optional, defaults to gpt-5-mini; gpt-5-nano also works well)
 - `AI_DEFAULT_PROVIDER`: Preferred provider when the UI has not selected one ("anthropic" or "openai")
 
 ### Server Configuration
@@ -45,6 +47,8 @@ wine-cellar/google-client-secret
 wine-cellar/anthropic-model       # Optional
 wine-cellar/openai-api-key        # Optional
 wine-cellar/openai-model          # Optional
+wine-cellar/anthropic-light-model # Optional
+wine-cellar/openai-light-model    # Optional
 ```
 
 See the README.md for instructions on setting up `pass` for local development.

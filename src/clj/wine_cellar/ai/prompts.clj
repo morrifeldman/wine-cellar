@@ -4,6 +4,33 @@
             [wine-cellar.common :as common]
             [wine-cellar.summary :as summary]))
 
+(defn- truncate
+  "Truncate text to `max-len` characters, appending ellipsis when trimmed."
+  [text max-len]
+  (let [clean (some-> text str str/trim)]
+    (cond
+      (nil? clean) ""
+      (<= (count clean) max-len) clean
+      :else (str (subs clean 0 max-len) "..."))))
+
+(defn conversation-title-system-prompt
+  []
+  "You create concise, descriptive titles for chat conversations about wine. Respond with only the title, in plain text, five words or fewer, no quotes or punctuation at either end.")
+
+(defn conversation-title-user-message
+  [first-message]
+  (let [excerpt (truncate first-message 280)]
+    (str "The first user message in this conversation is shown below. "
+         "Use it to suggest a short title that captures the user's intent. "
+         "Do not include the user's name, and avoid generic titles like \"Conversation\".\n\n"
+         "First message:\n"
+         excerpt)))
+
+(defn conversation-title-prompt
+  [first-message]
+  {:system (conversation-title-system-prompt)
+   :user (conversation-title-user-message first-message)})
+
 (defn format-wine-summary
   "Creates a formatted summary of a single wine including tasting notes and varieties.
    Optional flags mirror the original Anthropic helper so both providers stay in sync."
