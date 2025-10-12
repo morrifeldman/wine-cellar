@@ -23,33 +23,6 @@
 </head>
 <body>
   <div id="app"></div>
-  <script>
-    (function loadAppBundle() {
-      function appendScript(versionTag) {
-        var script = document.createElement('script');
-        script.defer = true;
-        script.src = '/js/main.js' + (versionTag ? ('?v=' + encodeURIComponent(versionTag)) : '');
-        document.head.appendChild(script);
-      }
-
-      fetch('/version.json', {cache: 'no-store'})
-        .then(function (response) {
-          if (!response || !response.ok) {
-            return null;
-          }
-          return response.json();
-        })
-        .then(function (info) {
-          var tag = null;
-          if (info) {
-            tag = info.commit || info.version || info.date;
-          }
-          appendScript(tag);
-        })
-        .catch(function () {
-          appendScript(null);
-        });
-    })();
-  </script>
+  <script defer src="/js/main.js"></script>
 </body>
 </html>

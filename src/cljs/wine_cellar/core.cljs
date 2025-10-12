@@ -6,7 +6,8 @@
             [wine-cellar.state :refer [initial-app-state]]
             [wine-cellar.theme :refer [wine-theme]]
             [clojure.string]
-            [reagent-mui.styles :refer [theme-provider]]))
+            [reagent-mui.styles :refer [theme-provider]]
+            [goog.object :as gobj]))
 
 (defonce app-state (r/atom initial-app-state))
 
@@ -64,6 +65,39 @@
 
 (defonce root (atom nil))
 
+(defonce service-worker-state (atom {:registered? false
+                                     :poll-interval nil}))
+
+(defn- handle-sw-message
+  [event]
+  (when-let [data (.-data event)]
+    (when (= "version-update" (gobj/get data "type"))
+      (js/console.info "New app version detected; refreshing…")
+      (.reload js/location))))
+
+(defn- trigger-version-check
+  []
+  (-> (js/fetch "/version.json" #js {:cache "no-store"})
+      (.catch (fn [err]
+                (js/console.warn "Version check failed" err)))))
+
+(defn register-service-worker!
+  []
+  (when-let [container (some-> js/navigator (.-serviceWorker))]
+    (when-not (:registered? @service-worker-state)
+      (-> (.register container "/service-worker.js")
+          (.then (fn [registration]
+                   (js/console.info "Service worker registered" registration)
+                   (.addEventListener container "message" handle-sw-message)
+                   (trigger-version-check)
+                   (let [interval (js/setInterval trigger-version-check
+                                                  (* 5 60 1000))]
+                     (swap! service-worker-state assoc
+                            :registered? true
+                            :poll-interval interval))))
+          (.catch (fn [err]
+                    (js/console.error "Service worker registration failed" err)))))))
+
 (defn init
   []
   (js/console.log "Initializing app...")
@@ -88,7 +122,8 @@
   (when-not @root
     (reset! root (dom-client/create-root (js/document.getElementById "app"))))
   (dom-client/render @root
-                     [theme-provider wine-theme [views/main-app app-state]]))
+                     [theme-provider wine-theme [views/main-app app-state]])
+  (register-service-worker!))
 
 ;; Start the app when loaded
 (defn ^:export main [] (init))
