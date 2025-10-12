@@ -162,8 +162,10 @@
               text
               (throw (ex-info "OpenAI response missing assistant text"
                               response-with-parsed)))))
-        (throw (ex-info "OpenAI Responses API call failed"
-                        response-with-parsed))))))
+        (do
+          (tap> ["OpenAI Responses API Call Failed" response-with-parsed])
+          (throw (ex-info "OpenAI Responses API call failed"
+                        response-with-parsed)))))))
 
 (defn chat-about-wines
   [prompt]
@@ -235,6 +237,5 @@
                           :content [{:type "input_text"
                                      :text user}]}]
                  :max_output_tokens 40
-                 :temperature 0.2
                  :reasoning {:effort "low"}}]
     (call-openai-responses request false)))
