@@ -276,17 +276,32 @@
      {:on-click #(if on-select
                    (on-select conversation)
                    (open-conversation! app-state messages conversation true))
-      :sx {:px 2 :py 1.5 :cursor "pointer"
-           :background-color (if active? "action.hover" "transparent")
-           :border-bottom "1px solid"
-           :border-color "divider"}}
+      :sx (let [base {:px 2
+                      :py 1.5
+                      :cursor "pointer"
+                      :background-color "transparent"
+                      :border-bottom "1px solid"
+                      :border-bottom-color "divider"
+                      :border-left "4px solid transparent"
+                      :border-radius 1
+                      :color "text.primary"
+                      :transition "background-color 140ms ease, box-shadow 140ms ease, border-left-color 140ms ease"
+                      :&:hover {:background-color "rgba(255,255,255,0.05)"}}
+                 active-style {:background-color "rgba(255,255,255,0.14)"
+                               :border-left-color "primary.light"
+                               :box-shadow "0 0 0 1px rgba(144,202,249,0.4) inset"
+                               :color "common.white"
+                               :&:hover {:background-color "rgba(255,255,255,0.18)"}}]
+            (cond-> base
+              active? (merge active-style)))} 
      [box
       {:sx {:display "flex"
             :align-items "center"
             :justify-content "space-between"
             :gap 1}}
       [typography {:variant "body2"
-                   :sx {:fontWeight (if active? "600" "500")}}
+                   :sx {:fontWeight (if active? "600" "500")
+                        :color (if active? "inherit" "text.primary")}}
        (conversation-label conversation)]
       (conversation-action-buttons
        conversation
