@@ -231,11 +231,11 @@
   {:pre [(string? system) (string? user)]}
   (let [request {:model light-model
                  :input [{:role "system"
-                          :content [{:type "input_text"
-                                     :text system}]}
-                         {:role "user"
-                          :content [{:type "input_text"
-                                     :text user}]}]
-                 :max_output_tokens 40
+                         :content [{:type "input_text"
+                                    :text system}]}
+                        {:role "user"
+                         :content [{:type "input_text"
+                                    :text user}]}]
+                 :max_output_tokens 1000
                  :reasoning {:effort "low"}}]
     (call-openai-responses request false)))
