@@ -1174,7 +1174,15 @@
   [app-state]
   [fab
    {:color "primary"
-    :sx {:position "fixed" :bottom 16 :right 16 :z-index 1000}
+    :sx {:position "fixed"
+         :bottom 16
+         :right 16
+         :z-index 1000
+         "@media (max-width:600px)" {:bottom "auto"
+                                     :top "50%"
+                                     :transform "translateY(-50%)"
+                                     :right 16
+                                     :left "auto"}}
     :on-click #(do (swap! app-state assoc-in [:chat :open?] true)
                    (api/load-conversations! app-state {:force? true}))} [chat]])
 
