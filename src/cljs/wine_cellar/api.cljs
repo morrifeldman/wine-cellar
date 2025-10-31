@@ -731,6 +731,38 @@
               (when callback
                 (callback {:success false :error (:error result)})))))))))
 
+(defn update-conversation-message!
+  ([app-state conversation-id message-id message]
+   (update-conversation-message! app-state conversation-id message-id message nil))
+  ([app-state conversation-id message-id message callback]
+   (let [payload (cond-> {:content (:content message)}
+                   (contains? message :image_data)
+                   (assoc :image (:image_data message))
+                   (contains? message :tokens_used)
+                   (assoc :tokens_used (:tokens_used message))
+                   (true? (:truncate_after? message))
+                   (assoc :truncate_after? true))]
+     (go
+      (let [result (<! (PUT (str "/api/conversations/" conversation-id "/messages/" message-id)
+                            payload
+                            "Failed to update conversation message"))]
+        (if (:success result)
+          (let [data (:data result)
+                conversation (:conversation data)]
+            (tap> ["conversation-message-updated" {:conversation-id conversation-id
+                                                   :message-id message-id
+                                                   :deleted (count (:deleted-message-ids data))}])
+            (when conversation
+              (swap! app-state apply-conversation-update! conversation))
+            (swap! app-state assoc-in [:chat :error] nil)
+            (when callback
+              (callback {:success true :data data})))
+          (do
+            (tap> ["conversation-message-update-error" (:error result)])
+            (swap! app-state assoc-in [:chat :error] (:error result))
+            (when callback
+              (callback {:success false :error (:error result)})))))))))
+
 (defn fetch-conversation-messages!
   [app-state conversation-id]
   (swap! app-state assoc-in [:chat :messages-loading?] true)

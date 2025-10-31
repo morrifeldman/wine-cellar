@@ -115,6 +115,10 @@
 (s/def ::conversation-message
   (s/keys :req-un [::is_user ::content]
           :opt-un [::image ::tokens_used]))
+(s/def ::truncate_after? boolean?)
+(s/def ::conversation-message-update
+  (s/keys :req-un [::content]
+          :opt-un [::image ::tokens_used ::truncate_after?]))
 (s/def ::tasting-source string?)
 (s/def ::tasting-sources (s/coll-of ::tasting-source))
 (s/def ::enabled? boolean?)
@@ -248,6 +252,13 @@
             :responses {201 {:body map?} 403 {:body map?} 404 {:body map?}
                         500 {:body map?}}
             :handler handlers/append-conversation-message}}]
+  ["/conversations/:id/messages/:message-id"
+   {:parameters {:path {:id int? :message-id int?}}
+    :put {:summary "Update a conversation message"
+          :parameters {:body ::conversation-message-update}
+          :responses {200 {:body map?} 403 {:body map?} 404 {:body map?}
+                      500 {:body map?}}
+          :handler handlers/update-conversation-message}}]
    ["/tasting-note-sources"
     {:get {:summary "Get unique tasting note sources for suggestions"
            :responses {200 {:body ::tasting-sources} 500 {:body map?}}

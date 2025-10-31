@@ -212,8 +212,8 @@
 
 (defn delete-grape-variety
   [{{{:keys [id]} :path} :parameters}]
-  (try (do (db-api/delete-grape-variety! id)
-           (no-content))
+  (try (db-api/delete-grape-variety! id)
+       (no-content)
        (catch Exception e (server-error e))))
 
 ;; Wine Varieties Handlers
@@ -464,6 +464,38 @@
                                                              :conversation
                                                              updated-conversation)))
                   (response/status 201)))))
+       (catch Exception e
+         (if-let [status (:status (ex-data e))]
+           {:status status :body {:error (.getMessage e)}}
+           (server-error e)))))
+
+(defn update-conversation-message
+  [request]
+  (try (let [email (ensure-user-email request)
+             conversation-id (get-in request [:parameters :path :id])
+             message-id (get-in request [:parameters :path :message-id])
+             conversation (db-api/get-conversation conversation-id)]
+         (cond
+           (nil? conversation)
+           (response/not-found {:error "Conversation not found"})
+           (not= email (:user_email conversation))
+           {:status 403 :body {:error "Forbidden"}}
+           :else
+           (let [body (get-in request [:parameters :body])
+                 {:keys [content image truncate_after? tokens_used]} body
+                 payload (cond-> {:conversation_id conversation-id
+                                  :message_id message-id
+                                  :content content}
+                            (contains? body :image) (assoc :image_data image)
+                            (contains? body :tokens_used) (assoc :tokens_used tokens_used)
+                            (true? truncate_after?) (assoc :truncate_after? true))]
+             (-> (response/response (db-api/update-conversation-message! payload))
+                 (response/status 200)))))
+       (catch clojure.lang.ExceptionInfo e
+         (let [{:keys [status]} (ex-data e)]
+           (if status
+             {:status status :body {:error (.getMessage e)}}
+             (server-error e))))
        (catch Exception e
          (if-let [status (:status (ex-data e))]
            {:status status :body {:error (.getMessage e)}}

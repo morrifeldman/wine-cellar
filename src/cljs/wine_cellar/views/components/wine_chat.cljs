@@ -675,64 +675,137 @@
        (reset! original-messages nil)
        (reset! editing-message-id nil)
        (swap! app-state update :chat dissoc :draft-message)
-       (when @message-ref (set! (.-value @message-ref) "")))
-     :handle-commit #(reset! original-messages nil)
-     :is-editing? #(some? @editing-message-id)}))
+     (when @message-ref (set! (.-value @message-ref) "")))
+    :handle-commit #(reset! original-messages nil)
+    :is-editing? #(some? @editing-message-id)}))
+
+(defn- api-message->ui
+  [message]
+  (when message
+    {:id (:id message)
+     :text (:content message)
+     :is-user (:is_user message)
+     :timestamp (some-> (:created_at message)
+                        js/Date.parse
+                        js/Date.)}))
+
+(defn- find-message-index
+  [messages message-id]
+  (->> messages
+       (keep-indexed
+        (fn [idx message]
+          (when (= (:id message) message-id) idx)))
+       first))
+
+(defn- commit-local-edit!
+  [app-state messages editing-message-id message-ref auto-scroll? on-edit-complete is-sending? new-history]
+  (reset! messages new-history)
+  (swap! app-state assoc-in [:chat :messages] new-history)
+  (reset! editing-message-id nil)
+  (when @message-ref
+    (set! (.-value @message-ref) ""))
+  (swap! app-state update :chat dissoc :draft-message)
+  (when auto-scroll?
+    (reset! auto-scroll? true))
+  (when on-edit-complete
+    (on-edit-complete))
+  (reset! is-sending? true))
+
+(defn- remove-deleted-messages!
+  [app-state messages deleted-ids]
+  (when-let [ids (seq deleted-ids)]
+    (let [delete-set (set ids)
+          pruned (swap! messages #(vec (remove (fn [msg]
+                                                 (contains? delete-set (:id msg)))
+                                               %)))]
+      (swap! app-state assoc-in [:chat :messages] pruned))))
+
+(defn- sync-context-if-needed!
+  [app-state wines conversation-id]
+  (when (and (integer? conversation-id) wines)
+    (sync-conversation-context! app-state wines conversation-id)))
+
+(defn- enqueue-ai-followup!
+  [app-state messages message-text wines include? auto-scroll? is-sending?]
+  (let [history @messages]
+    (send-chat-message
+     app-state
+     message-text
+     wines
+     include?
+     history
+     (fn [response]
+       (let [ai-message {:id (random-uuid)
+                         :text response
+                         :is-user false
+                         :timestamp (.getTime (js/Date.))}]
+         (swap! messages conj ai-message)
+         (swap! app-state assoc-in [:chat :messages] @messages)
+         (when auto-scroll?
+           (reset! auto-scroll? true))
+         (persist-conversation-message!
+          app-state
+          wines
+          {:is_user false :content response}
+          (fn [conversation-id]
+            (when conversation-id
+              (api/update-conversation-provider!
+               app-state
+               conversation-id
+               (get-in @app-state [:ai :provider])))
+            (api/load-conversations! app-state {:force? true})))
+         (reset! is-sending? false))))))
+
+(defn- apply-server-edit!
+  [app-state messages message-idx {:keys [message deleted-message-ids] :as data}]
+  (when-let [sanitized (api-message->ui message)]
+    (let [updated (swap! messages #(assoc (vec %) message-idx sanitized))]
+      (swap! app-state assoc-in [:chat :messages] updated)))
+  (remove-deleted-messages! app-state messages deleted-message-ids)
+  data)
 
 (defn- handle-edit-send
   [app-state editing-message-id message-ref messages is-sending? auto-scroll? on-edit-complete]
   (when @message-ref
     (let [message-text (.-value @message-ref)]
-      (if-let [message-idx (->> @messages
-                                (keep-indexed
-                                 #(when (= (:id %2) @editing-message-id) %1))
-                                first)]
-        (let [updated-message (assoc (nth @messages message-idx) :text message-text)]
-          (reset! messages (conj (vec (take message-idx @messages))
-                                 updated-message))
-          (reset! editing-message-id nil)
-          (set! (.-value @message-ref) "")
-          (swap! app-state update :chat dissoc :draft-message)
-          (when auto-scroll?
-            (reset! auto-scroll? true))
-          (when on-edit-complete (on-edit-complete))
-          (reset! is-sending? true)
-          (let [include? (get-in @app-state [:chat :include-visible-wines?] true)
-                wines (context-wines app-state)]
-            (persist-conversation-message!
-             app-state
-             wines
-             {:is_user true
-              :content (or (:text updated-message) "")}
-             (fn [conversation-id]
-               (sync-conversation-context! app-state wines conversation-id)))
-            (send-chat-message
-             app-state
-             (:text updated-message)
-             wines
-             include?
-             @messages
-             (fn [response]
-               (let [ai-message {:id (random-uuid)
-                                 :text response
-                                 :is-user false
-                                 :timestamp (.getTime (js/Date.))}]
-                 (swap! messages conj ai-message)
-                 (swap! app-state assoc-in [:chat :messages] @messages)
-                 (when auto-scroll?
-                   (reset! auto-scroll? true))
-                 (persist-conversation-message!
-                  app-state
-                  wines
-                  {:is_user false :content response}
-                  (fn [conversation-id]
-                    (when conversation-id
-                      (api/update-conversation-provider!
-                       app-state
-                       conversation-id
-                       (get-in @app-state [:ai :provider])))
-                    (api/load-conversations! app-state {:force? true})))
-                 (reset! is-sending? false))))))
+      (if-let [message-idx (find-message-index @messages @editing-message-id)]
+        (let [current @messages
+              original-message (nth current message-idx)
+              updated-local (assoc original-message :text message-text)
+              new-history (conj (vec (take message-idx current)) updated-local)
+              include? (get-in @app-state [:chat :include-visible-wines?] true)
+              wines (context-wines app-state)
+              conversation-id (get-in @app-state [:chat :active-conversation-id])
+              message-db-id (:id original-message)]
+          (commit-local-edit! app-state messages editing-message-id message-ref auto-scroll? on-edit-complete is-sending? new-history)
+          (let [follow-up #(enqueue-ai-followup! app-state messages message-text wines include? auto-scroll? is-sending?)
+                handle-update-success
+                (fn [data]
+                  (apply-server-edit! app-state messages message-idx data)
+                  (sync-context-if-needed! app-state wines conversation-id)
+                  (follow-up))
+                handle-update-error
+                (fn [error-msg]
+                  (reset! is-sending? false)
+                  (swap! app-state assoc-in [:chat :error] error-msg)
+                  (when (integer? conversation-id)
+                    (api/fetch-conversation-messages! app-state conversation-id)))]
+            (if (and (integer? conversation-id) (integer? message-db-id))
+              (api/update-conversation-message!
+               app-state
+               conversation-id
+               message-db-id
+               {:content message-text
+                :truncate_after? true}
+               (fn [{:keys [success data error]}]
+                 (if success
+                   (handle-update-success data)
+                   (handle-update-error (or error "Failed to update message")))))
+              (do
+                (tap> ["conversation-message-update-skipped"
+                       {:conversation-id conversation-id
+                        :message-id message-db-id}])
+                (follow-up)))))
         (do (reset! editing-message-id nil)
             (set! (.-value @message-ref) "")
             (swap! app-state update :chat dissoc :draft-message)

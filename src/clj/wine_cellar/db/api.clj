@@ -194,6 +194,71 @@
        db-opts)
       (db-conversation-message->message inserted))))
 
+(defn- refresh-conversation-metadata!
+  "Recalculate and persist the aggregate metadata for a conversation.
+   Returns the updated conversation map."
+  [tx conversation-id]
+  (let [{:keys [total_tokens last_created_at]}
+        (jdbc/execute-one!
+         tx
+         (sql/format {:select [[[:coalesce [:sum :tokens_used] 0] :total_tokens]
+                                [[:max :created_at] :last_created_at]]
+                      :from :ai_conversation_messages
+                      :where [:= :conversation_id conversation-id]})
+         db-opts)
+        metadata {:total_tokens_used total_tokens
+                  :updated_at [:now]
+                  :last_message_at (or last_created_at [:now])}]
+    (some->
+     (jdbc/execute-one!
+      tx
+      (sql/format {:update :ai_conversations
+                   :set metadata
+                   :where [:= :id conversation-id]
+                   :returning :*})
+      db-opts)
+     db-conversation->conversation)))
+
+(defn update-conversation-message!
+  "Update an existing conversation message and optionally truncate later messages.
+   Returns the updated message, any deleted message ids, and the refreshed conversation."
+  [{:keys [conversation_id message_id content image_data tokens_used truncate_after?] :as opts}]
+  (jdbc/with-transaction
+    [tx ds]
+    (let [set-map (cond-> {:content content}
+                    (contains? opts :image_data)
+                    (assoc :image_data (base64->bytes image_data))
+                    (contains? opts :tokens_used)
+                    (assoc :tokens_used tokens_used))
+          updated-row (jdbc/execute-one!
+                       tx
+                       (sql/format {:update :ai_conversation_messages
+                                    :set set-map
+                                    :where [:and
+                                            [:= :id message_id]
+                                            [:= :conversation_id conversation_id]]
+                                    :returning :*})
+                       db-opts)
+          updated (some-> updated-row db-conversation-message->message)]
+      (when-not updated
+        (throw (ex-info "Conversation message not found"
+                        {:status 404
+                         :conversation-id conversation_id
+                         :message-id message_id})))
+      (let [deleted (when truncate_after?
+                      (jdbc/execute!
+                       tx
+                       (sql/format {:delete-from :ai_conversation_messages
+                                    :where [:and
+                                            [:= :conversation_id conversation_id]
+                                            [:> :id message_id]]
+                                    :returning [:id :tokens_used]})
+                       db-opts))
+            conversation (refresh-conversation-metadata! tx conversation_id)]
+        {:message updated
+         :deleted-message-ids (vec (map :id deleted))
+         :conversation conversation}))))
+
 (defn list-messages-for-conversation
   [conversation-id]
   (jdbc/execute!
