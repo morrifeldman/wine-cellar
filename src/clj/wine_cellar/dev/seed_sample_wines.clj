@@ -2,6 +2,7 @@
   "Populate the database with a diverse set of wines for local testing."
   (:require [honey.sql :as sql]
             [next.jdbc :as jdbc]
+            [mount.core :as mount]
             [wine-cellar.db.api :as db]
             [wine-cellar.db.connection :refer [ds db-opts]]))
 
@@ -438,7 +439,50 @@
     :varieties [{:name "Nebbiolo" :percentage 100.0M}]
     :tasting-notes [{:tasting_date "2024-07-08"
                      :rating 92
-                     :notes "Rose petal, sour cherry and savory spice with vibrant tension."}]}])
+                     :notes "Rose petal, sour cherry and savory spice with vibrant tension."}]}
+   {:wine {:producer "Domaines Ott"
+           :name "By.Ott Rosé"
+           :vintage 2023
+           :country "France"
+           :region "Côtes de Provence"
+           :style "Rosé"
+           :closure_type "Technical cork"
+           :price 28.00M
+           :quantity 9
+           :original_quantity 12
+           :purchase_date "2024-05-25"
+           :drink_from_year 2024
+           :drink_until_year 2026
+           :location "H3"
+           :purveyor "K&L Wines"
+           :tasting_window_commentary "Citrus peel, peach and sea spray; chill and pour on warm evenings."}
+    :varieties [{:name "Grenache" :percentage 50.0M}
+                {:name "Cinsault" :percentage 30.0M}
+                {:name "Syrah" :percentage 20.0M}]
+    :tasting-notes [{:tasting_date "2024-06-21"
+                     :rating 90
+                     :notes "Wild strawberry, grapefruit zest and a saline snap keep it refreshing."}]}
+   {:wine {:producer "Cleto Chiarli"
+           :name "Lambrusco del Fondatore"
+           :vintage 2022
+           :country "Italy"
+           :region "Emilia-Romagna"
+           :style "Red Sparkling"
+           :closure_type "Crown cap"
+           :price 26.00M
+           :quantity 8
+           :original_quantity 12
+           :purchase_date "2024-08-12"
+           :drink_from_year 2024
+           :drink_until_year 2027
+           :location "H4"
+           :purveyor "Chambers Street"
+           :tasting_window_commentary "Dry, frothy Lambrusco with dark berry fruit and savory herbs."}
+    :varieties [{:name "Lambrusco di Sorbara" :percentage 60.0M}
+                {:name "Lambrusco Grasparossa" :percentage 40.0M}]
+    :tasting-notes [{:tasting_date "2024-09-18"
+                     :rating 91
+                     :notes "Black cherry, violet and a hint of balsamic—peppery sparkle keeps it lifted."}]}])
 
 (defn find-wine-id
   [{:keys [producer name vintage]}]
@@ -529,4 +573,8 @@
 
 (defn -main
   [& _]
-  (seed!))
+  (mount/start #'wine-cellar.db.connection/ds)
+  (try
+    (seed!)
+    (finally
+      (mount/stop #'wine-cellar.db.connection/ds))))

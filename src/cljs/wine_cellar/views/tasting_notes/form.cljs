@@ -4,6 +4,7 @@
             [reagent-mui.material.text-field :as mui-text-field]
             [wine-cellar.api :as api]
             [wine-cellar.utils.formatting :refer [format-date-iso]]
+            [wine-cellar.common :as common]
             [wine-cellar.views.components.form :refer
              [checkbox-field date-field form-actions form-container form-row
               number-field select-field]]
@@ -82,13 +83,8 @@
            current-wine (first (filter #(= (:id %) wine-id)
                                        (:wines @app-state)))
            wine-style (get current-wine :style "Red")
-           wset-style (case wine-style
-                        "White" "WHITE"
-                        "Rosé" "ROSE"
-                        "Red" "RED"
-                        "Sparkling" "SPARKLING"
-                        "Fortified" "FORTIFIED"
-                        "RED") ; default fallback
+           style-info (common/style->info wine-style)
+           wset-style (:wset-style style-info)
            is-external (boolean (:is_external updated-note))
            {:keys [editing? editing-note-id editing-note submitting?]}
            form-state]
@@ -173,32 +169,35 @@
            :on-change
            #(if (get-in updated-note [:wset_data :note_type])
               ;; Remove WSET data completely
-              (do (swap! app-state assoc-in [:new-tasting-note :wset_data] nil)
-                  (reset! wset-expanded? false))
+              (do
+                (swap! app-state assoc-in [:new-tasting-note :wset_data] nil)
+                (reset! wset-expanded? false))
               ;; Initialize WSET data and expand
-              (do (swap! app-state assoc-in
-                    [:new-tasting-note :wset_data]
-                    {:note_type "wset_level_3"
-                     :version "1.0"
-                     :wset_wine_style wset-style
-                     :appearance {}
-                     :nose {}
-                     :palate {}
-                     :conclusions {}})
-                  (reset! wset-expanded? true)))}]]
+              (let [default-appearance {:colour (or (:default-color style-info) :garnet)
+                                        :intensity (or (:default-intensity style-info) :medium)}]
+                (swap! app-state assoc-in
+                       [:new-tasting-note :wset_data]
+                       {:note_type "wset_level_3"
+                        :version "1.0"
+                        :wset_wine_style wset-style
+                        :appearance default-appearance
+                        :nose {}
+                        :palate {}
+                        :conclusions {}})
+                (reset! wset-expanded? true)))}]]
         ;; WSET Content (only shown when enabled)
         (when (get-in updated-note [:wset_data :note_type])
           [form-row
            [grid {:container true :spacing 2}
             ;; Appearance Section
             [grid {:item true :xs 12}
-             [wset-appearance-section
-              {:appearance (get-in updated-note [:wset_data :appearance] {})
-               :wine-style wset-style
-               :other-observations-ref other-observations-ref
-               :on-change #(swap! app-state assoc-in
-                             [:new-tasting-note :wset_data :appearance]
-                             %)}]]
+            [wset-appearance-section
+             {:appearance (get-in updated-note [:wset_data :appearance] {})
+              :style-info style-info
+              :other-observations-ref other-observations-ref
+              :on-change #(swap! app-state assoc-in
+                            [:new-tasting-note :wset_data :appearance]
+                            %)}]]
             ;; Nose Section
             [grid {:item true :xs 12}
              [wset-nose-section
@@ -209,14 +208,14 @@
                              %)}]]
             ;; Palate Section
             [grid {:item true :xs 12}
-             [wset-palate-section
-              {:palate (get-in updated-note [:wset_data :palate] {})
-               :wine-style (get-in updated-note [:wset_data :wset_wine_style])
-               :other-observations-ref palate-observations-ref
-               :nose (get-in updated-note [:wset_data :nose] {})
-               :on-change #(swap! app-state assoc-in
-                             [:new-tasting-note :wset_data :palate]
-                             %)}]]
+            [wset-palate-section
+             {:palate (get-in updated-note [:wset_data :palate] {})
+              :style-info style-info
+              :other-observations-ref palate-observations-ref
+              :nose (get-in updated-note [:wset_data :nose] {})
+              :on-change #(swap! app-state assoc-in
+                            [:new-tasting-note :wset_data :palate]
+                            %)}]]
             ;; Conclusions Section
             [grid {:item true :xs 12}
              [wset-conclusions-section

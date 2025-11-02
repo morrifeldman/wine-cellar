@@ -1,4 +1,5 @@
-(ns wine-cellar.common)
+(ns wine-cellar.common
+  (:require [clojure.string :as str]))
 
 (def ai-providers #{:anthropic :openai})
 
@@ -11,8 +12,85 @@
     nil "..."))
 
 (def wine-styles
-  #{"Red" "White" "Rosé" "Sparkling" "Rosé Sparkling" "Fortified" "Orange"
-    "Dessert"})
+  #{"Red" "White" "Rosé" "Sparkling" "Rosé Sparkling" "Red Sparkling"
+    "Fortified" "Orange" "Dessert"})
+
+(def ^:private default-style-key "red")
+
+(def ^:private style-metadata
+  {"red" {:canonical "Red"
+           :palette :red
+           :wset-style "RED"
+           :default-color :garnet
+           :default-intensity :medium}
+   "white" {:canonical "White"
+             :palette :white
+             :wset-style "WHITE"
+             :default-color :amber
+             :default-intensity :medium}
+   "rosé" {:canonical "Rosé"
+            :palette :rose
+            :wset-style "ROSE"
+            :default-color :copper
+            :default-intensity :medium}
+   "rose" {:canonical "Rosé"
+            :palette :rose
+            :wset-style "ROSE"
+            :default-color :copper
+            :default-intensity :medium}
+   "sparkling" {:canonical "Sparkling"
+                :palette :white
+                :wset-style "SPARKLING"
+                :default-color :amber
+                :default-intensity :medium}
+   "red sparkling" {:canonical "Red Sparkling"
+                    :palette :red
+                    :wset-style "SPARKLING"
+                    :default-color :garnet
+                    :default-intensity :medium}
+   "rosé sparkling" {:canonical "Rosé Sparkling"
+                     :palette :rose
+                     :wset-style "SPARKLING"
+                      :default-color :copper
+                      :default-intensity :medium}
+   "rose sparkling" {:canonical "Rosé Sparkling"
+                      :palette :rose
+                      :wset-style "SPARKLING"
+                      :default-color :copper
+                      :default-intensity :medium}
+   "fortified" {:canonical "Fortified"
+                 :palette :red
+                 :wset-style "FORTIFIED"
+                 :default-color :garnet
+                 :default-intensity :medium}
+   "orange" {:canonical "Orange"
+              :palette :white
+              :wset-style "WHITE"
+              :default-color :amber
+              :default-intensity :medium}
+   "dessert" {:canonical "Dessert"
+               :palette :white
+               :wset-style "WHITE"
+               :default-color :amber
+               :default-intensity :medium}})
+
+(defn normalize-style-key
+  "Normalize a wine style string for lookup."
+  [style]
+  (when style
+    (-> style str/trim str/lower-case (str/replace #"\s+" " "))))
+
+(defn style->info
+  "Return metadata for a wine style, including canonical label, palette category, default color and WSET style code. Falls back to red when style is unknown."
+  [style]
+  (let [style-key (normalize-style-key style)
+        info (or (get style-metadata style-key)
+                 (get style-metadata default-style-key))]
+    (if info
+      (cond-> info
+        (and (not (get style-metadata style-key)) style)
+        (assoc :canonical (or style (:canonical info))))
+      (get style-metadata default-style-key))))
 
 (def wine-levels
   #{"Joven" "Crianza" "Reserva" "Gran Reserva" ; Rioja

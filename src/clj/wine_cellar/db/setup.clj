@@ -46,6 +46,7 @@
   ([] (jdbc/with-transaction [tx ds] (ensure-tables tx)))
   ([tx]
    (sql-execute-helper tx schema/create-wine-style-type)
+   (sql-execute-helper tx schema/ensure-red-sparkling-style)
    (sql-execute-helper tx schema/create-wine-level-type)
    (sql-execute-helper tx schema/classifications-table-schema)
     (sql-execute-helper tx schema/wines-table-schema)

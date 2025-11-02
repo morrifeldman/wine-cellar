@@ -34,7 +34,7 @@
 
 (defn wset-appearance-section
   "WSET Level 3 Appearance section component"
-  [{:keys [appearance wine-style on-change other-observations-ref]}]
+  [{:keys [appearance style-info on-change other-observations-ref]}]
   (r/with-let
    [expanded? (r/atom true)]
    (let [update-field (fn [field value]
@@ -64,15 +64,15 @@
            :options (get-in wset-lexicon [:enums :clarity])
            :on-change #(update-field :clarity %)}]
          ;; Wine Color (Wine Folly colors with separate intensity)
-         [grid {:item true :xs 12}
-          [wine-color-selector
-           {:wine-style wine-style
-            :selected-color (:colour appearance)
-            :selected-intensity (:intensity appearance)
-            :on-change (fn [{:keys [color intensity]}]
-                         (on-change (-> appearance
-                                        (assoc :colour color)
-                                        (assoc :intensity intensity))))}]]
+        [grid {:item true :xs 12}
+         [wine-color-selector
+          {:style-info style-info
+           :selected-color (:colour appearance)
+           :selected-intensity (:intensity appearance)
+           :on-change (fn [{:keys [color intensity]}]
+                        (on-change (-> appearance
+                                       (assoc :colour color)
+                                       (assoc :intensity intensity))))}]]
          ;; Other Observations
          [grid {:item true :xs 12}
           [uncontrolled-text-area-field

@@ -1,10 +1,10 @@
 (ns wine-cellar.views.components.wine-color
-  (:require [clojure.string :as str]
-            [reagent-mui.material.box :refer [box]]
+  (:require [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.form-control :refer [form-control]]
             [reagent-mui.material.form-label :refer [form-label]]
             [reagent-mui.material.slider :refer [slider]]
-            [reagent-mui.material.typography :refer [typography]]))
+            [reagent-mui.material.typography :refer [typography]]
+            [wine-cellar.common :as common]))
 
 ;; Wine Folly colors extracted from poster
 (def wine-folly-colors
@@ -54,35 +54,12 @@
 
 (def intensities [:deep :medium :pale])
 
-;; Organized by wine style (full Wine Folly colors)
-(def colors-by-style
-  {:white [:pale-straw :medium-straw :deep-straw :pale-yellow :medium-yellow
-           :deep-yellow :pale-gold :medium-gold :deep-gold :pale-brown
-           :medium-brown :deep-brown :pale-amber :medium-amber :deep-amber]
-   :rose [:pale-salmon :medium-salmon :deep-salmon :pale-pink :medium-pink
-          :deep-pink :pale-copper :medium-copper :deep-copper]
-   :red [:pale-ruby :medium-ruby :deep-ruby :pale-purple :medium-purple
-         :deep-purple :pale-garnet :medium-garnet :deep-garnet :pale-tawny
-         :medium-tawny :deep-tawny]})
-
 (defn get-base-colors
   "Get available base colors for a wine style"
-  [wine-style]
-  (when wine-style
-    (case (keyword (str/lower-case wine-style))
-      :white (:white base-colors-by-style)
-      :red (:red base-colors-by-style)
-      :rosé (:rose base-colors-by-style)
-      :rose (:rose base-colors-by-style)
-      :sparkling (:white base-colors-by-style) ; use white colors for
-                                               ; sparkling
-      (:rosé-sparkling :rose-sparkling) (:rose base-colors-by-style) ; use rosé
-                                                                     ; colors
-                                                                     ; for
-                                                                     ; sparkling
-                                                                     ; rosé
-      :fortified (:red base-colors-by-style) ; map fortified to red
-      [])))
+  [style-info wine-style]
+  (let [info (or style-info (common/style->info wine-style))
+        palette (:palette info)]
+    (get base-colors-by-style palette [])))
 
 (defn get-color-hex
   "Get hex color for base color and intensity"
@@ -93,29 +70,33 @@
 
 (defn wine-color-selector
   "Wine color selection component with Wine Folly colors"
-  [{:keys [wine-style selected-color selected-intensity on-change]}]
-  (let [available-colors (get-base-colors wine-style)
-        default-color (if (= wine-style "RED") :garnet (first available-colors))
-        default-intensity :medium
-        selected-color (or selected-color default-color)
-        selected-intensity (or selected-intensity default-intensity)
-        color-index (when selected-color
-                      (.indexOf available-colors selected-color))
-        intensity-index (when selected-intensity
-                          (.indexOf intensities selected-intensity))
-        current-hex (get-color-hex selected-color selected-intensity)]
+  [{:keys [style-info wine-style selected-color selected-intensity on-change]}]
+  (let [info (or style-info (common/style->info wine-style))
+        available-colors (get-base-colors info wine-style)
+        default-color (or (:default-color info) (first available-colors))
+        default-intensity (or (:default-intensity info) :medium)
+        current-color (or selected-color default-color)
+        current-intensity (or selected-intensity default-intensity)
+        color-index (when current-color
+                      (.indexOf available-colors current-color))
+        intensity-index (when current-intensity
+                          (.indexOf intensities current-intensity))
+        current-hex (get-color-hex current-color current-intensity)]
     (if (empty? available-colors)
       [typography {:variant "body2" :color "text.secondary"}
        "Color selection not available for this wine style"]
       [form-control {:sx {:width "100%"}}
        [form-label {:sx {:mb 2 :fontWeight "bold"}} "Wine Color"]
        [box
-        {:sx
-         {:display "flex" :alignItems "center" :gap 4 :justifyContent "center"}}
-        ;; Left slider - Color
+        {:sx {:display "flex"
+              :alignItems "center"
+              :gap 4
+              :justifyContent "center"}}
         [box
-         {:sx
-          {:display "flex" :flexDirection "column" :alignItems "center" :gap 1}}
+         {:sx {:display "flex"
+               :flexDirection "column"
+               :alignItems "center"
+               :gap 1}}
          [typography {:variant "body2"} "Color"]
          [slider
           {:orientation "vertical"
@@ -131,9 +112,7 @@
                        (let [new-color (nth available-colors value)]
                          (when on-change
                            (on-change {:color new-color
-                                       :intensity (or selected-intensity
-                                                      :medium)}))))}]]
-        ;; Center - Wine glass with white background
+                                       :intensity current-intensity}))))}]]
         [box
          {:sx {:display "flex"
                :flexDirection "column"
@@ -144,7 +123,6 @@
                :borderRadius 2
                :boxShadow "0 2px 8px rgba(0,0,0,0.1)"
                :border "1px solid #e0e0e0"}}
-         ;; Wine glass
          [box
           {:sx {:width 60
                 :height 80
@@ -154,20 +132,20 @@
                 :position "relative"
                 :boxShadow "inset 0 2px 4px rgba(0,0,0,0.1)"
                 :clipPath "polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)"}}]
-         ;; Color info
          (when current-hex
            [typography
             {:variant "caption"
              :sx {:textAlign "center" :fontFamily "monospace"}} current-hex])
-         (when (and selected-color selected-intensity)
+         (when (and current-color current-intensity)
            [typography
             {:variant "body2"
              :sx {:textAlign "center" :textTransform "capitalize"}}
-            (str (name selected-intensity) " " (name selected-color))])]
-        ;; Right slider - Intensity
+            (str (name current-intensity) " " (name current-color))])]
         [box
-         {:sx
-          {:display "flex" :flexDirection "column" :alignItems "center" :gap 1}}
+         {:sx {:display "flex"
+               :flexDirection "column"
+               :alignItems "center"
+               :gap 1}}
          [typography {:variant "body2"} "Intensity"]
          [slider
           {:orientation "vertical"
@@ -183,8 +161,7 @@
            :onChange (fn [_ value]
                        (let [new-intensity (nth intensities value)]
                          (when on-change
-                           (on-change {:color (or selected-color
-                                                  (first available-colors))
+                           (on-change {:color current-color
                                        :intensity new-intensity}))))}]]]])))
 
 (defn wine-color-display

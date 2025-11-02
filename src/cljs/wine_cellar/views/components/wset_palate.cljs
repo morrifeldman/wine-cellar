@@ -35,7 +35,7 @@
 
 (defn wset-palate-section
   "WSET Level 3 Palate Assessment Component"
-  [{:keys [palate wine-style on-change other-observations-ref nose]}]
+  [{:keys [palate style-info on-change other-observations-ref nose]}]
   (r/with-let
    [expanded? (r/atom false)]
    (let [update-field (fn [field value] (on-change (assoc palate field value)))]
@@ -72,7 +72,7 @@
             :options (get-in wset-lexicon [:enums :acidity])
             :on-change #(update-field :acidity %)}]]
          ;; Tannin (only for reds)
-         (when (#{"RED"} wine-style)
+         (when (= "RED" (:wset-style style-info))
            [grid {:item true :xs 12 :sm 6}
             [radio-group-field
              {:label "Tannin"
