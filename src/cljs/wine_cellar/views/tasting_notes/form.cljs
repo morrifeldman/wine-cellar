@@ -177,13 +177,13 @@
                                         :intensity (or (:default-intensity style-info) :medium)}]
                 (swap! app-state assoc-in
                        [:new-tasting-note :wset_data]
-                       {:note_type "wset_level_3"
-                        :version "1.0"
-                        :wset_wine_style wset-style
-                        :appearance default-appearance
-                        :nose {}
-                        :palate {}
-                        :conclusions {}})
+                        {:note_type "wset_level_3"
+                         :version "1.0"
+                         :wset_wine_style wset-style
+                         :appearance default-appearance
+                         :nose {}
+                         :palate {}
+                         :conclusions {}})
                 (reset! wset-expanded? true)))}]]
         ;; WSET Content (only shown when enabled)
         (when (get-in updated-note [:wset_data :note_type])
@@ -199,9 +199,9 @@
                             [:new-tasting-note :wset_data :appearance]
                             %)}]]
             ;; Nose Section
-            [grid {:item true :xs 12}
-             [wset-nose-section
-              {:nose (get-in updated-note [:wset_data :nose] {})
+           [grid {:item true :xs 12}
+            [wset-nose-section
+             {:nose (get-in updated-note [:wset_data :nose] {})
                :other-observations-ref nose-observations-ref
                :on-change #(swap! app-state assoc-in
                              [:new-tasting-note :wset_data :nose]

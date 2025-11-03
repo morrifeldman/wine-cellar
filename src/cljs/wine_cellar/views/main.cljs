@@ -254,6 +254,27 @@
   [app-state]
   (let [state @app-state]
     [box {:sx {:p 3 :maxWidth "1200px" :mx "auto"}}
+     (when-let [{:keys [version]} (:update-available state)]
+       [paper
+        {:elevation 3
+         :sx {:p 2 :mb 3 :bgcolor "warning.light" :color "warning.dark"}}
+        [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+         [typography {:variant "body1" :sx {:fontWeight 600}}
+          "A new version of the app is available."]
+         (when version
+           [typography {:variant "body2"}
+            (str "Loaded version will update to " version " when you refresh.")])
+         [box {:sx {:display "flex" :gap 1 :flexWrap "wrap"}}
+          [button
+           {:variant "contained"
+            :color "warning"
+            :onClick #(.reload js/location)}
+           "Reload Now"]
+          [button
+           {:variant "outlined"
+            :color "warning"
+            :onClick #(swap! app-state dissoc :update-available)}
+           "Remind Me Later"]]]])
      (when-let [error (:error state)]
        [paper
         {:elevation 3

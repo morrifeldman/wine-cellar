@@ -68,12 +68,26 @@
 (defonce service-worker-state (atom {:registered? false
                                      :poll-interval nil}))
 
+(defn- notify-update-available!
+  "Record that a newer application bundle is ready so the UI can prompt the user."
+  [version]
+  (swap! app-state
+         (fn [state]
+           (let [current (get-in state [:update-available :version])]
+             (if (= current version)
+               state
+               (assoc state :update-available
+                      {:version version
+                       :notified-at (js/Date.now)}))))))
+
 (defn- handle-sw-message
   [event]
   (when-let [data (.-data event)]
     (when (= "version-update" (gobj/get data "type"))
-      (js/console.info "New app version detected; refreshing…")
-      (.reload js/location))))
+      (let [version (gobj/get data "version")]
+        (js/console.info "New app version detected; prompting user to refresh."
+                         (when version (str "(version " version ")")))
+        (notify-update-available! version)))))
 
 (defn- trigger-version-check
   []
