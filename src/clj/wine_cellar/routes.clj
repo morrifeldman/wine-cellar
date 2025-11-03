@@ -147,7 +147,7 @@
                        ::label_thumbnail ::back_label_image
                        ::drink_from_year ::drink_until_year
                        ::purchase_date ::alcohol_percentage
-                       ::disgorgement_year ::tasting_window_commentary
+                       ::disgorgement_year ::dosage ::tasting_window_commentary
                        ::verified ::ai_summary ::closure_type)]
           :opt-un [::producer ::country ::region ::aoc ::classification
                    ::vineyard ::name ::vintage ::style ::level ::location
