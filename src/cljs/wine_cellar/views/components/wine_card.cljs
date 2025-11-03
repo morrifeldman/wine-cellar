@@ -130,6 +130,17 @@
        (str abv "%")
        "-")]]])
 
+(defn wine-dosage-info
+  [wine]
+  [grid {:item true :xs 6}
+   [box {:sx {:display "flex" :alignItems "center"}}
+    [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
+     "Dosage:"]
+    [typography {:variant "body2"}
+     (if-let [dosage (:dosage wine)]
+       (str (js/Math.round dosage) " g/L")
+       "-")]]])
+
 (defn wine-varieties-info
   [wine]
   [grid {:item true :xs 12}
@@ -154,7 +165,8 @@
   [grid {:container true :spacing 0.5} ;; Reduced spacing
    [wine-region-info wine] [wine-style-info wine]
    [wine-classification-info wine] [wine-location-info wine]
-   [wine-price-info wine] [wine-alcohol-info wine] [wine-varieties-info wine]])
+   [wine-price-info wine] [wine-alcohol-info wine]
+   [wine-dosage-info wine] [wine-varieties-info wine]])
 
 (defn wine-rating-display
   [wine]

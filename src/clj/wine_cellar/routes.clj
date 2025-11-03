@@ -79,6 +79,7 @@
 (s/def ::drink_until_year (s/nilable int?))
 (s/def ::alcohol_percentage (s/nilable number?))
 (s/def ::disgorgement_year (s/nilable int?))
+(s/def ::dosage (s/nilable number?))
 (s/def ::tasting_window_commentary (s/nilable string?))
 (s/def ::verified boolean?)
 (s/def ::ai_summary (s/nilable string?))
@@ -131,7 +132,7 @@
                    ::purveyor ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::vintage ::price
                    ::purchase_date ::alcohol_percentage ::wine_varieties
-                   ::disgorgement_year ::tasting_window_commentary ::verified
+                   ::disgorgement_year ::dosage ::tasting_window_commentary ::verified
                    ::ai_summary ::original_quantity ::closure_type]))
 
 (def wine-update-schema
@@ -153,7 +154,7 @@
                    ::quantity ::original_quantity ::price ::purveyor
                    ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::purchase_date
-                   ::alcohol_percentage ::disgorgement_year
+                   ::alcohol_percentage ::disgorgement_year ::dosage
                    ::tasting_window_commentary ::verified ::ai_summary ::closure_type]))
 
 (def image-update-schema

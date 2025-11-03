@@ -53,6 +53,23 @@
                   [:new-wine :disgorgement_year]
                   (when-not (empty? %) (js/parseInt % 10)))}])
 
+(defn dosage
+  [app-state new-wine]
+  [number-field
+   {:label "Dosage (g/L)"
+    :required false
+    :min 0
+    :step 1
+    :value (when-let [dosage (:dosage new-wine)]
+             (str dosage))
+    :helper-text "Sugar added at disgorgement, in grams per liter"
+    :on-change #(swap! app-state assoc-in
+                  [:new-wine :dosage]
+                  (if (or (nil? %) (str/blank? %))
+                    nil
+                    (let [parsed (js/parseFloat %)]
+                      (if (js/isNaN parsed) nil (js/Math.round parsed)))))}])
+
 (defn drink-from-year
   [app-state new-wine]
   (let [drink-from-year (:drink_from_year new-wine)
@@ -283,6 +300,7 @@
      [form-divider "Vintage"]
      [form-row [vintage app-state new-wine]
       [disgorgement-year app-state new-wine]]
+     [form-row [dosage app-state new-wine]]
      [form-row
       (let [suggesting? (:suggesting-drinking-window? @app-state)
             ready? (and (:producer new-wine)

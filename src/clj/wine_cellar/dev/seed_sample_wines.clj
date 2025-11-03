@@ -156,6 +156,7 @@
            :drink_from_year 2022
            :drink_until_year 2028
            :disgorgement_year 2021
+           :dosage 8M
            :location "B2"
            :purveyor "Envoyer"
            :tasting_window_commentary "Fresh strawberries, chalk, and a creamy mousse."}
@@ -165,7 +166,7 @@
    :tasting-notes [{:tasting_date "2024-02-14"
                     :rating 94
                     :notes "Wild berries, citrus peel and brioche. Ultra-fine bubbles."}]}
-   {:wine {:producer "Jacquesson"
+  {:wine {:producer "Jacquesson"
            :name "Cuvée 746"
            :vintage nil
            :country "France"
@@ -181,6 +182,7 @@
            :location "B3"
            :purveyor "Flatiron"
            :disgorgement_year 2023
+           :dosage 2M
            :tasting_window_commentary "Disgorged May 2023; tense citrus, chalk and toasted brioche."}
     :varieties [{:name "Chardonnay" :percentage 57.0M}
                 {:name "Pinot Noir" :percentage 28.0M}
@@ -477,6 +479,7 @@
            :drink_until_year 2027
            :location "H4"
            :purveyor "Chambers Street"
+           :dosage 15M
            :tasting_window_commentary "Dry, frothy Lambrusco with dark berry fruit and savory herbs."}
     :varieties [{:name "Lambrusco di Sorbara" :percentage 60.0M}
                 {:name "Lambrusco Grasparossa" :percentage 40.0M}]

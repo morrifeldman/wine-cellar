@@ -45,7 +45,8 @@
     [:original_quantity :integer] [:price :decimal [10 2]]
     [:purchase_date :date] [:drink_from_year :integer]
     [:drink_until_year :integer] [:alcohol_percentage :decimal [4 2]]
-    [:disgorgement_year :integer] [:tasting_window_commentary :text]
+    [:disgorgement_year :integer] [:dosage :decimal [6 2]]
+    [:tasting_window_commentary :text]
     [:verified :boolean [:default false]] [:ai_summary :text]
     [:label_image :bytea] [:label_thumbnail :bytea] [:back_label_image :bytea]
     [[:constraint :valid_tasting_window]
@@ -59,6 +60,10 @@
 (def wines-add-closure-type-column
   {:raw
    ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS closure_type varchar"]})
+
+(def wines-add-dosage-column
+  {:raw
+   ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS dosage decimal(6,2)"]})
 
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]

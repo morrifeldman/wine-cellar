@@ -125,6 +125,34 @@
                        :InputProps {:endAdornment "%"}
                        :helperText "e.g., 13.5 for 13.5% ABV"}}])
 
+(defn editable-dosage
+  [app-state wine]
+  [editable-text-field
+   {:value (when-let [dosage (:dosage wine)]
+             (str (js/Math.round dosage)))
+    :on-save (fn [new-value]
+               (let [trimmed (str/trim new-value)]
+                 (if (str/blank? trimmed)
+                   (api/update-wine app-state (:id wine) {:dosage nil})
+                   (let [parsed (js/parseFloat trimmed)]
+                     (when-not (js/isNaN parsed)
+                       (api/update-wine app-state
+                                        (:id wine)
+                                        {:dosage (js/Math.round parsed)}))))))
+    :validate-fn (fn [value]
+                   (let [trimmed (str/trim (or value ""))]
+                     (cond (str/blank? trimmed) nil
+                           :else (let [parsed (js/parseFloat trimmed)]
+                                   (cond (js/isNaN parsed) "Dosage must be a number"
+                                         (< parsed 0) "Dosage cannot be negative"
+                                         (> parsed 200) "Dosage must be ≤ 200 g/L"
+                                         :else nil)))))
+    :empty-text "Add dosage"
+    :compact? true
+    :text-field-props {:type "number"
+                       :step "1"
+                       :InputProps {:endAdornment "g/L"}}}])
+
 (defn editable-disgorgement-year
   [app-state wine]
   [editable-text-field
@@ -634,9 +662,10 @@
       ["Purchase Date" [editable-purchase-date app-state wine]]]]]
    ;; Vintage Info: Vintage + Disgorgement Year
    [grid {:item true :xs 12 :md 6}
-    [inline-field-group
+   [inline-field-group
      [["Vintage" [editable-vintage app-state wine]]
-      ["Disgorgement Year" [editable-disgorgement-year app-state wine]]]]]])
+      ["Disgorgement Year" [editable-disgorgement-year app-state wine]]
+      ["Dosage (g/L)" [editable-dosage app-state wine]]]]]])
 
 (defn wine-tasting-window-suggestion-buttons
   [app-state wine]
