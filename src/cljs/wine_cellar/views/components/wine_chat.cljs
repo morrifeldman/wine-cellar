@@ -1077,9 +1077,6 @@
             filter-count-info {:visible visible-count :total total-count}
             filter-panel (when (and include-visible? (pos? context-count))
                            (wine-filters/compact-filter-bar app-state filter-count-info))
-            select-conversation! (fn [conversation]
-                                   (reset! auto-scroll? false)
-                                   (open-conversation! app-state messages conversation false))
             toggle-sidebar! (fn []
                               (let [opening? (not sidebar-open?)]
                                 (if opening?
@@ -1101,6 +1098,13 @@
                                 (when opening?
                                   (reset! auto-scroll? false))
                                 (swap! app-state update-in [:chat :sidebar-open?] not)))
+            select-conversation! (fn [{:keys [id] :as conversation}]
+                                   (let [already-active? (= id active-id)]
+                                     (reset! auto-scroll? false)
+                                     (open-conversation! app-state messages conversation false)
+                                     (when (and already-active?
+                                                sidebar-open?)
+                                       (toggle-sidebar!))))
             sidebar (conversation-sidebar app-state
                                           messages
                                           {:open? sidebar-open?
