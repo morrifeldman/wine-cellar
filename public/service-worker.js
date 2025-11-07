@@ -85,6 +85,7 @@ const applyVersion = async (nextVersion, { notifyClients }) => {
     await ensureActiveCache();
     return false;
   }
+  await ensureActiveCache();
   if (nextVersion === activeVersion) {
     return false;
   }
