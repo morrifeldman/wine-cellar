@@ -14,19 +14,15 @@
   [coll]
   (when coll
     (let [format-item (fn [item]
-                        (cond
-                          (string? item)
-                          (str "\""
-                               (-> item
-                                   (str/replace "\\" "\\\\")
-                                   (str/replace "\"" "\\\""))
-                               "\"")
-                          (keyword? item) (recur (name item))
-                          :else (str item)))
+                        (cond (string? item) (str "\""
+                                                  (-> item
+                                                      (str/replace "\\" "\\\\")
+                                                      (str/replace "\"" "\\\""))
+                                                  "\"")
+                              (keyword? item) (recur (name item))
+                              :else (str item)))
           items (map format-item (remove nil? coll))]
-      {:raw (str "'{"
-                 (str/join "," items)
-                 "}'")})))
+      {:raw (str "'{" (str/join "," items) "}'")})))
 
 (defn sql-cast [sql-type field] [:cast field sql-type])
 
@@ -77,33 +73,31 @@
     (contains? conversation :provider)
     (update :provider
             (fn [value]
-              (cond
-                (keyword? value) (name value)
-                (string? value) (str/lower-case value)
-                (nil? value) nil
-                :else (str value))))
-    wine_search_state
-    (update :wine_search_state
-            #(sql-cast :jsonb (json/write-value-as-string %)))))
+              (cond (keyword? value) (name value)
+                    (string? value) (str/lower-case value)
+                    (nil? value) nil
+                    :else (str value))))
+    wine_search_state (update :wine_search_state
+                              #(sql-cast :jsonb
+                                         (json/write-value-as-string %)))))
 
 (defn conversation-message->db-message
   [{:keys [image_data] :as message}]
-  (cond-> message
-    image_data (update :image_data base64->bytes)))
+  (cond-> message image_data (update :image_data base64->bytes)))
 
 (defn db-conversation-message->message
   [{:keys [image_data] :as message}]
-  (cond-> message
-    image_data (update :image_data bytes->base64)))
+  (cond-> message image_data (update :image_data bytes->base64)))
 
 (defn db-conversation->conversation
   [conversation]
   (cond-> conversation
-    (contains? conversation :provider)
-    (update :provider
-            (fn [value]
-              (when value
-                (-> value str/lower-case keyword))))))
+    (contains? conversation :provider) (update :provider
+                                               (fn [value]
+                                                 (when value
+                                                   (-> value
+                                                       str/lower-case
+                                                       keyword))))))
 
 (defn db-wine->wine
   [{:keys [label_image label_thumbnail back_label_image] :as db-wine}]
@@ -125,26 +119,23 @@
                       (sql/format {:insert-into :wines
                                    :values [(wine->db-wine wine)]
                                    :returning :*})
-                     db-opts)))
+                      db-opts)))
 
 (defn create-conversation!
-  "Create a new AI conversation row." 
-  ([conversation]
-   (create-conversation! ds conversation))
+  "Create a new AI conversation row."
+  ([conversation] (create-conversation! ds conversation))
   ([tx-or-ds {:keys [user_email] :as conversation}]
    (assert user_email "user_email is required to create a conversation")
    (let [db-row (-> conversation
                     (dissoc :user_email)
                     (conversation->db-conversation)
                     (assoc :user_email user_email))]
-     (some->
-      (jdbc/execute-one!
-       tx-or-ds
-       (sql/format {:insert-into :ai_conversations
-                    :values [db-row]
-                    :returning :*})
-       db-opts)
-      db-conversation->conversation))))
+     (some-> (jdbc/execute-one! tx-or-ds
+                                (sql/format {:insert-into :ai_conversations
+                                             :values [db-row]
+                                             :returning :*})
+                                db-opts)
+             db-conversation->conversation))))
 
 (defn list-conversations-for-user
   "Return conversations for the given user ordered by recent activity."
@@ -162,37 +153,36 @@
 
 (defn get-conversation
   [conversation-id]
-  (some->
-   (jdbc/execute-one!
-    ds
-    (sql/format {:select :*
-                 :from :ai_conversations
-                 :where [:= :id conversation-id]})
-    db-opts)
-   db-conversation->conversation))
+  (some-> (jdbc/execute-one! ds
+                             (sql/format {:select :*
+                                          :from :ai_conversations
+                                          :where [:= :id conversation-id]})
+                             db-opts)
+          db-conversation->conversation))
 
 (defn append-conversation-message!
   "Insert a message and update parent metadata atomically."
   [{:keys [conversation_id tokens_used] :as message}]
   (jdbc/with-transaction
-    [tx ds]
-    (let [inserted (jdbc/execute-one!
-                    tx
-                    (sql/format {:insert-into :ai_conversation_messages
-                                 :values [(conversation-message->db-message message)]
-                                 :returning :*})
-                    db-opts)
-          token-inc (or tokens_used 0)]
-      (jdbc/execute-one!
-       tx
-       (sql/format {:update :ai_conversations
-                    :set {:last_message_at [:now]
-                          :updated_at [:now]
-                          :total_tokens_used [:+ :total_tokens_used token-inc]}
-                    :where [:= :id conversation_id]
-                    :returning :*})
-       db-opts)
-      (db-conversation-message->message inserted))))
+   [tx ds]
+   (let [inserted (jdbc/execute-one!
+                   tx
+                   (sql/format {:insert-into :ai_conversation_messages
+                                :values [(conversation-message->db-message
+                                          message)]
+                                :returning :*})
+                   db-opts)
+         token-inc (or tokens_used 0)]
+     (jdbc/execute-one! tx
+                        (sql/format {:update :ai_conversations
+                                     :set {:last_message_at [:now]
+                                           :updated_at [:now]
+                                           :total_tokens_used
+                                           [:+ :total_tokens_used token-inc]}
+                                     :where [:= :id conversation_id]
+                                     :returning :*})
+                        db-opts)
+     (db-conversation-message->message inserted))))
 
 (defn- refresh-conversation-metadata!
   "Recalculate and persist the aggregate metadata for a conversation.
@@ -202,103 +192,98 @@
         (jdbc/execute-one!
          tx
          (sql/format {:select [[[:coalesce [:sum :tokens_used] 0] :total_tokens]
-                                [[:max :created_at] :last_created_at]]
+                               [[:max :created_at] :last_created_at]]
                       :from :ai_conversation_messages
                       :where [:= :conversation_id conversation-id]})
          db-opts)
         metadata {:total_tokens_used total_tokens
                   :updated_at [:now]
                   :last_message_at (or last_created_at [:now])}]
-    (some->
-     (jdbc/execute-one!
-      tx
-      (sql/format {:update :ai_conversations
-                   :set metadata
-                   :where [:= :id conversation-id]
-                   :returning :*})
-      db-opts)
-     db-conversation->conversation)))
+    (some-> (jdbc/execute-one! tx
+                               (sql/format {:update :ai_conversations
+                                            :set metadata
+                                            :where [:= :id conversation-id]
+                                            :returning :*})
+                               db-opts)
+            db-conversation->conversation)))
 
 (defn update-conversation-message!
   "Update an existing conversation message and optionally truncate later messages.
    Returns the updated message, any deleted message ids, and the refreshed conversation."
-  [{:keys [conversation_id message_id content image_data tokens_used truncate_after?] :as opts}]
+  [{:keys [conversation_id message_id content image_data tokens_used
+           truncate_after?]
+    :as opts}]
   (jdbc/with-transaction
-    [tx ds]
-    (let [set-map (cond-> {:content content}
-                    (contains? opts :image_data)
-                    (assoc :image_data (base64->bytes image_data))
-                    (contains? opts :tokens_used)
-                    (assoc :tokens_used tokens_used))
-          updated-row (jdbc/execute-one!
-                       tx
-                       (sql/format {:update :ai_conversation_messages
-                                    :set set-map
-                                    :where [:and
-                                            [:= :id message_id]
-                                            [:= :conversation_id conversation_id]]
-                                    :returning :*})
-                       db-opts)
-          updated (some-> updated-row db-conversation-message->message)]
-      (when-not updated
-        (throw (ex-info "Conversation message not found"
-                        {:status 404
-                         :conversation-id conversation_id
-                         :message-id message_id})))
-      (let [deleted (when truncate_after?
-                      (jdbc/execute!
-                       tx
-                       (sql/format {:delete-from :ai_conversation_messages
-                                    :where [:and
-                                            [:= :conversation_id conversation_id]
-                                            [:> :id message_id]]
-                                    :returning [:id :tokens_used]})
-                       db-opts))
-            conversation (refresh-conversation-metadata! tx conversation_id)]
-        {:message updated
-         :deleted-message-ids (vec (map :id deleted))
-         :conversation conversation}))))
+   [tx ds]
+   (let [set-map (cond-> {:content content}
+                   (contains? opts :image_data)
+                   (assoc :image_data (base64->bytes image_data))
+                   (contains? opts :tokens_used) (assoc :tokens_used
+                                                        tokens_used))
+         updated-row (jdbc/execute-one! tx
+                                        (sql/format
+                                         {:update :ai_conversation_messages
+                                          :set set-map
+                                          :where [:and [:= :id message_id]
+                                                  [:= :conversation_id
+                                                   conversation_id]]
+                                          :returning :*})
+                                        db-opts)
+         updated (some-> updated-row
+                         db-conversation-message->message)]
+     (when-not updated
+       (throw (ex-info "Conversation message not found"
+                       {:status 404
+                        :conversation-id conversation_id
+                        :message-id message_id})))
+     (let [deleted (when truncate_after?
+                     (jdbc/execute!
+                      tx
+                      (sql/format {:delete-from :ai_conversation_messages
+                                   :where [:and
+                                           [:= :conversation_id conversation_id]
+                                           [:> :id message_id]]
+                                   :returning [:id :tokens_used]})
+                      db-opts))
+           conversation (refresh-conversation-metadata! tx conversation_id)]
+       {:message updated
+        :deleted-message-ids (vec (map :id deleted))
+        :conversation conversation}))))
 
 (defn list-messages-for-conversation
   [conversation-id]
-  (jdbc/execute!
-   ds
-   (sql/format {:select :*
-                :from :ai_conversation_messages
-                :where [:= :conversation_id conversation-id]
-                :order-by [[:created_at :asc] [:id :asc]]})
-   db-opts))
+  (jdbc/execute! ds
+                 (sql/format {:select :*
+                              :from :ai_conversation_messages
+                              :where [:= :conversation_id conversation-id]
+                              :order-by [[:created_at :asc] [:id :asc]]})
+                 db-opts))
 
 (defn delete-conversation!
-  ([conversation-id]
-   (delete-conversation! ds conversation-id))
+  ([conversation-id] (delete-conversation! ds conversation-id))
   ([tx-or-ds conversation-id]
-   (jdbc/execute-one!
-    tx-or-ds
-    (sql/format {:delete-from :ai_conversations
-                 :where [:= :id conversation-id]
-                 :returning :id})
-    db-opts)))
+   (jdbc/execute-one! tx-or-ds
+                      (sql/format {:delete-from :ai_conversations
+                                   :where [:= :id conversation-id]
+                                   :returning :id})
+                      db-opts)))
 
 (defn update-conversation!
-  ([conversation-id updates]
-   (update-conversation! ds conversation-id updates))
+  ([conversation-id updates] (update-conversation! ds conversation-id updates))
   ([tx-or-ds conversation-id updates]
-   (let [sanitized (-> updates
-                       (dissoc :id :user_email :created_at :updated_at :last_message_at)
-                       (conversation->db-conversation))
-         set-map (cond-> sanitized
-                   true (assoc :updated_at [:now]))]
+   (let [sanitized
+         (-> updates
+             (dissoc :id :user_email :created_at :updated_at :last_message_at)
+             (conversation->db-conversation))
+         set-map (cond-> sanitized true (assoc :updated_at [:now]))]
      (if (seq sanitized)
-       (some->
-        (jdbc/execute-one!
-         tx-or-ds
-         (sql/format {:update :ai_conversations
-                      :set set-map
-                      :where [:= :id conversation-id]
-                      :returning :*})
-         db-opts)
-        db-conversation->conversation)
+       (some-> (jdbc/execute-one! tx-or-ds
+                                  (sql/format {:update :ai_conversations
+                                               :set set-map
+                                               :where [:= :id conversation-id]
+                                               :returning :*})
+                                  db-opts)
+               db-conversation->conversation)
        (get-conversation conversation-id)))))
 
 (defn wine-exists?
@@ -309,10 +294,11 @@
 
 (def wine-list-fields
   [:id :producer :country :region :aoc :classification :vineyard :level :name
-   :vintage :style :closure_type :location :purveyor :quantity :original_quantity :price
-   :drink_from_year :drink_until_year :alcohol_percentage :disgorgement_year
-   :label_thumbnail :created_at :updated_at :verified :purchase_date
-   :latest_internal_rating :average_external_rating :varieties])
+   :vintage :style :closure_type :location :purveyor :quantity
+   :original_quantity :price :drink_from_year :drink_until_year
+   :alcohol_percentage :disgorgement_year :label_thumbnail :created_at
+   :updated_at :verified :purchase_date :latest_internal_rating
+   :average_external_rating :varieties])
 
 (defn get-wines-for-list
   []

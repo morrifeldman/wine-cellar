@@ -17,7 +17,8 @@
     "; END IF; END $$;"]})
 
 (def ensure-red-sparkling-style
-  {:raw ["ALTER TYPE wine_style ADD VALUE IF NOT EXISTS 'Red Sparkling' AFTER 'Rosé Sparkling'"]})
+  {:raw
+   ["ALTER TYPE wine_style ADD VALUE IF NOT EXISTS 'Red Sparkling' AFTER 'Rosé Sparkling'"]})
 
 ;; Table schemas
 (def classifications-table-schema
@@ -41,14 +42,13 @@
     [:vineyard :varchar] [:level :wine_level] [:name :varchar]
     [:vintage :integer :null] [:style :wine_style] [:location :varchar]
     [:closure_type :varchar] [:purveyor :varchar]
-    [:quantity :integer [:not nil] [:default 0]]
-    [:original_quantity :integer] [:price :decimal [10 2]]
-    [:purchase_date :date] [:drink_from_year :integer]
+    [:quantity :integer [:not nil] [:default 0]] [:original_quantity :integer]
+    [:price :decimal [10 2]] [:purchase_date :date] [:drink_from_year :integer]
     [:drink_until_year :integer] [:alcohol_percentage :decimal [4 2]]
     [:disgorgement_year :integer] [:dosage :decimal [6 2]]
-    [:tasting_window_commentary :text]
-    [:verified :boolean [:default false]] [:ai_summary :text]
-    [:label_image :bytea] [:label_thumbnail :bytea] [:back_label_image :bytea]
+    [:tasting_window_commentary :text] [:verified :boolean [:default false]]
+    [:ai_summary :text] [:label_image :bytea] [:label_thumbnail :bytea]
+    [:back_label_image :bytea]
     [[:constraint :valid_tasting_window]
      [:check
       [:or [:= :drink_from_year] [:= :drink_until_year]
@@ -58,12 +58,10 @@
 #_(sql/format wines-table-schema)
 
 (def wines-add-closure-type-column
-  {:raw
-   ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS closure_type varchar"]})
+  {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS closure_type varchar"]})
 
 (def wines-add-dosage-column
-  {:raw
-   ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS dosage decimal(6,2)"]})
+  {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS dosage decimal(6,2)"]})
 
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]
@@ -82,12 +80,9 @@
 (def ai-conversations-table-schema
   {:create-table [:ai_conversations :if-not-exists]
    :with-columns [[:id :integer :generated :by-default :as :identity
-                   :primary-key]
-                  [:user_email :varchar [:not nil]]
-                  [:title :varchar]
-                  [:wine_ids :integer :array]
-                  [:wine_search_state :jsonb]
-                  [:auto_tags :varchar :array]
+                   :primary-key] [:user_email :varchar [:not nil]]
+                  [:title :varchar] [:wine_ids :integer :array]
+                  [:wine_search_state :jsonb] [:auto_tags :varchar :array]
                   [:provider :varchar [:default "anthropic"]]
                   [:pinned :boolean [:default false]]
                   [:total_tokens_used :integer [:default 0]]
@@ -108,16 +103,12 @@
 (def ai-conversation-messages-table-schema
   {:create-table [:ai_conversation_messages :if-not-exists]
    :with-columns [[:id :integer :generated :by-default :as :identity
-                   :primary-key]
-                  [:conversation_id :integer [:not nil]]
-                  [:is_user :boolean [:not nil]]
-                  [:content :text [:not nil]]
-                  [:image_data :bytea]
-                  [:tokens_used :integer]
+                   :primary-key] [:conversation_id :integer [:not nil]]
+                  [:is_user :boolean [:not nil]] [:content :text [:not nil]]
+                  [:image_data :bytea] [:tokens_used :integer]
                   [:created_at :timestamp [:default [:now]]]
-                  [[:foreign-key :conversation_id]
-                   :references [:ai_conversations :id]
-                   :on-delete :cascade]]})
+                  [[:foreign-key :conversation_id] :references
+                   [:ai_conversations :id] :on-delete :cascade]]})
 #_(sql/format ai-conversation-messages-table-schema)
 
 

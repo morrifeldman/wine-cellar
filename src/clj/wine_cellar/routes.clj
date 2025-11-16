@@ -23,37 +23,31 @@
   [handler]
   (fn [request]
     (let [log-details? (logging/verbose-logging-enabled?)
-              request-id (str (random-uuid))
-              start (System/nanoTime)
-              uri (:uri request)
-              request-summary (logging/summarize-request
-                                request
-                                request-id
-                                log-details?)]
-          (tap> request-summary)
-          (try
-            (let [response (handler request)
-                  duration-ms (/ (double (- (System/nanoTime) start)) 1e6)
-                  response-summary (logging/summarize-response
-                                     response
-                                     uri
-                                     request-id
-                                     duration-ms
-                                     log-details?)]
-              (tap> response-summary)
-              response)
-            (catch Exception e
-              (let [duration-ms (/ (double (- (System/nanoTime) start)) 1e6)
-                    ex-info-e (ex-info "Http Request Error"
-                                       {:request-id request-id
-                                        :duration-ms duration-ms}
-                                       e)]
-                (tap> ex-info-e)
-                (throw ex-info-e)))))))
+          request-id (str (random-uuid))
+          start (System/nanoTime)
+          uri (:uri request)
+          request-summary
+          (logging/summarize-request request request-id log-details?)]
+      (tap> request-summary)
+      (try (let [response (handler request)
+                 duration-ms (/ (double (- (System/nanoTime) start)) 1e6)
+                 response-summary (logging/summarize-response response
+                                                              uri
+                                                              request-id
+                                                              duration-ms
+                                                              log-details?)]
+             (tap> response-summary)
+             response)
+           (catch Exception e
+             (let [duration-ms (/ (double (- (System/nanoTime) start)) 1e6)
+                   ex-info-e (ex-info "Http Request Error"
+                                      {:request-id request-id
+                                       :duration-ms duration-ms}
+                                      e)]
+               (tap> ex-info-e)
+               (throw ex-info-e)))))))
 
-(def tap-middleware
-  {:name ::tap
-   :wrap tap-middleware-wrap})
+(def tap-middleware {:name ::tap :wrap tap-middleware-wrap})
 
 ;; Specs for individual fields
 (s/def ::producer string?)
@@ -110,12 +104,13 @@
 (s/def ::include-visible-wines? boolean?)
 (s/def ::conversation-create
   (s/keys :req-un [::provider]
-          :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
+          :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags
+                   ::pinned]))
 (s/def ::conversation-update
-  (s/keys :opt-un [::provider ::title ::wine_ids ::wine_search_state ::auto_tags ::pinned]))
+  (s/keys :opt-un [::provider ::title ::wine_ids ::wine_search_state ::auto_tags
+                   ::pinned]))
 (s/def ::conversation-message
-  (s/keys :req-un [::is_user ::content]
-          :opt-un [::image ::tokens_used]))
+  (s/keys :req-un [::is_user ::content] :opt-un [::image ::tokens_used]))
 (s/def ::truncate_after? boolean?)
 (s/def ::conversation-message-update
   (s/keys :req-un [::content]
@@ -132,8 +127,8 @@
                    ::purveyor ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::vintage ::price
                    ::purchase_date ::alcohol_percentage ::wine_varieties
-                   ::disgorgement_year ::dosage ::tasting_window_commentary ::verified
-                   ::ai_summary ::original_quantity ::closure_type]))
+                   ::disgorgement_year ::dosage ::tasting_window_commentary
+                   ::verified ::ai_summary ::original_quantity ::closure_type]))
 
 (def wine-update-schema
   (s/keys :req-un [(or ::producer ::country
@@ -147,15 +142,17 @@
                        ::label_thumbnail ::back_label_image
                        ::drink_from_year ::drink_until_year
                        ::purchase_date ::alcohol_percentage
-                       ::disgorgement_year ::dosage ::tasting_window_commentary
-                       ::verified ::ai_summary ::closure_type)]
+                       ::disgorgement_year ::dosage
+                       ::tasting_window_commentary ::verified
+                       ::ai_summary ::closure_type)]
           :opt-un [::producer ::country ::region ::aoc ::classification
                    ::vineyard ::name ::vintage ::style ::level ::location
                    ::quantity ::original_quantity ::price ::purveyor
                    ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::purchase_date
                    ::alcohol_percentage ::disgorgement_year ::dosage
-                   ::tasting_window_commentary ::verified ::ai_summary ::closure_type]))
+                   ::tasting_window_commentary ::verified ::ai_summary
+                   ::closure_type]))
 
 (def image-update-schema
   (s/nilable (s/keys :opt-un
@@ -215,7 +212,7 @@
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
    ;; Grape Varieties Routes
-  ["/chat"
+   ["/chat"
     {:post {:summary "Chat with AI about your wine collection"
             :parameters {:body (s/keys :req-un [::provider]
                                        :opt-un [::message ::wine-ids
@@ -223,43 +220,49 @@
                                                 ::include-visible-wines?])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
-  ["/conversations"
-   {:get {:summary "List AI conversations for the authenticated user"
-          :responses {200 {:body vector?} 500 {:body map?}}
-          :handler handlers/list-conversations}
+   ["/conversations"
+    {:get {:summary "List AI conversations for the authenticated user"
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/list-conversations}
      :post {:summary "Create a new AI conversation"
             :parameters {:body ::conversation-create}
             :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/create-conversation}}]
-  ["/conversations/:id"
-   {:parameters {:path {:id int?}}
-    :put {:summary "Update an AI conversation"
-          :parameters {:body ::conversation-update}
-          :responses {200 {:body map?} 400 {:body map?} 403 {:body map?}
-                      404 {:body map?} 500 {:body map?}}
-          :handler handlers/update-conversation}
-    :delete {:summary "Delete an AI conversation"
-             :responses {204 {:body nil?} 403 {:body map?} 404 {:body map?}
-                         500 {:body map?}}
-             :handler handlers/delete-conversation}}]
-  ["/conversations/:id/messages"
-   {:parameters {:path {:id int?}}
-    :get {:summary "List messages for a conversation"
-          :responses {200 {:body vector?} 403 {:body map?} 404 {:body map?}
+   ["/conversations/:id"
+    {:parameters {:path {:id int?}}
+     :put {:summary "Update an AI conversation"
+           :parameters {:body ::conversation-update}
+           :responses {200 {:body map?}
+                       400 {:body map?}
+                       403 {:body map?}
+                       404 {:body map?}
                        500 {:body map?}}
-           :handler handlers/list-conversation-messages}
-     :post {:summary "Append a new message to a conversation"
-            :parameters {:body ::conversation-message}
-            :responses {201 {:body map?} 403 {:body map?} 404 {:body map?}
-                        500 {:body map?}}
-            :handler handlers/append-conversation-message}}]
-  ["/conversations/:id/messages/:message-id"
-   {:parameters {:path {:id int? :message-id int?}}
-    :put {:summary "Update a conversation message"
-          :parameters {:body ::conversation-message-update}
-          :responses {200 {:body map?} 403 {:body map?} 404 {:body map?}
-                      500 {:body map?}}
-          :handler handlers/update-conversation-message}}]
+           :handler handlers/update-conversation}
+     :delete
+     {:summary "Delete an AI conversation"
+      :responses
+      {204 {:body nil?} 403 {:body map?} 404 {:body map?} 500 {:body map?}}
+      :handler handlers/delete-conversation}}]
+   ["/conversations/:id/messages"
+    {:parameters {:path {:id int?}}
+     :get
+     {:summary "List messages for a conversation"
+      :responses
+      {200 {:body vector?} 403 {:body map?} 404 {:body map?} 500 {:body map?}}
+      :handler handlers/list-conversation-messages}
+     :post
+     {:summary "Append a new message to a conversation"
+      :parameters {:body ::conversation-message}
+      :responses
+      {201 {:body map?} 403 {:body map?} 404 {:body map?} 500 {:body map?}}
+      :handler handlers/append-conversation-message}}]
+   ["/conversations/:id/messages/:message-id"
+    {:parameters {:path {:id int? :message-id int?}}
+     :put {:summary "Update a conversation message"
+           :parameters {:body ::conversation-message-update}
+           :responses
+           {200 {:body map?} 403 {:body map?} 404 {:body map?} 500 {:body map?}}
+           :handler handlers/update-conversation-message}}]
    ["/tasting-note-sources"
     {:get {:summary "Get unique tasting note sources for suggestions"
            :responses {200 {:body ::tasting-sources} 500 {:body map?}}
@@ -482,11 +485,10 @@
               {:reitit.coercion/request-coercion (coercion-error-handler 400)
                :reitit.coercion/response-coercion (coercion-error-handler
                                                    500)}))
-     parameters/parameters-middleware muuntaja/format-negotiate-middleware
+      parameters/parameters-middleware muuntaja/format-negotiate-middleware
       muuntaja/format-response-middleware muuntaja/format-request-middleware
       coercion/coerce-request-middleware coercion/coerce-response-middleware
-      swagger/swagger-feature auth/wrap-auth
-      tap-middleware]}})
+      swagger/swagger-feature auth/wrap-auth tap-middleware]}})
   ; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
   (ring/routes (ring/create-file-handler {:path "/"})
                (ring/create-default-handler))))

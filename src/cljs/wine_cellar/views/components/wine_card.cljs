@@ -166,8 +166,8 @@
   [grid {:container true :spacing 0.5} ;; Reduced spacing
    [wine-region-info wine] [wine-style-info wine]
    [wine-classification-info wine] [wine-location-info wine]
-   [wine-price-info wine] [wine-alcohol-info wine]
-   [wine-dosage-info wine] [wine-varieties-info wine]])
+   [wine-price-info wine] [wine-alcohol-info wine] [wine-dosage-info wine]
+   [wine-varieties-info wine]])
 
 (defn wine-rating-display
   [wine]
@@ -294,13 +294,14 @@
   [app-state wine]
   (when-let [wine-id (:id wine)]
     (let [checked? (selected-wine? app-state wine-id)]
-      [box {:sx {:position "absolute"
-                 :top 8
-                 :right 8
-                 :zIndex 2
-                 :backgroundColor "rgba(0,0,0,0.24)"
-                 :borderRadius 2}
-            :on-click #(.stopPropagation %)}
+      [box
+       {:sx {:position "absolute"
+             :top 8
+             :right 8
+             :zIndex 2
+             :backgroundColor "rgba(0,0,0,0.24)"
+             :borderRadius 2}
+        :on-click #(.stopPropagation %)}
        [checkbox
         {:checked checked?
          :color "primary"
@@ -308,10 +309,9 @@
          :inputProps {:aria-label "Select wine"}
          :on-change (fn [event]
                       (let [checked (.. event -target -checked)]
-                        (app-state/toggle-wine-selection!
-                         app-state
-                         wine-id
-                         checked)))}]])))
+                        (app-state/toggle-wine-selection! app-state
+                                                          wine-id
+                                                          checked)))}]])))
 
 (defn wine-card
   [app-state wine]
@@ -323,21 +323,22 @@
     [paper
      {:elevation (if selected? 6 2)
       :sx
-      (cond-> {:p 1.5 ;; Reduced padding
-       :mb 2
-       :borderRadius 2
-       :position "relative"
-       :overflow "hidden"
-       :transition "transform 0.2s, box-shadow 0.2s"
-       :height "100%"
-       :display "flex"
-       :flexDirection "column"
-       :justifyContent "space-between"
-       :backgroundImage
-       (when (= (:style wine) "Red")
-         "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))")
-       :cursor "pointer"
-       ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
+      (cond->
+        {:p 1.5 ;; Reduced padding
+         :mb 2
+         :borderRadius 2
+         :position "relative"
+         :overflow "hidden"
+         :transition "transform 0.2s, box-shadow 0.2s"
+         :height "100%"
+         :display "flex"
+         :flexDirection "column"
+         :justifyContent "space-between"
+         :backgroundImage
+         (when (= (:style wine) "Red")
+           "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))")
+         :cursor "pointer"
+         ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
         selected? (assoc :border "1px solid rgba(144,202,249,0.65)"))
       :onClick #(api/load-wine-detail-page app-state (:id wine))}
      [wine-selection-checkbox app-state wine]

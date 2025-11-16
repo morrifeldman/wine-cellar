@@ -249,57 +249,56 @@
   (let [on-input-change-handler (when on-input-change
                                   (fn [_event new-value reason]
                                     (on-input-change new-value reason)))
-        autocomplete-props (cond-> {:multiple multiple
-                                     :disabled disabled
-                                     :options options
-                                     :freeSolo free-solo
-                                     :is-option-equal-to-value is-option-equal-to-value
-                                     :size "small"
-                                     :sx (merge sx
-                                                {"& .MuiSelect-icon"
-                                                 {:color "text.secondary"}})
-                                     :value (cond-> value multiple (or []))
-                                     :get-option-label (fn [option]
-                                                         (cond (nil? option) ""
-                                                               (string? option) option
-                                                               (object? option)
-                                                               (or (.-label option) "")
-                                                               :else (str option)))
-                                     :render-input (react-component
-                                                    [props]
-                                                    [mui-text-field/text-field
-                                                     (merge props
-                                                            {:label label
-                                                             :variant "outlined"
-                                                             :size "small"
-                                                             :required
-                                                             (if multiple
-                                                               ;; workaround for bug
-                                                               ;; https://github.com/mui/material-ui/issues/21663
-                                                               ;; but only if the field is
-                                                               ;; actually required
-                                                               (and required
-                                                                    (= (count value) 0))
-                                                               required)
-                                                             :helperText helper-text})])
-                                     :on-change (fn [_event new-value _reason]
-                                                  (when on-change
-                                                    (on-change new-value)))
-                                     :clear-on-blur clear-on-blur
-                                     :auto-highlight true
-                                     :auto-select false
-                                     :select-on-focus true
-                                     :disable-close-on-select multiple
-                                     :open-on-focus true
-                                     :blur-on-select "touch"
-                                     :on-blur on-blur}
-                              on-input-change-handler
-                              (assoc :on-input-change on-input-change-handler)
-                              (some? input-value)
-                              (assoc :input-value input-value))]
+        autocomplete-props
+        (cond->
+          {:multiple multiple
+           :disabled disabled
+           :options options
+           :freeSolo free-solo
+           :is-option-equal-to-value is-option-equal-to-value
+           :size "small"
+           :sx (merge sx {"& .MuiSelect-icon" {:color "text.secondary"}})
+           :value (cond-> value multiple (or []))
+           :get-option-label (fn [option]
+                               (cond (nil? option) ""
+                                     (string? option) option
+                                     (object? option) (or (.-label option) "")
+                                     :else (str option)))
+           :render-input (react-component [props]
+                                          [mui-text-field/text-field
+                                           (merge props
+                                                  {:label label
+                                                   :variant "outlined"
+                                                   :size "small"
+                                                   :required
+                                                   (if multiple
+                                                     ;; workaround for bug
+                                                     ;; https://github.com/mui/material-ui/issues/21663
+                                                     ;; but only if the
+                                                     ;; field is actually
+                                                     ;; required
+                                                     (and required
+                                                          (= (count value) 0))
+                                                     required)
+                                                   :helperText helper-text})])
+           :on-change (fn [_event new-value _reason]
+                        (when on-change (on-change new-value)))
+           :clear-on-blur clear-on-blur
+           :auto-highlight true
+           :auto-select false
+           :select-on-focus true
+           :disable-close-on-select multiple
+           :open-on-focus true
+           :blur-on-select "touch"
+           :on-blur on-blur}
+          on-input-change-handler (assoc :on-input-change
+                                         on-input-change-handler)
+          (some? input-value) (assoc :input-value input-value))]
     [form-control
-     {:variant "outlined" :margin "dense" :required required :sx form-field-style}
-     [autocomplete autocomplete-props]]))
+     {:variant "outlined"
+      :margin "dense"
+      :required required
+      :sx form-field-style} [autocomplete autocomplete-props]]))
 
 (defn year-field
   [{:keys [value] :as props}]

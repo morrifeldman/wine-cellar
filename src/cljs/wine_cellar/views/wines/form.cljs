@@ -18,7 +18,8 @@
               form-row number-field select-field smart-select-field text-field
               uncontrolled-text-area-field year-field]]
             [wine-cellar.views.components.image-upload :refer [image-upload]]
-            [wine-cellar.views.components.ai-provider-toggle :refer [provider-toggle-button]]))
+            [wine-cellar.views.components.ai-provider-toggle :refer
+             [provider-toggle-button]]))
 
 (defn vintage
   [app-state new-wine]
@@ -60,8 +61,7 @@
     :required false
     :min 0
     :step 1
-    :value (when-let [dosage (:dosage new-wine)]
-             (str dosage))
+    :value (when-let [dosage (:dosage new-wine)] (str dosage))
     :helper-text "Sugar added at disgorgement, in grams per liter"
     :on-change #(swap! app-state assoc-in
                   [:new-wine :dosage]
@@ -167,11 +167,12 @@
        (let [has-label (:label_image new-wine)
              analyzing? (:analyzing-label? @app-state)]
          (when has-label
-           [box {:sx {:display "flex"
-                      :alignItems "center"
-                      :flexWrap "wrap"
-                      :gap 1
-                      :justifyContent "center"}}
+           [box
+            {:sx {:display "flex"
+                  :alignItems "center"
+                  :flexWrap "wrap"
+                  :gap 1
+                  :justifyContent "center"}}
             [button
              {:variant "contained"
               :color "secondary"
@@ -180,7 +181,8 @@
               :onClick
               (fn []
                 (let [image-data {:label_image (:label_image new-wine)
-                                  :back_label_image (:back_label_image new-wine)}]
+                                  :back_label_image (:back_label_image
+                                                     new-wine)}]
                   (-> (api/analyze-wine-label app-state image-data)
                       (.then (fn [result]
                                (swap! app-state update :new-wine merge result)))
@@ -188,15 +190,12 @@
                                 (swap! app-state assoc
                                   :error
                                   (str "Failed to analyze label: " error)))))))
-              :startIcon (when-not analyzing?
-                          (r/as-element [auto-awesome]))}
+              :startIcon (when-not analyzing? (r/as-element [auto-awesome]))}
              (if analyzing?
                [box {:sx {:display "flex" :alignItems "center"}}
-                [circular-progress {:size 20 :sx {:mr 1}}]
-                "Analyzing..."]
+                [circular-progress {:size 20 :sx {:mr 1}}] "Analyzing..."]
                "Analyze Label")]
-            [provider-toggle-button
-             app-state
+            [provider-toggle-button app-state
              {:mobile-min-width "auto"
               :sx {:minWidth "auto" :px 1 :py 0.25}}]]))]]
      [form-row
@@ -308,10 +307,8 @@
                         (:region new-wine)
                         (:style new-wine))]
         [box {:sx {:mt 2 :display "flex" :flexDirection "column" :gap 1}}
-         [box {:sx {:display "flex"
-                    :alignItems "center"
-                    :flexWrap "wrap"
-                    :gap 1}}
+         [box
+          {:sx {:display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
           [button
            {:variant "outlined"
             :color "secondary"
@@ -319,8 +316,7 @@
             :disabled (or suggesting? (not ready?))
             :sx {"&.Mui-disabled" {:color "text.disabled"
                                    :borderColor "text.disabled"}}
-            :startIcon (when-not suggesting?
-                        (r/as-element [auto-awesome]))
+            :startIcon (when-not suggesting? (r/as-element [auto-awesome]))
             :onClick
             (fn []
               (-> (api/suggest-drinking-window app-state new-wine)
@@ -330,8 +326,8 @@
                                               (:drink_from_year result)
                                               " to " (:drink_until_year result)
                                               " (" (:confidence result)
-                                              " confidence)\n\n"
-                                              (:reasoning result))]
+                                              " confidence)\n\n" (:reasoning
+                                                                  result))]
                        (swap! app-state update
                          :new-wine
                          merge
@@ -346,13 +342,10 @@
                                    error))))))}
            (if suggesting?
              [box {:sx {:display "flex" :alignItems "center"}}
-              [circular-progress {:size 20 :sx {:mr 1}}]
-              "Suggesting..."]
+              [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
              "Suggest Drinking Window")]
-          [provider-toggle-button
-           app-state
-           {:mobile-min-width "auto"
-            :sx {:minWidth "auto" :px 1 :py 0.25}}]]
+          [provider-toggle-button app-state
+           {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]]
          [typography {:variant "body2" :sx {:mt 0.5}}
           (:window-reason @app-state)]])]
      [form-row [drink-from-year app-state new-wine]

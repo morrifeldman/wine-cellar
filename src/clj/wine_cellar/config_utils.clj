@@ -11,7 +11,7 @@
 
 (defstate production? :start (= (System/getenv "CLOJURE_ENV") "production"))
 
-(defn frontend-url 
+(defn frontend-url
   "Determine the correct frontend URL based on the request context"
   ([request]
    (if production?
@@ -27,11 +27,12 @@
    ;; Fallback when no request context
    (if production? "/" "http://localhost:8080")))
 
-(defstate cors-origins 
-  :start (if production? 
-           ["/"]
-           ;; Only need CORS for frontend dev server on localhost:8080
-           [#"http://localhost:8080"]))
+(defstate cors-origins
+          :start
+          (if production?
+            ["/"]
+            ;; Only need CORS for frontend dev server on localhost:8080
+            [#"http://localhost:8080"]))
 
 (defn get-password-from-pass
   "Retrieves a password from the pass command line program"
@@ -59,19 +60,18 @@
    Returns the configuration value or throws an exception if not found."
   [env-var-name & {:keys [pass-path fallback]}]
   (try (let [env-raw (System/getenv env-var-name)
-             env-value (when (and env-raw (not (string/blank? env-raw))) env-raw)]
+             env-value (when (and env-raw (not (string/blank? env-raw)))
+                         env-raw)]
          (when (and production? (nil? env-value) (nil? fallback))
            (throw (ex-info
-                   (str
-                    "Missing required environment variable in production: "
-                    env-var-name)
+                   (str "Missing required environment variable in production: "
+                        env-var-name)
                    {:type :config-retrieval-error :env-var env-var-name})))
-         (cond
-           env-value env-value
-           production? fallback
-           :else (or (get-password-from-pass (or pass-path
-                                                 (env-var-to-pass-path env-var-name)))
-                     fallback)))
+         (cond env-value env-value
+               production? fallback
+               :else (or (get-password-from-pass
+                          (or pass-path (env-var-to-pass-path env-var-name)))
+                         fallback)))
        (catch Exception e
          (if (instance? clojure.lang.ExceptionInfo e)
            (throw e) ;; Re-throw our custom exceptions

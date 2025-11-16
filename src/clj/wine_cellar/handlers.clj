@@ -107,14 +107,13 @@
 
 (defn update-wine
   [{{{:keys [id]} :path body :body} :parameters}]
-  (try (if (db-api/wine-exists? id)
-         (let [updated (db-api/update-wine! id body)]
-           (response/response updated))
-         (response/not-found {:error "Wine not found"}))
-       (catch org.postgresql.util.PSQLException e
-         {:status 400
-          :body {:error "Invalid wine data" :details (.getMessage e)}})
-       (catch Exception e (server-error e))))
+  (try
+    (if (db-api/wine-exists? id)
+      (let [updated (db-api/update-wine! id body)] (response/response updated))
+      (response/not-found {:error "Wine not found"}))
+    (catch org.postgresql.util.PSQLException e
+      {:status 400 :body {:error "Invalid wine data" :details (.getMessage e)}})
+    (catch Exception e (server-error e))))
 
 (defn delete-wine
   [{{{:keys [id]} :path} :parameters}]
@@ -227,16 +226,14 @@
 
 (defn add-variety-to-wine
   [{{{:keys [id]} :path {:keys [variety_id percentage]} :body} :parameters}]
-  (tap> ["add-variety-to-wine" {:wine-id id
-                                 :variety-id variety_id
-                                 :percentage percentage}])
+  (tap> ["add-variety-to-wine"
+         {:wine-id id :variety-id variety_id :percentage percentage}])
   (try (if (db-api/wine-exists? id)
          (let [variety (db-api/get-grape-variety variety_id)]
            (if variety
-             (let [result (db-api/associate-grape-variety-with-wine
-                           id
-                           variety_id
-                           percentage)]
+             (let [result (db-api/associate-grape-variety-with-wine id
+                                                                    variety_id
+                                                                    percentage)]
                {:status 201 :body result})
              {:status 404 :body {:error "Grape variety not found"}}))
          {:status 404 :body {:error "Wine not found"}})
@@ -247,10 +244,9 @@
   (try (if (db-api/wine-exists? id)
          (let [variety (db-api/get-grape-variety variety-id)]
            (if variety
-             (let [result (db-api/associate-grape-variety-with-wine
-                           id
-                           variety-id
-                           percentage)]
+             (let [result (db-api/associate-grape-variety-with-wine id
+                                                                    variety-id
+                                                                    percentage)]
                {:status 200 :body result})
              {:status 404 :body {:error "Grape variety not found"}}))
          {:status 404 :body {:error "Wine not found"}})
@@ -272,7 +268,8 @@
   [{{{:keys [label_image back_label_image provider]} :body} :parameters}]
   (try (if (nil? label_image)
          {:status 400 :body {:error "Label image is required"}}
-         (let [result (ai/analyze-wine-label provider label_image back_label_image)]
+         (let [result
+               (ai/analyze-wine-label provider label_image back_label_image)]
            (response/response result)))
        (catch clojure.lang.ExceptionInfo e
          (let [data (ex-data e)]
@@ -298,10 +295,9 @@
                error-message (or (:error data) "AI analysis failed")]
            {:status status
             :body (cond-> {:error error-message}
-                    (not= (:error data) (.getMessage e))
-                    (assoc :details (.getMessage e))
-                    (:response data)
-                    (assoc :response (:response data)))}))
+                    (not= (:error data) (.getMessage e)) (assoc :details
+                                                                (.getMessage e))
+                    (:response data) (assoc :response (:response data)))}))
        (catch Exception e (server-error e))))
 
 (defn generate-wine-summary
@@ -320,10 +316,9 @@
                error-message (or (:error data) "AI summary generation failed")]
            {:status status
             :body (cond-> {:error error-message}
-                    (not= (:error data) (.getMessage e))
-                    (assoc :details (.getMessage e))
-                    (:response data)
-                    (assoc :response (:response data)))}))
+                    (not= (:error data) (.getMessage e)) (assoc :details
+                                                                (.getMessage e))
+                    (:response data) (assoc :response (:response data)))}))
        (catch Exception e (server-error e))))
 
 (defn health-check
@@ -340,42 +335,39 @@
 
 (defn chat-with-ai
   [request]
-  (try (let [body (-> request :parameters :body)
-             {:keys [wine-ids conversation-history image provider include-visible-wines?]} body
-             include? (if (contains? body :include-visible-wines?)
-                        (boolean include-visible-wines?)
-                        false)
-             selected-ids (if include?
-                            (vec (remove nil? wine-ids))
-                            [])]
-         (if (and (empty? conversation-history) (empty? image))
-           {:status 400
-            :body {:error "Conversation history or image is required"}}
-           (let [enriched-wines (if (seq selected-ids)
-                                   (db-api/get-enriched-wines-by-ids selected-ids)
-                                   [])
-                 cellar-wines (or (db-api/get-wines-for-list) [])
-                 condensed (summary/condensed-summary cellar-wines)
-                 context {:summary condensed
-                          :selected-wines (if include?
-                                            (vec enriched-wines)
-                                            [])}
-                 response (ai/chat-about-wines provider
-                                               context
-                                               conversation-history
-                                               image)]
-             (response/response response))))
-       (catch clojure.lang.ExceptionInfo e
-         (let [data (ex-data e)
-               status (or (:status data) 500)
-               error-message (or (:error data) "AI chat failed")]
-           {:status status
-            :body (cond-> {:error error-message}
-                    (not= (:error data) (.getMessage e))
-                    (assoc :details (.getMessage e))
-                    (:response data)
-                    (assoc :response (:response data)))}))
-       (catch Exception e (server-error e))))
+  (try
+    (let [body (-> request
+                   :parameters
+                   :body)
+          {:keys [wine-ids conversation-history image provider
+                  include-visible-wines?]}
+          body
+          include? (if (contains? body :include-visible-wines?)
+                     (boolean include-visible-wines?)
+                     false)
+          selected-ids (if include? (vec (remove nil? wine-ids)) [])]
+      (if (and (empty? conversation-history) (empty? image))
+        {:status 400 :body {:error "Conversation history or image is required"}}
+        (let [enriched-wines (if (seq selected-ids)
+                               (db-api/get-enriched-wines-by-ids selected-ids)
+                               [])
+              cellar-wines (or (db-api/get-wines-for-list) [])
+              condensed (summary/condensed-summary cellar-wines)
+              context {:summary condensed
+                       :selected-wines (if include? (vec enriched-wines) [])}
+              response
+              (ai/chat-about-wines provider context conversation-history image)]
+          (response/response response))))
+    (catch clojure.lang.ExceptionInfo e
+      (let [data (ex-data e)
+            status (or (:status data) 500)
+            error-message (or (:error data) "AI chat failed")]
+        {:status status
+         :body (cond-> {:error error-message}
+                 (not= (:error data) (.getMessage e)) (assoc :details
+                                                             (.getMessage e))
+                 (:response data) (assoc :response (:response data)))}))
+    (catch Exception e (server-error e))))
 
 ;; Conversation persistence handlers
 
@@ -397,7 +389,8 @@
 (defn create-conversation
   [request]
   (try (let [email (ensure-user-email request)
-             {:keys [title wine_ids wine_search_state auto_tags pinned provider]}
+             {:keys [title wine_ids wine_search_state auto_tags pinned
+                     provider]}
              (get-in request [:parameters :body])
              payload (cond-> {:user_email email
                               :title title
@@ -419,13 +412,12 @@
   (try (let [email (ensure-user-email request)
              conversation-id (get-in request [:parameters :path :id])
              conversation (db-api/get-conversation conversation-id)]
-         (cond
-           (nil? conversation)
-           (response/not-found {:error "Conversation not found"})
-           (not= email (:user_email conversation))
-           {:status 403 :body {:error "Forbidden"}}
-           :else
-           (response/response (db-api/list-messages-for-conversation conversation-id))))
+         (cond (nil? conversation) (response/not-found
+                                    {:error "Conversation not found"})
+               (not= email (:user_email conversation))
+               {:status 403 :body {:error "Forbidden"}}
+               :else (response/response (db-api/list-messages-for-conversation
+                                         conversation-id))))
        (catch Exception e
          (if-let [status (:status (ex-data e))]
            {:status status :body {:error (.getMessage e)}}
@@ -433,41 +425,46 @@
 
 (defn append-conversation-message
   [request]
-  (try (let [email (ensure-user-email request)
-             conversation-id (get-in request [:parameters :path :id])
-             conversation (db-api/get-conversation conversation-id)]
-         (cond
-           (nil? conversation)
-           (response/not-found {:error "Conversation not found"})
-           (not= email (:user_email conversation))
-           {:status 403 :body {:error "Forbidden"}}
-           :else
-           (let [{:keys [is_user content image_data tokens_used]} ; body map used individual keys only
-                 (get-in request [:parameters :body])
-                 message {:conversation_id conversation-id
-                          :is_user (boolean is_user)
-                          :content content
-                          :image_data image_data
-                          :tokens_used tokens_used}
-                 inserted (db-api/append-conversation-message! message)
-                 title-needed? (and (:is_user inserted)
-                                    (str/blank? (:title conversation))
-                                    (not (str/blank? content)))
-                 updated-conversation (when title-needed?
-                                        (when-let [title (ai/generate-conversation-title
-                                                           (:provider conversation)
-                                                           content)]
-                                          (db-api/update-conversation!
-                                            conversation-id {:title title})))]
-             (-> (response/response (cond-> {:message inserted}
-                                      updated-conversation (assoc
-                                                             :conversation
-                                                             updated-conversation)))
-                  (response/status 201)))))
-       (catch Exception e
-         (if-let [status (:status (ex-data e))]
-           {:status status :body {:error (.getMessage e)}}
-           (server-error e)))))
+  (try
+    (let [email (ensure-user-email request)
+          conversation-id (get-in request [:parameters :path :id])
+          conversation (db-api/get-conversation conversation-id)]
+      (cond (nil? conversation) (response/not-found {:error
+                                                     "Conversation not found"})
+            (not= email (:user_email conversation)) {:status 403
+                                                     :body {:error "Forbidden"}}
+            :else (let [{:keys [is_user content image_data tokens_used]} ; body
+                                                                         ; map
+                                                                         ; used
+                                                                         ; individual
+                                                                         ; keys
+                                                                         ; only
+                        (get-in request [:parameters :body])
+                        message {:conversation_id conversation-id
+                                 :is_user (boolean is_user)
+                                 :content content
+                                 :image_data image_data
+                                 :tokens_used tokens_used}
+                        inserted (db-api/append-conversation-message! message)
+                        title-needed? (and (:is_user inserted)
+                                           (str/blank? (:title conversation))
+                                           (not (str/blank? content)))
+                        updated-conversation
+                        (when title-needed?
+                          (when-let [title (ai/generate-conversation-title
+                                            (:provider conversation)
+                                            content)]
+                            (db-api/update-conversation! conversation-id
+                                                         {:title title})))]
+                    (-> (response/response (cond-> {:message inserted}
+                                             updated-conversation
+                                             (assoc :conversation
+                                                    updated-conversation)))
+                        (response/status 201)))))
+    (catch Exception e
+      (if-let [status (:status (ex-data e))]
+        {:status status :body {:error (.getMessage e)}}
+        (server-error e)))))
 
 (defn update-conversation-message
   [request]
@@ -475,22 +472,24 @@
              conversation-id (get-in request [:parameters :path :id])
              message-id (get-in request [:parameters :path :message-id])
              conversation (db-api/get-conversation conversation-id)]
-         (cond
-           (nil? conversation)
-           (response/not-found {:error "Conversation not found"})
-           (not= email (:user_email conversation))
-           {:status 403 :body {:error "Forbidden"}}
-           :else
-           (let [body (get-in request [:parameters :body])
-                 {:keys [content image truncate_after? tokens_used]} body
-                 payload (cond-> {:conversation_id conversation-id
-                                  :message_id message-id
-                                  :content content}
-                            (contains? body :image) (assoc :image_data image)
-                            (contains? body :tokens_used) (assoc :tokens_used tokens_used)
-                            (true? truncate_after?) (assoc :truncate_after? true))]
-             (-> (response/response (db-api/update-conversation-message! payload))
-                 (response/status 200)))))
+         (cond (nil? conversation) (response/not-found
+                                    {:error "Conversation not found"})
+               (not= email (:user_email conversation))
+               {:status 403 :body {:error "Forbidden"}}
+               :else
+               (let [body (get-in request [:parameters :body])
+                     {:keys [content image truncate_after? tokens_used]} body
+                     payload (cond-> {:conversation_id conversation-id
+                                      :message_id message-id
+                                      :content content}
+                               (contains? body :image) (assoc :image_data image)
+                               (contains? body :tokens_used) (assoc :tokens_used
+                                                                    tokens_used)
+                               (true? truncate_after?) (assoc :truncate_after?
+                                                              true))]
+                 (-> (response/response (db-api/update-conversation-message!
+                                         payload))
+                     (response/status 200)))))
        (catch clojure.lang.ExceptionInfo e
          (let [{:keys [status]} (ex-data e)]
            (if status
@@ -506,14 +505,12 @@
   (try (let [email (ensure-user-email request)
              conversation-id (get-in request [:parameters :path :id])
              conversation (db-api/get-conversation conversation-id)]
-         (cond
-           (nil? conversation)
-           (response/not-found {:error "Conversation not found"})
-           (not= email (:user_email conversation))
-           {:status 403 :body {:error "Forbidden"}}
-           :else
-           (do (db-api/delete-conversation! conversation-id)
-               (no-content))))
+         (cond (nil? conversation) (response/not-found
+                                    {:error "Conversation not found"})
+               (not= email (:user_email conversation))
+               {:status 403 :body {:error "Forbidden"}}
+               :else (do (db-api/delete-conversation! conversation-id)
+                         (no-content))))
        (catch Exception e
          (if-let [status (:status (ex-data e))]
            {:status status :body {:error (.getMessage e)}}
@@ -524,17 +521,15 @@
   (try (let [email (ensure-user-email request)
              conversation-id (get-in request [:parameters :path :id])
              conversation (db-api/get-conversation conversation-id)]
-         (cond
-           (nil? conversation)
-           (response/not-found {:error "Conversation not found"})
-           (not= email (:user_email conversation))
-           {:status 403 :body {:error "Forbidden"}}
-           :else
-           (let [updates (get-in request [:parameters :body])]
-             (if (seq updates)
-               (response/response
-                (db-api/update-conversation! conversation-id updates))
-               {:status 400 :body {:error "No updates provided"}}))))
+         (cond (nil? conversation) (response/not-found
+                                    {:error "Conversation not found"})
+               (not= email (:user_email conversation))
+               {:status 403 :body {:error "Forbidden"}}
+               :else (let [updates (get-in request [:parameters :body])]
+                       (if (seq updates)
+                         (response/response
+                          (db-api/update-conversation! conversation-id updates))
+                         {:status 400 :body {:error "No updates provided"}}))))
        (catch Exception e
          (if-let [status (:status (ex-data e))]
            {:status status :body {:error (.getMessage e)}}
@@ -587,9 +582,8 @@
   [{{{:keys [enabled?]} :body} :parameters}]
   (if (nil? enabled?)
     {:status 400 :body {:error "enabled? flag is required"}}
-    (do
-      (logging/set-verbose-logging! enabled?)
-      (response/response (logging/verbose-logging-status)))))
+    (do (logging/set-verbose-logging! enabled?)
+        (response/response (logging/verbose-logging-status)))))
 
 (defn start-drinking-window-job
   "Admin function to start async drinking window regeneration job"
@@ -605,17 +599,16 @@
            {:status 400 :body {:error "No wine IDs provided"}}
            (let [job-id
                  (wine-cellar.admin.bulk-operations/start-drinking-window-job
-                  {:wine-ids wine-ids
-                   :provider provider})]
+                  {:wine-ids wine-ids :provider provider})]
              (println "✅ ADMIN: Started drinking window job" job-id)
              {:status 200
               :body {:job-id job-id
                      :message "Drinking window regeneration job started"
                      :total-wines wine-count}})))
        (catch Exception e
-       (println "❌ ADMIN: Failed to start drinking window job:"
-                (.getMessage e))
-       (server-error e))))
+         (println "❌ ADMIN: Failed to start drinking window job:"
+                  (.getMessage e))
+         (server-error e))))
 
 (defn start-wine-summary-job
   "Admin function to start async wine summary regeneration job"
@@ -629,8 +622,7 @@
       (if (empty? wine-ids)
         {:status 400 :body {:error "No wine IDs provided"}}
         (let [job-id (wine-cellar.admin.bulk-operations/start-wine-summary-job
-                      {:wine-ids wine-ids
-                       :provider provider})]
+                      {:wine-ids wine-ids :provider provider})]
           (println "✅ ADMIN: Started wine summary job" job-id)
           {:status 200
            :body {:job-id job-id

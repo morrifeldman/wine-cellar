@@ -13,32 +13,34 @@
   "Individual category dropdown with free-form input support"
   [{:keys [label options all-values on-change]}]
   (r/with-let [dynamic-options (r/atom (set options))]
-    (let [register-new-options (fn [values]
-                                 ;; Add any new custom values to the
-                                 ;; dynamic options set
-                                 (doseq [item values]
-                                   (when (not (str/blank? item))
-                                     (swap! dynamic-options conj item))))]
-      (register-new-options all-values)
-      [grid {:item true :xs 12 :sm 6}
-       [select-field
-        {:label label
-         :value (filter #(@dynamic-options %) (or all-values []))
-         :options (vec @dynamic-options)
-         :multiple true
-         :free-solo true
-         :required false
-         :on-change #(do (register-new-options %)
-                         ;; Update the parent state
-                         (on-change %))
-         :on-blur #(let [input-value (-> %
-                                         .-target
-                                         .-value)]
-                     (println input-value)
-                     ;; Register any new option that was typed in the input field
-                     (register-new-options [input-value]))
-         :sx {"& .MuiAutocomplete-endAdornment .MuiSvgIcon-root"
-              {:color "text.primary"}}}]])))
+              (let [register-new-options (fn [values]
+                                           ;; Add any new custom values to
+                                           ;; the dynamic options set
+                                           (doseq [item values]
+                                             (when (not (str/blank? item))
+                                               (swap! dynamic-options conj
+                                                 item))))]
+                (register-new-options all-values)
+                [grid {:item true :xs 12 :sm 6}
+                 [select-field
+                  {:label label
+                   :value (filter #(@dynamic-options %) (or all-values []))
+                   :options (vec @dynamic-options)
+                   :multiple true
+                   :free-solo true
+                   :required false
+                   :on-change #(do (register-new-options %)
+                                   ;; Update the parent state
+                                   (on-change %))
+                   :on-blur #(let [input-value (-> %
+                                                   .-target
+                                                   .-value)]
+                               (println input-value)
+                               ;; Register any new option that was typed in
+                               ;; the input field
+                               (register-new-options [input-value]))
+                   :sx {"& .MuiAutocomplete-endAdornment .MuiSvgIcon-root"
+                        {:color "text.primary"}}}]])))
 
 (def ^:private category-definitions
   [{:section "Primary"

@@ -44,8 +44,7 @@
           margin-top (if compact? 0.25 0.5)]
       [box {:sx {:mt margin-top}}
        (if same-count?
-         [typography {:variant "body2" :color "text.secondary"}
-          total-line]
+         [typography {:variant "body2" :color "text.secondary"} total-line]
          [typography {:variant "body2" :color "text.secondary"}
           filtered-line])])))
 
@@ -108,26 +107,23 @@
   [app-state]
   (let [filters (:filters @app-state)
         selected-styles (let [raw (:styles filters)
-                               legacy (:style filters)]
-                           (cond
-                             (sequential? raw) (vec raw)
-                             (some? legacy) [(str legacy)]
-                             :else []))
+                              legacy (:style filters)]
+                          (cond (sequential? raw) (vec raw)
+                                (some? legacy) [(str legacy)]
+                                :else []))
         selected-set (set selected-styles)
         normalize-selection (fn [value]
-                              (let [converted (cond
-                                                (js/Array.isArray value) (js->clj value)
-                                                (sequential? value) value
-                                                (nil? value) []
-                                                :else value)]
-                                (cond
-                                  (vector? converted) converted
-                                  (sequential? converted) (vec converted)
-                                  (nil? converted) []
-                                  :else [(str converted)])))
+                              (let [converted (cond (js/Array.isArray value)
+                                                    (js->clj value)
+                                                    (sequential? value) value
+                                                    (nil? value) []
+                                                    :else value)]
+                                (cond (vector? converted) converted
+                                      (sequential? converted) (vec converted)
+                                      (nil? converted) []
+                                      :else [(str converted)])))
         clear-marker? (fn [value]
-                        (or (= value "__clear__")
-                            (= value {"__clear__" true})))
+                        (or (= value "__clear__") (= value {"__clear__" true})))
         label-id "style-filter-label"
         select-id "style-filter-select"]
     [grid {:item true :xs 12 :md 2}
@@ -144,53 +140,52 @@
         :renderValue
         (fn [selected]
           (let [values (normalize-selection selected)
-                cleaned (->> values (remove clear-marker?) (into []))]
+                cleaned (->> values
+                             (remove clear-marker?)
+                             (into []))]
             (if (seq cleaned) (str/join ", " cleaned) "All Styles")))
         :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
-        :onChange
-        (fn [event]
-          (let [raw (.. event -target -value)
-                values (normalize-selection raw)
-                cleaned (if (some clear-marker? values)
-                          []
-                          (->> values (remove clear-marker?) (into [])))]
-            (swap! app-state assoc-in [:filters :styles]
-                   (if (seq cleaned) cleaned []))))}
+        :onChange (fn [event]
+                    (let [raw (.. event -target -value)
+                          values (normalize-selection raw)
+                          cleaned (if (some clear-marker? values)
+                                    []
+                                    (->> values
+                                         (remove clear-marker?)
+                                         (into [])))]
+                      (swap! app-state assoc-in
+                        [:filters :styles]
+                        (if (seq cleaned) cleaned []))))}
        [menu-item {:value "__clear__"}
-        [typography {:variant "body2" :sx {:fontStyle "italic"}}
-         "All Styles"]]
+        [typography {:variant "body2" :sx {:fontStyle "italic"}} "All Styles"]]
        (for [style common/wine-styles]
          ^{:key style}
          [menu-item {:value style}
-          [checkbox {:checked (contains? selected-set style)
-                     :size "small"
-                     :sx {:mr 1}}]
+          [checkbox
+           {:checked (contains? selected-set style) :size "small" :sx {:mr 1}}]
           [list-item-text {:primary style}]])]]]))
 
 (defn variety-filter
   [app-state]
   (let [filters (:filters @app-state)
         selected-varieties (let [raw (:varieties filters)
-                                  legacy (:variety filters)]
-                              (cond
-                                (sequential? raw) (vec raw)
-                                (some? legacy) [(str legacy)]
-                                :else []))
+                                 legacy (:variety filters)]
+                             (cond (sequential? raw) (vec raw)
+                                   (some? legacy) [(str legacy)]
+                                   :else []))
         selected-set (set selected-varieties)
         normalize-selection (fn [value]
-                              (let [converted (cond
-                                                (js/Array.isArray value) (js->clj value)
-                                                (sequential? value) value
-                                                (nil? value) []
-                                                :else value)]
-                                (cond
-                                  (vector? converted) converted
-                                  (sequential? converted) (vec converted)
-                                  (nil? converted) []
-                                  :else [(str converted)])))
+                              (let [converted (cond (js/Array.isArray value)
+                                                    (js->clj value)
+                                                    (sequential? value) value
+                                                    (nil? value) []
+                                                    :else value)]
+                                (cond (vector? converted) converted
+                                      (sequential? converted) (vec converted)
+                                      (nil? converted) []
+                                      :else [(str converted)])))
         clear-marker? (fn [value]
-                        (or (= value "__clear__")
-                            (= value {"__clear__" true})))
+                        (or (= value "__clear__") (= value {"__clear__" true})))
         label-id "variety-filter-label"
         select-id "variety-filter-select"
         varieties (sort (unique-varieties (:wines @app-state)))]
@@ -208,7 +203,9 @@
         :renderValue
         (fn [selected]
           (let [values (normalize-selection selected)
-                cleaned (->> values (remove clear-marker?) (into []))]
+                cleaned (->> values
+                             (remove clear-marker?)
+                             (into []))]
             (if (seq cleaned) (str/join ", " cleaned) "All Varieties")))
         :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
         :onChange
@@ -217,22 +214,24 @@
                 values (normalize-selection raw)
                 cleaned (if (some clear-marker? values)
                           []
-                          (->> values (remove clear-marker?) (into [])))]
-            (swap! app-state
-                   (fn [state]
-                     (-> state
-                         (assoc-in [:filters :varieties] (if (seq cleaned) cleaned []))
-                         (assoc-in [:filters :variety] nil))))))}
+                          (->> values
+                               (remove clear-marker?)
+                               (into [])))]
+            (swap! app-state (fn [state]
+                               (-> state
+                                   (assoc-in [:filters :varieties]
+                                             (if (seq cleaned) cleaned []))
+                                   (assoc-in [:filters :variety] nil))))))}
        [menu-item {:value "__clear__"}
         [typography {:variant "body2" :sx {:fontStyle "italic"}}
          "All Varieties"]]
        (for [variety varieties]
          ^{:key variety}
          [menu-item {:value variety}
-          [checkbox {:checked (contains? selected-set variety)
-                     :size "small"
-                     :sx {:mr 1}}]
-          [list-item-text {:primary variety}]])]]]))
+          [checkbox
+           {:checked (contains? selected-set variety)
+            :size "small"
+            :sx {:mr 1}}] [list-item-text {:primary variety}]])]]]))
 
 (defn price-range-filter
   [app-state]
@@ -325,48 +324,45 @@
 
 
 (defn filter-header
-  ([app-state count-info]
-   (filter-header app-state count-info nil))
+  ([app-state count-info] (filter-header app-state count-info nil))
   ([app-state count-info {:keys [compact?]}]
    (let [state @app-state
          gap (if compact? 0.4 0.75)
          margin-bottom (if compact? 0.75 2)
          button-gap (if compact? 0.75 1)
          button-color (if (:show-out-of-stock? state) "secondary" "primary")
-         show-controls? (if compact?
-                          (:show-filters? state)
-                          true)
+         show-controls? (if compact? (:show-filters? state) true)
          selected-count (count (or (:selected-wine-ids state) #{}))
          show-selected? (and (:show-selected-wines? state)
                              (pos? selected-count))
          header-buttons
          (cond-> []
-           true (conj [button
-                       {:variant "outlined"
-                        :size "small"
-                        :color button-color
-                        :onClick #(swap! app-state update :show-out-of-stock? not)}
-                       (if (:show-out-of-stock? state)
-                         "In Cellar Only"
-                         "All History")])
-           true (conj [button
-                       {:variant "outlined"
-                        :size "small"
-                        :color "secondary"
-                        :onClick #(swap! app-state assoc
-                                    :filters
-                                    {:search ""
-                                     :country nil
-                                     :region nil
-                                     :styles []
-                                     :style nil
-                                     :varieties []
-                                     :variety nil
-                                     :price-range nil
-                                     :tasting-window nil
-                                     :verification nil
-                                     :columns #{}})}
-                       "Clear Filters"])
+           true
+           (conj
+            [button
+             {:variant "outlined"
+              :size "small"
+              :color button-color
+              :onClick #(swap! app-state update :show-out-of-stock? not)}
+             (if (:show-out-of-stock? state) "In Cellar Only" "All History")])
+           true (conj
+                 [button
+                  {:variant "outlined"
+                   :size "small"
+                   :color "secondary"
+                   :onClick #(swap! app-state assoc
+                               :filters
+                               {:search ""
+                                :country nil
+                                :region nil
+                                :styles []
+                                :style nil
+                                :varieties []
+                                :variety nil
+                                :price-range nil
+                                :tasting-window nil
+                                :verification nil
+                                :columns #{}})} "Clear Filters"])
            true (conj [button
                        {:variant (if show-selected? "contained" "outlined")
                         :size "small"
@@ -374,42 +370,37 @@
                         :disabled (zero? selected-count)
                         :onClick (fn []
                                    (when (pos? selected-count)
-                                     (swap! app-state assoc :show-selected-wines?
-                                            (not show-selected?))))}
+                                     (swap! app-state assoc
+                                       :show-selected-wines?
+                                       (not show-selected?))))}
                        (str "Selected (" selected-count ")")])
-           (pos? selected-count)
-           (conj [button
-                  {:variant "text"
-                   :size "small"
-                   :color "secondary"
-                   :sx {:textTransform "none"}
-                   :onClick #(app-state-core/clear-selected-wines! app-state)}
-                  "Clear Selection"]))]
-     [box {:sx {:display "flex"
-                :flexDirection "column"
-                :gap gap
-                :mb margin-bottom}}
-      [box {:sx {:display "flex"
-                 :justifyContent "space-between"
-                 :alignItems "center"
-                 :flexWrap "wrap"
-                 :rowGap 0.35}}
+           (pos? selected-count) (conj [button
+                                        {:variant "text"
+                                         :size "small"
+                                         :color "secondary"
+                                         :sx {:textTransform "none"}
+                                         :onClick
+                                         #(app-state-core/clear-selected-wines!
+                                           app-state)} "Clear Selection"]))]
+     [box
+      {:sx {:display "flex" :flexDirection "column" :gap gap :mb margin-bottom}}
+      [box
+       {:sx {:display "flex"
+             :justifyContent "space-between"
+             :alignItems "center"
+             :flexWrap "wrap"
+             :rowGap 0.35}}
        [box {:sx {:display "flex" :alignItems "center" :gap gap}}
-        [typography {:variant (if compact? "subtitle2" "subtitle1")
-                     :sx {:fontWeight "medium"
-                          :lineHeight 1.1}}
-         "Filter Wines"]
+        [typography
+         {:variant (if compact? "subtitle2" "subtitle1")
+          :sx {:fontWeight "medium" :lineHeight 1.1}} "Filter Wines"]
         [icon-button
          {:onClick #(swap! app-state update :show-filters? not)
           :size "small"
           :sx {:color "text.secondary" :p 0.5}}
-         (if (:show-filters? state)
-           [expand-less]
-           [expand-more])]]
+         (if (:show-filters? state) [expand-less] [expand-more])]]
        (when show-controls?
-         (into [box {:sx {:display "flex"
-                          :gap button-gap
-                          :flexWrap "wrap"}}]
+         (into [box {:sx {:display "flex" :gap button-gap :flexWrap "wrap"}}]
                header-buttons))]
       (when (and (not compact?) count-info)
         (visible-wine-indicator (assoc count-info :compact? compact?)))])))
@@ -418,12 +409,9 @@
   [app-state classifications spacing]
   [grid {:container true :spacing spacing}
    [country-filter app-state classifications]
-   [region-filter app-state classifications]
-   [style-filter app-state]
-   [variety-filter app-state]
-   [price-range-filter app-state]
-   [tasting-window-filter app-state]
-   [verification-filter app-state]
+   [region-filter app-state classifications] [style-filter app-state]
+   [variety-filter app-state] [price-range-filter app-state]
+   [tasting-window-filter app-state] [verification-filter app-state]
    [column-filter app-state]])
 
 (defn- sort-controls-row
@@ -432,22 +420,15 @@
         margin-top (if compact? 1.5 2)
         padding-top (if compact? 1 2)
         min-width (if compact? 160 180)]
-    [box {:sx {:mt margin-top
-               :pt padding-top
-               :borderTop "1px solid rgba(0,0,0,0.08)"}}
-     [box {:sx {:display "flex"
-                :alignItems "center"
-                :gap gap
-                :flexWrap "wrap"}}
+    [box
+     {:sx
+      {:mt margin-top :pt padding-top :borderTop "1px solid rgba(0,0,0,0.08)"}}
+     [box {:sx {:display "flex" :alignItems "center" :gap gap :flexWrap "wrap"}}
       [typography
        {:variant "subtitle2"
-        :sx {:height "40px"
-             :display "flex"
-             :alignItems "center"}}
-       "Sort by:"]
-      [form-control {:variant "outlined"
-                     :size "small"
-                     :sx {:minWidth min-width}}
+        :sx {:height "40px" :display "flex" :alignItems "center"}} "Sort by:"]
+      [form-control
+       {:variant "outlined" :size "small" :sx {:minWidth min-width}}
        [select
         {:value (let [sort-state (:sort @app-state)
                       current-field (:field sort-state)]
@@ -486,8 +467,7 @@
          (if (= current-direction :asc) [arrow-upward] [arrow-downward]))]]]))
 
 (defn filter-bar
-  ([app-state]
-   (filter-bar app-state nil))
+  ([app-state] (filter-bar app-state nil))
   ([app-state count-info]
    (let [classifications (:classifications @app-state)]
      [paper {:elevation 1 :sx {:p 3 :mb 3 :borderRadius 2}}
@@ -498,22 +478,20 @@
       (sort-controls-row app-state {:compact? false})])))
 
 (defn compact-filter-bar
-  ([app-state]
-   (compact-filter-bar app-state nil))
+  ([app-state] (compact-filter-bar app-state nil))
   ([app-state count-info]
    (let [classifications (:classifications @app-state)]
-     [box {:sx {:px 1.5
-                :py 1
-                :mb 1.25
-                :border "1px solid"
-                :borderColor "divider"
-                :borderRadius 2
-                :backgroundColor "background.default"}}
+     [box
+      {:sx {:px 1.5
+            :py 1
+            :mb 1.25
+            :border "1px solid"
+            :borderColor "divider"
+            :borderRadius 2
+            :backgroundColor "background.default"}}
       [filter-header app-state count-info {:compact? true}]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}
-       [box {:sx {:display "flex"
-                  :flexDirection "column"
-                  :gap 1.5}}
+       [box {:sx {:display "flex" :flexDirection "column" :gap 1.5}}
         [box [search-field app-state]]
         [filter-controls-grid app-state classifications 2]
         (sort-controls-row app-state {:compact? true})]]])))

@@ -67,54 +67,56 @@
                                   (doseq [track (.getTracks stream)]
                                     (.stop track))))
       :reagent-render
-      (fn []
-        [box
-         {:sx {:position "fixed"
-               :top 0
-               :left 0
-               :right 0
-               :bottom 0
-               :bgcolor "rgba(0,0,0,0.9)"
-               :zIndex 9999
-               :display "flex"
-               :flexDirection "column"
-               :alignItems "center"
-               :justifyContent "center"}}
-         [icon-button
-          {:onClick cancel-handler
-           :sx {:position "absolute" :top 16 :right 16 :color "white"}} [close]]
-         [box
-          {:sx {:position "relative"
-                :maxWidth "100%"
-                :maxHeight "70vh"
-                :overflow "hidden"
-                :borderRadius 2
-                :mb 2
-                :border "1px solid rgba(255,255,255,0.3)"}}
-          [:video
-           {:ref #(reset! video-ref %)
-            :autoPlay true
-            :playsInline true
-            :muted true
-            :style {:maxWidth "100%" :maxHeight "70vh" :background "black"}}]]
-         [button
-          {:variant "contained"
-           :color "primary"
-           :disabled (not @camera-active)
-           :onClick (fn []
-                      (when-let [video @video-ref]
-                        (let [canvas (js/document.createElement "canvas")
-                              ctx (.getContext canvas "2d")]
-                          (set! (.-width canvas) (.-videoWidth video))
-                          (set! (.-height canvas) (.-videoHeight video))
-                          (.drawImage ctx video 0 0)
-                          (let [data-url (.toDataURL canvas "image/jpeg" 0.85)]
-                            (create-thumbnail
-                             data-url
-                             (fn [thumbnail]
-                               (capture-handler {:label_image data-url
-                                                  :label_thumbnail thumbnail})))))))
-           :sx {:mb 2}} "Take Photo"]])})))
+      (fn [] [box
+              {:sx {:position "fixed"
+                    :top 0
+                    :left 0
+                    :right 0
+                    :bottom 0
+                    :bgcolor "rgba(0,0,0,0.9)"
+                    :zIndex 9999
+                    :display "flex"
+                    :flexDirection "column"
+                    :alignItems "center"
+                    :justifyContent "center"}}
+              [icon-button
+               {:onClick cancel-handler
+                :sx {:position "absolute" :top 16 :right 16 :color "white"}}
+               [close]]
+              [box
+               {:sx {:position "relative"
+                     :maxWidth "100%"
+                     :maxHeight "70vh"
+                     :overflow "hidden"
+                     :borderRadius 2
+                     :mb 2
+                     :border "1px solid rgba(255,255,255,0.3)"}}
+               [:video
+                {:ref #(reset! video-ref %)
+                 :autoPlay true
+                 :playsInline true
+                 :muted true
+                 :style
+                 {:maxWidth "100%" :maxHeight "70vh" :background "black"}}]]
+              [button
+               {:variant "contained"
+                :color "primary"
+                :disabled (not @camera-active)
+                :onClick
+                (fn []
+                  (when-let [video @video-ref]
+                    (let [canvas (js/document.createElement "canvas")
+                          ctx (.getContext canvas "2d")]
+                      (set! (.-width canvas) (.-videoWidth video))
+                      (set! (.-height canvas) (.-videoHeight video))
+                      (.drawImage ctx video 0 0)
+                      (let [data-url (.toDataURL canvas "image/jpeg" 0.85)]
+                        (create-thumbnail data-url
+                                          (fn [thumbnail]
+                                            (capture-handler
+                                             {:label_image data-url
+                                              :label_thumbnail thumbnail})))))))
+                :sx {:mb 2}} "Take Photo"]])})))
 
 ;; Image preview component
 (defn render-image-preview
@@ -157,7 +159,8 @@
   [_props]
   (let [show-camera (r/atom false)
         uploading (r/atom false)]
-    (fn [{:keys [image-data on-image-change on-image-remove disabled label-type]}]
+    (fn [{:keys [image-data on-image-change on-image-remove disabled
+                 label-type]}]
       (let [label-text (if (= label-type "back") "back" "front")]
         [box {:sx {:width "100%"}}
          ;; Show camera modal if active
@@ -169,8 +172,7 @@
                 ;; For back label, we don't need a thumbnail
                 (on-image-change {:back_label_image (:label_image image-data)})
                 ;; For front label, we keep the existing behavior
-                (on-image-change image-data)))
-            #(reset! show-camera false)])
+                (on-image-change image-data))) #(reset! show-camera false)])
          ;; Image preview or camera controls
          (if image-data
            ;; Show image with remove button
@@ -195,7 +197,8 @@
               :disabled (or disabled @uploading)
               :onClick #(reset! show-camera true)
               :startIcon (r/as-element [camera-alt])
-              :size "medium"} (str "Take " (str/capitalize label-text) " Photo")]
+              :size "medium"}
+             (str "Take " (str/capitalize label-text) " Photo")]
             ;; Loading indicator
             (when @uploading
               [box {:sx {:mt 2 :display "flex" :justifyContent "center"}}

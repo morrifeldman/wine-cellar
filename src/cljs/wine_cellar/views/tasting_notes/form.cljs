@@ -169,21 +169,21 @@
            :on-change
            #(if (get-in updated-note [:wset_data :note_type])
               ;; Remove WSET data completely
-              (do
-                (swap! app-state assoc-in [:new-tasting-note :wset_data] nil)
-                (reset! wset-expanded? false))
+              (do (swap! app-state assoc-in [:new-tasting-note :wset_data] nil)
+                  (reset! wset-expanded? false))
               ;; Initialize WSET data and expand
-              (let [default-appearance {:colour (or (:default-color style-info) :garnet)
-                                        :intensity (or (:default-intensity style-info) :medium)}]
+              (let [default-appearance
+                    {:colour (or (:default-color style-info) :garnet)
+                     :intensity (or (:default-intensity style-info) :medium)}]
                 (swap! app-state assoc-in
-                       [:new-tasting-note :wset_data]
-                        {:note_type "wset_level_3"
-                         :version "1.0"
-                         :wset_wine_style wset-style
-                         :appearance default-appearance
-                         :nose {}
-                         :palate {}
-                         :conclusions {}})
+                  [:new-tasting-note :wset_data]
+                  {:note_type "wset_level_3"
+                   :version "1.0"
+                   :wset_wine_style wset-style
+                   :appearance default-appearance
+                   :nose {}
+                   :palate {}
+                   :conclusions {}})
                 (reset! wset-expanded? true)))}]]
         ;; WSET Content (only shown when enabled)
         (when (get-in updated-note [:wset_data :note_type])
@@ -191,31 +191,31 @@
            [grid {:container true :spacing 2}
             ;; Appearance Section
             [grid {:item true :xs 12}
-            [wset-appearance-section
-             {:appearance (get-in updated-note [:wset_data :appearance] {})
-              :style-info style-info
-              :other-observations-ref other-observations-ref
-              :on-change #(swap! app-state assoc-in
-                            [:new-tasting-note :wset_data :appearance]
-                            %)}]]
+             [wset-appearance-section
+              {:appearance (get-in updated-note [:wset_data :appearance] {})
+               :style-info style-info
+               :other-observations-ref other-observations-ref
+               :on-change #(swap! app-state assoc-in
+                             [:new-tasting-note :wset_data :appearance]
+                             %)}]]
             ;; Nose Section
-           [grid {:item true :xs 12}
-            [wset-nose-section
-             {:nose (get-in updated-note [:wset_data :nose] {})
+            [grid {:item true :xs 12}
+             [wset-nose-section
+              {:nose (get-in updated-note [:wset_data :nose] {})
                :other-observations-ref nose-observations-ref
                :on-change #(swap! app-state assoc-in
                              [:new-tasting-note :wset_data :nose]
                              %)}]]
             ;; Palate Section
             [grid {:item true :xs 12}
-            [wset-palate-section
-             {:palate (get-in updated-note [:wset_data :palate] {})
-              :style-info style-info
-              :other-observations-ref palate-observations-ref
-              :nose (get-in updated-note [:wset_data :nose] {})
-              :on-change #(swap! app-state assoc-in
-                            [:new-tasting-note :wset_data :palate]
-                            %)}]]
+             [wset-palate-section
+              {:palate (get-in updated-note [:wset_data :palate] {})
+               :style-info style-info
+               :other-observations-ref palate-observations-ref
+               :nose (get-in updated-note [:wset_data :nose] {})
+               :on-change #(swap! app-state assoc-in
+                             [:new-tasting-note :wset_data :palate]
+                             %)}]]
             ;; Conclusions Section
             [grid {:item true :xs 12}
              [wset-conclusions-section

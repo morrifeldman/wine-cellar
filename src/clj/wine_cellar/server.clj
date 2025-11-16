@@ -13,7 +13,8 @@
 (defn start-server!
   [port]
   (db-setup/initialize-db)
-  ;; Add stdout tap handler for production logging (coexists with Portal in dev)
+  ;; Add stdout tap handler for production logging (coexists with Portal in
+  ;; dev)
   (when production? (add-tap #(println "tap>" (pr-str %))))
   (let [session-store (cookie-store {:key (.getBytes
                                            (auth-config/get-cookie-store-key))})

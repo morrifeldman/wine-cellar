@@ -10,8 +10,7 @@
     [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.icons.expand-more :refer [expand-more]]
     [wine-cellar.common :refer [wset-lexicon]]
-    [wine-cellar.views.components.form :refer
-     [uncontrolled-text-area-field]]
+    [wine-cellar.views.components.form :refer [uncontrolled-text-area-field]]
     [wine-cellar.views.components.wine-color :refer [wine-color-selector]]))
 
 (defn- radio-group-field
@@ -64,15 +63,15 @@
            :options (get-in wset-lexicon [:enums :clarity])
            :on-change #(update-field :clarity %)}]
          ;; Wine Color (Wine Folly colors with separate intensity)
-        [grid {:item true :xs 12}
-         [wine-color-selector
-          {:style-info style-info
-           :selected-color (:colour appearance)
-           :selected-intensity (:intensity appearance)
-           :on-change (fn [{:keys [color intensity]}]
-                        (on-change (-> appearance
-                                       (assoc :colour color)
-                                       (assoc :intensity intensity))))}]]
+         [grid {:item true :xs 12}
+          [wine-color-selector
+           {:style-info style-info
+            :selected-color (:colour appearance)
+            :selected-intensity (:intensity appearance)
+            :on-change (fn [{:keys [color intensity]}]
+                         (on-change (-> appearance
+                                        (assoc :colour color)
+                                        (assoc :intensity intensity))))}]]
          ;; Other Observations
          [grid {:item true :xs 12}
           [uncontrolled-text-area-field

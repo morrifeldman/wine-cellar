@@ -26,8 +26,7 @@
        flatten
        (map #(if (string? %)
                (let [trimmed (str/trim %)]
-                 (when (not (str/blank? trimmed))
-                   trimmed))
+                 (when (not (str/blank? trimmed)) trimmed))
                %))
        (remove nil?)))
 

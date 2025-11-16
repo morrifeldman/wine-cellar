@@ -72,23 +72,21 @@
         available-varieties (get-available-varieties variety-data)]
     (if editing-id
       [typography {:variant "h6"} (:variety_name variety)]
-      (letfn [(update-new-variety!
-                [f]
+      (letfn [(update-new-variety! [f]
                 (swap! app-state update :new-wine-variety (fnil f {})))
-              (set-free-solo-name!
-                [text]
+              (set-free-solo-name! [text]
                 (update-new-variety!
-                  (fn [variety]
-                    (let [trimmed (str/trim (or text ""))]
-                      (-> variety
-                          (dissoc :variety_id)
-                          ((if (str/blank? trimmed)
-                               #(dissoc % :variety_name)
-                               #(assoc % :variety_name trimmed))))))))]
-        (let [selected-option (when-let [gv (first (filter #(= (:id %)
-                                                                 (:variety_id variety))
-                                                             grape-varieties))]
-                                (clj->js (grape-variety->option gv)))]
+                 (fn [variety]
+                   (let [trimmed (str/trim (or text ""))]
+                     (-> variety
+                         (dissoc :variety_id)
+                         ((if (str/blank? trimmed)
+                            #(dissoc % :variety_name)
+                            #(assoc % :variety_name trimmed))))))))]
+        (let [selected-option
+              (when-let [gv (first (filter #(= (:id %) (:variety_id variety))
+                                           grape-varieties))]
+                (clj->js (grape-variety->option gv)))]
           [select-field
            {:label "Grape Variety"
             :required true
@@ -97,22 +95,22 @@
                        selected-option)
             :input-value (get-in @app-state [:new-wine-variety :variety_name])
             :options (clj->js (mapv grape-variety->option available-varieties))
-            :on-input-change
-            (fn [value reason]
-              (case reason
-                "input" (set-free-solo-name! value)
-                "clear" (update-new-variety!
-                          #(-> % (dissoc :variety_name) (dissoc :variety_id)))
-                nil))
-            :on-change
-            (fn [value]
-              (if (string? value)
-                (set-free-solo-name! value)
-                (update-new-variety!
-                  (fn [variety]
-                    (-> variety
-                        (assoc :variety_id (when value (.-id value)))
-                        (dissoc :variety_name))))))
+            :on-input-change (fn [value reason]
+                               (case reason
+                                 "input" (set-free-solo-name! value)
+                                 "clear" (update-new-variety!
+                                          #(-> %
+                                               (dissoc :variety_name)
+                                               (dissoc :variety_id)))
+                                 nil))
+            :on-change (fn [value]
+                         (if (string? value)
+                           (set-free-solo-name! value)
+                           (update-new-variety!
+                            (fn [variety]
+                              (-> variety
+                                  (assoc :variety_id (when value (.-id value)))
+                                  (dissoc :variety_name))))))
             :helper-text "Select an existing variety or type a new one"}])))))
 
 (defn percentage-field

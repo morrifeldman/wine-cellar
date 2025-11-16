@@ -9,12 +9,12 @@
 (def responses-url "https://api.openai.com/v1/responses")
 
 (defstate model
-  :start
-  (config-utils/get-config "OPENAI_MODEL" :fallback "gpt-5"))
+          :start
+          (config-utils/get-config "OPENAI_MODEL" :fallback "gpt-5"))
 
 (defstate light-model
-  :start
-  (config-utils/get-config "OPENAI_LIGHT_MODEL" :fallback "gpt-5-mini"))
+          :start
+          (config-utils/get-config "OPENAI_LIGHT_MODEL" :fallback "gpt-5-mini"))
 
 (defstate api-key :start (config-utils/get-config "OPENAI_API_KEY"))
 
@@ -22,11 +22,15 @@
 
 (defn- ensure-api-key!
   []
-  (or api-key
-      (throw (ex-info "OpenAI provider not configured"
-                      {:status 400
-                       :error "OpenAI provider is not configured. Set OPENAI_API_KEY to enable ChatGPT."
-                       :code :openai/missing-api-key}))))
+  (or
+   api-key
+   (throw
+    (ex-info
+     "OpenAI provider not configured"
+     {:status 400
+      :error
+      "OpenAI provider is not configured. Set OPENAI_API_KEY to enable ChatGPT."
+      :code :openai/missing-api-key}))))
 
 ;; Shared prompt helpers now live in wine-cellar.ai.prompts
 
@@ -41,30 +45,27 @@
 (defn- message->content
   [{:keys [role content]}]
   (let [input? (= role "user")
-        items (cond
-                (vector? content) content
-                (string? content) [{:type "text" :text content}]
-                :else [{:type "text" :text (or (:text content) "")}])]
+        items (cond (vector? content) content
+                    (string? content) [{:type "text" :text content}]
+                    :else [{:type "text" :text (or (:text content) "")}])]
     {:role role
      :content (mapv (fn [item]
                       (case (:type item)
-                        "image" (let [data (get-in item [:source :data])
-                                       media-type (get-in item [:source :media_type])
-                                       data-url (ensure-data-url data media-type)]
-                                   (if data-url
-                                     {:type "input_image"
-                                      :image_url data-url}
-                                     {:type (if input? "input_text" "output_text")
-                                      :text ""}))
+                        "image"
+                        (let [data (get-in item [:source :data])
+                              media-type (get-in item [:source :media_type])
+                              data-url (ensure-data-url data media-type)]
+                          (if data-url
+                            {:type "input_image" :image_url data-url}
+                            {:type (if input? "input_text" "output_text")
+                             :text ""}))
                         "text" {:type (if input? "input_text" "output_text")
-                                 :text (:text item)}
+                                :text (:text item)}
                         {:type (if input? "input_text" "output_text")
                          :text (or (:text item) "")}))
                     items)}))
 
-(defn- conversation->input
-  [messages]
-  (mapv message->content messages))
+(defn- conversation->input [messages] (mapv message->content messages))
 
 (defn- label-analysis-schema
   []
@@ -87,17 +88,12 @@
 (defn- build-request
   [{:keys [system-text context-text messages]}]
   {:pre [(string? system-text) (string? context-text) (vector? messages)]}
-  {:input (into [{:role "system"
-                  :content [{:type "input_text"
-                             :text system-text}]}
-                 {:role "system"
-                  :content [{:type "input_text"
-                             :text context-text}]}]
-                (conversation->input messages))})
+  {:input (into
+           [{:role "system" :content [{:type "input_text" :text system-text}]}
+            {:role "system" :content [{:type "input_text" :text context-text}]}]
+           (conversation->input messages))})
 
-(defn- output-content
-  [response-body]
-  (mapcat :content (:output response-body)))
+(defn- output-content [response-body] (mapcat :content (:output response-body)))
 
 (defn- extract-text
   [response-body]
@@ -110,24 +106,21 @@
 (defn- extract-json-output
   [response-body]
   (let [content (output-content response-body)]
-    (cond
-      (seq (filter #(= "output_json" (:type %)) content))
-      (some (fn [item]
-              (when (= "output_json" (:type item)) (:json item)))
-            content)
-
-      (seq (filter #(= "output_data" (:type %)) content))
-      (some (fn [item]
-              (when (= "output_data" (:type item))
-                (some-> item :data first :json)))
-            content)
-
-      (seq (filter #(= "output_text" (:type %)) content))
-      (let [text (extract-text response-body)]
-        (when (seq text)
-          (json/read-value text json-mapper)))
-
-      :else nil)))
+    (cond (seq (filter #(= "output_json" (:type %)) content))
+          (some (fn [item] (when (= "output_json" (:type item)) (:json item)))
+                content)
+          (seq (filter #(= "output_data" (:type %)) content))
+          (some (fn [item]
+                  (when (= "output_data" (:type item))
+                    (some-> item
+                            :data
+                            first
+                            :json)))
+                content)
+          (seq (filter #(= "output_text" (:type %)) content))
+          (let [text (extract-text response-body)]
+            (when (seq text) (json/read-value text json-mapper)))
+          :else nil)))
 
 (defn- call-openai-responses
   [request parse-json?]
@@ -147,25 +140,22 @@
           response-with-parsed (assoc response :parsed parsed)]
       (if (= 200 status)
         (if parse-json?
-          (try
-            (if-let [json-output (extract-json-output parsed)]
-              (do
-                (tap> ["parsed openai-response" json-output])
-                json-output)
-              (throw (ex-info "OpenAI response missing JSON content"
-                              response-with-parsed)))
-            (catch Exception e
-              (throw (ex-info "Failed to parse OpenAI JSON response"
-                              response-with-parsed e))))
+          (try (if-let [json-output (extract-json-output parsed)]
+                 (do (tap> ["parsed openai-response" json-output]) json-output)
+                 (throw (ex-info "OpenAI response missing JSON content"
+                                 response-with-parsed)))
+               (catch Exception e
+                 (throw (ex-info "Failed to parse OpenAI JSON response"
+                                 response-with-parsed
+                                 e))))
           (let [text (extract-text parsed)]
             (if (seq (str text))
               text
               (throw (ex-info "OpenAI response missing assistant text"
                               response-with-parsed)))))
-        (do
-          (tap> ["OpenAI Responses API Call Failed" response-with-parsed])
-          (throw (ex-info "OpenAI Responses API call failed"
-                        response-with-parsed)))))))
+        (do (tap> ["OpenAI Responses API Call Failed" response-with-parsed])
+            (throw (ex-info "OpenAI Responses API call failed"
+                            response-with-parsed)))))))
 
 (defn chat-about-wines
   [prompt]
@@ -175,49 +165,44 @@
   [{:keys [system user]}]
   (assert (string? system) "Drinking-window prompt requires :system text")
   (assert (string? user) "Drinking-window prompt requires :user text")
-  (let [request {:input [{:role "system"
-                          :content [{:type "input_text"
-                                     :text system}]}
-                         {:role "user"
-                          :content [{:type "input_text"
-                                     :text user}]}]
-                 :text {:format {:type "json_schema"
-                                 :name "DrinkingWindow"
-                                 :strict true
-                                 :schema {:type "object"
-                                          :properties {:drink_from_year {:type "integer"}
-                                                       :drink_until_year {:type "integer"}
-                                                       :confidence {:type "string"}
-                                                       :reasoning {:type "string"}}
-                                          :required [:drink_from_year :drink_until_year :confidence :reasoning]
-                                          :additionalProperties false}}}
-                 :max_output_tokens 600
-                 :reasoning {:effort "low"}}]
+  (let [request
+        {:input [{:role "system" :content [{:type "input_text" :text system}]}
+                 {:role "user" :content [{:type "input_text" :text user}]}]
+         :text {:format {:type "json_schema"
+                         :name "DrinkingWindow"
+                         :strict true
+                         :schema {:type "object"
+                                  :properties
+                                  {:drink_from_year {:type "integer"}
+                                   :drink_until_year {:type "integer"}
+                                   :confidence {:type "string"}
+                                   :reasoning {:type "string"}}
+                                  :required [:drink_from_year :drink_until_year
+                                             :confidence :reasoning]
+                                  :additionalProperties false}}}
+         :max_output_tokens 600
+         :reasoning {:effort "low"}}]
     (call-openai-responses request true)))
 
 (defn generate-wine-summary
   [{:keys [system user]}]
   (assert (string? system) "Wine-summary prompt requires :system text")
   (assert (string? user) "Wine-summary prompt requires :user text")
-  (let [request {:input [{:role "system"
-                          :content [{:type "input_text"
-                                     :text system}]}
-                         {:role "user"
-                          :content [{:type "input_text"
-                                     :text user}]}]
+  (let [request {:input
+                 [{:role "system" :content [{:type "input_text" :text system}]}
+                  {:role "user" :content [{:type "input_text" :text user}]}]
                  :max_output_tokens 800}]
     (call-openai-responses request false)))
 
 (defn analyze-wine-label
   [{:keys [system user-content]}]
   (assert (string? system) "Label analysis prompt requires :system text")
-  (assert (vector? user-content) "Label analysis prompt requires :user-content vector")
-  (let [user-message (message->content {:role "user"
-                                        :content user-content})
+  (assert (vector? user-content)
+          "Label analysis prompt requires :user-content vector")
+  (let [user-message (message->content {:role "user" :content user-content})
         request {:input (into [{:role "system"
-                                 :content [{:type "input_text"
-                                            :text system}]}]
-                               [user-message])
+                                :content [{:type "input_text" :text system}]}]
+                              [user-message])
                  :text {:format {:type "json_schema"
                                  :name "WineLabelAnalysis"
                                  :strict true
@@ -230,12 +215,9 @@
   [{:keys [system user]}]
   {:pre [(string? system) (string? user)]}
   (let [request {:model light-model
-                 :input [{:role "system"
-                         :content [{:type "input_text"
-                                    :text system}]}
-                        {:role "user"
-                         :content [{:type "input_text"
-                                    :text user}]}]
+                 :input
+                 [{:role "system" :content [{:type "input_text" :text system}]}
+                  {:role "user" :content [{:type "input_text" :text user}]}]
                  :max_output_tokens 1000
                  :reasoning {:effort "low"}}]
     (call-openai-responses request false)))

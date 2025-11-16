@@ -9,23 +9,26 @@
             [wine-cellar.config-utils :as config-utils]))
 
 (defstate default-provider
-  :start
-  (let [provider (keyword (config-utils/get-config "AI_DEFAULT_PROVIDER" :fallback "anthropic"))]
-    (when-not (common/ai-providers provider)
-      (throw (ex-info (str "Invalid AI_DEFAULT_PROVIDER: " provider ". Must be one of: " common/ai-providers)
-                      {:provider provider
-                       :valid-providers common/ai-providers})))
-    provider))
+          :start
+          (let [provider (keyword (config-utils/get-config "AI_DEFAULT_PROVIDER"
+                                                           :fallback
+                                                           "anthropic"))]
+            (when-not (common/ai-providers provider)
+              (throw (ex-info (str "Invalid AI_DEFAULT_PROVIDER: " provider
+                                   ". Must be one of: " common/ai-providers)
+                              {:provider provider
+                               :valid-providers common/ai-providers})))
+            provider))
 
 (defn chat-about-wines
   [provider context conversation-history image]
   {:pre [(map? context) (contains? context :summary)]}
   (let [{:keys [summary selected-wines]} context
-        prompt {:system-text (prompts/wine-system-instructions)
-                :context-text (prompts/wine-collection-context
-                               {:summary summary
-                                :selected-wines selected-wines})
-                :messages (prompts/conversation-messages conversation-history image)}]
+        prompt
+        {:system-text (prompts/wine-system-instructions)
+         :context-text (prompts/wine-collection-context
+                        {:summary summary :selected-wines selected-wines})
+         :messages (prompts/conversation-messages conversation-history image)}]
     (case provider
       :openai (openai/chat-about-wines prompt)
       :anthropic (anthropic/chat-about-wines prompt))))
@@ -60,16 +63,18 @@
               :openai (openai/generate-conversation-title prompt)
               :anthropic (anthropic/generate-conversation-title prompt)
               nil)
-        title (some-> raw str str/trim (str/replace #"\s+" " "))]
-    (when-not (str/blank? title)
-      title)))
+        title (some-> raw
+                      str
+                      str/trim
+                      (str/replace #"\s+" " "))]
+    (when-not (str/blank? title) title)))
 
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"
   []
-  {:models {:anthropic anthropic/model
-            :openai openai/model}
+  {:models {:anthropic anthropic/model :openai openai/model}
    :default-provider default-provider})
 
-;; TODO: add provider-aware wrappers for any remaining Anthropics-only helpers as we
+;; TODO: add provider-aware wrappers for any remaining Anthropics-only helpers
+;; as we
 ;; extend OpenAI support.

@@ -31,14 +31,17 @@
   [{:keys [wine-ids provider]}]
   (let [job-id (generate-job-id)
         total-count (count wine-ids)
-        provider-key (some-> provider keyword)]
+        provider-key (some-> provider
+                             keyword)]
     (tap> ["🍷 Starting async drinking window job" job-id "for" total-count
            "wines"])
-    (swap! active-jobs assoc job-id {:status :running
-                                     :job-type :drinking-window
-                                     :progress 0
-                                     :total total-count
-                                     :updated-at (System/currentTimeMillis)})
+    (swap! active-jobs assoc
+      job-id
+      {:status :running
+       :job-type :drinking-window
+       :progress 0
+       :total total-count
+       :updated-at (System/currentTimeMillis)})
     (update-job-status! job-id :running 0 total-count)
     ;; Start background processing
     (future
@@ -55,7 +58,8 @@
                (fn [idx wine]
                  (try (tap> ["🍷 Processing wine" (inc idx) "of" total-count
                              "- ID:" (:id wine) "Producer:" (:producer wine)])
-                      (let [ai-response (ai/suggest-drinking-window provider-key wine)]
+                      (let [ai-response (ai/suggest-drinking-window provider-key
+                                                                    wine)]
                         (tap> ["🤖 AI response received for wine" (:id wine) ":"
                                ai-response])
                         (let [updates
@@ -103,14 +107,17 @@
   [{:keys [wine-ids provider]}]
   (let [job-id (generate-job-id)
         total-count (count wine-ids)
-        provider-key (some-> provider keyword)]
+        provider-key (some-> provider
+                             keyword)]
     (tap> ["📝 Starting async wine summary job" job-id "for" total-count
            "wines"])
-    (swap! active-jobs assoc job-id {:status :running
-                                     :job-type :wine-summary
-                                     :progress 0
-                                     :total total-count
-                                     :updated-at (System/currentTimeMillis)})
+    (swap! active-jobs assoc
+      job-id
+      {:status :running
+       :job-type :wine-summary
+       :progress 0
+       :total total-count
+       :updated-at (System/currentTimeMillis)})
     (update-job-status! job-id :running 0 total-count)
     (future
      (try
@@ -125,23 +132,19 @@
               (map-indexed
                (fn [idx wine]
                  (try
-                   (tap> ["📝 Generating summary for wine"
-                          (inc idx) "of" total-count "- ID:" (:id wine)
-                          "Producer:" (:producer wine)])
-                   (let [summary-text (some-> (ai/generate-wine-summary
-                                               provider-key wine)
-                                              (str/trim))]
+                   (tap> ["📝 Generating summary for wine" (inc idx) "of"
+                          total-count "- ID:" (:id wine) "Producer:"
+                          (:producer wine)])
+                   (let [summary-text
+                         (some-> (ai/generate-wine-summary provider-key wine)
+                                 (str/trim))]
                      (when (str/blank? summary-text)
                        (throw (ex-info "AI summary was blank"
                                        {:wine-id (:id wine)})))
                      (tap> ["💾 Updating wine" (:id wine)
                             "with AI summary text"])
-                     (db-api/update-wine! (:id wine)
-                                          {:ai_summary summary-text})
-                     (update-job-status! job-id
-                                         :running
-                                         (inc idx)
-                                         total-count)
+                     (db-api/update-wine! (:id wine) {:ai_summary summary-text})
+                     (update-job-status! job-id :running (inc idx) total-count)
                      (tap> ["✅ Summary updated for wine" (:id wine)]))
                    (catch Exception e
                      (tap> ["❌ Failed to regenerate summary for wine ID"

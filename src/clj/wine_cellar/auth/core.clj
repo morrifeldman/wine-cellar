@@ -173,11 +173,12 @@
               response (-> (response/response json-body)
                            (response/status 401)
                            (response/content-type "application/json")
-                           (update
-                            :headers
-                            merge
-                            {"Access-Control-Allow-Origin" (config-utils/frontend-url)
-                             "Access-Control-Allow-Credentials" "true"}))]
+                           (update :headers
+                                   merge
+                                   {"Access-Control-Allow-Origin"
+                                    (config-utils/frontend-url)
+                                    "Access-Control-Allow-Credentials"
+                                    "true"}))]
           response)
         ;; For browser requests, redirect to login
         (response/redirect "/login")))))

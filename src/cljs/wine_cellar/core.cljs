@@ -65,20 +65,19 @@
 
 (defonce root (atom nil))
 
-(defonce service-worker-state (atom {:registered? false
-                                     :poll-interval nil}))
+(defonce service-worker-state (atom {:registered? false :poll-interval nil}))
 
 (defn- notify-update-available!
   "Record that a newer application bundle is ready so the UI can prompt the user."
   [version]
-  (swap! app-state
-         (fn [state]
-           (let [current (get-in state [:update-available :version])]
-             (if (= current version)
-               state
-               (assoc state :update-available
-                      {:version version
-                       :notified-at (js/Date.now)}))))))
+  (swap! app-state (fn [state]
+                     (let [current (get-in state [:update-available :version])]
+                       (if (= current version)
+                         state
+                         (assoc state
+                                :update-available
+                                {:version version
+                                 :notified-at (js/Date.now)}))))))
 
 (defn- handle-sw-message
   [event]
@@ -92,12 +91,12 @@
 (defn- trigger-version-check
   []
   (-> (js/fetch "/version.json" #js {:cache "no-store"})
-      (.catch (fn [err]
-                (js/console.warn "Version check failed" err)))))
+      (.catch (fn [err] (js/console.warn "Version check failed" err)))))
 
 (defn register-service-worker!
   []
-  (when-let [container (some-> js/navigator (.-serviceWorker))]
+  (when-let [container (some-> js/navigator
+                               (.-serviceWorker))]
     (when-not (:registered? @service-worker-state)
       (-> (.register container "/service-worker.js")
           (.then (fn [registration]
@@ -107,10 +106,11 @@
                    (let [interval (js/setInterval trigger-version-check
                                                   (* 5 60 1000))]
                      (swap! service-worker-state assoc
-                            :registered? true
-                            :poll-interval interval))))
+                       :registered? true
+                       :poll-interval interval))))
           (.catch (fn [err]
-                    (js/console.error "Service worker registration failed" err)))))))
+                    (js/console.error "Service worker registration failed"
+                                      err)))))))
 
 (defn init
   []

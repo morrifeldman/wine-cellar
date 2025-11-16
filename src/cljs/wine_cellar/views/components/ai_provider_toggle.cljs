@@ -4,32 +4,31 @@
 
 (defn toggle-provider!
   [app-state]
-  (swap! app-state update-in [:ai :provider]
-         (fn [current]
-           (let [providers (vec common/ai-providers)
-                 current-idx (.indexOf providers current)
-                 next-idx (mod (inc current-idx) (count providers))]
-             (get providers next-idx)))))
+  (swap! app-state update-in
+    [:ai :provider]
+    (fn [current]
+      (let [providers (vec common/ai-providers)
+            current-idx (.indexOf providers current)
+            next-idx (mod (inc current-idx) (count providers))]
+        (get providers next-idx)))))
 
 (defn- mobile?
   []
   (boolean (and (exists? js/navigator)
                 (pos? (or (.-maxTouchPoints js/navigator) 0)))))
 
-;; Reusable toggle to flip between Anthropic and OpenAI without duplicating logic.
+;; Reusable toggle to flip between Anthropic and OpenAI without duplicating
+;; logic.
 (defn provider-toggle-button
-  ([app-state]
-   (provider-toggle-button app-state {}))
-  ([app-state {:keys [size variant sx label label-fn title mobile-min-width]
-               :or {size "small"
-                    variant "outlined"
-                    title "Toggle AI provider"}}]
+  ([app-state] (provider-toggle-button app-state {}))
+  ([app-state
+    {:keys [size variant sx label label-fn title mobile-min-width]
+     :or {size "small" variant "outlined" title "Toggle AI provider"}}]
    (let [provider (get-in @app-state [:ai :provider])
          provider-name (common/provider-label provider)
-         display-label (cond
-                         (some? label) label
-                         (fn? label-fn) (label-fn provider provider-name)
-                         :else (str "AI: " provider-name))
+         display-label (cond (some? label) label
+                             (fn? label-fn) (label-fn provider provider-name)
+                             :else (str "AI: " provider-name))
          base-sx {:textTransform "none"
                   :fontSize "0.75rem"
                   :px 1.5
@@ -44,5 +43,4 @@
        :size size
        :on-click #(toggle-provider! app-state)
        :sx (merge base-sx sx)
-       :title title}
-      display-label])))
+       :title title} display-label])))

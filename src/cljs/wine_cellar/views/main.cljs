@@ -37,34 +37,35 @@
         relevant-progress (when (= (:job-type progress) job-type) progress)]
     (when running?
       [paper
-       {:elevation 3
-        :sx {:p 2 :mb 3 :bgcolor "info.light" :color "info.dark"}}
+       {:elevation 3 :sx {:p 2 :mb 3 :bgcolor "info.light" :color "info.dark"}}
        (if relevant-progress
          (let [processed (or (:progress relevant-progress) 0)
                total (max 0 (or (:total relevant-progress) 0))
                raw (if (pos? total) (* 100 (/ processed total)) 0)
-               percent (-> raw (js/Math.max 0) (js/Math.min 100))
+               percent (-> raw
+                           (js/Math.max 0)
+                           (js/Math.min 100))
                status (:status relevant-progress)
                retry-attempt (:retry-attempt relevant-progress)
                retry-max (:retry-max relevant-progress)
                retry-delay-ms (:retry-delay relevant-progress)
-               retry-seconds (when retry-delay-ms (js/Math.round (/ retry-delay-ms 1000)))]
+               retry-seconds (when retry-delay-ms
+                               (js/Math.round (/ retry-delay-ms 1000)))]
            [box
             [typography {:variant "body1"}
              (str running-text " " processed "/" total " wines processed")]
             (when (= status "retrying")
-              [typography {:variant "body2"
-                           :sx {:mt 0.5 :fontStyle "italic"}}
+              [typography {:variant "body2" :sx {:mt 0.5 :fontStyle "italic"}}
                (str "Retrying status check"
                     (when (and retry-attempt retry-max)
                       (str " (attempt " retry-attempt "/" retry-max ")"))
-                    (when retry-seconds
-                      (str " in " retry-seconds "s")))])
+                    (when retry-seconds (str " in " retry-seconds "s")))])
             [box {:sx {:width "100%" :mt 1}}
-             [box {:sx {:width (str percent "%")
-                        :height 8
-                        :bgcolor "info.main"
-                        :borderRadius 1}}]]])
+             [box
+              {:sx {:width (str percent "%")
+                    :height 8
+                    :bgcolor "info.main"
+                    :borderRadius 1}}]]])
          [typography {:variant "body1"} starting-text])])))
 
 (defn admin-menu
@@ -97,20 +98,18 @@
                  :flex-direction "column"
                  :align-items "flex-start"
                  :gap 0.5}}
-           [:div {:style {:display "flex"
-                          :justify-content "space-between"
-                          :width "100%"}}
+           [:div
+            {:style
+             {:display "flex" :justify-content "space-between" :width "100%"}}
             [:span "AI Provider"]
-            [:span {:style {:fontSize "0.85rem"
-                            :fontWeight 600}}
+            [:span {:style {:fontSize "0.85rem" :fontWeight 600}}
              (common/provider-label provider)]]
            (when model
-             [:div {:style {:align-self "flex-end"
-                            :fontSize "0.75rem"
-                            :color "rgba(255, 255, 255, 0.7)"
-                            :font-family "monospace"}}
-              model])])
-        [divider]
+             [:div
+              {:style {:align-self "flex-end"
+                       :fontSize "0.75rem"
+                       :color "rgba(255, 255, 255, 0.7)"
+                       :font-family "monospace"}} model])]) [divider]
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
@@ -141,8 +140,10 @@
            {:disabled verbose-updating?
             :on-click (fn []
                         (reset! anchor-el nil)
-                        (api/set-verbose-logging-state app-state (not verbose-enabled?)))}
-           (str (if verbose-enabled? "Disable" "Enable") " verbose backend logging"
+                        (api/set-verbose-logging-state app-state
+                                                       (not verbose-enabled?)))}
+           (str (if verbose-enabled? "Disable" "Enable")
+                " verbose backend logging"
                 (when verbose-updating? "…"))])
         (when (pd/debugging?)
           [menu-item
@@ -205,9 +206,10 @@
                           app-state))]
               (when
                 (js/confirm
-                 (str "Regenerate wine summaries for "
-                      filtered-count
-                      " currently visible wines? This may take several minutes and will use AI API credits."))
+                 (str
+                  "Regenerate wine summaries for "
+                  filtered-count
+                  " currently visible wines? This may take several minutes and will use AI API credits."))
                 (api/regenerate-filtered-wine-summaries app-state))))
           :disabled (:regenerating-wine-summaries? @app-state)}
          (if (:regenerating-wine-summaries? @app-state)
@@ -263,13 +265,14 @@
           "A new version of the app is available."]
          (when version
            [typography {:variant "body2"}
-            (str "Loaded version will update to " version " when you refresh.")])
+            (str "Loaded version will update to "
+                 version
+                 " when you refresh.")])
          [box {:sx {:display "flex" :gap 1 :flexWrap "wrap"}}
           [button
            {:variant "contained"
             :color "warning"
-            :onClick #(.reload js/location)}
-           "Reload Now"]
+            :onClick #(.reload js/location)} "Reload Now"]
           [button
            {:variant "outlined"
             :color "warning"
@@ -278,38 +281,48 @@
      (when-let [error (:error state)]
        [paper
         {:elevation 3
-         :sx {:p 2 :mb 3 :bgcolor "error.light" :color "error.dark"
+         :sx {:p 2
+              :mb 3
+              :bgcolor "error.light"
+              :color "error.dark"
               :position "relative"}}
         [box {:sx {:display "flex" :alignItems "flex-start"}}
          [typography {:variant "body1" :sx {:flex 1 :pr 2}} error]
-         [icon-button {:aria-label "Dismiss error"
-                       :size "small"
-                       :onClick #(swap! app-state dissoc :error)
-                       :sx {:color "error.dark"}}
-          [close {:fontSize "small"}]]]])
+         [icon-button
+          {:aria-label "Dismiss error"
+           :size "small"
+           :onClick #(swap! app-state dissoc :error)
+           :sx {:color "error.dark"}} [close {:fontSize "small"}]]]])
      (when-let [success (:success state)]
        [paper
         {:elevation 3
-         :sx {:p 2 :mb 3 :bgcolor "success.light" :color "success.dark"
+         :sx {:p 2
+              :mb 3
+              :bgcolor "success.light"
+              :color "success.dark"
               :position "relative"}}
         [box {:sx {:display "flex" :alignItems "flex-start"}}
          [typography {:variant "body1" :sx {:flex 1 :pr 2}} success]
-         [icon-button {:aria-label "Dismiss success"
-                       :size "small"
-                       :onClick #(swap! app-state dissoc :success)
-                       :sx {:color "success.dark"}}
-          [close {:fontSize "small"}]]]])
-     (when-let [card (job-progress-card state
-                                        {:flag :regenerating-drinking-windows?
-                                         :job-type :drinking-window
-                                         :running-text "🍷 Regenerating drinking windows..."
-                                         :starting-text "🍷 Starting drinking window regeneration..."})]
+         [icon-button
+          {:aria-label "Dismiss success"
+           :size "small"
+           :onClick #(swap! app-state dissoc :success)
+           :sx {:color "success.dark"}} [close {:fontSize "small"}]]]])
+     (when-let [card (job-progress-card
+                      state
+                      {:flag :regenerating-drinking-windows?
+                       :job-type :drinking-window
+                       :running-text "🍷 Regenerating drinking windows..."
+                       :starting-text
+                       "🍷 Starting drinking window regeneration..."})]
        card)
-     (when-let [card (job-progress-card state
-                                        {:flag :regenerating-wine-summaries?
-                                         :job-type :wine-summary
-                                         :running-text "📝 Regenerating wine summaries..."
-                                         :starting-text "📝 Starting wine summary regeneration..."})]
+     (when-let [card (job-progress-card
+                      state
+                      {:flag :regenerating-wine-summaries?
+                       :job-type :wine-summary
+                       :running-text "📝 Regenerating wine summaries..."
+                       :starting-text
+                       "📝 Starting wine summary regeneration..."})]
        card)
      (cond (= (:view state) :grape-varieties)
            [:div [grape-varieties-page app-state]

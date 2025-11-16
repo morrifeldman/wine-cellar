@@ -43,21 +43,18 @@
 
 (defn matches-style?
   [wine styles]
-  (cond
-    (nil? styles) true
-    (and (sequential? styles) (empty? styles)) true
-    (sequential? styles) (some #(= % (:style wine)) styles)
-    :else (= styles (:style wine))))
+  (cond (nil? styles) true
+        (and (sequential? styles) (empty? styles)) true
+        (sequential? styles) (some #(= % (:style wine)) styles)
+        :else (= styles (:style wine))))
 
 (defn matches-variety?
   [wine varieties]
-  (cond
-    (nil? varieties) true
-    (and (sequential? varieties) (empty? varieties)) true
-    (sequential? varieties)
-    (let [names (set (map :name (:varieties wine)))]
-      (some #(contains? names %) varieties))
-    :else (some #(= varieties (:name %)) (:varieties wine))))
+  (cond (nil? varieties) true
+        (and (sequential? varieties) (empty? varieties)) true
+        (sequential? varieties) (let [names (set (map :name (:varieties wine)))]
+                                  (some #(contains? names %) varieties))
+        :else (some #(= varieties (:name %)) (:varieties wine))))
 
 (defn matches-price-range?
   [wine price-range]
@@ -141,16 +138,14 @@
   [app-state]
   (let [wines (:wines @app-state)
         {:keys [search country region styles style varieties variety
-                 tasting-window price-range verification columns]}
+                tasting-window price-range verification columns]}
         (:filters @app-state)
-        style-values (cond
-                       (sequential? styles) styles
-                       (some? style) [style]
-                       :else styles)
-        variety-values (cond
-                         (sequential? varieties) varieties
-                         (some? variety) [variety]
-                         :else varieties)
+        style-values (cond (sequential? styles) styles
+                           (some? style) [style]
+                           :else styles)
+        variety-values (cond (sequential? varieties) varieties
+                             (some? variety) [variety]
+                             :else varieties)
         {:keys [field direction]} (:sort @app-state)
         show-out-of-stock? (:show-out-of-stock? @app-state)]
     (as-> wines w

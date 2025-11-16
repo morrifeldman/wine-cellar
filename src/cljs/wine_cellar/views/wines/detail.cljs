@@ -28,7 +28,8 @@
             [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
             [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
             [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
-            [wine-cellar.views.components.ai-provider-toggle :refer [provider-toggle-button]]))
+            [wine-cellar.views.components.ai-provider-toggle :refer
+             [provider-toggle-button]]))
 
 (defn editable-location
   [app-state wine]
@@ -128,8 +129,7 @@
 (defn editable-dosage
   [app-state wine]
   [editable-text-field
-   {:value (when-let [dosage (:dosage wine)]
-             (str (js/Math.round dosage)))
+   {:value (when-let [dosage (:dosage wine)] (str (js/Math.round dosage)))
     :on-save (fn [new-value]
                (let [trimmed (str/trim new-value)]
                  (if (str/blank? trimmed)
@@ -143,15 +143,15 @@
                    (let [trimmed (str/trim (or value ""))]
                      (cond (str/blank? trimmed) nil
                            :else (let [parsed (js/parseFloat trimmed)]
-                                   (cond (js/isNaN parsed) "Dosage must be a number"
-                                         (< parsed 0) "Dosage cannot be negative"
-                                         (> parsed 200) "Dosage must be ≤ 200 g/L"
-                                         :else nil)))))
+                                   (cond
+                                     (js/isNaN parsed) "Dosage must be a number"
+                                     (< parsed 0) "Dosage cannot be negative"
+                                     (> parsed 200) "Dosage must be ≤ 200 g/L"
+                                     :else nil)))))
     :empty-text "Add dosage"
     :compact? true
-    :text-field-props {:type "number"
-                       :step "1"
-                       :InputProps {:endAdornment "g/L"}}}])
+    :text-field-props
+    {:type "number" :step "1" :InputProps {:endAdornment "g/L"}}}])
 
 (defn editable-disgorgement-year
   [app-state wine]
@@ -662,7 +662,7 @@
       ["Purchase Date" [editable-purchase-date app-state wine]]]]]
    ;; Vintage Info: Vintage + Disgorgement Year
    [grid {:item true :xs 12 :md 6}
-   [inline-field-group
+    [inline-field-group
      [["Vintage" [editable-vintage app-state wine]]
       ["Disgorgement Year" [editable-disgorgement-year app-state wine]]
       ["Dosage (g/L)" [editable-dosage app-state wine]]]]]])
@@ -732,35 +732,32 @@
         :color "secondary"
         :size "small"
         :disabled suggesting?
-        :startIcon (when-not suggesting?
-                    (r/as-element [auto-awesome]))
-        :onClick
-        (fn []
-          (-> (api/suggest-drinking-window app-state wine)
-              (.then (fn [{:keys [drink_from_year drink_until_year confidence
-                                  reasoning]
-                           :as suggestion}]
-                       (swap! app-state assoc
-                         :window-suggestion
-                         (assoc suggestion
-                                :message
-                                (str "Drinking window suggested: " drink_from_year
-                                     " to " drink_until_year
-                                     " (" confidence
-                                     " confidence)\n\n" reasoning)))))
-              (.catch (fn [error]
-                        (swap! app-state assoc
-                          :error
-                          (str "Failed to suggest drinking window: " error))))))}
+        :startIcon (when-not suggesting? (r/as-element [auto-awesome]))
+        :onClick (fn []
+                   (-> (api/suggest-drinking-window app-state wine)
+                       (.then (fn [{:keys [drink_from_year drink_until_year
+                                           confidence reasoning]
+                                    :as suggestion}]
+                                (swap! app-state assoc
+                                  :window-suggestion
+                                  (assoc suggestion
+                                         :message
+                                         (str "Drinking window suggested: "
+                                              drink_from_year
+                                              " to " drink_until_year
+                                              " (" confidence
+                                              " confidence)\n\n" reasoning)))))
+                       (.catch (fn [error]
+                                 (swap! app-state assoc
+                                   :error
+                                   (str "Failed to suggest drinking window: "
+                                        error))))))}
        (if suggesting?
          [box {:sx {:display "flex" :alignItems "center"}}
-          [circular-progress {:size 20 :sx {:mr 1}}]
-          "Suggesting..."]
+          [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
          "Suggest Drinking Window")]
-      [provider-toggle-button
-       app-state
-       {:mobile-min-width "auto"
-        :sx {:minWidth "auto" :px 1 :py 0.25}}]]
+      [provider-toggle-button app-state
+       {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]]
      [typography {:variant "body2" :sx {:mt 1}}
       (get-in @app-state [:window-suggestion :message])]
      [wine-tasting-window-suggestion-buttons app-state wine]]))
@@ -796,14 +793,15 @@
       [typography {:variant "body2" :color "text.secondary"} "AI Wine Summary"]
       [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
        [editable-ai-summary app-state wine]
-       [box {:sx {:mt 1 :display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
+       [box
+        {:sx
+         {:mt 1 :display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
         [button
          {:variant "outlined"
           :color "secondary"
           :size "small"
           :disabled generating?
-          :startIcon (when-not generating?
-                      (r/as-element [auto-awesome]))
+          :startIcon (when-not generating? (r/as-element [auto-awesome]))
           :onClick
           (fn []
             (swap! app-state assoc :generating-ai-summary? true)
@@ -827,13 +825,10 @@
                           (swap! app-state dissoc :generating-ai-summary?)))))}
          (if generating?
            [box {:sx {:display "flex" :alignItems "center"}}
-            [circular-progress {:size 20 :sx {:mr 1}}]
-            "Generating..."]
+            [circular-progress {:size 20 :sx {:mr 1}}] "Generating..."]
            "Generate AI Summary")]
-        [provider-toggle-button
-         app-state
-         {:mobile-min-width "auto"
-          :sx {:minWidth "auto" :px 1 :py 0.25}}]]]]]))
+        [provider-toggle-button app-state
+         {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]]]]]))
 
 (defn wine-tasting-notes-section
   [app-state wine]

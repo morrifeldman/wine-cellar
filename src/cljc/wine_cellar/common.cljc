@@ -19,25 +19,25 @@
 
 (def ^:private style-metadata
   {"red" {:canonical "Red"
-           :palette :red
-           :wset-style "RED"
-           :default-color :garnet
-           :default-intensity :medium}
+          :palette :red
+          :wset-style "RED"
+          :default-color :garnet
+          :default-intensity :medium}
    "white" {:canonical "White"
-             :palette :white
-             :wset-style "WHITE"
-             :default-color :amber
-             :default-intensity :medium}
+            :palette :white
+            :wset-style "WHITE"
+            :default-color :amber
+            :default-intensity :medium}
    "rosé" {:canonical "Rosé"
-            :palette :rose
-            :wset-style "ROSE"
-            :default-color :copper
-            :default-intensity :medium}
+           :palette :rose
+           :wset-style "ROSE"
+           :default-color :copper
+           :default-intensity :medium}
    "rose" {:canonical "Rosé"
-            :palette :rose
-            :wset-style "ROSE"
-            :default-color :copper
-            :default-intensity :medium}
+           :palette :rose
+           :wset-style "ROSE"
+           :default-color :copper
+           :default-intensity :medium}
    "sparkling" {:canonical "Sparkling"
                 :palette :white
                 :wset-style "SPARKLING"
@@ -51,34 +51,37 @@
    "rosé sparkling" {:canonical "Rosé Sparkling"
                      :palette :rose
                      :wset-style "SPARKLING"
-                      :default-color :copper
-                      :default-intensity :medium}
+                     :default-color :copper
+                     :default-intensity :medium}
    "rose sparkling" {:canonical "Rosé Sparkling"
-                      :palette :rose
-                      :wset-style "SPARKLING"
-                      :default-color :copper
-                      :default-intensity :medium}
+                     :palette :rose
+                     :wset-style "SPARKLING"
+                     :default-color :copper
+                     :default-intensity :medium}
    "fortified" {:canonical "Fortified"
-                 :palette :red
-                 :wset-style "FORTIFIED"
-                 :default-color :garnet
-                 :default-intensity :medium}
+                :palette :red
+                :wset-style "FORTIFIED"
+                :default-color :garnet
+                :default-intensity :medium}
    "orange" {:canonical "Orange"
+             :palette :white
+             :wset-style "WHITE"
+             :default-color :amber
+             :default-intensity :medium}
+   "dessert" {:canonical "Dessert"
               :palette :white
               :wset-style "WHITE"
               :default-color :amber
-              :default-intensity :medium}
-   "dessert" {:canonical "Dessert"
-               :palette :white
-               :wset-style "WHITE"
-               :default-color :amber
-               :default-intensity :medium}})
+              :default-intensity :medium}})
 
 (defn normalize-style-key
   "Normalize a wine style string for lookup."
   [style]
   (when style
-    (-> style str/trim str/lower-case (str/replace #"\s+" " "))))
+    (-> style
+        str/trim
+        str/lower-case
+        (str/replace #"\s+" " "))))
 
 (defn style->info
   "Return metadata for a wine style, including canonical label, palette category, default color and WSET style code. Falls back to red when style is unknown."
@@ -98,18 +101,9 @@
     "Reserve"})
 
 (def closure-type-options
-  ["Natural cork"
-   "Technical cork"
-   "Micro-agglomerated cork"
-   "Colmated cork"
-   "Agglomerated cork"
-   "Screw cap"
-   "Synthetic cork (extruded)"
-   "Synthetic cork (molded)"
-   "Glass stopper"
-   "Crown cap"
-   "T-top"
-   "Zork"
+  ["Natural cork" "Technical cork" "Micro-agglomerated cork" "Colmated cork"
+   "Agglomerated cork" "Screw cap" "Synthetic cork (extruded)"
+   "Synthetic cork (molded)" "Glass stopper" "Crown cap" "T-top" "Zork"
    "Other/Unknown"])
 
 (def closure-types (set closure-type-options))
