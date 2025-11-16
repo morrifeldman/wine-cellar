@@ -75,8 +75,7 @@
             [wine-color-display
              {:selected-color (:colour appearance)
               :selected-intensity (:intensity appearance)
-              :size :small
-              :show-label? true}]])]
+              :size :small}]])]
         (when (:other_observations appearance)
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
            (:other_observations appearance)])])
