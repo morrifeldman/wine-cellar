@@ -26,7 +26,8 @@
             [reagent-mui.icons.arrow-upward :refer [arrow-upward]]
             [reagent-mui.icons.arrow-downward :refer [arrow-downward]]
             [reagent-mui.material.list-item-text :refer [list-item-text]]
-            [wine-cellar.utils.vintage :refer [tasting-window-label]]))
+            [wine-cellar.utils.vintage :refer [tasting-window-label]]
+            [wine-cellar.state :as app-state-core]))
 
 (defn- format-number
   [value]
@@ -327,13 +328,63 @@
   ([app-state count-info]
    (filter-header app-state count-info nil))
   ([app-state count-info {:keys [compact?]}]
-   (let [gap (if compact? 0.4 0.75)
+   (let [state @app-state
+         gap (if compact? 0.4 0.75)
          margin-bottom (if compact? 0.75 2)
          button-gap (if compact? 0.75 1)
-         button-color (if (:show-out-of-stock? @app-state) "secondary" "primary")
+         button-color (if (:show-out-of-stock? state) "secondary" "primary")
          show-controls? (if compact?
-                          (:show-filters? @app-state)
-                          true)]
+                          (:show-filters? state)
+                          true)
+         selected-count (count (or (:selected-wine-ids state) #{}))
+         show-selected? (and (:show-selected-wines? state)
+                             (pos? selected-count))
+         header-buttons
+         (cond-> []
+           true (conj [button
+                       {:variant "outlined"
+                        :size "small"
+                        :color button-color
+                        :onClick #(swap! app-state update :show-out-of-stock? not)}
+                       (if (:show-out-of-stock? state)
+                         "In Cellar Only"
+                         "All History")])
+           true (conj [button
+                       {:variant "outlined"
+                        :size "small"
+                        :color "secondary"
+                        :onClick #(swap! app-state assoc
+                                    :filters
+                                    {:search ""
+                                     :country nil
+                                     :region nil
+                                     :styles []
+                                     :style nil
+                                     :varieties []
+                                     :variety nil
+                                     :price-range nil
+                                     :tasting-window nil
+                                     :verification nil
+                                     :columns #{}})}
+                       "Clear Filters"])
+           true (conj [button
+                       {:variant (if show-selected? "contained" "outlined")
+                        :size "small"
+                        :color (if show-selected? "primary" "secondary")
+                        :disabled (zero? selected-count)
+                        :onClick (fn []
+                                   (when (pos? selected-count)
+                                     (swap! app-state assoc :show-selected-wines?
+                                            (not show-selected?))))}
+                       (str "Selected (" selected-count ")")])
+           (pos? selected-count)
+           (conj [button
+                  {:variant "text"
+                   :size "small"
+                   :color "secondary"
+                   :sx {:textTransform "none"}
+                   :onClick #(app-state-core/clear-selected-wines! app-state)}
+                  "Clear Selection"]))]
      [box {:sx {:display "flex"
                 :flexDirection "column"
                 :gap gap
@@ -352,35 +403,14 @@
          {:onClick #(swap! app-state update :show-filters? not)
           :size "small"
           :sx {:color "text.secondary" :p 0.5}}
-         (if (:show-filters? @app-state)
+         (if (:show-filters? state)
            [expand-less]
            [expand-more])]]
        (when show-controls?
-         [box {:sx {:display "flex" :gap button-gap :flexWrap "wrap"}}
-          [button
-           {:variant "outlined"
-            :size "small"
-            :color button-color
-            :onClick #(swap! app-state update :show-out-of-stock? not)}
-           (if (:show-out-of-stock? @app-state) "In Cellar Only" "All History")]
-          [button
-           {:variant "outlined"
-            :size "small"
-            :color "secondary"
-            :onClick #(swap! app-state assoc
-                        :filters
-                        {:search ""
-                         :country nil
-                         :region nil
-                         :styles []
-                         :style nil
-                         :varieties []
-                         :variety nil
-                         :price-range nil
-                         :tasting-window nil
-                         :verification nil
-                         :columns #{}})}
-           "Clear Filters"]])]
+         (into [box {:sx {:display "flex"
+                          :gap button-gap
+                          :flexWrap "wrap"}}]
+               header-buttons))]
       (when (and (not compact?) count-info)
         (visible-wine-indicator (assoc count-info :compact? compact?)))])))
 

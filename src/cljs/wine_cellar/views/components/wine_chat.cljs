@@ -12,7 +12,8 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.material.switch :refer [switch]]
+            [reagent-mui.material.toggle-button-group :refer [toggle-button-group]]
+            [reagent-mui.material.toggle-button :refer [toggle-button]]
             [reagent-mui.icons.chat :refer [chat]]
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
@@ -28,6 +29,7 @@
             [wine-cellar.views.components.ai-provider-toggle :as ai-toggle]
             [wine-cellar.views.wines.filters :as wine-filters]
             [wine-cellar.api :as api]
+            [wine-cellar.state :as state-core]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
 ;; Constants
@@ -100,9 +102,10 @@
                         (callback conversation-id))
       creating? (js/setTimeout #(ensure-conversation! app-state wines callback) 100)
       :else
-      (let [include? (get-in @app-state [:chat :include-visible-wines?] false)
+      (let [state @app-state
+            context-mode (state-core/context-mode state)
             wine-ids (->> wines (map :id) (remove nil?) vec)
-            payload (cond-> {:wine_search_state (build-wine-search-state app-state include?)
+            payload (cond-> {:wine_search_state (build-wine-search-state app-state context-mode)
                              :provider (get-in @app-state [:ai :provider])}
                        (seq wine-ids) (assoc :wine_ids wine-ids))]
         (swap! app-state assoc-in [:chat :creating-conversation?] true)
@@ -133,51 +136,96 @@
            (when after-save (after-save conversation-id))
            (tap> ["conversation-message-persist-failed" error]))))))))
 
+(defn- combine-wine-lists
+  "Merge two wine collections, keeping the order of the first and
+   removing duplicates by id."
+  [primary secondary]
+  (let [initial-seen (into #{} (keep :id primary))]
+    (first
+     (reduce (fn [[wines seen] wine]
+               (let [wine-id (:id wine)]
+                 (if (and wine-id (contains? seen wine-id))
+                   [wines seen]
+                   [(conj wines wine)
+                    (if wine-id (conj seen wine-id) seen)])))
+             [(vec primary) initial-seen]
+             secondary))))
+
+(defn- manual-context-wines
+  [state]
+  (let [base-selected-ids (or (:selected-wine-ids state) #{})
+        selected-ids (cond-> base-selected-ids
+                       (:selected-wine-id state) (conj (:selected-wine-id state)))]
+    (if (seq selected-ids)
+      (let [wines (or (:wines state) [])]
+        (vec (filter #(contains? selected-ids (:id %)) wines)))
+      [])))
+
 (defn- context-wines
   "Derive the set of wines currently in chat context."
   [app-state]
   (let [state @app-state
-        include? (get-in state [:chat :include-visible-wines?] false)
-        selected-id (:selected-wine-id state)
-        wines (or (:wines state) [])]
-    (if-not include?
-      []
-      (cond
-        selected-id (into [] (filter #(= (:id %) selected-id) wines))
-        :else (vec (or (filtered-sorted-wines app-state) []))))))
+        mode (state-core/context-mode state)
+        manual-wines (manual-context-wines state)
+        visible-wines (if (= mode :selection+filters)
+                        (vec (or (filtered-sorted-wines app-state) []))
+                        [])]
+    (case mode
+      :summary []
+      :selection manual-wines
+      :selection+filters (combine-wine-lists manual-wines visible-wines)
+      [])))
 
 (defn- context-label-element
-  [include? count]
-  (if-not include?
-    "Summary only"
-    (cond
-      (zero? count) "No wines in context"
-      (= count 1) [:<> [:span {:style {:fontWeight 700}} "1"] " wine in context"]
-      :else [:<> [:span {:style {:fontWeight 700}} (str count)] " wines in context"])))
+  [mode context-count manual-count]
+  (case mode
+    :summary "Summary only"
+    :selection (if (pos? manual-count)
+                 [:<> [:span {:style {:fontWeight 700}} (str manual-count)]
+                  (if (= manual-count 1) " wine selected" " wines selected")]
+                 "No wines selected")
+    :selection+filters (if (pos? context-count)
+                         [:<> [:span {:style {:fontWeight 700}} (str context-count)]
+                          " wines (selected + filters)"]
+                         "No wines match the filters")
+    "Summary only"))
 
-(defn- context-indicator-style
-  [include? count]
-  (if-not include?
-    {:color "text.secondary" :label "Summary only"}
-    (let [base-label (context-label-element true count)]
-      (cond
-        (zero? count) {:color "text.secondary" :label base-label}
-        (> count 50)
-        {:color "common.white"
-         :label base-label
-         :sx {:backgroundColor "error.main"
-              :padding "2px 6px"
-              :borderRadius "999px"}}
-        (<= count 15) {:color "success.main" :label base-label}
-        (<= count 50) {:color "warning.main" :label base-label}))))
+(defn- context-indicator-props
+  [mode context-count manual-count]
+  (let [label (context-label-element mode context-count manual-count)]
+    (case mode
+      :summary {:color "text.secondary" :label label}
+      :selection (if (pos? manual-count)
+                   {:color "success.main" :label label}
+                   {:color "text.secondary" :label label})
+      :selection+filters (cond
+                           (zero? context-count) {:color "text.secondary" :label label}
+                           (> context-count 50)
+                           {:color "common.white"
+                            :label label
+                            :sx {:backgroundColor "error.main"
+                                 :padding "2px 6px"
+                                 :borderRadius "999px"}}
+                           (<= context-count 15) {:color "success.main" :label label}
+                           (<= context-count 50) {:color "warning.main" :label label}
+                           :else {:color "text.secondary" :label label})
+      {:color "text.secondary" :label label})))
 
 (defn- build-wine-search-state
-  [app-state include?]
-  (let [state @app-state]
+  [app-state context-mode]
+  (let [state @app-state
+        include? (contains? #{:selection :selection+filters} context-mode)]
     {:filters (:filters state)
      :sort (:sort state)
      :show-out-of-stock? (:show-out-of-stock? state)
      :selected-wine-id (:selected-wine-id state)
+     :selected-wine-ids (-> (:selected-wine-ids state)
+                            (or #{})
+                            (cond-> (:selected-wine-id state)
+                              (conj (:selected-wine-id state)))
+                            vec)
+     :show-selected-wines? (:show-selected-wines? state)
+     :context-mode context-mode
      :include-visible-wines? include?}))
 
 (defn- apply-wine-search-state!
@@ -193,19 +241,37 @@
                  (cond-> (contains? search-state :show-out-of-stock?)
                    (assoc :show-out-of-stock? (:show-out-of-stock? search-state)))
                  (cond-> (contains? search-state :selected-wine-id)
-                   (assoc :selected-wine-id (:selected-wine-id search-state))))))
-    (when (contains? search-state :include-visible-wines?)
-      (swap! app-state assoc-in [:chat :include-visible-wines?]
-             (boolean (:include-visible-wines? search-state))))))
+                   (assoc :selected-wine-id (:selected-wine-id search-state)))
+                 (cond-> (contains? search-state :selected-wine-ids)
+                   (assoc :selected-wine-ids
+                          (into #{} (:selected-wine-ids search-state))))
+                 (cond-> (contains? search-state :show-selected-wines?)
+                   (assoc :show-selected-wines?
+                          (boolean (:show-selected-wines? search-state)))))))
+    (cond
+      (contains? search-state :context-mode)
+      (when-let [mode (:context-mode search-state)]
+        (state-core/set-context-mode!
+         app-state
+         (keyword mode)))
+      (contains? search-state :include-visible-wines?)
+      (let [mode (if (:include-visible-wines? search-state)
+                   :selection+filters
+                   (if (or (seq (:selected-wine-ids search-state))
+                           (:selected-wine-id search-state))
+                     :selection
+                     :summary))]
+        (state-core/set-context-mode! app-state mode)))))
 
 (defn- sync-conversation-context!
   ([app-state wines]
    (when-let [conversation-id (get-in @app-state [:chat :active-conversation-id])]
      (sync-conversation-context! app-state wines conversation-id)))
   ([app-state wines conversation-id]
-   (let [include? (get-in @app-state [:chat :include-visible-wines?] false)
+   (let [state @app-state
+         context-mode (state-core/context-mode state)
          wine-ids (->> wines (map :id) (remove nil?) vec)
-         search-state (build-wine-search-state app-state include?)]
+         search-state (build-wine-search-state app-state context-mode)]
      (api/update-conversation-context!
       app-state
       conversation-id
@@ -589,11 +655,12 @@
   [app-state message-text messages is-sending? auto-scroll? & [image]]
   (when (and (not @is-sending?) (or (seq message-text) image))
     (reset! is-sending? true)
-    (let [user-message {:id (random-uuid)
+    (let [state @app-state
+          user-message {:id (random-uuid)
                         :text (or message-text "")
                         :is-user true
                         :timestamp (.getTime (js/Date.))}
-          include? (get-in @app-state [:chat :include-visible-wines?] false)
+          include? (state-core/include-wines? state)
           wines (context-wines app-state)]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
@@ -773,7 +840,8 @@
               original-message (nth current message-idx)
               updated-local (assoc original-message :text message-text)
               new-history (conj (vec (take message-idx current)) updated-local)
-              include? (get-in @app-state [:chat :include-visible-wines?] true)
+              state @app-state
+              include? (state-core/include-wines? state)
               wines (context-wines app-state)
               conversation-id (get-in @app-state [:chat :active-conversation-id])
               message-db-id (:id original-message)]
@@ -1042,7 +1110,6 @@
             deleting-id (:deleting-conversation-id chat-state)
             pinning-id (:pinning-conversation-id chat-state)
             renaming-id (:renaming-conversation-id chat-state)
-            include-visible? (:include-visible-wines? chat-state)
             context-wine-list (context-wines app-state)
             conversation-messages (vec (or (:messages chat-state) []))
             wines (or (:wines state) [])
@@ -1050,32 +1117,67 @@
             base-wines (if show-out-of-stock?
                          wines
                          (filter #(pos? (or (:quantity %) 0)) wines))
-            visible-wines (or (filtered-sorted-wines app-state) [])
-            visible-count (count visible-wines)
             total-count (count base-wines)
+            context-mode (state-core/context-mode state)
+            filters-active? (= context-mode :selection+filters)
+            visible-wines (when filters-active? (or (filtered-sorted-wines app-state) []))
+            visible-count (if filters-active? (count visible-wines) 0)
             context-count (count context-wine-list)
-            {:keys [color label sx]} (context-indicator-style include-visible? context-count)
-            toggle-context! (fn [checked]
-                              (swap! app-state assoc-in [:chat :include-visible-wines?] checked)
-                              (when-let [_conversation-id (:active-conversation-id (:chat @app-state))]
-                                (sync-conversation-context! app-state (context-wines app-state))))
-            context-indicator [box {:sx {:display "flex"
-                                         :align-items "center"
-                                         :gap 0.5}}
-                               [switch {:checked include-visible?
-                                        :size "small"
-                                        :onChange (fn [event]
-                                                    (let [checked (.. event -target -checked)]
-                                                      (toggle-context! checked)))}]
-                               [typography {:variant "caption"
-                                            :sx (merge {:color color
-                                                        :fontWeight 400
-                                                        :fontSize "0.7rem"
-                                                        :lineHeight 1.2}
-                                                       sx)}
-                                label]]
+            manual-count (count (manual-context-wines state))
+            indicator-props (context-indicator-props context-mode context-count manual-count)
+            change-context-mode!
+            (fn [mode]
+              (state-core/set-context-mode! app-state mode)
+              (when-let [_conversation-id (:active-conversation-id (:chat @app-state))]
+                (sync-conversation-context! app-state (context-wines app-state))))
+            context-indicator
+            (let [{:keys [color label sx]} indicator-props
+                  indicator-label label
+                  toggle-style {:backgroundColor "rgba(255,255,255,0.08)"
+                                :borderRadius 1
+                                :px 0.5
+                                :py 0.25
+                                :border "1px solid rgba(255,255,255,0.2)"
+                                "& .MuiToggleButton-root"
+                                {:color "rgba(255,255,255,0.72)"
+                                 :border "none"
+                                 :textTransform "uppercase"
+                                 :fontSize "0.7rem"
+                                 :fontWeight 600
+                                 :px 1.5
+                                 :py 0.4
+                                 :letterSpacing "0.05em"
+                                 "&.Mui-selected"
+                                 {:backgroundColor "rgba(144,202,249,0.24)"
+                                  :color "#fff"
+                                  :borderRadius 0.5
+                                  :boxShadow "0 0 0 1px rgba(144,202,249,0.4) inset"}
+                                 "&:hover" {:backgroundColor "rgba(255,255,255,0.12)"}}}]
+              [box {:sx {:display "flex"
+                         :flexDirection "column"
+                         :gap 0.5}}
+               [toggle-button-group
+                {:size "small"
+                 :exclusive true
+                 :value (name context-mode)
+                 :sx toggle-style
+                 :onChange (fn [_ value]
+                             (when value
+                               (change-context-mode! (keyword value))))}
+                (for [{:keys [value label]}
+                      [{:value :summary :label "Summary"}
+                       {:value :selection :label "Manual"}
+                       {:value :selection+filters :label "Manual + Filters"}]]
+                  ^{:key (name value)}
+                  [toggle-button {:value (name value)} label])]
+               [typography {:variant "caption"
+                            :sx (merge {:color color
+                                        :fontSize "0.7rem"
+                                        :lineHeight 1.2}
+                                       sx)}
+                indicator-label]])
             filter-count-info {:visible visible-count :total total-count}
-            filter-panel (when (and include-visible? (pos? context-count))
+            filter-panel (when filters-active?
                            (wine-filters/compact-filter-bar app-state filter-count-info))
             toggle-sidebar! (fn []
                               (let [opening? (not sidebar-open?)]

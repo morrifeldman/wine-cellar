@@ -364,18 +364,30 @@
         [typography {:variant "h6"} "No wines yet. Add your first wine above!"]]
 
        :else
-       (let [visible-wines (filtered-sorted-wines app-state)
+       (let [selected-ids (or (:selected-wine-ids state) #{})
+             selected-wines (when (seq selected-ids)
+                              (vec (filter #(contains? selected-ids (:id %)) wines)))
+             show-selected? (and (:show-selected-wines? state)
+                                (seq selected-wines))
+             visible-wines (if show-selected?
+                             selected-wines
+                             (filtered-sorted-wines app-state))
              show-out-of-stock? (:show-out-of-stock? state)
              base-wines (if show-out-of-stock?
                           wines
                           (filter #(pos? (or (:quantity %) 0)) wines))
              visible-count (count visible-wines)
-             total-count (count base-wines)]
+             total-count (if show-selected?
+                           (count selected-wines)
+                           (count base-wines))
+             selection-count (count (or selected-ids #{}))]
          [:<>
           [collection-stats-modal app-state]
           (if (:selected-wine-id state)
             [:div]
             [:<>
              [filter-bar app-state {:visible visible-count
-                                    :total total-count}]
+                                    :total total-count
+                                    :selected-count selection-count
+                                    :selected-view? show-selected?}]
              [wine-card-grid app-state visible-wines]])]))]))

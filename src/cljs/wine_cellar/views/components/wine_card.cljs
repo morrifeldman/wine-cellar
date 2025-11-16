@@ -13,6 +13,7 @@
             [wine-cellar.utils.vintage :refer
              [tasting-window-status tasting-window-color]]
             [wine-cellar.views.components :refer [quantity-control]]
+            [wine-cellar.state :as app-state]
             [wine-cellar.api :as api]))
 
 ;; Utility functions
@@ -285,15 +286,44 @@
    (when (:show-verification-checkboxes? @app-state)
      [box {:sx {:mt 0.5}} [wine-verification-checkbox app-state wine]])])
 
+(defn- selected-wine?
+  [app-state wine-id]
+  (contains? (get @app-state :selected-wine-ids #{}) wine-id))
+
+(defn- wine-selection-checkbox
+  [app-state wine]
+  (when-let [wine-id (:id wine)]
+    (let [checked? (selected-wine? app-state wine-id)]
+      [box {:sx {:position "absolute"
+                 :top 8
+                 :right 8
+                 :zIndex 2
+                 :backgroundColor "rgba(0,0,0,0.24)"
+                 :borderRadius 2}
+            :on-click #(.stopPropagation %)}
+       [checkbox
+        {:checked checked?
+         :color "primary"
+         :size "small"
+         :inputProps {:aria-label "Select wine"}
+         :on-change (fn [event]
+                      (let [checked (.. event -target -checked)]
+                        (app-state/toggle-wine-selection!
+                         app-state
+                         wine-id
+                         checked)))}]])))
+
 (defn wine-card
   [app-state wine]
   (let [status (tasting-window-status wine)
         drink-from-year (:drink_from_year wine)
-        drink-until-year (:drink_until_year wine)]
+        drink-until-year (:drink_until_year wine)
+        selected? (when-let [wine-id (:id wine)]
+                    (selected-wine? app-state wine-id))]
     [paper
-     {:elevation 2
+     {:elevation (if selected? 6 2)
       :sx
-      {:p 1.5 ;; Reduced padding
+      (cond-> {:p 1.5 ;; Reduced padding
        :mb 2
        :borderRadius 2
        :position "relative"
@@ -308,7 +338,9 @@
          "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))")
        :cursor "pointer"
        ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
+        selected? (assoc :border "1px solid rgba(144,202,249,0.65)"))
       :onClick #(api/load-wine-detail-page app-state (:id wine))}
+     [wine-selection-checkbox app-state wine]
      ;; Wine header with thumbnail and basic info
      [wine-header app-state wine]
      ;; Wine details
