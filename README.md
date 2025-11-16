@@ -50,7 +50,7 @@ A self-hosted wine collection management application built with Clojure and Cloj
    npm install
    ```
 
-3. **Install Git Hooks** (run once locally)
+3. **Install Git Hooks** (automatically runs during `npm install`; rerun manually if needed)
    ```bash
    ./scripts/setup-git-hooks.sh
    ```
