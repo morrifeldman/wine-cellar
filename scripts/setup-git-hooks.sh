@@ -1,7 +1,8 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
-ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT_DIR=$(dirname "$SCRIPT_DIR")
 HOOK_SOURCE="$ROOT_DIR/scripts/pre-commit"
 HOOK_TARGET="$ROOT_DIR/.git/hooks/pre-commit"
 
