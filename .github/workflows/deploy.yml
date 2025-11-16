@@ -15,8 +15,10 @@ jobs:
         run: |
           export FLY_APP_NAME="${{ secrets.FLY_APP_NAME }}"
           export FLY_PRIMARY_REGION="${{ secrets.FLY_PRIMARY_REGION }}"
-          export ANTHROPIC_MODEL="${{ secrets.ANTHROPIC_MODEL }}"
-          export OPENAI_MODEL="${{ secrets.OPENAI_MODEL }}"
+          export ANTHROPIC_MODEL="${{ vars.ANTHROPIC_MODEL }}"
+          export ANTHROPIC_LIGHT_MODEL="${{ vars.ANTHROPIC_LIGHT_MODEL }}"
+          export OPENAI_MODEL="${{ vars.OPENAI_MODEL }}"
+          export OPENAI_LIGHT_MODEL="${{ vars.OPENAI_LIGHT_MODEL }}"
           envsubst < fly.toml.template > fly.toml
           echo "Generated fly.toml:"
           cat fly.toml
