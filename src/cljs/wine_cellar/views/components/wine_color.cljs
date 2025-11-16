@@ -105,8 +105,9 @@
                        :gap 1}}
              [typography {:variant "body2"
                            :sx {:width "100%"
-                                :textAlign "left"
-                                :pr 0.5}}
+                                :alignSelf "flex-end"
+                                :textAlign "right"
+                                :pr 6}}
               "Color"]
              [slider {:orientation "vertical"
                       :value (or color-index 0)
