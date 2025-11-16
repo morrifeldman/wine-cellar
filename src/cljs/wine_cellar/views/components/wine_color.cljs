@@ -174,6 +174,7 @@
                     :width "100%"}}
           color-column
           glass-column]]))))
+
 (defn wine-color-display
   "Display selected wine color as small wine glass on white background"
   [{:keys [selected-color selected-intensity size]}]
@@ -202,4 +203,10 @@
                :border "1px solid #666"
                :borderRadius "0 0 12px 12px"
                :boxShadow "inset 0 1px 2px rgba(0,0,0,0.1)"
-               :clipPath "polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)"}}]]])))
+               :clipPath "polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)"}}]]
+       [typography
+          {:variant (case size
+                      :small "caption"
+                      "body2")
+           :sx {:textTransform "capitalize"}}
+          (str (name selected-intensity) " " (name selected-color))]])))
