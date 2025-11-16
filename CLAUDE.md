@@ -44,15 +44,23 @@ This is a full-stack wine cellar tracking application built with:
 
 ```
 .
+├── AGENTS.md
 ├── automation
 │   └── postgresql.yml
 ├── CLAUDE.md
 ├── deps.edn
 ├── dev
+│   ├── assets
+│   │   ├── klimt-back.jpg
+│   │   └── klimt-front.jpg
 │   ├── user.clj
-│   └── vivino_process.clj
+│   ├── vivino_process.clj
+│   └── wine_cellar
+│       └── dev
+│           └── label_demo.clj
 ├── Dockerfile
 ├── docs
+│   ├── ai-chat-persistence-feature.md
 │   ├── ai-drinking-window-feature.md
 │   ├── ai-form-fill-feature.md
 │   ├── ai-form-fill-implementation.md
@@ -66,6 +74,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── screenshots
 │   │   ├── assistant.png
 │   │   └── overview.png
+│   ├── testing-strategy.md
 │   ├── varieties-implementation.md
 │   ├── wset_l3_wines_sat_en_jun-2016.pdf
 │   └── wset-tasting-notes-feature.md
@@ -78,6 +87,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── favicon.ico
 │   ├── favicon.svg
 │   ├── index.html
+│   ├── service-worker.js
 │   ├── site.webmanifest
 │   ├── version.json
 │   ├── web-app-manifest-192x192.png
@@ -89,6 +99,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
 │   ├── pre-commit
+│   ├── setup-git-hooks.sh
 │   ├── update-version.sh
 │   └── wine_cellar
 │       └── dev.clj
@@ -99,7 +110,10 @@ This is a full-stack wine cellar tracking application built with:
 │   │       ├── admin
 │   │       │   └── bulk_operations.clj
 │   │       ├── ai
-│   │       │   └── anthropic.clj
+│   │       │   ├── anthropic.clj
+│   │       │   ├── core.clj
+│   │       │   ├── openai.clj
+│   │       │   └── prompts.clj
 │   │       ├── auth
 │   │       │   ├── config.clj
 │   │       │   └── core.clj
@@ -109,13 +123,16 @@ This is a full-stack wine cellar tracking application built with:
 │   │       │   ├── connection.clj
 │   │       │   ├── schema.clj
 │   │       │   └── setup.clj
-│   │       ├── debug
+│   │       ├── dev
+│   │       │   └── seed_sample_wines.clj
 │   │       ├── handlers.clj
+│   │       ├── logging.clj
 │   │       ├── routes.clj
 │   │       └── server.clj
 │   ├── cljc
 │   │   └── wine_cellar
-│   │       └── common.cljc
+│   │       ├── common.cljc
+│   │       └── summary.cljc
 │   └── cljs
 │       └── wine_cellar
 │           ├── api.cljs
@@ -134,11 +151,13 @@ This is a full-stack wine cellar tracking application built with:
 │               │   ├── form.cljs
 │               │   └── list.cljs
 │               ├── components
+│               │   ├── ai_provider_toggle.cljs
 │               │   ├── classification_fields.cljs
 │               │   ├── debug.cljs
 │               │   ├── form.cljs
 │               │   ├── image_upload.cljs
 │               │   ├── portal_debug.cljs
+│               │   ├── stats_charts.cljs
 │               │   ├── wine_card.cljs
 │               │   ├── wine_chat.cljs
 │               │   ├── wine_color.cljs
@@ -167,7 +186,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-30 directories, 93 files
+33 directories, 109 files
 ```
 
 ## Development Commands

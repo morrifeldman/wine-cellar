@@ -50,14 +50,19 @@ A self-hosted wine collection management application built with Clojure and Cloj
    npm install
    ```
 
-3. **Configure Credentials** (see Credentials section below)
+3. **Install Git Hooks** (automatically done during `npm install`, re-run if needed)
+   ```bash
+   ./scripts/setup-git-hooks.sh
+   ```
 
-4. **Start Development Server**
+4. **Configure Credentials** (see Credentials section below)
+
+5. **Start Development Server**
    ```bash
    clj -M:dev-all
    ```
 
-5. **Open** http://localhost:8080 (frontend) or http://localhost:3000 (backend API)
+6. **Open** http://localhost:8080 (frontend) or http://localhost:3000 (backend API)
 
 ## Contributor Guide
 
