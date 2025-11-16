@@ -58,7 +58,8 @@
    
    Returns the configuration value or throws an exception if not found."
   [env-var-name & {:keys [pass-path fallback]}]
-  (try (let [env-value (System/getenv env-var-name)]
+  (try (let [env-raw (System/getenv env-var-name)
+             env-value (when (and env-raw (not (string/blank? env-raw))) env-raw)]
          (when (and production? (nil? env-value) (nil? fallback))
            (throw (ex-info
                    (str
