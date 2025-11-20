@@ -4,7 +4,8 @@
             [next.jdbc :as jdbc]
             [jsonista.core :as json]
             [wine-cellar.db.connection :refer [db-opts ds]])
-  (:import [java.sql Date]
+  (:import [java.sql Date Timestamp]
+           [java.time Instant]
            [java.util Base64]))
 
 ;; Helper functions for SQL generation
@@ -31,6 +32,19 @@
   (some-> date-string
           (subs 0 10)
           (Date/valueOf)))
+
+(defn- ->sql-timestamp
+  [^String instant-string]
+  (some-> instant-string
+          (Instant/parse)
+          (Timestamp/from)))
+
+(defn- timestamp->iso-string
+  [value]
+  (when value
+    (-> ^Timestamp value
+        .toInstant
+        str)))
 
 (defn base64->bytes
   [^String base64-string]
@@ -105,6 +119,16 @@
     label_image (update :label_image bytes->base64)
     label_thumbnail (update :label_thumbnail bytes->base64)
     back_label_image (update :back_label_image bytes->base64)))
+
+(defn cellar-condition->db-row
+  [{:keys [measured_at] :as condition}]
+  (cond-> condition measured_at (update :measured_at ->sql-timestamp)))
+
+(defn db-cellar-condition->condition
+  [{:keys [measured_at created_at] :as row}]
+  (-> row
+      (cond-> measured_at (update :measured_at timestamp->iso-string))
+      (cond-> created_at (update :created_at timestamp->iso-string))))
 
 (defn ping-db
   "Simple function to test database connectivity"
@@ -591,3 +615,40 @@
                                                :set {:verified false}})
                                   db-opts)]
     (:next.jdbc/update-count result)))
+
+;; Cellar condition helpers
+
+(defn create-cellar-condition!
+  ([condition] (create-cellar-condition! ds condition))
+  ([tx-or-ds condition]
+   (some-> (jdbc/execute-one! tx-or-ds
+                              (sql/format {:insert-into :cellar_conditions
+                                           :values [(cellar-condition->db-row
+                                                     condition)]
+                                           :returning :*})
+                              db-opts)
+           db-cellar-condition->condition)))
+
+(defn list-cellar-conditions
+  ([] (list-cellar-conditions {}))
+  ([{:keys [device_id limit]}]
+   (let [limit (min (or limit 100) 500)
+         query (cond-> {:select :*
+                        :from :cellar_conditions
+                        :order-by [[:measured_at :desc]]
+                        :limit limit}
+                 device_id (assoc :where [:= :device_id device_id]))]
+     (->> (jdbc/execute! ds (sql/format query) db-opts)
+          (map db-cellar-condition->condition)
+          vec))))
+
+(defn latest-cellar-condition
+  [device-id]
+  (some-> (jdbc/execute-one! ds
+                             (sql/format {:select :*
+                                          :from :cellar_conditions
+                                          :where [:= :device_id device-id]
+                                          :order-by [[:measured_at :desc]]
+                                          :limit 1})
+                             db-opts)
+          db-cellar-condition->condition))

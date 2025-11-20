@@ -65,6 +65,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── ai-form-fill-feature.md
 │   ├── ai-form-fill-implementation.md
 │   ├── alcohol-percentage-implementation.md
+│   ├── cellar-conditions.md
 │   ├── chat-summary.md
 │   ├── code-quality-improvements.md
 │   ├── environment-variables.md
@@ -78,6 +79,16 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── varieties-implementation.md
 │   ├── wset_l3_wines_sat_en_jun-2016.pdf
 │   └── wset-tasting-notes-feature.md
+├── embedded
+│   └── esp32-sentinel
+│       ├── CMakeLists.txt
+│       ├── main
+│       │   ├── bmp085.c
+│       │   ├── bmp085.h
+│       │   ├── CMakeLists.txt
+│       │   ├── config.example.h
+│       │   └── main.c
+│       └── README.md
 ├── fly.toml.template
 ├── package.json
 ├── package-lock.json
@@ -186,7 +197,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-33 directories, 109 files
+36 directories, 117 files
 ```
 
 ## Development Commands

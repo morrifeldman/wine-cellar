@@ -1,5 +1,6 @@
 (ns wine-cellar.routes
-  (:require [wine-cellar.handlers :as handlers]
+  (:require [clojure.string :as str]
+            [wine-cellar.handlers :as handlers]
             [wine-cellar.common :as common]
             [wine-cellar.auth.core :as auth]
             [clojure.spec.alpha :as s]
@@ -118,6 +119,24 @@
 (s/def ::tasting-source string?)
 (s/def ::tasting-sources (s/coll-of ::tasting-source))
 (s/def ::enabled? boolean?)
+(s/def ::device_id (s/and string? (complement str/blank?)))
+(s/def ::measured_at (s/nilable string?))
+(s/def ::temperature_c (s/nilable number?))
+(s/def ::humidity_pct (s/nilable number?))
+(s/def ::pressure_hpa (s/nilable number?))
+(s/def ::co2_ppm (s/nilable number?))
+(s/def ::battery_mv (s/nilable int?))
+(s/def ::leak_detected (s/nilable boolean?))
+(s/def ::notes (s/nilable string?))
+(s/def ::cellar-condition
+  (s/keys :req-un [::device_id]
+          :opt-un [::measured_at ::temperature_c ::humidity_pct ::pressure_hpa
+                   ::co2_ppm ::battery_mv ::leak_detected ::notes]))
+(s/def ::limit
+  (s/and int?
+         pos?
+         #(<= % 500)))
+(s/def ::cellar-condition-query (s/keys :opt-un [::device_id ::limit]))
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
@@ -211,6 +230,15 @@
    ["/logout" {:get {:summary "Logout user" :handler auth/logout}}]]
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
+   ["/cellar-conditions"
+    {:post {:summary "Record cellar environment reading"
+            :parameters {:body ::cellar-condition}
+            :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
+            :handler handlers/ingest-cellar-condition}
+     :get {:summary "List cellar environment readings"
+           :parameters {:query ::cellar-condition-query}
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/list-cellar-conditions}}]
    ;; Grape Varieties Routes
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"

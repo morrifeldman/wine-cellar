@@ -59,6 +59,7 @@
    (sql-execute-helper tx schema/ai-conversation-messages-table-schema)
    (sql-execute-helper tx schema/grape-varieties-table-schema)
    (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
+   (sql-execute-helper tx schema/cellar-conditions-table-schema)
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
 
@@ -81,6 +82,9 @@
    (sql-execute-helper tx
                        {:raw ["DROP TABLE IF EXISTS ai_conversations CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS tasting_notes CASCADE"]})
+   (sql-execute-helper tx
+                       {:raw
+                        ["DROP TABLE IF EXISTS cellar_conditions CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS wines CASCADE"]})
    (sql-execute-helper tx
                        {:raw

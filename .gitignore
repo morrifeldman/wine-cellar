@@ -26,6 +26,10 @@ node_modules/
 public/js/
 public/cljs-runtime/
 
+# ESP32 build artifacts
+embedded/esp32-sentinel/build/
+embedded/esp32-sentinel/sdkconfig
+
 # IDE specific
 .idea/
 .vscode/
@@ -43,3 +47,5 @@ untracked/
 
 # Generated deployment config
 fly.toml
+device.jwt
+embedded/esp32-sentinel/main/config.h

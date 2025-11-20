@@ -17,6 +17,14 @@
    :headers {}
    :body {:error "Internal server error" :details (.getMessage e)}})
 
+(def cellar-measurement-keys
+  [:temperature_c :humidity_pct :pressure_hpa :co2_ppm :battery_mv
+   :leak_detected])
+
+(defn- measurement-present?
+  [payload]
+  (some #(contains? payload %) cellar-measurement-keys))
+
 ;; Wine Classification Handlers
 
 (defn create-classification
@@ -584,6 +592,28 @@
     {:status 400 :body {:error "enabled? flag is required"}}
     (do (logging/set-verbose-logging! enabled?)
         (response/response (logging/verbose-logging-status)))))
+
+(defn ingest-cellar-condition
+  [request]
+  (let [payload (get-in request [:parameters :body])]
+    (if-not (measurement-present? payload)
+      {:status 400 :body {:error "At least one measurement value is required"}}
+      (try (let [recorded-by (or (get-in request [:user :email])
+                                 (get-in request [:user :sub]))
+                 record (db-api/create-cellar-condition!
+                         (cond-> payload
+                           recorded-by (assoc :recorded_by recorded-by)))]
+             {:status 201 :body record})
+           (catch Exception e (server-error e))))))
+
+(defn list-cellar-conditions
+  [request]
+  (let [{:keys [device_id limit]} (or (get-in request [:parameters :query]) {})
+        limit (or limit 100)]
+    (try (-> {:device_id device_id :limit limit}
+             (db-api/list-cellar-conditions)
+             response/response)
+         (catch Exception e (server-error e)))))
 
 (defn start-drinking-window-job
   "Admin function to start async drinking window regeneration job"

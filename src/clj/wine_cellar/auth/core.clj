@@ -150,10 +150,18 @@
          decoded)
        (catch Exception e (tap> ["verify-token" "error" (.getMessage e)]) nil)))
 
+(defn- bearer-token
+  [request]
+  (when-let [header (get-in request [:headers "authorization"])]
+    (let [trimmed (str/trim header)]
+      (when (str/starts-with? (str/lower-case trimmed) "bearer ")
+        (subs trimmed 7)))))
+
 (defn wrap-auth
   [handler]
   (fn [request]
-    (let [token (get-in request [:cookies "auth-token" :value])
+    (let [token (or (bearer-token request)
+                    (get-in request [:cookies "auth-token" :value]))
           user-info (when token (verify-token token))
           authenticated-request (assoc request :user user-info)]
       (handler authenticated-request))))
@@ -192,3 +200,4 @@
                  :max-age 0 ; Expire immediately
                  :same-site :lax
                  :path "/"})))
+#_(spit "device.jwt" (create-jwt-token {:email "esp32@winecellar"}))

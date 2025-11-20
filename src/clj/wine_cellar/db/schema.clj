@@ -173,3 +173,14 @@
                      [:and [:>= :percentage 0] [:<= :percentage 100]]]]]
                   [:created_at :timestamp [:default [:now]]]]})
 #_(sql/format wine-grape-varieties-table-schema)
+
+(def cellar-conditions-table-schema
+  {:create-table [:cellar_conditions :if-not-exists]
+   :with-columns [[:id :bigserial :primary-key] [:device_id :varchar [:not nil]]
+                  [:recorded_by :varchar] [:temperature_c :double-precision]
+                  [:humidity_pct :double-precision]
+                  [:pressure_hpa :double-precision] [:co2_ppm :double-precision]
+                  [:battery_mv :integer]
+                  [:leak_detected :boolean [:default false]] [:notes :text]
+                  [:measured_at :timestamptz [:default [:now]]]
+                  [:created_at :timestamp [:default [:now]]]]})
