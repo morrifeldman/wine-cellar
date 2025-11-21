@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "esp_chip_info.h"
 #include "esp_event.h"
 #include "esp_flash.h"
@@ -17,6 +17,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
+#include "ssd1306.h"
 
 #include "config.h"  // User-provided Wi-Fi + API settings (see config.example.h)
 // Humidity sensor currently disabled; future BME280 can share this bus
@@ -30,6 +31,16 @@
 #endif
 #ifndef I2C_FREQ_HZ
 #define I2C_FREQ_HZ 100000
+#endif
+
+#ifndef OLED_ADDRESS
+#define OLED_ADDRESS 0x3C
+#endif
+#ifndef OLED_WIDTH
+#define OLED_WIDTH 128
+#endif
+#ifndef OLED_HEIGHT
+#define OLED_HEIGHT 64
 #endif
 
 #ifndef WIFI_SSID
@@ -61,25 +72,62 @@ static const char *TAG = "sentinel";
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
 static bool s_i2c_bus_initialized = false;
+static i2c_master_bus_handle_t s_i2c_bus = NULL;
+static ssd1306_handle_t s_display = NULL;
+static bool s_display_ok = false;
+static char s_ip_str[16] = "0.0.0.0";
+
+static void display_line(uint8_t page, const char *text, bool invert) {
+    char clipped[17];
+    strncpy(clipped, text, sizeof(clipped) - 1);
+    clipped[sizeof(clipped) - 1] = '\0';
+    ssd1306_display_text(s_display, page, clipped, invert);
+}
+
+static void display_status(float temperature, float pressure, int http_status, esp_err_t post_err) {
+    if (!s_display_ok) return;
+    ssd1306_clear_display(s_display, false);
+
+    char line0[32];
+    char line1[32];
+    char line2[32];
+
+    snprintf(line0, sizeof(line0), "IP %s", s_ip_str);
+    if (!isnan(temperature) && !isnan(pressure)) {
+        snprintf(line1, sizeof(line1), "T %5.1fC P %4.0f", temperature, pressure);
+    } else if (!isnan(temperature)) {
+        snprintf(line1, sizeof(line1), "T %5.1fC", temperature);
+    } else {
+        snprintf(line1, sizeof(line1), "T --.-C");
+    }
+
+    if (post_err == ESP_OK) {
+        snprintf(line2, sizeof(line2), "POST %d", http_status);
+    } else {
+        snprintf(line2, sizeof(line2), "POST %s", esp_err_to_name(post_err));
+    }
+
+    display_line(0, line0, false);
+    display_line(1, line1, false);
+    display_line(2, line2, false);
+}
 
 static void ensure_i2c_bus(void) {
     if (s_i2c_bus_initialized) {
         return;
     }
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
+    i2c_master_bus_config_t bus_cfg = {
+        .i2c_port = I2C_NUM_0,
         .sda_io_num = I2C_SDA,
         .scl_io_num = I2C_SCL,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_FREQ_HZ,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
+        .flags = {
+            .enable_internal_pullup = true,
+        },
     };
 
-    ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
-    esp_err_t err = i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
-    if (err != ESP_ERR_INVALID_STATE) {
-        ESP_ERROR_CHECK(err);
-    }
+    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_cfg, &s_i2c_bus));
     s_i2c_bus_initialized = true;
 }
 
@@ -105,14 +153,7 @@ static void scan_i2c_bus(void) {
     }
     ESP_LOGI(TAG, "Scanning I2C bus on port %d", I2C_NUM_0);
     for (int address = 0x03; address <= 0x77; ++address) {
-        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-        i2c_master_start(cmd);
-        i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-        i2c_master_stop(cmd);
-        esp_err_t err = i2c_master_cmd_begin(I2C_NUM_0,
-                                             cmd,
-                                             pdMS_TO_TICKS(20));
-        i2c_cmd_link_delete(cmd);
+        esp_err_t err = i2c_master_probe(s_i2c_bus, address, 20);
         if (err == ESP_OK) {
             ESP_LOGI(TAG, " - Found device at 0x%02X", address);
         }
@@ -145,6 +186,7 @@ static void wifi_event_handler(void *arg,
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
+        esp_ip4addr_ntoa(&event->ip_info.ip, s_ip_str, sizeof(s_ip_str));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
@@ -213,6 +255,25 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
+static void init_display(void) {
+    ssd1306_config_t cfg = I2C_SSD1306_128x64_CONFIG_DEFAULT;
+    cfg.i2c_address = OLED_ADDRESS;
+    cfg.i2c_clock_speed = I2C_FREQ_HZ;
+    cfg.flip_enabled = false;
+
+    esp_err_t err = ssd1306_init(s_i2c_bus, &cfg, &s_display);
+    if (err == ESP_OK && s_display != NULL) {
+        s_display_ok = true;
+        ESP_LOGI(TAG, "SSD1306 ready at 0x%02X (%dx%d)", OLED_ADDRESS, OLED_WIDTH, OLED_HEIGHT);
+    } else {
+        ESP_LOGW(TAG, "SSD1306 init failed: %s", esp_err_to_name(err));
+    }
+}
+
+static void update_display(float temperature, float pressure, int http_status, esp_err_t post_err) {
+    display_status(temperature, pressure, http_status, post_err);
+}
+
 static esp_err_t post_cellar_condition(void) {
     float temperature = NAN;
     float pressure = NAN;
@@ -278,14 +339,16 @@ static esp_err_t post_cellar_condition(void) {
 
     ESP_LOGI(TAG, "POST %s", CELLAR_API_URL);
     esp_err_t err = esp_http_client_perform(client);
+    int status = -1;
     if (err == ESP_OK) {
-        int status = esp_http_client_get_status_code(client);
+        status = esp_http_client_get_status_code(client);
         ESP_LOGI(TAG, "POST status=%d, content_length=%lld", status, esp_http_client_get_content_length(client));
     } else {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
 
     esp_http_client_cleanup(client);
+    update_display(temperature, pressure, status, err);
     return err;
 }
 
@@ -294,10 +357,13 @@ void app_main(void) {
     init_nvs();
     wifi_init_sta();
     ensure_i2c_bus();
-    esp_err_t bmp_status = bmp085_init();
+    esp_err_t bmp_status = bmp085_init(s_i2c_bus);
     if (bmp_status != ESP_OK) {
         ESP_LOGE(TAG, "BMP085 init failed: %s", esp_err_to_name(bmp_status));
     }
+    init_display();
+    // Initial splash
+    display_status(NAN, NAN, -1, ESP_OK);
     scan_i2c_bus();
 
     while (true) {

@@ -28,6 +28,7 @@ public/cljs-runtime/
 
 # ESP32 build artifacts
 embedded/esp32-sentinel/build/
+embedded/esp32-sentinel/managed_components/
 embedded/esp32-sentinel/sdkconfig
 
 # IDE specific

@@ -3,9 +3,11 @@
 #include <math.h>
 
 #include "config.h"
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #ifndef BMP085_I2C_PORT
 #define BMP085_I2C_PORT I2C_NUM_0
@@ -43,33 +45,19 @@ static bool s_initialized = false;
 static int16_t AC1, AC2, AC3, B1, B2, MB, MC, MD;
 static uint16_t AC4, AC5, AC6;
 
+static const int I2C_TIMEOUT_MS = 100;
+static i2c_master_bus_handle_t s_bus = NULL;
+static i2c_master_dev_handle_t s_dev = NULL;
+
 static esp_err_t i2c_write_byte(uint8_t reg, uint8_t value) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (BMP085_ADDRESS << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, reg, true);
-    i2c_master_write_byte(cmd, value, true);
-    i2c_master_stop(cmd);
-    esp_err_t err = i2c_master_cmd_begin(BMP085_I2C_PORT, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-    return err;
+    if (!s_dev) return ESP_ERR_INVALID_STATE;
+    uint8_t data[2] = {reg, value};
+    return i2c_master_transmit(s_dev, data, sizeof(data), I2C_TIMEOUT_MS);
 }
 
 static esp_err_t i2c_read_bytes(uint8_t reg, uint8_t *buf, size_t len) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (BMP085_ADDRESS << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, reg, true);
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (BMP085_ADDRESS << 1) | I2C_MASTER_READ, true);
-    if (len > 1) {
-        i2c_master_read(cmd, buf, len - 1, I2C_MASTER_ACK);
-    }
-    i2c_master_read_byte(cmd, buf + len - 1, I2C_MASTER_NACK);
-    i2c_master_stop(cmd);
-    esp_err_t err = i2c_master_cmd_begin(BMP085_I2C_PORT, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-    return err;
+    if (!s_dev) return ESP_ERR_INVALID_STATE;
+    return i2c_master_transmit_receive(s_dev, &reg, 1, buf, len, I2C_TIMEOUT_MS);
 }
 
 static esp_err_t read_calibration(void) {
@@ -89,10 +77,22 @@ static esp_err_t read_calibration(void) {
     return ESP_OK;
 }
 
-esp_err_t bmp085_init(void) {
+esp_err_t bmp085_init(i2c_master_bus_handle_t bus_handle) {
     if (s_initialized) {
         return ESP_OK;
     }
+
+    if (!bus_handle) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    s_bus = bus_handle;
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = BMP085_ADDRESS,
+        .scl_speed_hz = BMP085_I2C_FREQ_HZ,
+    };
+    ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(s_bus, &dev_cfg, &s_dev), TAG, "Add bmp085 device");
 
     // I2C bus is initialized in app_main; just read calibration once.
     ESP_RETURN_ON_ERROR(read_calibration(), TAG, "Calibration read failed");
@@ -125,7 +125,7 @@ static esp_err_t read_uncompensated_pressure(int32_t *up) {
 }
 
 esp_err_t bmp085_read(float *temperature_c, float *pressure_hpa) {
-    ESP_RETURN_ON_ERROR(bmp085_init(), TAG, "Not initialized");
+    ESP_RETURN_ON_ERROR(bmp085_init(s_bus), TAG, "Not initialized");
 
     int32_t ut = 0;
     int32_t up = 0;
