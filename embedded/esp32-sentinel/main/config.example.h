@@ -17,6 +17,13 @@
 #define BMP085_ADDRESS 0x77
 #define BMP085_OSS 0  // 0..3 oversampling; higher = slower but smoother pressure
 
+// If your temperature sensor reports Fahrenheit, convert it back to Celsius
+// before publishing/printing by uncommenting this line.
+// #define SENSOR_TEMP_IS_FAHRENHEIT 1
+
+// Display temperature in Fahrenheit on the OLED (defaults to Celsius)
+// #define DISPLAY_TEMP_FAHRENHEIT 1
+
 // Optional: SSD1306 OLED status display
 #define OLED_ADDRESS 0x3C
 #define OLED_WIDTH 128

@@ -77,6 +77,10 @@ static ssd1306_handle_t s_display = NULL;
 static bool s_display_ok = false;
 static char s_ip_str[16] = "0.0.0.0";
 
+static inline float c_to_f(float temp_c) {
+    return isnan(temp_c) ? NAN : (temp_c * 9.0f / 5.0f) + 32.0f;
+}
+
 static void display_line(uint8_t page, const char *text, bool invert) {
     char clipped[17];
     strncpy(clipped, text, sizeof(clipped) - 1);
@@ -92,13 +96,20 @@ static void display_status(float temperature, float pressure, int http_status, e
     char line1[32];
     char line2[32];
 
+    float display_temp = temperature;
+    char temp_unit = 'C';
+#ifdef DISPLAY_TEMP_FAHRENHEIT
+    display_temp = c_to_f(temperature);
+    temp_unit = 'F';
+#endif
+
     snprintf(line0, sizeof(line0), "IP %s", s_ip_str);
-    if (!isnan(temperature) && !isnan(pressure)) {
-        snprintf(line1, sizeof(line1), "T %5.1fC P %4.0f", temperature, pressure);
-    } else if (!isnan(temperature)) {
-        snprintf(line1, sizeof(line1), "T %5.1fC", temperature);
+    if (!isnan(display_temp) && !isnan(pressure)) {
+        snprintf(line1, sizeof(line1), "T %5.1f%c P %4.0f", display_temp, temp_unit, pressure);
+    } else if (!isnan(display_temp)) {
+        snprintf(line1, sizeof(line1), "T %5.1f%c", display_temp, temp_unit);
     } else {
-        snprintf(line1, sizeof(line1), "T --.-C");
+        snprintf(line1, sizeof(line1), "T --.-%c", temp_unit);
     }
 
     if (post_err == ESP_OK) {
@@ -283,6 +294,10 @@ static esp_err_t post_cellar_condition(void) {
     if (bmp_err != ESP_OK) {
         ESP_LOGE(TAG, "BMP085 read failed: %s", esp_err_to_name(bmp_err));
     } else if (isnan(temperature) && !isnan(bmp_temp)) {
+#ifdef SENSOR_TEMP_IS_FAHRENHEIT
+        // Some drop-in sensors ship configured for Fahrenheit; normalize to Celsius.
+        bmp_temp = (bmp_temp - 32.0f) * (5.0f / 9.0f);
+#endif
         temperature = bmp_temp;
     }
 
