@@ -93,6 +93,13 @@
 
 (defn DELETE [url error-msg] (api-request http/delete url nil error-msg))
 
+(defn- encode-query-params
+  [params]
+  (let [pairs (for [[k v] params
+                    :when (some? v)]
+                (str (name k) "=" (js/encodeURIComponent (str v))))]
+    (when (seq pairs) (str "?" (string/join "&" pairs)))))
+
 (defn logout
   []
   (js/console.log "Logging out...")
@@ -152,6 +159,47 @@
           (do (fetch-classifications app-state)
               (swap! app-state dissoc :deleting-classification))
           (swap! app-state assoc :error (:error result))))))
+
+;; Cellar condition endpoints
+
+(defn fetch-latest-cellar-conditions
+  [app-state {:keys [device-id]}]
+  (swap! app-state assoc-in [:cellar-conditions :loading-latest?] true)
+  (go (let [query (encode-query-params {:device_id device-id})
+            result (<! (GET (str "/api/cellar-conditions/latest" query)
+                            "Failed to fetch latest cellar readings"))]
+        (if (:success result)
+          (swap! app-state update
+            :cellar-conditions
+            (fn [state]
+              (-> state
+                  (assoc :latest (:data result))
+                  (assoc :loading-latest? false)
+                  (dissoc :error))))
+          (swap! app-state update
+            :cellar-conditions
+            (fn [state]
+              (assoc state :loading-latest? false :error (:error result))))))))
+
+(defn fetch-cellar-series
+  [app-state {:keys [device-id bucket from to]}]
+  (swap! app-state assoc-in [:cellar-conditions :loading-series?] true)
+  (go (let [query (encode-query-params
+                   {:device_id device-id :bucket bucket :from from :to to})
+            result (<! (GET (str "/api/cellar-conditions/series" query)
+                            "Failed to fetch cellar series"))]
+        (if (:success result)
+          (swap! app-state update
+            :cellar-conditions
+            (fn [state]
+              (-> state
+                  (assoc :series (:data result))
+                  (assoc :loading-series? false)
+                  (dissoc :error))))
+          (swap! app-state update
+            :cellar-conditions
+            (fn [state]
+              (assoc state :loading-series? false :error (:error result))))))))
 
 ;; Wine endpoints
 (defn fetch-wines

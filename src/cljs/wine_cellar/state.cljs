@@ -42,7 +42,15 @@
           :sidebar-open? false
           :context-mode :summary
           :include-visible-wines? false
-          :error nil}})
+          :error nil}
+   :cellar-conditions {:latest []
+                       :series []
+                       :loading-latest? false
+                       :loading-series? false
+                       :bucket "1d"
+                       :range :all
+                       :device-id nil
+                       :error nil}})
 
 (def ^:private context-modes #{:summary :selection :selection+filters})
 

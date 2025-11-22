@@ -1,7 +1,12 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-The backend Clojure source lives in `src/clj/wine_cellar` (config, routes, db, auth modules), while shared code sits in `src/cljc` and the ClojureScript UI in `src/cljs/wine_cellar`. Static assets compile to `public/` and backend resources to `resources/`. Development entry points are under `dev/`, infra playbooks under `automation/`, and reusable tooling scripts under `scripts/`. Docs and screenshots reside in `docs/`. The embedded firmware prototype is in `embedded/esp32-sentinel` (ESP-IDF project for the cellar environment sensor).
+The backend Clojure source lives in `src/clj/wine_cellar` (config, routes, db, auth modules), while shared code sits in `src/cljc` and the ClojureScript UI in `src/cljs/wine_cellar`. Static assets compile to `public/` and backend resources to `resources/`. Development entry points are under `dev/`, infra playbooks under `automation/`, and reusable tooling scripts under `scripts/`. Docs and screenshots reside in `docs/`. The embedded cellar sentinel firmware lives in `embedded/esp32-sentinel` (ESP-IDF project that posts sensor data to the API).
+
+### Current Work Focus
+- Bring up the new cellar sentinel hardware in `embedded/esp32-sentinel`: wire BMP085/BMP180 over I²C GPIO21/22, optional SSD1306 OLED at address `0x3C`, and post payloads that match `docs/cellar-conditions.md` to `/api/cellar-conditions` using the device JWT from `device.jwt`.
+- Keep backend expectations aligned with the sentinel payload; update `docs/cellar-conditions.md` when sensor fields or units change.
+- Ensure `main/config.h` (copied from `main/config.example.h`) includes correct Wi-Fi creds, backend URL, `DEVICE_ID`, and optional `CELLAR_API_CERT_PEM` for HTTPS targets.
 
 ## Build, Test, and Development Commands
 Run `npm install` once to sync JS dependencies. Use `clj -M:dev-all` to boot backend + shadow-cljs watcher together via `wine-cellar.dev`. For a frontend-only loop, run `npx shadow-cljs watch app` (outputs to `public/js`). Start just the API with `clj -M:run-server`. Package a production bundle through `npx shadow-cljs release app` before deploying.

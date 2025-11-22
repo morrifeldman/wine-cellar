@@ -10,7 +10,7 @@ Devices send an existing JWT in the `Authorization: Bearer <token>` header. Duri
 
 Body fields:
 - `device_id` *(string, required)* – human-friendly ID like `esp32-sentinel-1`.
-- `measured_at` *(ISO8601 string, optional)* – defaults to server time if omitted.
+- `measured_at` *(ISO8601 string, optional)* – defaults to server time if omitted. The ESP32 sentinel now populates this using SNTP once Wi-Fi is up for consistent timestamps.
 - `temperature_c`, `humidity_pct`, `pressure_hpa`, `co2_ppm` *(numbers, optional)*.
 - `battery_mv` *(integer, optional)*.
 - `leak_detected` *(boolean, optional)*.
@@ -47,3 +47,19 @@ curl -H "Authorization: Bearer $DEVICE_JWT" \
 ```
 
 The response is a vector of records, each containing the stored fields plus `recorded_by` (if the JWT carried an email) and timestamps as ISO8601 strings. Use this endpoint to mock the ESP32 while you track down the physical sensors—the POST examples let you stuff synthetic values into the DB so the web UI can be built before the hardware is live.
+
+## Fetch Latest Reading Per Device
+`GET /api/cellar-conditions/latest?device_id=esp32-sentinel-1`
+
+- When `device_id` is provided, returns a single latest record for that device.
+- When omitted, returns the latest record for every device (ordered by device_id).
+
+## Fetch Aggregated Time Series (bucketed averages)
+`GET /api/cellar-conditions/series?device_id=esp32-sentinel-1&bucket=1d&from=2025-11-01T00:00:00Z`
+
+Query params:
+- `device_id` *(optional)* – filter to one device; omit to aggregate each device separately.
+- `bucket` *(optional)* – time bucket size; one of `15m`, `1h`, `6h`, `1d` (default `1h`).
+- `from` / `to` *(ISO8601 strings, optional)* – time window bounds; defaults to all data up to now.
+
+Each bucket returns `device_id`, `bucket_start` (ISO string), and avg/min/max for temperature, humidity, pressure, CO₂, and battery voltage. Use this for long-range charts without pulling millions of raw samples.

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "driver/i2c_master.h"
 #include "esp_chip_info.h"
@@ -15,6 +16,7 @@
 #include "esp_lcd_panel_ssd1306.h"
 #include "esp_lcd_types.h"
 #include "esp_netif.h"
+#include "esp_netif_sntp.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -81,6 +83,7 @@ static esp_lcd_panel_handle_t s_panel = NULL;
 static bool s_display_ok = false;
 static char s_ip_str[16] = "0.0.0.0";
 static uint8_t s_framebuffer[OLED_WIDTH * OLED_HEIGHT / 8] = {0};
+static bool s_time_synced = false;
 
 // Minimal 5x7 ASCII font (0x20-0x7F), columns packed LSB = top row.
 static const uint8_t FONT_5X7[][5] = {
@@ -460,6 +463,58 @@ static void wifi_init_sta(void) {
     }
 }
 
+static bool time_is_set(void) {
+    time_t now = 0;
+    time(&now);
+    // Rough cutoff: any value before 2023 likely means SNTP has not run yet.
+    return now > 1672531200;  // 2023-01-01T00:00:00Z
+}
+
+static bool sync_time_with_sntp(void) {
+    if (s_time_synced && time_is_set()) {
+        return true;
+    }
+
+    esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+    esp_err_t init_err = esp_netif_sntp_init(&config);
+    if (init_err != ESP_OK && init_err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Failed to init SNTP: %s", esp_err_to_name(init_err));
+        return false;
+    }
+
+    esp_err_t wait_err = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(5000));
+    if (wait_err == ESP_OK && time_is_set()) {
+        s_time_synced = true;
+        time_t now = 0;
+        time(&now);
+        ESP_LOGI(TAG, "Time synced (epoch=%ld)", (long)now);
+        return true;
+    }
+
+    if (wait_err == ESP_ERR_TIMEOUT) {
+        ESP_LOGW(TAG, "SNTP sync timed out");
+    } else if (wait_err != ESP_OK) {
+        ESP_LOGW(TAG, "SNTP sync wait failed: %s", esp_err_to_name(wait_err));
+    }
+    return false;
+}
+
+static bool format_iso8601_now(char *out, size_t out_len) {
+    if (!time_is_set()) {
+        return false;
+    }
+
+    time_t now = 0;
+    struct tm timeinfo;
+    time(&now);
+    if (gmtime_r(&now, &timeinfo) == NULL) {
+        return false;
+    }
+
+    size_t written = strftime(out, out_len, "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
+    return written > 0 && written < out_len;
+}
+
 static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     switch (evt->event_id) {
         case HTTP_EVENT_ON_DATA:
@@ -529,6 +584,13 @@ static void update_display(float temperature, float pressure, int http_status, e
 static esp_err_t post_cellar_condition(void) {
     float temperature = NAN;
     float pressure = NAN;
+    char timestamp[32] = {0};
+    bool have_timestamp = format_iso8601_now(timestamp, sizeof(timestamp));
+    if (!have_timestamp && !s_time_synced) {
+        // If SNTP hasn't succeeded yet, try one more sync before sending.
+        s_time_synced = sync_time_with_sntp();
+        have_timestamp = format_iso8601_now(timestamp, sizeof(timestamp));
+    }
 
     float bmp_temp = temperature;
     esp_err_t bmp_err = bmp085_read(isnan(bmp_temp) ? &bmp_temp : NULL, &pressure);
@@ -544,6 +606,13 @@ static esp_err_t post_cellar_condition(void) {
 
     char payload[256];
     int written = snprintf(payload, sizeof(payload), "{\"device_id\":\"%s\"", DEVICE_ID);
+
+    if (have_timestamp) {
+        written += snprintf(payload + written,
+                            sizeof(payload) - written,
+                            ",\"measured_at\":\"%s\"",
+                            timestamp);
+    }
 
     bool has_measurement = false;
 
@@ -612,6 +681,9 @@ void app_main(void) {
     log_chip_info();
     init_nvs();
     wifi_init_sta();
+    if (!sync_time_with_sntp()) {
+        ESP_LOGW(TAG, "Proceeding without SNTP timestamp; API will fill server time");
+    }
     ensure_i2c_bus();
     esp_err_t bmp_status = bmp085_init(s_i2c_bus);
     if (bmp_status != ESP_OK) {

@@ -615,6 +615,22 @@
              response/response)
          (catch Exception e (server-error e)))))
 
+(defn latest-cellar-conditions
+  [request]
+  (let [{:keys [device_id]} (or (get-in request [:parameters :query]) {})]
+    (try (-> (db-api/latest-cellar-conditions device_id)
+             response/response)
+         (catch Exception e (server-error e)))))
+
+(defn cellar-condition-series
+  [request]
+  (let [{:keys [device_id bucket from to]}
+        (or (get-in request [:parameters :query]) {})]
+    (try (-> {:device_id device_id :bucket bucket :from from :to to}
+             (db-api/cellar-condition-series)
+             response/response)
+         (catch Exception e (server-error e)))))
+
 (defn start-drinking-window-job
   "Admin function to start async drinking window regeneration job"
   [request]

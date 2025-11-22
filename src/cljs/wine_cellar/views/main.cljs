@@ -9,6 +9,7 @@
     [wine-cellar.views.wines.detail :refer [wine-details-section]]
     [wine-cellar.views.grape-varieties.list :refer [grape-varieties-page]]
     [wine-cellar.views.classifications.list :refer [classifications-page]]
+    [wine-cellar.views.cellar-conditions :refer [cellar-conditions-panel]]
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.button :refer [button]]
@@ -250,6 +251,10 @@
      {:variant "outlined"
       :color "primary"
       :onClick #(swap! app-state assoc :show-collection-stats? true)} "Stats"]
+    [button
+     {:variant "outlined"
+      :color "primary"
+      :onClick #(swap! app-state assoc :view :cellar-conditions)} "Cellar Env"]
     [admin-menu app-state] [logout]]])
 
 (defn main-app
@@ -338,6 +343,15 @@
               :color "primary"
               :on-click #(swap! app-state dissoc :view)
               :sx {:mt 2}} "Back to Wine List"]]
+           (= (:view state) :cellar-conditions)
+           [:div
+            [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
+             [typography {:variant "h5"} "Cellar Environment"]
+             [button
+              {:variant "outlined"
+               :color "primary"
+               :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
+            [cellar-conditions-panel app-state]]
            ;; Wine views
            (:selected-wine-id state) [:div [wine-details-section app-state]]
            (:show-wine-form? state) [:div [top-controls app-state]

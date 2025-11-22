@@ -128,6 +128,10 @@
 (s/def ::battery_mv (s/nilable int?))
 (s/def ::leak_detected (s/nilable boolean?))
 (s/def ::notes (s/nilable string?))
+(s/def ::bucket #{"15m" "1h" "6h" "1d"})
+(s/def ::from ::measured_at)
+(s/def ::to ::measured_at)
+(s/def ::series-query (s/keys :opt-un [::device_id ::bucket ::from ::to]))
 (s/def ::cellar-condition
   (s/keys :req-un [::device_id]
           :opt-un [::measured_at ::temperature_c ::humidity_pct ::pressure_hpa
@@ -239,6 +243,16 @@
            :parameters {:query ::cellar-condition-query}
            :responses {200 {:body vector?} 500 {:body map?}}
            :handler handlers/list-cellar-conditions}}]
+   ["/cellar-conditions/latest"
+    {:get {:summary "Most recent reading per device (or for one device)"
+           :parameters {:query (s/keys :opt-un [::device_id])}
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/latest-cellar-conditions}}]
+   ["/cellar-conditions/series"
+    {:get {:summary "Aggregated cellar readings bucketed over time"
+           :parameters {:query ::series-query}
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/cellar-condition-series}}]
    ;; Grape Varieties Routes
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"

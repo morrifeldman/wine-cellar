@@ -405,9 +405,7 @@
                    [:coalesce (:classification classification) ""]]
                   [:= [:coalesce :vineyard ""]
                    [:coalesce (:vineyard classification) ""]]]}
-         _ (tap> ["existing-query" existing-query])
          existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
-     (tap> ["existing" existing])
      (if existing
        ;; Update existing classification - merge levels
        (let [levels1 (or (:levels existing) [])
@@ -422,7 +420,6 @@
        (let [insert-query {:insert-into :wine_classifications
                            :values [(update classification :levels ->pg-array)]
                            :returning :*}]
-         (tap> ["insert-query" insert-query])
          (jdbc/execute-one! tx (sql/format insert-query) db-opts))))))
 
 (defn get-classifications
@@ -652,3 +649,72 @@
                                           :limit 1})
                              db-opts)
           db-cellar-condition->condition))
+
+(defn latest-cellar-conditions
+  "Return the most recent reading per device, or for a specific device when
+  device-id is provided. Results are ordered by device_id ASC."
+  ([] (latest-cellar-conditions nil))
+  ([device-id]
+   (let
+     [sql-params
+      (if device-id
+        (sql/format {:select :*
+                     :from :cellar_conditions
+                     :where [:= :device_id device-id]
+                     :order-by [[:measured_at :desc]]
+                     :limit 1})
+        ["SELECT DISTINCT ON (device_id) * FROM cellar_conditions WHERE device_id IS NOT NULL ORDER BY device_id ASC, measured_at DESC"])]
+     (->> (jdbc/execute! ds sql-params db-opts)
+          (map db-cellar-condition->condition)
+          vec))))
+
+(def ^:private bucket->seconds
+  {"15m" 900  ;; 15 minutes
+   "1h" 3600  ;; 1 hour
+   "6h" 21600 ;; 6 hours
+   "1d" 86400}) ;; 1 day
+
+(defn cellar-condition-series
+  "Return aggregated cellar readings bucketed by the requested interval. Results
+  always include :device_id and :bucket_start (ISO string). Metrics include
+  avg/min/max per bucket for available numeric fields."
+  [{:keys [device_id from to bucket]}]
+  (let [bucket-seconds (get bucket->seconds bucket 3600)
+        bucket-expr
+        [:raw
+         (format "to_timestamp(floor(extract(epoch from measured_at)/%d)*%d)"
+                 bucket-seconds
+                 bucket-seconds)]
+        conditions (cond-> []
+                     device_id (conj [:= :device_id device_id])
+                     from (conj [:>= :measured_at (->sql-timestamp from)])
+                     to (conj [:<= :measured_at (->sql-timestamp to)]))
+        where-clause (when (seq conditions) (into [:and] conditions))
+        query (cond-> {:select [[:device_id :device_id]
+                                [bucket-expr :bucket_start]
+                                [[:avg :temperature_c] :avg_temperature_c]
+                                [[:min :temperature_c] :min_temperature_c]
+                                [[:max :temperature_c] :max_temperature_c]
+                                [[:avg :humidity_pct] :avg_humidity_pct]
+                                [[:min :humidity_pct] :min_humidity_pct]
+                                [[:max :humidity_pct] :max_humidity_pct]
+                                [[:avg :pressure_hpa] :avg_pressure_hpa]
+                                [[:min :pressure_hpa] :min_pressure_hpa]
+                                [[:max :pressure_hpa] :max_pressure_hpa]
+                                [[:avg :co2_ppm] :avg_co2_ppm]
+                                [[:min :co2_ppm] :min_co2_ppm]
+                                [[:max :co2_ppm] :max_co2_ppm]
+                                [[:avg :battery_mv] :avg_battery_mv]
+                                [[:min :battery_mv] :min_battery_mv]
+                                [[:max :battery_mv] :max_battery_mv]]
+                       :from :cellar_conditions
+                       :group-by [:device_id bucket-expr]
+                       :order-by [[:bucket_start :asc] [:device_id :asc]]}
+                where-clause (assoc :where where-clause))
+        rows (jdbc/execute! ds (sql/format query) db-opts)]
+    (->> rows
+         (map (fn [row]
+                (cond-> row
+                  (:bucket_start row) (update :bucket_start
+                                              timestamp->iso-string))))
+         vec)))
