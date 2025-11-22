@@ -39,7 +39,7 @@ I (2450) sentinel: POST status=201, content_length=123
 ```
 Press `Ctrl+]` to exit the monitor.
 
-### Optional: tiny OLED status screen (SSD1306)
+### Optional: tiny OLED status screen (SSD1306 via esp_lcd)
 - Wire the 0.96" I²C OLED to the same bus as the BMP085: `VCC→3V3`, `GND→GND`, `SCL→GPIO22`, `SDA→GPIO21`.
 - Most boards use address `0x3C`; confirm in the boot scan log. Set `OLED_ADDRESS`/`OLED_WIDTH`/`OLED_HEIGHT` in `config.h` if needed.
 - The screen shows IP, latest temperature/pressure, and last POST status.

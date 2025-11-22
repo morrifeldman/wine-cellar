@@ -28,12 +28,6 @@
 #define OLED_ADDRESS 0x3C
 #define OLED_WIDTH 128
 #define OLED_HEIGHT 64
-// Column offset: use 0 for true SSD1306; many SH1106 modules need 2.
-#define SSD1306_COL_OFFSET 0
-// If your panel behaves like SH1106 (scrambled text), set this to 1 and COL_OFFSET to 2.
-// #define SSD1306_IS_SH1106 1
-// Flip font column bits if characters look vertically scrambled (0=bit0 top, 1=bit7 top)
-#define SSD1306_FONT_FLIP_VERT 1
 
 /* Optional: pin your TLS cert for HTTPS endpoints
 static const char CELLAR_API_CERT_PEM[] = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n";
