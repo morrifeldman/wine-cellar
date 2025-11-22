@@ -226,6 +226,34 @@ static void draw_char(int x, int y, char c, bool invert) {
     }
 }
 
+static void draw_char_scaled(int x, int y, char c, int scale, bool invert) {
+    if (scale <= 1) {
+        draw_char(x, y, c, invert);
+        return;
+    }
+    if (c < 0x20 || c > 0x7F) {
+        c = '?';
+    }
+    const uint8_t *glyph = FONT_5X7[c - 0x20];
+    for (int col = 0; col < 5; ++col) {
+        uint8_t col_bits = glyph[col];
+        for (int row = 0; row < 7; ++row) {
+            bool pixel_on = (col_bits >> row) & 0x1;
+            for (int dy = 0; dy < scale; ++dy) {
+                for (int dx = 0; dx < scale; ++dx) {
+                    set_pixel(x + col * scale + dx, y + row * scale + dy, invert ? !pixel_on : pixel_on);
+                }
+            }
+        }
+    }
+    // spacing column
+    for (int row = 0; row < 7 * scale; ++row) {
+        for (int dx = 0; dx < scale; ++dx) {
+            set_pixel(x + 5 * scale + dx, y + row, invert ? true : false);
+        }
+    }
+}
+
 static void draw_text_line(uint8_t page, const char *text, bool invert) {
     if (page >= OLED_HEIGHT / 8) return;
     if (invert) {
@@ -242,6 +270,15 @@ static void draw_text_line(uint8_t page, const char *text, bool invert) {
     }
 }
 
+static void draw_text_scaled(int x, int y, const char *text, int scale, bool invert) {
+    if (scale < 1) scale = 1;
+    int cursor_x = x;
+    for (size_t i = 0; text[i] != '\0' && cursor_x + (6 * scale) <= OLED_WIDTH; ++i) {
+        draw_char_scaled(cursor_x, y, text[i], scale, invert);
+        cursor_x += 6 * scale;
+    }
+}
+
 static void flush_display(void) {
     if (!s_display_ok) return;
     esp_err_t err = esp_lcd_panel_draw_bitmap(s_panel, 0, 0, OLED_WIDTH, OLED_HEIGHT, s_framebuffer);
@@ -254,9 +291,10 @@ static void display_status(float temperature, float pressure, int http_status, e
     if (!s_display_ok) return;
     clear_framebuffer();
 
-    char line0[32];
-    char line1[32];
-    char line2[32];
+    char line_temp[32];
+    char line_ip[32];
+    char line_press[32];
+    char line_post[32];
 
     float display_temp = temperature;
     char temp_unit = 'C';
@@ -265,24 +303,31 @@ static void display_status(float temperature, float pressure, int http_status, e
     temp_unit = 'F';
 #endif
 
-    snprintf(line0, sizeof(line0), "IP %s", s_ip_str);
-    if (!isnan(display_temp) && !isnan(pressure)) {
-        snprintf(line1, sizeof(line1), "T %5.1f%c P %4.0f", display_temp, temp_unit, pressure);
-    } else if (!isnan(display_temp)) {
-        snprintf(line1, sizeof(line1), "T %5.1f%c", display_temp, temp_unit);
+    if (!isnan(display_temp)) {
+        snprintf(line_temp, sizeof(line_temp), "T %5.1f%c", display_temp, temp_unit);
     } else {
-        snprintf(line1, sizeof(line1), "T --.-%c", temp_unit);
+        snprintf(line_temp, sizeof(line_temp), "T --.-%c", temp_unit);
+    }
+
+    snprintf(line_ip, sizeof(line_ip), "IP %s", s_ip_str);
+
+    if (!isnan(pressure)) {
+        snprintf(line_press, sizeof(line_press), "P %4.0f hPa", pressure);
+    } else {
+        snprintf(line_press, sizeof(line_press), "P ----");
     }
 
     if (post_err == ESP_OK) {
-        snprintf(line2, sizeof(line2), "POST %d", http_status);
+        snprintf(line_post, sizeof(line_post), "POST %d", http_status);
     } else {
-        snprintf(line2, sizeof(line2), "POST %s", esp_err_to_name(post_err));
+        snprintf(line_post, sizeof(line_post), "POST %s", esp_err_to_name(post_err));
     }
 
-    draw_text_line(0, line0, false);
-    draw_text_line(1, line1, false);
-    draw_text_line(2, line2, false);
+    // Big temperature on the top (two-line height), normal text below
+    draw_text_scaled(0, 0, line_temp, 2, false);  // ~14 px tall
+    draw_text_line(2, line_ip, false);            // starts at y=16
+    draw_text_line(3, line_press, false);         // y=24
+    draw_text_line(4, line_post, false);          // y=32
     flush_display();
 }
 
