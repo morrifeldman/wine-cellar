@@ -91,7 +91,8 @@ This is a full-stack wine cellar tracking application built with:
 │       │   ├── config.example.h
 │       │   ├── idf_component.yml
 │       │   └── main.c
-│       └── README.md
+│       ├── README.md
+│       └── sdkconfig.old
 ├── fly.toml.template
 ├── package.json
 ├── package-lock.json
@@ -201,7 +202,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-37 directories, 120 files
+37 directories, 121 files
 ```
 
 ## Development Commands
