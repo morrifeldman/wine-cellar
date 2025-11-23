@@ -26,11 +26,6 @@
     [wine-cellar.version :as version]
     [wine-cellar.utils.filters]))
 
-(defn logout
-  []
-  [button {:variant "outlined" :color "secondary" :onClick #(api/logout)}
-   "Logout"])
-
 (defn- job-progress-card
   [state {:keys [flag job-type running-text starting-text]}]
   (let [running? (get state flag)
@@ -217,6 +212,9 @@
            "Regenerating Wine Summaries..."
            "Regenerate Filtered Wine Summaries")]
         [menu-item
+         {:on-click (fn [] (reset! anchor-el nil) (api/logout))
+          :sx {:color "secondary.main"}} "Logout"]
+        [menu-item
          {:on-click
           (fn []
             (reset! anchor-el nil)
@@ -245,7 +243,7 @@
          :borderBottom "1px solid rgba(0,0,0,0.08)"}}
    ;; Left side: Add New Wine / Show Wine List
    [new-wine-or-list app-state]
-   ;; Right side: Stats + Admin + Logout
+   ;; Right side: Stats + Admin
    [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
     [button
      {:variant "outlined"
@@ -255,7 +253,7 @@
      {:variant "outlined"
       :color "primary"
       :onClick #(swap! app-state assoc :view :cellar-conditions)} "Cellar Env"]
-    [admin-menu app-state] [logout]]])
+    [admin-menu app-state]]])
 
 (defn main-app
   [app-state]

@@ -60,6 +60,17 @@
 
 (defn- fahrenheit "Convert Celsius to Fahrenheit." [c] (+ (* 1.8 c) 32))
 
+(defn- pressure-hpa->inhg
+  "Convert hectopascals to inches of mercury."
+  [hpa]
+  (when (some? hpa) (* (js/Number hpa) 0.029529983071445)))
+
+(defn- format-pressure
+  [pressure-hpa]
+  (if (some? pressure-hpa)
+    (str (.toFixed (js/Number (pressure-hpa->inhg pressure-hpa)) 2) " inHg")
+    "–"))
+
 (defn- latest-card
   [{:keys [device_id measured_at temperature_c humidity_pct pressure_hpa
            battery_mv leak_detected]}]
@@ -79,8 +90,8 @@
      (str "Humidity "
           (or humidity_pct "–")
           "% | Pressure "
-          (or pressure_hpa "–")
-          " hPa | Battery "
+          (format-pressure pressure_hpa)
+          " | Battery "
           (or battery_mv "–")
           " mV")]
     [typography {:variant "caption" :sx {:color "text.secondary"}}
@@ -101,11 +112,11 @@
                             :minute "2-digit"}))))
 
 (defn- tooltip-formatter
-  [unit]
+  [unit decimals]
   (fn [v _ payload]
     (let [n (js/Number v)
           p (.-payload payload)]
-      #js [(str (.toFixed n 1) unit) (str (gobj/get p "device_id"))])))
+      #js [(str (.toFixed n decimals) unit) (str (gobj/get p "device_id"))])))
 
 (defn- chart-lines
   [devices palette metric]
@@ -124,17 +135,18 @@
       :isAnimationActive false}]))
 
 (defn- chart
-  [{:keys [data metric unit]}]
-  (let [convert (if (= metric :avg_temperature_c)
-                  (fn [v]
-                    (-> v
-                        js/Number
-                        fahrenheit))
-                  (fn [v] (js/Number v)))
+  [{:keys [data metric unit convert decimals]}]
+  (let [convert (or convert identity)
+        convert-value (fn [v]
+                        (-> v
+                            js/Number
+                            convert))
+        decimals (or decimals 1)
         chart-data (->> data
                         (map (fn [row]
                                (cond-> row
-                                 (some? (metric row)) (update metric convert))))
+                                 (some? (metric row)) (update metric
+                                                              convert-value))))
                         vec)
         devices (->> chart-data
                      (map :device_id)
@@ -162,15 +174,15 @@
       [:> YAxis
        {:tick {:fill "#f4f0eb"}
         :axisLine {:stroke "#f4f0eb"}
-        :tickFormatter (fn [v]
-                         (let [n (js/Number v)] (str (.toFixed n 1) unit)))}]
+        :tickFormatter
+        (fn [v] (let [n (js/Number v)] (str (.toFixed n decimals) unit)))}]
       [:> Tooltip
        {:contentStyle #js {:backgroundColor "#2b0e16"
                            :border "1px solid #f4f0eb"}
         :labelStyle #js {:color "#f4f0eb"}
         :itemStyle #js {:color "#f4f0eb"}
         :labelFormatter (fn [value] (or (format-bucket-ts value) value))
-        :formatter (tooltip-formatter unit)}]
+        :formatter (tooltip-formatter unit decimals)}]
       [:> Legend {:wrapperStyle #js {:color "#f4f0eb"}}]
       (chart-lines devices palette metric)]]))
 
@@ -247,11 +259,20 @@
   [paper {:elevation 3 :sx {:p 2}}
    [stack {:direction "column" :spacing 2}
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Temperature (°F)"]
-    [chart {:data series :metric :avg_temperature_c :unit "°F"}]
+    [chart
+     {:data series
+      :metric :avg_temperature_c
+      :unit "°F"
+      :convert (fn [v] (fahrenheit v))}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Humidity"]
     [chart {:data series :metric :avg_humidity_pct :unit "%"}]
-    [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Pressure"]
-    [chart {:data series :metric :avg_pressure_hpa :unit " hPa"}]]])
+    [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Pressure (inHg)"]
+    [chart
+     {:data series
+      :metric :avg_pressure_hpa
+      :unit " inHg"
+      :convert pressure-hpa->inhg
+      :decimals 2}]]])
 
 (defn- empty-state
   []
