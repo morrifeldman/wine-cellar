@@ -213,7 +213,7 @@ esp_err_t bmp085_init(i2c_master_bus_handle_t bus_handle) {
 
 static esp_err_t read_uncompensated_temperature(int32_t *ut) {
     ESP_RETURN_ON_ERROR(i2c_write_byte(REG_CONTROL, CMD_TEMP), TAG, "CMD temp fail");
-    vTaskDelay(pdMS_TO_TICKS(10)); // Datasheet value is 4.5 ms
+    vTaskDelay(pdMS_TO_TICKS(5) ?: 1); // Datasheet value is 4.5 ms; clamp to at least 1 tick
     uint8_t data[2];
     ESP_RETURN_ON_ERROR(i2c_read_bytes(REG_DATA_MSB, data, 2), TAG, "Temp read fail");
     int32_t ut_raw = (data[0] << 8) | data[1];
@@ -225,10 +225,10 @@ static esp_err_t read_uncompensated_temperature(int32_t *ut) {
 static esp_err_t read_uncompensated_pressure(int32_t *up) {
     ESP_RETURN_ON_ERROR(i2c_write_byte(REG_CONTROL, CMD_PRESSURE), TAG, "CMD pressure fail");
     switch (BMP085_OSS) {
-        case 0: vTaskDelay(pdMS_TO_TICKS(10)); break; // Datasheet value is 4.5 ms
-        case 1: vTaskDelay(pdMS_TO_TICKS(15)); break; // Datasheet value is 7.5 ms
-        case 2: vTaskDelay(pdMS_TO_TICKS(27)); break; // Datasheet value is 13.5 ms
-        default: vTaskDelay(pdMS_TO_TICKS(51)); break; // Datasheet value is 25.5 ms
+        case 0: vTaskDelay(pdMS_TO_TICKS(5) ?: 1); break;  // Datasheet value is 4.5 ms; clamp to 1 tick
+        case 1: vTaskDelay(pdMS_TO_TICKS(8) ?: 1); break;  // Datasheet value is 7.5 ms
+        case 2: vTaskDelay(pdMS_TO_TICKS(14) ?: 1); break; // Datasheet value is 13.5 ms
+        default: vTaskDelay(pdMS_TO_TICKS(26) ?: 1); break; // Datasheet value is 25.5 ms
     }
     uint8_t data[3];
     ESP_RETURN_ON_ERROR(i2c_read_bytes(REG_DATA_MSB, data, 3), TAG, "Pressure read fail");
