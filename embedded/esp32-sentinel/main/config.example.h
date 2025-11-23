@@ -17,10 +17,6 @@
 #define BMP085_ADDRESS 0x77
 #define BMP085_OSS 0  // 0..3 oversampling; higher = slower but smoother pressure
 
-// If your temperature sensor reports Fahrenheit, convert it back to Celsius
-// before publishing/printing by uncommenting this line.
-// #define SENSOR_TEMP_IS_FAHRENHEIT 1
-
 // Display temperature in Fahrenheit on the OLED (defaults to Celsius)
 // #define DISPLAY_TEMP_FAHRENHEIT 1
 
@@ -28,6 +24,13 @@
 #define OLED_ADDRESS 0x3C
 #define OLED_WIDTH 128
 #define OLED_HEIGHT 64
+
+// Optional: site elevation in meters for sea-level pressure correction.
+// Leave undefined or set to 0.0f to skip adding pressure_sea_level_hpa.
+// #define SENSOR_ALTITUDE_M 0.0f
+
+// Optional: display pressure in inches of mercury instead of hPa on the OLED.
+// #define DISPLAY_PRESSURE_INHG 1
 
 /* Optional: pin your TLS cert for HTTPS endpoints
 static const char CELLAR_API_CERT_PEM[] = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n";

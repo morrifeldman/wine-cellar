@@ -33,6 +33,7 @@
 #define REG_CALIB_START 0xAA
 #define REG_CONTROL 0xF4
 #define REG_DATA_MSB 0xF6
+#define REG_CHIP_ID 0xD0
 #define CMD_TEMP 0x2E
 #define CMD_PRESSURE (0x34 + (BMP085_OSS << 6))
 
@@ -180,10 +181,30 @@ esp_err_t bmp085_init(i2c_master_bus_handle_t bus_handle) {
     };
     ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(s_bus, &dev_cfg, &s_dev), TAG, "Add bmp085 device");
 
+    uint8_t chip_id = 0;
+    esp_err_t id_err = i2c_read_bytes(REG_CHIP_ID, &chip_id, 1);
+    if (id_err == ESP_OK) {
+        ESP_LOGI(TAG, "Chip ID=0x%02X (expect 0x55 for BMP085/BMP180)", chip_id);
+    } else {
+        ESP_LOGW(TAG, "Chip ID read failed: %s", esp_err_to_name(id_err));
+    }
+
     // I2C bus is initialized in app_main; just read calibration once.
     ESP_RETURN_ON_ERROR(read_calibration(&s_calibration), TAG, "Calibration read failed");
     s_initialized = true;
-    ESP_LOGI(TAG, "Calibration loaded (AC1=%d AC4=%u)", s_calibration.AC1, s_calibration.AC4);
+    ESP_LOGI(TAG,
+             "Calibration loaded AC1=%d AC2=%d AC3=%d AC4=%u AC5=%u AC6=%u B1=%d B2=%d MB=%d MC=%d MD=%d",
+             s_calibration.AC1,
+             s_calibration.AC2,
+             s_calibration.AC3,
+             s_calibration.AC4,
+             s_calibration.AC5,
+             s_calibration.AC6,
+             s_calibration.B1,
+             s_calibration.B2,
+             s_calibration.MB,
+             s_calibration.MC,
+             s_calibration.MD);
 
     // Quick correctness check of compensation math against datasheet example values.
     run_datasheet_self_test();
@@ -192,24 +213,29 @@ esp_err_t bmp085_init(i2c_master_bus_handle_t bus_handle) {
 
 static esp_err_t read_uncompensated_temperature(int32_t *ut) {
     ESP_RETURN_ON_ERROR(i2c_write_byte(REG_CONTROL, CMD_TEMP), TAG, "CMD temp fail");
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(10)); // Datasheet value is 4.5 ms
     uint8_t data[2];
     ESP_RETURN_ON_ERROR(i2c_read_bytes(REG_DATA_MSB, data, 2), TAG, "Temp read fail");
-    *ut = (data[0] << 8) | data[1];
+    int32_t ut_raw = (data[0] << 8) | data[1];
+    *ut = ut_raw;
+    ESP_LOGI(TAG, "Temp raw bytes: 0x%02X 0x%02X (UT=%ld)", data[0], data[1], (long)ut_raw);
     return ESP_OK;
 }
 
 static esp_err_t read_uncompensated_pressure(int32_t *up) {
     ESP_RETURN_ON_ERROR(i2c_write_byte(REG_CONTROL, CMD_PRESSURE), TAG, "CMD pressure fail");
     switch (BMP085_OSS) {
-        case 0: vTaskDelay(pdMS_TO_TICKS(5)); break;
-        case 1: vTaskDelay(pdMS_TO_TICKS(8)); break;
-        case 2: vTaskDelay(pdMS_TO_TICKS(14)); break;
-        default: vTaskDelay(pdMS_TO_TICKS(26)); break;
+        case 0: vTaskDelay(pdMS_TO_TICKS(10)); break; // Datasheet value is 4.5 ms
+        case 1: vTaskDelay(pdMS_TO_TICKS(15)); break; // Datasheet value is 7.5 ms
+        case 2: vTaskDelay(pdMS_TO_TICKS(27)); break; // Datasheet value is 13.5 ms
+        default: vTaskDelay(pdMS_TO_TICKS(51)); break; // Datasheet value is 25.5 ms
     }
     uint8_t data[3];
     ESP_RETURN_ON_ERROR(i2c_read_bytes(REG_DATA_MSB, data, 3), TAG, "Pressure read fail");
-    *up = (((int32_t)data[0] << 16) | ((int32_t)data[1] << 8) | data[2]) >> (8 - BMP085_OSS);
+    int32_t up_raw = (((int32_t)data[0] << 16) | ((int32_t)data[1] << 8) | data[2]) >> (8 - BMP085_OSS);
+    *up = up_raw;
+    ESP_LOGI(TAG, "Pressure raw bytes: 0x%02X 0x%02X 0x%02X (UP=%ld)", data[0], data[1], data[2],
+             (long)up_raw);
     return ESP_OK;
 }
 
@@ -221,5 +247,15 @@ esp_err_t bmp085_read(float *temperature_c, float *pressure_hpa) {
     ESP_RETURN_ON_ERROR(read_uncompensated_temperature(&ut), TAG, "UT fail");
     ESP_RETURN_ON_ERROR(read_uncompensated_pressure(&up), TAG, "UP fail");
 
-    return compensate_readings(&s_calibration, ut, up, BMP085_OSS, temperature_c, pressure_hpa);
+    ESP_LOGI(TAG, "Raw UT=%ld UP=%ld", (long)ut, (long)up);
+
+    float temp_c = NAN, press_hpa = NAN;
+    ESP_RETURN_ON_ERROR(compensate_readings(&s_calibration, ut, up, BMP085_OSS, &temp_c, &press_hpa), TAG,
+                        "Compensation failed");
+
+    ESP_LOGI(TAG, "Compensated T=%.2fC P=%.2fhPa", temp_c, press_hpa);
+
+    if (temperature_c) *temperature_c = temp_c;
+    if (pressure_hpa) *pressure_hpa = press_hpa;
+    return ESP_OK;
 }

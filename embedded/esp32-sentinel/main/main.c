@@ -48,6 +48,11 @@
 #define OLED_HEIGHT 64
 #endif
 
+// Optional local altitude (meters above sea level) to derive sea-level pressure.
+#ifndef SENSOR_ALTITUDE_M
+#define SENSOR_ALTITUDE_M 0.0f
+#endif
+
 #ifndef WIFI_SSID
 #error "WIFI_SSID must be defined in config.h"
 #endif
@@ -149,7 +154,7 @@ static const uint8_t FONT_5X7[][5] = {
     {0x00, 0x7F, 0x41, 0x41, 0x00},  // [
     {0x02, 0x04, 0x08, 0x10, 0x20},  // backslash
     {0x00, 0x41, 0x41, 0x7F, 0x00},  // ]
-    {0x04, 0x02, 0x01, 0x02, 0x04},  // ^
+    {0x06, 0x09, 0x09, 0x06, 0x00},  // ^ (repurposed as degree symbol)
     {0x40, 0x40, 0x40, 0x40, 0x40},  // _
     {0x00, 0x01, 0x02, 0x04, 0x00},  // `
     {0x20, 0x54, 0x54, 0x54, 0x78},  // a
@@ -186,6 +191,16 @@ static const uint8_t FONT_5X7[][5] = {
 
 static inline float c_to_f(float temp_c) {
     return isnan(temp_c) ? NAN : (temp_c * 9.0f / 5.0f) + 32.0f;
+}
+
+static inline float hpa_to_inhg(float pressure_hpa) {
+    return isnan(pressure_hpa) ? NAN : pressure_hpa * 0.029529983f;
+}
+
+static inline float pressure_to_sea_level(float station_hpa, float altitude_m) {
+    if (isnan(station_hpa) || altitude_m <= 0.0f) return station_hpa;
+    // Barometric formula: P0 = P / (1 - h/44330)^5.255
+    return station_hpa / powf(1.0f - (altitude_m / 44330.0f), 5.255f);
 }
 
 static inline void set_pixel(int x, int y, bool on) {
@@ -307,18 +322,23 @@ static void display_status(float temperature, float pressure, int http_status, e
 #endif
 
     if (!isnan(display_temp)) {
-        snprintf(line_temp, sizeof(line_temp), "T %5.1f%c", display_temp, temp_unit);
+        snprintf(line_temp, sizeof(line_temp), "%0.1f ^%c", display_temp, temp_unit);
     } else {
-        snprintf(line_temp, sizeof(line_temp), "T --.-%c", temp_unit);
+        snprintf(line_temp, sizeof(line_temp), "--.- ^%c", temp_unit);
+    }
+
+    if (!isnan(pressure)) {
+#ifdef DISPLAY_PRESSURE_INHG
+        float pressure_inhg = hpa_to_inhg(pressure);
+        snprintf(line_press, sizeof(line_press), "%4.2f inHg", pressure_inhg);
+#else
+        snprintf(line_press, sizeof(line_press), "%4.0f hPa", pressure);
+#endif
+    } else {
+        snprintf(line_press, sizeof(line_press), "----");
     }
 
     snprintf(line_ip, sizeof(line_ip), "IP %s", s_ip_str);
-
-    if (!isnan(pressure)) {
-        snprintf(line_press, sizeof(line_press), "P %4.0f hPa", pressure);
-    } else {
-        snprintf(line_press, sizeof(line_press), "P ----");
-    }
 
     if (post_err == ESP_OK) {
         snprintf(line_post, sizeof(line_post), "POST %d", http_status);
@@ -326,11 +346,11 @@ static void display_status(float temperature, float pressure, int http_status, e
         snprintf(line_post, sizeof(line_post), "POST %s", esp_err_to_name(post_err));
     }
 
-    // Big temperature on the top (two-line height), normal text below
-    draw_text_scaled(0, 0, line_temp, 2, false);  // ~14 px tall
-    draw_text_line(2, line_ip, false);            // starts at y=16
-    draw_text_line(3, line_press, false);         // y=24
-    draw_text_line(4, line_post, false);          // y=32
+    // Layout: big temp top, big pressure beneath, then IP and POST in 1x rows.
+    draw_text_scaled(0, 0, line_temp, 2, false);      // ~14 px tall
+    draw_text_scaled(0, 18, line_press, 2, false);    // start below temp
+    draw_text_line(5, line_ip, false);                // page 5 (~y=40)
+    draw_text_line(6, line_post, false);              // page 6 (~y=48)
     flush_display();
 }
 
@@ -344,9 +364,6 @@ static void ensure_i2c_bus(void) {
         .scl_io_num = I2C_SCL,
         .clk_source = I2C_CLK_SRC_DEFAULT,
         .glitch_ignore_cnt = 7,
-        .flags = {
-            .enable_internal_pullup = true,
-        },
     };
 
     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_cfg, &s_i2c_bus));
@@ -578,7 +595,13 @@ static void init_display(void) {
 }
 
 static void update_display(float temperature, float pressure, int http_status, esp_err_t post_err) {
-    display_status(temperature, pressure, http_status, post_err);
+    float display_pressure = pressure;
+#ifdef SENSOR_ALTITUDE_M
+    if (SENSOR_ALTITUDE_M > 0.0f) {
+        display_pressure = pressure_to_sea_level(pressure, SENSOR_ALTITUDE_M);
+    }
+#endif
+    display_status(temperature, display_pressure, http_status, post_err);
 }
 
 static esp_err_t post_cellar_condition(void) {
@@ -597,11 +620,16 @@ static esp_err_t post_cellar_condition(void) {
     if (bmp_err != ESP_OK) {
         ESP_LOGE(TAG, "BMP085 read failed: %s", esp_err_to_name(bmp_err));
     } else if (isnan(temperature) && !isnan(bmp_temp)) {
-#ifdef SENSOR_TEMP_IS_FAHRENHEIT
-        // Some drop-in sensors ship configured for Fahrenheit; normalize to Celsius.
-        bmp_temp = (bmp_temp - 32.0f) * (5.0f / 9.0f);
-#endif
         temperature = bmp_temp;
+    }
+
+    // If altitude is provided, report sea-level pressure instead of station pressure.
+    float reported_pressure = pressure_to_sea_level(pressure, SENSOR_ALTITUDE_M);
+    if (isnan(reported_pressure)) {
+        reported_pressure = pressure;
+    } else {
+        ESP_LOGI(TAG, "Pressure station=%.2fhPa sea_level=%.2fhPa (alt=%.1fm)",
+                 pressure, reported_pressure, (double)SENSOR_ALTITUDE_M);
     }
 
     char payload[256];
@@ -623,12 +651,12 @@ static esp_err_t post_cellar_condition(void) {
                             ",\"temperature_c\":%.2f",
                             temperature);
     }
-    if (!isnan(pressure)) {
+    if (!isnan(reported_pressure)) {
         has_measurement = true;
         written += snprintf(payload + written,
                             sizeof(payload) - written,
                             ",\"pressure_hpa\":%.2f",
-                            pressure);
+                            reported_pressure);
     }
 
     written += snprintf(payload + written, sizeof(payload) - written, "}");
@@ -685,6 +713,7 @@ void app_main(void) {
         ESP_LOGW(TAG, "Proceeding without SNTP timestamp; API will fill server time");
     }
     ensure_i2c_bus();
+    scan_i2c_bus();
     esp_err_t bmp_status = bmp085_init(s_i2c_bus);
     if (bmp_status != ESP_OK) {
         ESP_LOGE(TAG, "BMP085 init failed: %s", esp_err_to_name(bmp_status));
@@ -692,7 +721,6 @@ void app_main(void) {
     init_display();
     // Initial splash
     display_status(NAN, NAN, -1, ESP_OK);
-    scan_i2c_bus();
 
     while (true) {
         esp_err_t err = post_cellar_condition();
