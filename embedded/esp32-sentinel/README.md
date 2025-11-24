@@ -17,6 +17,11 @@ The current build connects to Wi-Fi, assembles a placeholder JSON payload, and P
 - Leave `XCLR` and `EOC` unconnected unless your board requires them (most breakouts pull `XCLR` high internally).
 On boot you’ll see the I²C scan log (look for `0x77`). The firmware reads the calibration constants automatically and adds `pressure_hpa` (and a fallback temperature) to the JSON payload.
 
+### Wiring the Adafruit GA1A12S202 light sensor
+- Connect `VIN` → 3.3 V, `GND` → ground, and the analog output `OUT` to GPIO34 (ADC1_CH6).
+- The firmware averages a few ADC samples, converts millivolts to lux with the GA1A12S202 log curve, and adds `illuminance_lux` to the POST body.
+- If you pick a different ADC-capable pin, update `GA1A12S202_ADC_CHANNEL` (and optionally attenuation) in `main/config.h`.
+
 ## Prerequisites
 1. Install ESP-IDF v5.x from Espressif's installer or `idf.py` CLI.
 2. Export the environment for your shell (e.g. `. $IDF_PATH/export.sh`).

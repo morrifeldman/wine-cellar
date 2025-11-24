@@ -124,6 +124,7 @@
 (s/def ::temperature_c (s/nilable number?))
 (s/def ::humidity_pct (s/nilable number?))
 (s/def ::pressure_hpa (s/nilable number?))
+(s/def ::illuminance_lux (s/nilable number?))
 (s/def ::co2_ppm (s/nilable number?))
 (s/def ::battery_mv (s/nilable int?))
 (s/def ::leak_detected (s/nilable boolean?))
@@ -135,7 +136,8 @@
 (s/def ::cellar-condition
   (s/keys :req-un [::device_id]
           :opt-un [::measured_at ::temperature_c ::humidity_pct ::pressure_hpa
-                   ::co2_ppm ::battery_mv ::leak_detected ::notes]))
+                   ::illuminance_lux ::co2_ppm ::battery_mv ::leak_detected
+                   ::notes]))
 (s/def ::limit
   (s/and int?
          pos?

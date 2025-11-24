@@ -18,8 +18,8 @@
    :body {:error "Internal server error" :details (.getMessage e)}})
 
 (def cellar-measurement-keys
-  [:temperature_c :humidity_pct :pressure_hpa :co2_ppm :battery_mv
-   :leak_detected])
+  [:temperature_c :humidity_pct :pressure_hpa :illuminance_lux :co2_ppm
+   :battery_mv :leak_detected])
 
 (defn- measurement-present?
   [payload]

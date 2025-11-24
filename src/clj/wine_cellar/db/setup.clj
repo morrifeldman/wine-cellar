@@ -60,6 +60,7 @@
    (sql-execute-helper tx schema/grape-varieties-table-schema)
    (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
    (sql-execute-helper tx schema/cellar-conditions-table-schema)
+   (sql-execute-helper tx schema/cellar-conditions-add-illuminance-column)
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
 

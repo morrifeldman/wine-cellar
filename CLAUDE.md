@@ -83,6 +83,21 @@ This is a full-stack wine cellar tracking application built with:
 │   └── esp32-sentinel
 │       ├── CMakeLists.txt
 │       ├── components
+│       │   ├── cellar_display
+│       │   │   ├── cellar_display.c
+│       │   │   ├── CMakeLists.txt
+│       │   │   └── include
+│       │   │       └── cellar_display.h
+│       │   ├── cellar_http
+│       │   │   ├── cellar_http.c
+│       │   │   ├── CMakeLists.txt
+│       │   │   └── include
+│       │   │       └── cellar_http.h
+│       │   └── cellar_light
+│       │       ├── cellar_light.c
+│       │       ├── CMakeLists.txt
+│       │       └── include
+│       │           └── cellar_light.h
 │       ├── dependencies.lock
 │       ├── main
 │       │   ├── bmp085.c
@@ -201,7 +216,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-37 directories, 120 files
+43 directories, 129 files
 ```
 
 ## Development Commands

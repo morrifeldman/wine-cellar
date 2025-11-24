@@ -12,6 +12,7 @@ Body fields:
 - `device_id` *(string, required)* – human-friendly ID like `esp32-sentinel-1`.
 - `measured_at` *(ISO8601 string, optional)* – defaults to server time if omitted. The ESP32 sentinel now populates this using SNTP once Wi-Fi is up for consistent timestamps.
 - `temperature_c`, `humidity_pct`, `pressure_hpa`, `co2_ppm` *(numbers, optional)*.
+- `illuminance_lux` *(number, optional)* – ambient light level from the GA1A12S202 breakout.
 - `battery_mv` *(integer, optional)*.
 - `leak_detected` *(boolean, optional)*.
 - `notes` *(string, optional)*.
@@ -29,6 +30,7 @@ curl -X POST https://your-domain.example/api/cellar-conditions \
         "temperature_c": 12.4,
         "humidity_pct": 71.2,
         "pressure_hpa": 1012.8,
+        "illuminance_lux": 24.6,
         "battery_mv": 3740,
         "leak_detected": false
       }'

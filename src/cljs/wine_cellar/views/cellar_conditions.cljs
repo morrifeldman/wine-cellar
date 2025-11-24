@@ -71,9 +71,13 @@
     (str (.toFixed (js/Number (pressure-hpa->inhg pressure-hpa)) 2) " inHg")
     "–"))
 
+(defn- format-lux
+  [lux]
+  (if (some? lux) (str (.toFixed (js/Number lux) 0) " lx") "– lx"))
+
 (defn- latest-card
   [{:keys [device_id measured_at temperature_c humidity_pct pressure_hpa
-           battery_mv leak_detected]}]
+           illuminance_lux battery_mv leak_detected]}]
   [paper {:elevation 2 :sx {:p 2 :flex 1 :minWidth 240}}
    [stack {:spacing 0.5}
     [typography {:variant "subtitle2" :sx {:color "text.secondary"}}
@@ -91,6 +95,8 @@
           (or humidity_pct "–")
           "% | Pressure "
           (format-pressure pressure_hpa)
+          " | Light "
+          (format-lux illuminance_lux)
           " | Battery "
           (or battery_mv "–")
           " mV")]
@@ -272,7 +278,10 @@
       :metric :avg_pressure_hpa
       :unit " inHg"
       :convert pressure-hpa->inhg
-      :decimals 2}]]])
+      :decimals 2}]
+    [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Illuminance (lux)"]
+    [chart
+     {:data series :metric :avg_illuminance_lux :unit " lx" :decimals 0}]]])
 
 (defn- empty-state
   []
