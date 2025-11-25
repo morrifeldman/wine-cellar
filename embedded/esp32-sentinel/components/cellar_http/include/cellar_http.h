@@ -1,8 +1,15 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "esp_err.h"
+
+typedef struct {
+    char *buf;
+    size_t len;
+    size_t cap;
+} resp_accum_t;
 
 typedef struct {
     float temperature_c;
@@ -20,4 +27,3 @@ typedef struct {
 // POST the given measurement JSON to CELLAR_API_URL.
 // Skips NaN fields; returns ESP_FAIL if no measurement fields are present.
 esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_result_t *result_out);
-

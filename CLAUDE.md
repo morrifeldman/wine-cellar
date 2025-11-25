@@ -89,6 +89,8 @@ This is a full-stack wine cellar tracking application built with:
 │       │   │   └── include
 │       │   │       └── cellar_display.h
 │       │   ├── cellar_http
+│       │   │   ├── cellar_auth.c
+│       │   │   ├── cellar_auth.h
 │       │   │   ├── cellar_http.c
 │       │   │   ├── CMakeLists.txt
 │       │   │   └── include
@@ -154,6 +156,7 @@ This is a full-stack wine cellar tracking application built with:
 │   │       │   └── setup.clj
 │   │       ├── dev
 │   │       │   └── seed_sample_wines.clj
+│   │       ├── devices.clj
 │   │       ├── handlers.clj
 │   │       ├── logging.clj
 │   │       ├── routes.clj
@@ -176,6 +179,8 @@ This is a full-stack wine cellar tracking application built with:
 │           │   └── vintage.cljs
 │           ├── version.cljs
 │           └── views
+│               ├── admin
+│               │   └── devices.cljs
 │               ├── cellar_conditions.cljs
 │               ├── classifications
 │               │   ├── form.cljs
@@ -216,7 +221,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-43 directories, 129 files
+44 directories, 133 files
 ```
 
 ## Development Commands

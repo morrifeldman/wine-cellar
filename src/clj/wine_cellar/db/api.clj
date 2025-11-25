@@ -130,6 +130,28 @@
       (cond-> measured_at (update :measured_at timestamp->iso-string))
       (cond-> created_at (update :created_at timestamp->iso-string))))
 
+(defn- instant->sql-timestamp
+  [^Instant instant]
+  (some-> instant
+          Timestamp/from))
+
+(defn device->db-device
+  [{:keys [capabilities token_expires_at last_seen] :as device}]
+  (cond-> device
+    capabilities (update :capabilities
+                         #(sql-cast :jsonb (json/write-value-as-string %)))
+    (instance? Instant token_expires_at) (update :token_expires_at
+                                                 instant->sql-timestamp)
+    (instance? Instant last_seen) (update :last_seen instant->sql-timestamp)))
+
+(defn db-device->device
+  [{:keys [token_expires_at last_seen created_at updated_at] :as row}]
+  (-> row
+      (cond-> token_expires_at (update :token_expires_at timestamp->iso-string))
+      (cond-> last_seen (update :last_seen timestamp->iso-string))
+      (cond-> created_at (update :created_at timestamp->iso-string))
+      (cond-> updated_at (update :updated_at timestamp->iso-string))))
+
 (defn ping-db
   "Simple function to test database connectivity"
   []
@@ -721,3 +743,116 @@
                   (:bucket_start row) (update :bucket_start
                                               timestamp->iso-string))))
          vec)))
+
+;; Device provisioning helpers
+(defn get-device
+  [device-id]
+  (some-> (jdbc/execute-one! ds
+                             (sql/format {:select :*
+                                          :from :devices
+                                          :where [:= :device_id device-id]})
+                             db-opts)
+          db-device->device))
+
+(defn list-devices
+  []
+  (->> (jdbc/execute! ds
+                      (sql/format {:select :*
+                                   :from :devices
+                                   :order-by [[:updated_at :desc]
+                                              [:created_at :desc]]})
+                      db-opts)
+       (map db-device->device)
+       vec))
+
+(defn upsert-device-claim!
+  [{:keys [device_id claim_code_hash firmware_version capabilities]}]
+  (jdbc/with-transaction
+   [tx ds]
+   (let [existing (jdbc/execute-one! tx
+                                     (sql/format {:select :*
+                                                  :from :devices
+                                                  :where [:= :device_id
+                                                          device_id]
+                                                  :for [:update]})
+                                     db-opts)
+         base-row (device->db-device {:device_id device_id
+                                      :claim_code_hash claim_code_hash
+                                      :firmware_version firmware_version
+                                      :capabilities capabilities})
+         result (cond (nil? existing)
+                      (jdbc/execute-one!
+                       tx
+                       (sql/format {:insert-into :devices
+                                    :values [(assoc base-row :status "pending")]
+                                    :returning :*})
+                       db-opts)
+                      (= "blocked" (:status existing)) existing
+                      (= "active" (:status existing)) existing
+                      :else (jdbc/execute-one!
+                             tx
+                             (sql/format {:update :devices
+                                          :set (merge base-row
+                                                      {:status "pending"
+                                                       :refresh_token_hash nil
+                                                       :token_expires_at nil
+                                                       :updated_at [:now]})
+                                          :where [:= :device_id device_id]
+                                          :returning :*})
+                             db-opts))]
+     (db-device->device result))))
+
+(defn update-device!
+  "Generic device update by device_id. Accepts already-cleaned fields."
+  [device-id fields]
+  (some-> (jdbc/execute-one! ds
+                             (sql/format {:update :devices
+                                          :set (merge (device->db-device fields)
+                                                      {:updated_at [:now]})
+                                          :where [:= :device_id device-id]
+                                          :returning :*})
+                             db-opts)
+          db-device->device))
+
+(defn activate-device!
+  [{:keys [device_id refresh_token_hash token_expires_at]}]
+  (update-device! device_id
+                  {:status "active"
+                   :refresh_token_hash refresh_token_hash
+                   :token_expires_at token_expires_at}))
+
+(defn set-device-refresh-token!
+  [{:keys [device_id refresh_token_hash token_expires_at]}]
+  (update-device! device_id
+                  {:refresh_token_hash refresh_token_hash
+                   :token_expires_at token_expires_at
+                   :last_seen [:now]}))
+
+(defn block-device!
+  [device-id]
+  (update-device!
+   device-id
+   {:status "blocked" :refresh_token_hash nil :token_expires_at nil}))
+
+(defn unblock-device!
+  "Move device to pending and clear tokens; used by admin unblock."
+  [device-id]
+  (update-device!
+   device-id
+   {:status "pending" :refresh_token_hash nil :token_expires_at nil}))
+
+(defn delete-device!
+  [device-id]
+  (jdbc/execute-one! ds
+                     (sql/format {:delete-from :devices
+                                  :where [:= :device_id device-id]})
+                     db-opts))
+
+(defn touch-device!
+  "Update last_seen and optionally token_expires_at (when a new access token is
+  minted)."
+  [device-id & [{:keys [token_expires_at]}]]
+  (update-device! device-id
+                  (cond-> {:last_seen [:now]}
+                    token_expires_at (assoc :token_expires_at
+                                            token_expires_at))))

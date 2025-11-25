@@ -248,6 +248,7 @@ static void render_status(const cellar_display_status_t *status) {
     char line_press[32];
     char line_lux[32];
     char line_post[32];
+    char line_status[32] = {0};
 
     float display_temp = status->temperature_c;
     char temp_unit = 'C';
@@ -288,11 +289,18 @@ static void render_status(const cellar_display_status_t *status) {
         snprintf(line_post, sizeof(line_post), "POST %s", esp_err_to_name(status->post_err));
     }
 
-    draw_text_scaled(0, 0, line_temp, 2, false);
-    draw_text_scaled(0, 16, line_press, 2, false);
-    draw_text_scaled(0, 32, line_lux, 2, false);
-    draw_text_line(6, line_ip, false);
-    draw_text_line(7, line_post, false);
+    if (status->status_line && status->status_line[0]) {
+        snprintf(line_status, sizeof(line_status), "%s", status->status_line);
+        draw_text_scaled(0, 0, line_status, 2, false);
+        draw_text_line(6, line_ip, false);
+        draw_text_line(7, line_post, false);
+    } else {
+        draw_text_scaled(0, 0, line_temp, 2, false);
+        draw_text_scaled(0, 16, line_press, 2, false);
+        draw_text_scaled(0, 32, line_lux, 2, false);
+        draw_text_line(6, line_ip, false);
+        draw_text_line(7, line_post, false);
+    }
     flush_display();
 }
 

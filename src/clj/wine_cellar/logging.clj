@@ -14,6 +14,7 @@
   (let [params (:parameters request)
         path (:path params)
         query (:query params)
+        body (:body params)
         base {:request-id request-id
               :request-method (:request-method request)
               :uri (:uri request)}]
@@ -22,6 +23,7 @@
         (:query-string request) (assoc :query-string (:query-string request))
         (seq path) (assoc :path-parameters path)
         (seq query) (assoc :query-parameters query)
+        (seq body) (assoc :body-parameters body)
         (get-in request [:user :email]) (assoc :user-email
                                                (get-in request [:user :email])))
       base)))

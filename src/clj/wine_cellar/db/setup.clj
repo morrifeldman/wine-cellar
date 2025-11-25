@@ -61,6 +61,7 @@
    (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
    (sql-execute-helper tx schema/cellar-conditions-table-schema)
    (sql-execute-helper tx schema/cellar-conditions-add-illuminance-column)
+   (sql-execute-helper tx schema/devices-table-schema)
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
 
@@ -86,6 +87,7 @@
    (sql-execute-helper tx
                        {:raw
                         ["DROP TABLE IF EXISTS cellar_conditions CASCADE"]})
+   (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS devices CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS wines CASCADE"]})
    (sql-execute-helper tx
                        {:raw

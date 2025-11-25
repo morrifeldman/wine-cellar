@@ -2,8 +2,14 @@
 
 This endpoint pair lets hardware (ESP32/Raspberry Pi, etc.) push cellar environment readings directly into the wine-cellar backend and lets the UI fetch the recent history.
 
-## Authentication
-Devices send an existing JWT in the `Authorization: Bearer <token>` header. During early testing you can mint one manually (e.g., via `wine-cellar.auth.core/create-jwt-token`) and paste it into your firmware or `curl` command. The middleware now checks both the cookie and the header, so browser users and headless devices share the same authorization path.
+## Authentication & Provisioning (low-friction flow)
+1. Flash firmware with `DEVICE_ID` and a per-device `CLAIM_CODE`.
+2. Device calls `POST /api/device-claim` (unauthenticated) and then polls `POST /api/device-claim/poll`.
+3. You approve the pending device in the admin UI (`/api/admin/devices`); once approved, the next poll returns an access token (short-lived JWT) plus a rotating refresh token.
+4. Device sends readings with `Authorization: Bearer <access_token>` and rotates via `POST /api/device-token` before expiry.
+5. If a device loses its tokens, it can re-enter the claim/poll loop with the same claim code.
+
+Never bake an access or refresh token into firmware; only `DEVICE_ID` and `CLAIM_CODE` live in `main/config.h`.
 
 ## Record a Reading
 `POST /api/cellar-conditions` (auth required)
@@ -34,6 +40,35 @@ curl -X POST https://your-domain.example/api/cellar-conditions \
         "battery_mv": 3740,
         "leak_detected": false
       }'
+```
+
+## Provision a Device (claim + poll)
+`POST /api/device-claim`
+
+```bash
+curl -X POST https://your-domain.example/api/device-claim \
+  -H "Content-Type: application/json" \
+  -d '{"device_id":"esp32-sentinel-1","claim_code":"abc123"}'
+# → { "status":"pending","retry_after_seconds":30 }
+```
+
+`POST /api/device-claim/poll`
+
+```bash
+curl -X POST https://your-domain.example/api/device-claim/poll \
+  -H "Content-Type: application/json" \
+  -d '{"device_id":"esp32-sentinel-1","claim_code":"abc123"}'
+# → { "status":"approved","device_id":"esp32-sentinel-1",
+#      "access_token":"…","access_expires_at":"2025-11-24T…Z",
+#      "refresh_token":"…" }
+```
+
+`POST /api/device-token` (rotate, uses refresh token)
+
+```bash
+curl -X POST https://your-domain.example/api/device-token \
+  -H "Content-Type: application/json" \
+  -d '{"device_id":"esp32-sentinel-1","refresh_token":"<from poll>"}'
 ```
 
 ## Fetch Recent Readings

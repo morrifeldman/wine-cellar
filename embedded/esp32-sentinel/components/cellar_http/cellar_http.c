@@ -7,31 +7,34 @@
 #include "config.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
+#include "cellar_auth.h"
 
 #ifndef DEVICE_ID
 #define DEVICE_ID "esp32-sentinel"
 #endif
 
-#ifndef CELLAR_API_URL
-#error "CELLAR_API_URL must be defined in config.h"
+#ifndef CELLAR_API_BASE
+#error "CELLAR_API_BASE must be defined in config.h (e.g. http://host:3000/api)"
 #endif
 
-#ifndef DEVICE_JWT
-#error "DEVICE_JWT must be defined in config.h"
-#endif
+static const char *POST_URL = CELLAR_API_BASE "/cellar-conditions";
 
 static const char *TAG = "cellar_http";
 
 static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
-    switch (evt->event_id) {
-        case HTTP_EVENT_ON_DATA:
-            ESP_LOGD(TAG, "HTTP data len=%d", evt->data_len);
-            break;
-        case HTTP_EVENT_ERROR:
-            ESP_LOGW(TAG, "HTTP event error");
-            break;
-        default:
-            break;
+    if (evt->event_id == HTTP_EVENT_ON_DATA && evt->user_data) {
+        resp_accum_t *acc = (resp_accum_t *)evt->user_data;
+        if (acc->buf && acc->cap > 1 && evt->data_len > 0) {
+            size_t space = (acc->cap - 1) - acc->len;
+            size_t to_copy = evt->data_len > space ? space : evt->data_len;
+            if (to_copy > 0) {
+                memcpy(acc->buf + acc->len, evt->data, to_copy);
+                acc->len += to_copy;
+                acc->buf[acc->len] = '\0';
+            }
+        }
+    } else if (evt->event_id == HTTP_EVENT_ERROR) {
+        ESP_LOGW(TAG, "HTTP event error");
     }
     return ESP_OK;
 }
@@ -82,7 +85,7 @@ esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_
     }
 
     esp_http_client_config_t config = {
-        .url = CELLAR_API_URL,
+        .url = POST_URL,
         .event_handler = http_event_handler,
         .timeout_ms = 8000,
 #ifdef CELLAR_API_CERT_PEM
@@ -98,10 +101,18 @@ esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_
 
     esp_http_client_set_method(client, HTTP_METHOD_POST);
     esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_header(client, "Authorization", "Bearer " DEVICE_JWT);
+    const char *access = cellar_auth_access_token();
+    if (!access) {
+        ESP_LOGE(TAG, "No access token available");
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+    char auth_header[900];
+    snprintf(auth_header, sizeof(auth_header), "Bearer %s", access);
+    esp_http_client_set_header(client, "Authorization", auth_header);
     esp_http_client_set_post_field(client, payload, written);
 
-    ESP_LOGI(TAG, "POST %s", CELLAR_API_URL);
+    ESP_LOGI(TAG, "POST %s", POST_URL);
     esp_err_t err = esp_http_client_perform(client);
     int status = -1;
     if (err == ESP_OK) {
@@ -119,4 +130,3 @@ esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_
     esp_http_client_cleanup(client);
     return err;
 }
-

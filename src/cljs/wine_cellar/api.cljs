@@ -117,6 +117,68 @@
             (when-not (get-in @app-state [:ai :provider])
               (swap! app-state assoc-in [:ai :provider] default-provider)))))))
 
+;; Device admin endpoints
+
+(defn fetch-devices
+  [app-state]
+  (swap! app-state assoc :devices/loading? true)
+  (go (let [result (<! (GET "/api/admin/devices" "Failed to fetch devices"))]
+        (if (:success result)
+          (swap! app-state assoc
+            :devices/list (:data result)
+            :devices/loading? false
+            :devices/error nil)
+          (swap! app-state assoc
+            :devices/loading? false
+            :devices/error (:error result))))))
+
+(defn approve-device
+  [app-state device-id claim-code]
+  (swap! app-state assoc :devices/action? true)
+  (go (let [result (<! (POST (str "/api/admin/devices/" device-id "/approve")
+                             {:claim_code claim-code}
+                             "Failed to approve device"))]
+        (swap! app-state assoc :devices/action? false)
+        (if (:success result)
+          (do (swap! app-state assoc :devices/approve-error nil)
+              (fetch-devices app-state))
+          (swap! app-state assoc :devices/approve-error (:error result))))))
+
+(defn block-device
+  [app-state device-id]
+  (swap! app-state assoc :devices/action? true)
+  (go (let [result (<! (POST (str "/api/admin/devices/" device-id "/block")
+                             {}
+                             "Failed to block device"))]
+        (swap! app-state assoc :devices/action? false)
+        (if (:success result)
+          (do (swap! app-state assoc :devices/approve-error nil)
+              (fetch-devices app-state))
+          (swap! app-state assoc :devices/approve-error (:error result))))))
+
+(defn unblock-device
+  [app-state device-id]
+  (swap! app-state assoc :devices/action? true)
+  (go (let [result (<! (POST (str "/api/admin/devices/" device-id "/unblock")
+                             {}
+                             "Failed to unblock device"))]
+        (swap! app-state assoc :devices/action? false)
+        (if (:success result)
+          (do (swap! app-state assoc :devices/approve-error nil)
+              (fetch-devices app-state))
+          (swap! app-state assoc :devices/approve-error (:error result))))))
+
+(defn delete-device
+  [app-state device-id]
+  (swap! app-state assoc :devices/action? true)
+  (go (let [result (<! (DELETE (str "/api/admin/devices/" device-id "/delete")
+                               "Failed to delete device"))]
+        (swap! app-state assoc :devices/action? false)
+        (if (:success result)
+          (do (swap! app-state assoc :devices/approve-error nil)
+              (fetch-devices app-state))
+          (swap! app-state assoc :devices/approve-error (:error result))))))
+
 ;; Classification endpoints
 
 (defn fetch-classifications

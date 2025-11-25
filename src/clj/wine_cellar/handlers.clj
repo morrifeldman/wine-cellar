@@ -4,9 +4,11 @@
             [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations]
+            [wine-cellar.devices :as devices]
             [ring.util.response :as response]
             [wine-cellar.summary :as summary]
-            [wine-cellar.logging :as logging]))
+            [wine-cellar.logging :as logging])
+  (:import [java.time Instant]))
 
 (defn- no-content [] {:status 204 :headers {} :body nil})
 
@@ -24,6 +26,21 @@
 (defn- measurement-present?
   [payload]
   (some #(contains? payload %) cellar-measurement-keys))
+
+(def retry-after-seconds 30)
+
+(defn- device-token? [user] (= "device" (:type user)))
+
+(defn- device-id-from-token
+  [request]
+  (let [user (:user request)] (when (device-token? user) (:device_id user))))
+
+(defn- touch-device!
+  "Mark device as seen and optionally update token expiry from JWT exp."
+  [device-id request]
+  (let [exp-ms (get-in request [:user :exp])
+        exp (when exp-ms (Instant/ofEpochMilli exp-ms))]
+    (when device-id (db-api/touch-device! device-id {:token_expires_at exp}))))
 
 ;; Wine Classification Handlers
 
@@ -593,18 +610,138 @@
     (do (logging/set-verbose-logging! enabled?)
         (response/response (logging/verbose-logging-status)))))
 
+;; Device provisioning handlers
+(defn claim-device
+  [request]
+  (let [{:keys [device_id claim_code firmware_version capabilities]}
+        (get-in request [:parameters :body])]
+    (try (let [device (devices/claim! {:device_id device_id
+                                       :claim_code claim_code
+                                       :firmware_version firmware_version
+                                       :capabilities capabilities})]
+           (if (= "blocked" (:status device))
+             {:status 403 :body {:error "Device is blocked"}}
+             {:status 202
+              :body {:status (:status device)
+                     :device_id device_id
+                     :retry_after_seconds retry-after-seconds}}))
+         (catch Exception e (server-error e)))))
+
+(defn poll-device-claim
+  [request]
+  (let [{:keys [device_id claim_code]} (get-in request [:parameters :body])
+        device (db-api/get-device device_id)
+        claim-hash (devices/hash-string claim_code)]
+    (cond (nil? device) (response/not-found {:error "Device not found"})
+          (not= claim-hash (:claim_code_hash device))
+          {:status 401 :body {:error "Invalid claim code"}}
+          (= "blocked" (:status device)) {:status 403
+                                          :body {:error "Device is blocked"}}
+          (= "pending" (:status device))
+          {:status 200
+           :body {:status "pending" :retry_after_seconds retry-after-seconds}}
+          :else (try (let [{:keys [tokens]} (devices/issue-and-store-token-pair!
+                                             device_id)]
+                       {:status 200
+                        :body (merge {:status "approved" :device_id device_id}
+                                     tokens)})
+                     (catch Exception e (server-error e))))))
+
+(defn refresh-device-token
+  [request]
+  (let [{:keys [device_id refresh_token]} (get-in request [:parameters :body])
+        device (db-api/get-device device_id)]
+    (cond (nil? device) (response/not-found {:error "Device not found"})
+          (not= "active" (:status device))
+          {:status 403 :body {:error "Device is not active"}}
+          :else (try (if-let [{:keys [tokens]} (devices/refresh-with-token!
+                                                device
+                                                refresh_token)]
+                       {:status 200 :body (merge {:device_id device_id} tokens)}
+                       {:status 401 :body {:error "Invalid refresh token"}})
+                     (catch Exception e (server-error e))))))
+
+(defn list-devices-admin
+  [_]
+  (try (->> (db-api/list-devices)
+            (map devices/public-device-view)
+            vec
+            response/response)
+       (catch Exception e (server-error e))))
+
+(defn approve-device
+  [{{{:keys [device_id]} :path {:keys [claim_code]} :body} :parameters}]
+  (try (if-let [device (db-api/get-device device_id)]
+         (let [matches? (= (:claim_code_hash device)
+                           (devices/hash-string claim_code))]
+           (cond (not matches?) {:status 401
+                                 :body {:error "Invalid claim code"}}
+                 (= "blocked" (:status device))
+                 {:status 403 :body {:error "Device is blocked"}}
+                 :else
+                 (let [updated (db-api/update-device! device_id
+                                                      {:status "active"
+                                                       :refresh_token_hash nil
+                                                       :token_expires_at nil})]
+                   {:status 200 :body (devices/public-device-view updated)})))
+         (response/not-found {:error "Device not found"}))
+       (catch Exception e (server-error e))))
+
+(defn block-device
+  [{{{:keys [device_id]} :path} :parameters}]
+  (try (if-let [updated (db-api/block-device! device_id)]
+         {:status 200 :body (devices/public-device-view updated)}
+         (response/not-found {:error "Device not found"}))
+       (catch Exception e (server-error e))))
+
+(defn unblock-device
+  [{{{:keys [device_id]} :path} :parameters}]
+  (try (if-let [updated (db-api/unblock-device! device_id)]
+         {:status 200 :body (devices/public-device-view updated)}
+         (response/not-found {:error "Device not found"}))
+       (catch Exception e (server-error e))))
+
+(defn delete-device
+  [{{{:keys [device_id]} :path} :parameters}]
+  (try (let [deleted (db-api/delete-device! device_id)]
+         (if (pos? (:update-count deleted 0))
+           {:status 204 :body nil}
+           (response/not-found {:error "Device not found"})))
+       (catch Exception e (server-error e))))
+
 (defn ingest-cellar-condition
   [request]
-  (let [payload (get-in request [:parameters :body])]
-    (if-not (measurement-present? payload)
-      {:status 400 :body {:error "At least one measurement value is required"}}
-      (try (let [recorded-by (or (get-in request [:user :email])
-                                 (get-in request [:user :sub]))
-                 record (db-api/create-cellar-condition!
-                         (cond-> payload
-                           recorded-by (assoc :recorded_by recorded-by)))]
-             {:status 201 :body record})
-           (catch Exception e (server-error e))))))
+  (let [payload (get-in request [:parameters :body])
+        token-device-id (device-id-from-token request)
+        payload-device-id (:device_id payload)]
+    (cond (not (measurement-present? payload))
+          {:status 400
+           :body {:error "At least one measurement value is required"}}
+          (and token-device-id (not= token-device-id payload-device-id))
+          {:status 403
+           :body {:error "device_id does not match the authenticated device"}}
+          :else
+          (try
+            (let [device-status
+                  (when token-device-id
+                    (let [device (db-api/get-device token-device-id)]
+                      (cond (nil? device) {:status 404
+                                           :body {:error
+                                                  "Device is not registered"}}
+                            (not= "active" (:status device))
+                            {:status 403 :body {:error "Device is not active"}}
+                            :else (do (touch-device! token-device-id request)
+                                      nil))))
+                  recorded-by (or token-device-id
+                                  (get-in request [:user :email])
+                                  (get-in request [:user :sub]))]
+              (if device-status
+                device-status
+                (let [record (db-api/create-cellar-condition!
+                              (cond-> payload
+                                recorded-by (assoc :recorded_by recorded-by)))]
+                  {:status 201 :body record})))
+            (catch Exception e (server-error e))))))
 
 (defn list-cellar-conditions
   [request]

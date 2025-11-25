@@ -4,9 +4,9 @@
 // Wi-Fi + backend
 #define WIFI_SSID "YourWifiName"
 #define WIFI_PASS "super-secret"
-#define CELLAR_API_URL "http://192.168.1.100:3000/api/cellar-conditions"
-#define DEVICE_JWT "paste-device-jwt-here"
+#define CELLAR_API_BASE "http://192.168.1.100:3000/api"
 #define DEVICE_ID "esp32-sentinel-1"
+#define CLAIM_CODE "set-per-device-claim-code"
 
 // I2C bus (BMP085 now; you can drop a BME280 here later)
 #define I2C_SDA 21

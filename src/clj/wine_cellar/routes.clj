@@ -132,12 +132,20 @@
 (s/def ::bucket #{"15m" "1h" "6h" "1d"})
 (s/def ::from ::measured_at)
 (s/def ::to ::measured_at)
+(s/def ::claim_code (s/and string? (complement str/blank?)))
+(s/def ::refresh_token (s/and string? (complement str/blank?)))
+(s/def ::firmware_version (s/nilable string?))
+(s/def ::capabilities (s/nilable map?))
 (s/def ::series-query (s/keys :opt-un [::device_id ::bucket ::from ::to]))
 (s/def ::cellar-condition
   (s/keys :req-un [::device_id]
           :opt-un [::measured_at ::temperature_c ::humidity_pct ::pressure_hpa
                    ::illuminance_lux ::co2_ppm ::battery_mv ::leak_detected
                    ::notes]))
+(s/def ::device-claim
+  (s/keys :req-un [::device_id ::claim_code]
+          :opt-un [::firmware_version ::capabilities]))
+(s/def ::device-token-request (s/keys :req-un [::device_id ::refresh_token]))
 (s/def ::limit
   (s/and int?
          pos?
@@ -234,6 +242,31 @@
     {:get {:summary "Handle Google OAuth callback"
            :handler auth/handle-google-callback}}]
    ["/logout" {:get {:summary "Logout user" :handler auth/logout}}]]
+  ;; Device provisioning (unauthenticated)
+  ["/api/device-claim"
+   {:post {:summary "Submit a device claim code to register"
+           :parameters {:body ::device-claim}
+           :responses
+           {202 {:body map?} 400 {:body map?} 403 {:body map?} 500 {:body map?}}
+           :handler handlers/claim-device}}]
+  ["/api/device-claim/poll"
+   {:post {:summary "Poll for device approval and obtain initial tokens"
+           :parameters {:body ::device-claim}
+           :responses {200 {:body map?}
+                       401 {:body map?}
+                       403 {:body map?}
+                       404 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/poll-device-claim}}]
+  ["/api/device-token"
+   {:post {:summary "Rotate device JWT using refresh token"
+           :parameters {:body ::device-token-request}
+           :responses {200 {:body map?}
+                       401 {:body map?}
+                       403 {:body map?}
+                       404 {:body map?}
+                       500 {:body map?}}
+           :handler handlers/refresh-device-token}}]
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
    ["/cellar-conditions"
@@ -325,6 +358,35 @@
              "Admin: Mark all wines as unverified for inventory verification"
              :responses {200 {:body map?} 500 {:body map?}}
              :handler handlers/mark-all-wines-unverified}}]
+    ["/devices"
+     {:get {:summary "Admin: List provisioned devices"
+            :responses {200 {:body vector?} 500 {:body map?}}
+            :handler handlers/list-devices-admin}}]
+    ["/devices/:device_id/approve"
+     {:parameters {:path {:device_id ::device_id}
+                   :body (s/keys :req-un [::claim_code])}
+      :post {:summary "Admin: Approve device claim (requires claim_code)"
+             :responses {200 {:body map?}
+                         401 {:body map?}
+                         403 {:body map?}
+                         404 {:body map?}
+                         500 {:body map?}}
+             :handler handlers/approve-device}}]
+    ["/devices/:device_id/block"
+     {:parameters {:path {:device_id ::device_id}}
+      :post {:summary "Admin: Block a device and clear tokens"
+             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/block-device}}]
+    ["/devices/:device_id/unblock"
+     {:parameters {:path {:device_id ::device_id}}
+      :post {:summary "Admin: Unblock a device (sets pending, clears tokens)"
+             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/unblock-device}}]
+    ["/devices/:device_id/delete"
+     {:parameters {:path {:device_id ::device_id}}
+      :delete {:summary "Admin: Delete a device"
+               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+               :handler handlers/delete-device}}]
     ["/start-drinking-window-job"
      {:post {:summary "Start async job to regenerate drinking windows"
              :parameters {:body (s/keys :req-un [::wine-ids ::provider])}

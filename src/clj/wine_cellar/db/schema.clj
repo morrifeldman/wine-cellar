@@ -188,3 +188,15 @@
 (def cellar-conditions-add-illuminance-column
   {:raw
    ["ALTER TABLE cellar_conditions ADD COLUMN IF NOT EXISTS illuminance_lux double precision"]})
+
+(def devices-table-schema
+  {:create-table [:devices :if-not-exists]
+   :with-columns [[:id :bigserial :primary-key] [:device_id :varchar [:not nil]]
+                  {:raw
+                   ["CONSTRAINT devices_device_id_unique UNIQUE (device_id)"]}
+                  [:status :varchar [:not nil] [:default "pending"]]
+                  [:claim_code_hash :varchar] [:refresh_token_hash :varchar]
+                  [:token_expires_at :timestamptz] [:last_seen :timestamptz]
+                  [:firmware_version :varchar] [:capabilities :jsonb]
+                  [:notes :text] [:created_at :timestamp [:default [:now]]]
+                  [:updated_at :timestamp [:default [:now]]]]})

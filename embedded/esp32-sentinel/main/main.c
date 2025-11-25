@@ -20,6 +20,7 @@
 #include "nvs_flash.h"
 
 #include "bmp085.h"
+#include "cellar_auth.h"
 #include "cellar_display.h"
 #include "cellar_http.h"
 #include "cellar_light.h"
@@ -48,12 +49,8 @@
 #error "WIFI_PASS must be defined in config.h"
 #endif
 
-#ifndef CELLAR_API_URL
-#error "CELLAR_API_URL must be defined in config.h"
-#endif
-
-#ifndef DEVICE_JWT
-#error "DEVICE_JWT must be defined in config.h"
+#ifndef CELLAR_API_BASE
+#error "CELLAR_API_BASE must be defined in config.h"
 #endif
 
 #ifndef DEVICE_ID
@@ -259,6 +256,24 @@ static bool format_iso8601_now(char *out, size_t out_len) {
 }
 
 static esp_err_t post_cellar_condition(void) {
+    if (cellar_auth_ensure_access_token() != ESP_OK) {
+        ESP_LOGW(TAG, "No valid access token; skipping post");
+        static char claim_line[32];
+        const char *claim = cellar_auth_claim_code();
+        snprintf(claim_line, sizeof(claim_line), "%s", claim);
+        cellar_display_status_t waiting = {
+            .temperature_c = NAN,
+            .pressure_hpa = NAN,
+            .illuminance_lux = NAN,
+            .http_status = -1,
+            .post_err = ESP_FAIL,
+            .ip_address = s_ip_str,
+            .status_line = claim_line,
+        };
+        cellar_display_show(&waiting);
+        return ESP_FAIL;
+    }
+
     float temperature = NAN;
     float pressure = NAN;
     float illuminance_lux = NAN;
@@ -331,7 +346,23 @@ static esp_err_t post_cellar_condition(void) {
 void app_main(void) {
     log_chip_info();
     init_nvs();
+#if defined(RESET_CLAIM_CODE) && RESET_CLAIM_CODE
+    cellar_auth_clear_claim_code();
+#endif
     wifi_init_sta();
+    cellar_auth_init();
+    const char *claim = cellar_auth_claim_code();
+    static char claim_line[32];
+    snprintf(claim_line, sizeof(claim_line), "%s", claim);
+    cellar_display_status_t waiting = {
+        .temperature_c = NAN,
+        .pressure_hpa = NAN,
+        .illuminance_lux = NAN,
+        .http_status = -1,
+        .post_err = ESP_OK,
+        .ip_address = s_ip_str,
+        .status_line = claim_line,
+    };
     if (!sync_time_with_sntp()) {
         ESP_LOGW(TAG, "Proceeding without SNTP timestamp; API will fill server time");
     }
@@ -350,15 +381,7 @@ void app_main(void) {
 
     cellar_light_init();
 
-    cellar_display_status_t splash = {
-        .temperature_c = NAN,
-        .pressure_hpa = NAN,
-        .illuminance_lux = NAN,
-        .http_status = -1,
-        .post_err = ESP_OK,
-        .ip_address = s_ip_str,
-    };
-    cellar_display_show(&splash);
+    cellar_display_show(&waiting);
 
     while (true) {
         esp_err_t err = post_cellar_condition();
