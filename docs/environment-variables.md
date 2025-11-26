@@ -28,7 +28,7 @@ In production (when `CLOJURE_ENV=production`), the following environment variabl
 - `OPENAI_LIGHT_MODEL`: Lightweight OpenAI model for quick tasks like conversation titles (optional, defaults to gpt-5-mini; gpt-5-nano also works well)
 - `GEMINI_API_KEY`: API key for Google's Gemini API (optional, required for Gemini support)
 - `GEMINI_MODEL`: Gemini model to use (optional, defaults to gemini-1.5-flash)
-- `GEMINI_LIGHT_MODEL`: Lightweight Gemini model for quick tasks (optional, defaults to gemini-1.5-flash-8b)
+- `GEMINI_LITE_MODEL`: Lightweight Gemini model for quick tasks (optional, defaults to gemini-1.5-flash-8b)
 - `AI_DEFAULT_PROVIDER`: Preferred provider when the UI has not selected one ("anthropic", "openai", or "gemini")
 
 ### Server Configuration
@@ -54,7 +54,7 @@ wine-cellar/anthropic-light-model # Optional
 wine-cellar/openai-light-model    # Optional
 wine-cellar/gemini-api-key        # Optional
 wine-cellar/gemini-model          # Optional
-wine-cellar/gemini-light-model    # Optional
+wine-cellar/gemini-lite-model    # Optional
 ```
 
 See the README.md for instructions on setting up `pass` for local development.
