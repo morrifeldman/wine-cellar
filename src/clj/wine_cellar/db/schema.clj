@@ -66,6 +66,10 @@
 (def wines-add-bottle-format-column
   {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS bottle_format varchar"]})
 
+(def wines-set-default-bottle-format
+  {:raw
+   ["UPDATE wines SET bottle_format = 'Standard (750ml)' WHERE bottle_format IS NULL"]})
+
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]
    :with-columns [[:id :integer :generated :by-default :as :identity

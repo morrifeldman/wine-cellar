@@ -400,7 +400,8 @@
       {:submit-text "Add Wine"
        :cancel-text "Cancel"
        :loading? submitting?
-       :on-cancel #(do
-                     (swap! app-state assoc :show-wine-form? false :new-wine {})
-                     ;; Use replaceState to fix back button behavior
-                     (.replaceState js/history nil "" "/"))}]]))
+       :on-cancel #(do (swap! app-state assoc
+                         :show-wine-form? false
+                         :new-wine {:bottle_format "Standard (750ml)"})
+                       ;; Use replaceState to fix back button behavior
+                       (.replaceState js/history nil "" "/"))}]]))

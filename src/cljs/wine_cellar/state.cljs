@@ -4,7 +4,7 @@
   "Initial app state structure - shared between initialization and reset"
   {:wines []
    :classifications []
-   :new-wine {}
+   :new-wine {:bottle_format "Standard (750ml)"}
    :error nil
    :loading? false
    :selected-wine-id nil
