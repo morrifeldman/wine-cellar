@@ -20,7 +20,7 @@ jobs:
           export OPENAI_MODEL="${{ vars.OPENAI_MODEL }}"
           export OPENAI_LIGHT_MODEL="${{ vars.OPENAI_LIGHT_MODEL }}"
           export GEMINI_MODEL="${{ vars.GEMINI_MODEL }}"
-          export GEMINI_LITE_MODEL="${{ vars.GEMINI_LITE_MODEL }}"
+          export GEMINI_LIGHT_MODEL="${{ vars.GEMINI_LIGHT_MODEL }}"
           envsubst < fly.toml.template > fly.toml
           echo "Generated fly.toml:"
           cat fly.toml

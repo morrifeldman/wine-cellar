@@ -82,7 +82,7 @@
    {:anthropic anthropic/model :openai openai/model :gemini gemini/model}
    :light-models {:anthropic anthropic/light-model
                   :openai openai/light-model
-                  :gemini gemini/lite-model}
+                  :gemini gemini/light-model}
    :default-provider default-provider})
 
 ;; TODO: add provider-aware wrappers for any remaining Anthropics-only helpers

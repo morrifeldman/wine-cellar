@@ -14,9 +14,9 @@
           :start
           (config-utils/get-config "GEMINI_MODEL" :fallback "gemini-3"))
 
-(defstate lite-model
+(defstate light-model
           :start
-          (config-utils/get-config "GEMINI_LITE_MODEL"
+          (config-utils/get-config "GEMINI_LIGHT_MODEL"
                                    :fallback
                                    "gemini-2.5-flash-lite"))
 
@@ -159,4 +159,4 @@
                  :messages [{:role "user" :content user}]
                  :max-tokens 100
                  :temperature 0.2}]
-    (call-gemini-api request :model-override lite-model)))
+    (call-gemini-api request :model-override light-model)))
