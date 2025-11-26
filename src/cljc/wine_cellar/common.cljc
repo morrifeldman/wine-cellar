@@ -1,7 +1,7 @@
 (ns wine-cellar.common
   (:require [clojure.string :as str]))
 
-(def ai-providers #{:anthropic :openai})
+(def ai-providers #{:anthropic :openai :gemini})
 
 (defn provider-label
   "Get display label for provider"
@@ -9,6 +9,7 @@
   (case provider
     :openai "OpenAI"
     :anthropic "Anthropic"
+    :gemini "Gemini"
     nil "..."))
 
 (def wine-styles

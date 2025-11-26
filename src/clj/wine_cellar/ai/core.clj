@@ -3,6 +3,7 @@
   (:require [clojure.string :as str]
             [mount.core :refer [defstate]]
             [wine-cellar.ai.anthropic :as anthropic]
+            [wine-cellar.ai.gemini :as gemini]
             [wine-cellar.ai.openai :as openai]
             [wine-cellar.ai.prompts :as prompts]
             [wine-cellar.common :as common]
@@ -31,7 +32,8 @@
          :messages (prompts/conversation-messages conversation-history image)}]
     (case provider
       :openai (openai/chat-about-wines prompt)
-      :anthropic (anthropic/chat-about-wines prompt))))
+      :anthropic (anthropic/chat-about-wines prompt)
+      :gemini (gemini/chat-about-wines prompt))))
 
 (defn suggest-drinking-window
   [provider wine]
@@ -39,7 +41,8 @@
                      :user (prompts/drinking-window-user-message wine)}]
     (case provider
       :openai (openai/suggest-drinking-window prompt-data)
-      :anthropic (anthropic/suggest-drinking-window prompt-data))))
+      :anthropic (anthropic/suggest-drinking-window prompt-data)
+      :gemini (gemini/suggest-drinking-window prompt-data))))
 
 (defn generate-wine-summary
   [provider wine]
@@ -47,14 +50,16 @@
                      :user (prompts/wine-summary-user-message wine)}]
     (case provider
       :openai (openai/generate-wine-summary prompt-data)
-      :anthropic (anthropic/generate-wine-summary prompt-data))))
+      :anthropic (anthropic/generate-wine-summary prompt-data)
+      :gemini (gemini/generate-wine-summary prompt-data))))
 
 (defn analyze-wine-label
   [provider front-image back-image]
   (let [prompt (prompts/label-analysis-prompt front-image back-image)]
     (case provider
       :openai (openai/analyze-wine-label prompt)
-      :anthropic (anthropic/analyze-wine-label prompt))))
+      :anthropic (anthropic/analyze-wine-label prompt)
+      :gemini (gemini/analyze-wine-label prompt))))
 
 (defn generate-conversation-title
   [provider first-message]
@@ -62,6 +67,7 @@
         raw (case provider
               :openai (openai/generate-conversation-title prompt)
               :anthropic (anthropic/generate-conversation-title prompt)
+              :gemini (gemini/generate-conversation-title prompt)
               nil)
         title (some-> raw
                       str
@@ -72,7 +78,11 @@
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"
   []
-  {:models {:anthropic anthropic/model :openai openai/model}
+  {:models
+   {:anthropic anthropic/model :openai openai/model :gemini gemini/model}
+   :light-models {:anthropic anthropic/light-model
+                  :openai openai/light-model
+                  :gemini gemini/lite-model}
    :default-provider default-provider})
 
 ;; TODO: add provider-aware wrappers for any remaining Anthropics-only helpers

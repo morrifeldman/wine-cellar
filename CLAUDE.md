@@ -144,6 +144,7 @@ This is a full-stack wine cellar tracking application built with:
 │   │       ├── ai
 │   │       │   ├── anthropic.clj
 │   │       │   ├── core.clj
+│   │       │   ├── gemini.clj
 │   │       │   ├── openai.clj
 │   │       │   └── prompts.clj
 │   │       ├── auth
@@ -222,7 +223,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-44 directories, 134 files
+44 directories, 135 files
 ```
 
 ## Development Commands
