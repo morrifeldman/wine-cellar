@@ -100,6 +100,11 @@
     "Riserva" "Gran Selezione" ; Chianti
     "Reserve"})
 
+(def bottle-formats
+  ["Standard (750ml)" "Half Bottle (375ml)" "Magnum (1.5L)" "Split (187.5ml)"
+   "Jeroboam (3L)" "Double Magnum (3L)" "Imperial (6L)" "Salmanazar (9L)"
+   "Balthazar (12L)" "Nebuchadnezzar (15L)"])
+
 (def closure-type-options
   ["Natural cork" "Technical cork" "Micro-agglomerated cork" "Colmated cork"
    "Agglomerated cork" "Screw cap" "Synthetic cork (extruded)"

@@ -63,6 +63,9 @@
 (def wines-add-dosage-column
   {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS dosage decimal(6,2)"]})
 
+(def wines-add-bottle-format-column
+  {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS bottle_format varchar"]})
+
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]
    :with-columns [[:id :integer :generated :by-default :as :identity

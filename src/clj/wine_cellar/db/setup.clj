@@ -52,6 +52,7 @@
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/wines-add-closure-type-column)
    (sql-execute-helper tx schema/wines-add-dosage-column)
+   (sql-execute-helper tx schema/wines-add-bottle-format-column)
    (sql-execute-helper tx schema/tasting-notes-table-schema)
    (sql-execute-helper tx schema/ai-conversations-table-schema)
    (sql-execute-helper tx schema/ai-conversations-add-provider-column)

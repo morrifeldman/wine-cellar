@@ -110,6 +110,7 @@ This is a full-stack wine cellar tracking application built with:
 │       │   └── main.c
 │       └── README.md
 ├── fly.toml.template
+├── GEMINI.md
 ├── package.json
 ├── package-lock.json
 ├── public
@@ -221,7 +222,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-44 directories, 133 files
+44 directories, 134 files
 ```
 
 ## Development Commands

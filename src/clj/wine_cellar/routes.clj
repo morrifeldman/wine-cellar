@@ -79,6 +79,7 @@
 (s/def ::verified boolean?)
 (s/def ::ai_summary (s/nilable string?))
 (s/def ::closure_type (s/nilable (set common/closure-types)))
+(s/def ::bottle_format (s/nilable (set common/bottle-formats)))
 (s/def ::purveyor string?)
 (s/def ::is_external boolean?)
 (s/def ::source (s/nilable string?))
@@ -161,31 +162,33 @@
                    ::drink_from_year ::drink_until_year ::vintage ::price
                    ::purchase_date ::alcohol_percentage ::wine_varieties
                    ::disgorgement_year ::dosage ::tasting_window_commentary
-                   ::verified ::ai_summary ::original_quantity ::closure_type]))
+                   ::verified ::ai_summary ::original_quantity ::closure_type
+                   ::bottle_format]))
 
 (def wine-update-schema
-  (s/keys :req-un [(or ::producer ::country
-                       ::region ::aoc
-                       ::classification ::vineyard
-                       ::name ::vintage
-                       ::style ::level
-                       ::location ::quantity
-                       ::original_quantity ::price
-                       ::purveyor ::label_image
-                       ::label_thumbnail ::back_label_image
-                       ::drink_from_year ::drink_until_year
-                       ::purchase_date ::alcohol_percentage
-                       ::disgorgement_year ::dosage
-                       ::tasting_window_commentary ::verified
-                       ::ai_summary ::closure_type)]
-          :opt-un [::producer ::country ::region ::aoc ::classification
-                   ::vineyard ::name ::vintage ::style ::level ::location
-                   ::quantity ::original_quantity ::price ::purveyor
-                   ::label_image ::label_thumbnail ::back_label_image
-                   ::drink_from_year ::drink_until_year ::purchase_date
-                   ::alcohol_percentage ::disgorgement_year ::dosage
-                   ::tasting_window_commentary ::verified ::ai_summary
-                   ::closure_type]))
+  (s/keys
+   :req-un [(or ::producer
+                ::country ::region
+                ::aoc ::classification
+                ::vineyard ::name
+                ::vintage ::style
+                ::level ::location
+                ::quantity ::original_quantity
+                ::price ::purveyor
+                ::label_image ::label_thumbnail
+                ::back_label_image ::drink_from_year
+                ::drink_until_year ::purchase_date
+                ::alcohol_percentage ::disgorgement_year
+                ::dosage ::tasting_window_commentary
+                ::verified ::ai_summary
+                ::closure_type ::bottle_format)]
+   :opt-un [::producer ::country ::region ::aoc ::classification ::vineyard
+            ::name ::vintage ::style ::level ::location ::quantity
+            ::original_quantity ::price ::purveyor ::label_image
+            ::label_thumbnail ::back_label_image ::drink_from_year
+            ::drink_until_year ::purchase_date ::alcohol_percentage
+            ::disgorgement_year ::dosage ::tasting_window_commentary ::verified
+            ::ai_summary ::closure_type ::bottle_format]))
 
 (def image-update-schema
   (s/nilable (s/keys :opt-un

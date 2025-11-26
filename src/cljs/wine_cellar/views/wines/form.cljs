@@ -234,7 +234,14 @@
         :required false
         :multiple false
         :options common/closure-type-options
-        :on-change #(swap! app-state assoc-in [:new-wine :closure_type] %)}]]
+        :on-change #(swap! app-state assoc-in [:new-wine :closure_type] %)}]
+      [select-field
+       {:label "Bottle Format"
+        :value (:bottle_format new-wine)
+        :required false
+        :multiple false
+        :options common/bottle-formats
+        :on-change #(swap! app-state assoc-in [:new-wine :bottle_format] %)}]]
      ;; Wine Classification Section
      [form-divider "Grape Varieties"]
      [form-row

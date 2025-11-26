@@ -399,6 +399,18 @@
     :empty-text "Select closure type"
     :compact? true}])
 
+(defn editable-bottle-format
+  [app-state wine]
+  [editable-autocomplete-field
+   {:value (:bottle_format wine)
+    :options common/bottle-formats
+    :free-solo false
+    :on-save
+    (fn [new-value]
+      (api/update-wine app-state (:id wine) {:bottle_format new-value}))
+    :empty-text "Select format"
+    :compact? true}])
+
 (defn editable-drink-from-year
   [app-state wine]
   [editable-text-field
@@ -639,11 +651,12 @@
    ;; Grape Varieties (needs space for multiple varieties)
    [grid {:item true :xs 12 :md 6}
     [field-card "Grape Varieties" [wine-varieties-list app-state (:id wine)]]]
-   ;; Wine Characteristics: Style + Closure + Alcohol %
+   ;; Wine Characteristics: Style + Closure + Bottle Format + Alcohol %
    [grid {:item true :xs 12 :md 6}
     [inline-field-group
      [["Style" [editable-styles app-state wine]]
       ["Closure" [editable-closure-type app-state wine]]
+      ["Format" [editable-bottle-format app-state wine]]
       ["Alcohol %" [editable-alcohol-percentage app-state wine]]]]]
    ;; Inventory Info: Location + Current Quantity + Original Quantity
    [grid {:item true :xs 12 :md 6}
