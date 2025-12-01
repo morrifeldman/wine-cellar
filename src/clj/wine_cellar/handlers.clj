@@ -42,6 +42,18 @@
         exp (when exp-ms (Instant/ofEpochMilli exp-ms))]
     (when device-id (db-api/touch-device! device-id {:token_expires_at exp}))))
 
+(defn- handle-ai-error
+  [e]
+  (let [data (ex-data e)
+        status (or (:status data) 500)
+        error-message (or (:error data) (.getMessage e) "AI analysis failed")]
+    {:status status
+     :body (cond-> {:error error-message}
+             (and (not= (:error data) (.getMessage e))
+                  (not= error-message (.getMessage e)))
+             (assoc :details (.getMessage e))
+             (:response data) (assoc :response (:response data)))}))
+
 ;; Wine Classification Handlers
 
 (defn create-classification
@@ -296,12 +308,7 @@
          (let [result
                (ai/analyze-wine-label provider label_image back_label_image)]
            (response/response result)))
-       (catch clojure.lang.ExceptionInfo e
-         (let [data (ex-data e)]
-           {:status 500
-            :body {:error "AI analysis failed"
-                   :details (.getMessage e)
-                   :response (:response data)}}))
+       (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
        (catch Exception e (server-error e))))
 
 (defn suggest-drinking-window
@@ -314,15 +321,7 @@
                                wine)
                result (ai/suggest-drinking-window provider enriched-wine)]
            (response/response result)))
-       (catch clojure.lang.ExceptionInfo e
-         (let [data (ex-data e)
-               status (or (:status data) 500)
-               error-message (or (:error data) "AI analysis failed")]
-           {:status status
-            :body (cond-> {:error error-message}
-                    (not= (:error data) (.getMessage e)) (assoc :details
-                                                                (.getMessage e))
-                    (:response data) (assoc :response (:response data)))}))
+       (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
        (catch Exception e (server-error e))))
 
 (defn generate-wine-summary
@@ -335,15 +334,7 @@
                                wine)
                result (ai/generate-wine-summary provider enriched-wine)]
            (response/response result)))
-       (catch clojure.lang.ExceptionInfo e
-         (let [data (ex-data e)
-               status (or (:status data) 500)
-               error-message (or (:error data) "AI summary generation failed")]
-           {:status status
-            :body (cond-> {:error error-message}
-                    (not= (:error data) (.getMessage e)) (assoc :details
-                                                                (.getMessage e))
-                    (:response data) (assoc :response (:response data)))}))
+       (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
        (catch Exception e (server-error e))))
 
 (defn health-check
@@ -383,15 +374,7 @@
               response
               (ai/chat-about-wines provider context conversation-history image)]
           (response/response response))))
-    (catch clojure.lang.ExceptionInfo e
-      (let [data (ex-data e)
-            status (or (:status data) 500)
-            error-message (or (:error data) "AI chat failed")]
-        {:status status
-         :body (cond-> {:error error-message}
-                 (not= (:error data) (.getMessage e)) (assoc :details
-                                                             (.getMessage e))
-                 (:response data) (assoc :response (:response data)))}))
+    (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
     (catch Exception e (server-error e))))
 
 ;; Conversation persistence handlers

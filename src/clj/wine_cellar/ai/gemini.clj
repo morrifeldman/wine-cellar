@@ -69,33 +69,42 @@
         target-model (or model-override model)
         url (str base-url "/" target-model ":generateContent?key=" api-key)]
     (tap> ["gemini-request" request-body])
-    (let [{:keys [status body error] :as response}
-          (deref (http/post url
-                            {:body (json/write-value-as-string request-body)
-                             :headers {"Content-Type" "application/json"}
-                             :as :text
-                             :timeout 60000}))
-          parsed (when body (json/read-value body json-mapper))
-          response-with-parsed (assoc response :parsed parsed)]
+    (let [{:keys [status body error]}
+          @(http/post url
+                      {:body (json/write-value-as-string request-body)
+                       :headers {"Content-Type" "application/json"}
+                       :as :text
+                       :timeout 60000})]
       (when error
-        (tap> ["gemini-request-error" error])
-        (throw
-         (ex-info "Gemini API request failed" response-with-parsed error)))
-      (when (not= 200 status)
-        (tap> ["gemini-request-non-200" parsed])
-        (throw (ex-info "Gemini API request failed" response-with-parsed)))
-      (let [candidates (:candidates parsed)
-            content-parts (get-in (first candidates) [:content :parts])
-            text-response (str/join "" (map :text content-parts))]
-        (if parse-json?
-          (try (json/read-value text-response json-mapper)
-               (catch Exception e
-                 (throw (ex-info "Failed to parse Gemini response as JSON"
-                                 (assoc response-with-parsed
-                                        :text-response
-                                        text-response)
-                                 e))))
-          text-response)))))
+        (throw (ex-info "Gemini API network error" {:status 500 :error error})))
+      (let [parsed (try (json/read-value body json-mapper)
+                        (catch Exception _ body))]
+        (when (not= 200 status)
+          (tap> ["gemini-error" parsed])
+          (throw (ex-info "Gemini API returned error"
+                          {:status status :error parsed})))
+        (let [candidate (first (:candidates parsed))
+              parts (get-in candidate [:content :parts])
+              text-response (some-> (first parts)
+                                    :text)]
+          (when (str/blank? text-response)
+            (tap> ["gemini-no-text" parsed])
+            (throw (ex-info "Gemini response contained no text"
+                            {:status 500
+                             :error "Gemini response contained no text"
+                             :response parsed})))
+          (if parse-json?
+            (try (json/read-value text-response json-mapper)
+                 (catch Exception e
+                   (tap> ["gemini-json-parse-error" text-response])
+                   (throw (ex-info "Failed to parse Gemini response as JSON"
+                                   {:status 500
+                                    :error
+                                    "Failed to parse Gemini response as JSON"
+                                    :details (.getMessage e)
+                                    :response text-response}
+                                   e))))
+            text-response))))))
 
 ;; Feature Implementations
 
@@ -119,7 +128,7 @@
   (let [request {:system system
                  :messages [{:role "user" :content user}]
                  :response-schema drinking-window-schema
-                 :max-tokens 1000}]
+                 :max-tokens 10000}]
     (call-gemini-api request :parse-json? true)))
 
 (def label-analysis-schema
@@ -143,20 +152,20 @@
   (let [request {:system system
                  :messages [{:role "user" :content user-content}]
                  :response-schema label-analysis-schema
-                 :max-tokens 2000}]
+                 :max-tokens 20000}]
     (call-gemini-api request :parse-json? true)))
 
 (defn generate-wine-summary
   [{:keys [system user]}]
   (let [request {:system system
                  :messages [{:role "user" :content user}]
-                 :max-tokens 1000}]
+                 :max-tokens 10000}]
     (call-gemini-api request)))
 
 (defn generate-conversation-title
   [{:keys [system user]}]
   (let [request {:system system
                  :messages [{:role "user" :content user}]
-                 :max-tokens 100
+                 :max-tokens 1000
                  :temperature 0.2}]
     (call-gemini-api request :model-override lite-model)))
