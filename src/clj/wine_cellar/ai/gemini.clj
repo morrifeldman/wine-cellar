@@ -143,9 +143,7 @@
                 :classification {:type "STRING"}
                 :style {:type "STRING" :enum (vec (sort common/wine-styles))}
                 :level {:type "STRING" :enum (vec (sort common/wine-levels))}
-                :alcohol_percentage {:type "NUMBER"}}
-   :required ["producer" "name" "vintage" "country" "region" "aoc" "vineyard"
-              "classification" "style" "level" "alcohol_percentage"]})
+                :alcohol_percentage {:type "NUMBER"}}})
 
 (defn analyze-wine-label
   [{:keys [system user-content]}]
