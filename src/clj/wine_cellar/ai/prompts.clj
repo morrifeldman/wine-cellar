@@ -239,25 +239,26 @@
                   summary-text)]
     (if selection-text (str base "\n\n" selection-text) base)))
 
+(defn current-year [] (.getValue (java.time.Year/now)))
+
 (defn wine-system-instructions
   "Baseline system instructions shared across AI providers for chat."
   []
-  (let [current-year (.getValue (java.time.Year/now))]
-    (str
-     "You are a knowledgeable wine expert and sommelier helping someone with their wine collection. "
-     "Please respond in a conversational, friendly tone. You can discuss wine recommendations, "
-     "food pairings, optimal drinking windows, storage advice, or any wine-related questions. "
-     "When images are provided, analyze wine labels, wine lists, or other wine-related images to help with "
-     "identification, recommendations, or general wine advice. "
-     "The current year is "
-     current-year
-     ". "
-     "CRITICAL FORMATTING REQUIREMENT: You MUST respond in plain text only. Do NOT use any markdown formatting whatsoever. This means:\n"
-     "- NO headers starting with #\n"
-     "- NO bold text with **\n" "- NO italic text with _ or *\n"
-     "- NO code blocks with ```\n" "- NO bullet points with -\n"
-     "- NO numbered lists\n"
-     "Write your response as simple, natural conversational text with normal punctuation only.")))
+  (str
+   "You are a knowledgeable wine expert and sommelier helping someone with their wine collection. "
+   "Please respond in a conversational, friendly tone. You can discuss wine recommendations, "
+   "food pairings, optimal drinking windows, storage advice, or any wine-related questions. "
+   "When images are provided, analyze wine labels, wine lists, or other wine-related images to help with "
+   "identification, recommendations, or general wine advice. "
+   "The current year is "
+   (current-year)
+   ". "
+   "CRITICAL FORMATTING REQUIREMENT: You MUST respond in plain text only. Do NOT use any markdown formatting whatsoever. This means:\n"
+   "- NO headers starting with #\n"
+   "- NO bold text with **\n" "- NO italic text with _ or *\n"
+   "- NO code blocks with ```\n" "- NO bullet points with -\n"
+   "- NO numbered lists\n"
+   "Write your response as simple, natural conversational text with normal punctuation only."))
 
 (defn- strip-image-data-url
   [image]
@@ -354,21 +355,20 @@
 
 (defn drinking-window-system-prompt
   []
-  (let [current-year (.getValue (java.time.Year/now))]
-    (str
-     "You are a wine expert tasked with suggesting the OPTIMAL drinking window for a wine. "
-     "Focus on when this wine will be at its absolute peak quality and most enjoyable, "
-     "not just when it's acceptable to drink. Based on wine characteristics "
-     "including tasting notes and grape varieties, suggest the ideal timeframe when "
-     "this wine will express its best characteristics.\n\n"
-     "The current year is " current-year
-     ".\n\n" "Return your response in JSON format with the following fields:\n"
-     "- drink_from_year: (integer) The year when the wine will reach optimal drinking condition\n"
-     "- drink_until_year: (integer) The year when the wine will still be at peak quality (not just drinkable)\n"
-     "- confidence: (string) \"high\", \"medium\", or \"low\" based on how confident you are in this assessment\n"
-     "- reasoning: (string) A brief explanation of your recommendation focusing on peak quality timing, and mention the broader window when the wine remains enjoyable to drink\n\n"
-     "Only return a valid parseable JSON object without any additional text. "
-     "Do not nest the response in a markdown code block.")))
+  (str
+   "You are a wine expert tasked with suggesting the OPTIMAL drinking window for a wine. "
+   "Focus on when this wine will be at its absolute peak quality and most enjoyable, "
+   "not just when it's acceptable to drink. Based on wine characteristics "
+   "including tasting notes and grape varieties, suggest the ideal timeframe when "
+   "this wine will express its best characteristics.\n\n"
+   "The current year is " (current-year)
+   ".\n\n" "Return your response in JSON format with the following fields:\n"
+   "- drink_from_year: (integer) The year when the wine will reach optimal drinking condition\n"
+   "- drink_until_year: (integer) The year when the wine will still be at peak quality (not just drinkable)\n"
+   "- confidence: (string) \"high\", \"medium\", or \"low\" based on how confident you are in this assessment\n"
+   "- reasoning: (string) A brief explanation of your recommendation focusing on peak quality timing, and mention the broader window when the wine remains enjoyable to drink\n\n"
+   "Only return a valid parseable JSON object without any additional text. "
+   "Do not nest the response in a markdown code block."))
 
 (defn drinking-window-user-message
   [wine]
@@ -390,6 +390,8 @@
    "3. Basic serving recommendations\n\n"
    "Write in a conversational, informative tone. Keep it concise and practical. "
    "Focus on the most important information for enjoyment and pairing decisions. "
+   "The current year is " (current-year)
+   ". "
    "Return only the summary text without any formatting or structure markers."))
 
 (defn wine-summary-user-message
