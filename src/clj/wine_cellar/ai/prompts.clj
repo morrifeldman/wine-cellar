@@ -325,7 +325,8 @@
      "- style: The wine style. Must be one of: "
      style-options
      "\n"
-     "- level: The wine level. Must be one of: " level-options
+     "- level: The wine level (only if applicable). Must be one of: "
+     level-options
      "\n" "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"
      "Return ONLY a valid parseable JSON object with these fields. If you cannot determine a value, use null for that field. "
      "Do not nest the result in a markdown code block. Do not include any explanatory text outside the JSON object.")))
