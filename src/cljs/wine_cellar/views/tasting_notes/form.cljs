@@ -159,6 +159,9 @@
              :options (or (:tasting-note-sources @app-state) [])
              :free-solo true
              :helper-text "Choose from existing sources or type a new one"
+             :on-input-change
+             (fn [val _]
+               (swap! app-state assoc-in [:new-tasting-note :source] val))
              :on-change
              #(swap! app-state assoc-in [:new-tasting-note :source] %)}]])
         ;; WSET Structured Notes checkbox
