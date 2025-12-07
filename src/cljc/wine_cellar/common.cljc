@@ -108,9 +108,9 @@
 
 (def closure-type-options
   ["Natural cork" "Technical cork" "Micro-agglomerated cork" "Colmated cork"
-   "Agglomerated cork" "Screw cap" "Synthetic cork (extruded)"
-   "Synthetic cork (molded)" "Glass stopper" "Crown cap" "T-top" "Zork"
-   "Other/Unknown"])
+   "Agglomerated cork" "Cork (unspecified)" "Screw cap"
+   "Synthetic cork (extruded)" "Synthetic cork (molded)" "Glass stopper"
+   "Crown cap" "T-top" "Zork" "Other/Unknown"])
 
 (def closure-types (set closure-type-options))
 
