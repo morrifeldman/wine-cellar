@@ -311,7 +311,8 @@
 (defn label-analysis-system-prompt
   []
   (let [style-options (str/join ", " (sort common/wine-styles))
-        level-options (str/join ", " (sort common/wine-levels))]
+        level-options (str/join ", " (sort common/wine-levels))
+        format-options (str/join ", " common/bottle-formats)]
     (str
      "You are a wine expert tasked with extracting information from wine label images. "
      "Analyze the provided wine label images and extract the following information in JSON format:\n\n"
@@ -328,6 +329,8 @@
      "\n"
      "- level: The wine level (only if applicable). Must be one of: "
      level-options
+     "\n"
+     "- bottle_format: The bottle size/format. Must be one of: " format-options
      "\n" "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"
      "Return ONLY a valid parseable JSON object with these fields. If you cannot determine a value, use null for that field. "
      "Do not nest the result in a markdown code block. Do not include any explanatory text outside the JSON object.")))

@@ -143,6 +143,8 @@
                 :classification {:type "STRING"}
                 :style {:type "STRING" :enum (vec (sort common/wine-styles))}
                 :level {:type "STRING" :enum (vec (sort common/wine-levels))}
+                :bottle_format {:type "STRING"
+                                :enum (vec common/bottle-formats)}
                 :alcohol_percentage {:type "NUMBER"}}})
 
 (defn analyze-wine-label

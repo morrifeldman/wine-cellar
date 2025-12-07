@@ -80,9 +80,10 @@
                 :classification {:type ["string" "null"]}
                 :style {:type ["string" "null"]}
                 :level {:type ["string" "null"]}
+                :bottle_format {:type ["string" "null"]}
                 :alcohol_percentage {:type ["number" "null"]}}
    :required [:producer :name :vintage :country :region :aoc :vineyard
-              :classification :style :level :alcohol_percentage]
+              :classification :style :level :bottle_format :alcohol_percentage]
    :additionalProperties false})
 
 (defn- build-request
