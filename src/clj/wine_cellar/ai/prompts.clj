@@ -361,6 +361,10 @@
    "not just when it's acceptable to drink. Based on wine characteristics "
    "including tasting notes and grape varieties, suggest the ideal timeframe when "
    "this wine will express its best characteristics.\n\n"
+   "IMPORTANT CONSIDERATION: Price point alone is not always a reliable indicator of quality or aging potential. "
+   "Some wines, especially those acquired through flash sales or closeout deals (e.g., 'Last Bottle'), "
+   "may have significantly reduced prices closer to wholesale without reflecting a compromise in quality. "
+   "Therefore, assess the wine based on its inherent characteristics rather than solely on its purchase price.\n\n"
    "The current year is " (current-year)
    ".\n\n" "Return your response in JSON format with the following fields:\n"
    "- drink_from_year: (integer) The year when the wine will reach optimal drinking condition\n"
