@@ -909,6 +909,8 @@
    (reset! messages [])
    (when (and message-ref @message-ref) (set! (.-value @message-ref) ""))
    (when pending-image (reset! pending-image nil))
+   ;; Always default to :selection+filters mode when clearing chat
+   (state-core/set-context-mode! app-state :selection+filters)
    (swap! app-state (fn [state]
                       (-> state
                           (assoc-in [:chat :messages] [])
@@ -1275,6 +1277,13 @@
                             :header-props header-props
                             :content-props content-props})))))
 
+(defn- smart-open-chat!
+  [app-state]
+  ;; Always default to :selection+filters mode when opening chat
+  (state-core/set-context-mode! app-state :selection+filters)
+  (swap! app-state assoc-in [:chat :open?] true)
+  (api/load-conversations! app-state {:force? true}))
+
 (defn wine-chat-fab
   "Floating action button for wine chat"
   [app-state]
@@ -1289,8 +1298,7 @@
                                      :transform "translateY(-50%)"
                                      :right 16
                                      :left "auto"}}
-    :on-click #(do (swap! app-state assoc-in [:chat :open?] true)
-                   (api/load-conversations! app-state {:force? true}))} [chat]])
+    :on-click #(smart-open-chat! app-state)} [chat]])
 
 (defn wine-chat
   "Main wine chat component with FAB and dialog"
