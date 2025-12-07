@@ -550,36 +550,46 @@
   [_request]
   (response/response (wine-cellar.ai.core/get-model-info)))
 
+(defn execute-sql-query
+  "Admin function to execute raw SQL queries"
+  [{{{:keys [query]} :body} :parameters}]
+  (try (tap> ["⚡ ADMIN: Executing raw SQL query:" query])
+       (let [result (db-api/execute-sql-query query)]
+         {:status 200 :body result})
+       (catch Exception e
+         (tap> ["❌ ADMIN: SQL execution failed:" (.getMessage e)])
+         {:status 400
+          :body {:error "SQL execution failed" :details (.getMessage e)}})))
+
 (defn reset-database
   "Admin function to drop and recreate all database tables"
   [_request]
-  (try (println "🔥 ADMIN: Dropping all database tables...")
+  (try (tap> "🔥 ADMIN: Dropping all database tables...")
        (db-setup/drop-tables)
-       (println "🛠️  ADMIN: Recreating database schema...")
+       (tap> "🛠️  ADMIN: Recreating database schema...")
        (db-setup/initialize-db false) ; Skip classification seeding for
                                       ; imports
-       (println "✅ ADMIN: Database reset complete!")
+       (tap> "✅ ADMIN: Database reset complete!")
        {:status 200
         :body {:message "Database reset successfully"
                :tables-dropped true
                :schema-recreated true
                :classifications-seeded false}}
        (catch Exception e
-         (println "❌ ADMIN: Database reset failed:" (.getMessage e))
+         (tap> ["❌ ADMIN: Database reset failed:" (.getMessage e)])
          (server-error e))))
 
 (defn mark-all-wines-unverified
   "Admin function to mark all wines as unverified for inventory verification"
   [_]
-  (try (println "🔄 ADMIN: Marking all wines as unverified...")
+  (try (tap> "🔄 ADMIN: Marking all wines as unverified...")
        (let [updated-count (db-api/mark-all-wines-unverified)]
-         (println "✅ ADMIN: Marked" updated-count "wines as unverified")
+         (tap> ["✅ ADMIN: Marked" updated-count "wines as unverified"])
          {:status 200
           :body {:message "All wines marked as unverified"
                  :wines-updated updated-count}})
        (catch Exception e
-         (println "❌ ADMIN: Failed to mark wines as unverified:"
-                  (.getMessage e))
+         (tap> ["❌ ADMIN: Failed to mark wines as unverified:" (.getMessage e)])
          (server-error e))))
 
 (defn get-verbose-logging-state
@@ -758,22 +768,21 @@
              wine-ids (:wine-ids body)
              provider (:provider body)
              wine-count (count wine-ids)]
-         (println "🔄 ADMIN: Starting drinking window job for"
-                  wine-count
-                  "wines...")
+         (tap> ["🔄 ADMIN: Starting drinking window job for" wine-count
+                "wines..."])
          (if (empty? wine-ids)
            {:status 400 :body {:error "No wine IDs provided"}}
            (let [job-id
                  (wine-cellar.admin.bulk-operations/start-drinking-window-job
                   {:wine-ids wine-ids :provider provider})]
-             (println "✅ ADMIN: Started drinking window job" job-id)
+             (tap> ["✅ ADMIN: Started drinking window job" job-id])
              {:status 200
               :body {:job-id job-id
                      :message "Drinking window regeneration job started"
                      :total-wines wine-count}})))
        (catch Exception e
-         (println "❌ ADMIN: Failed to start drinking window job:"
-                  (.getMessage e))
+         (tap> ["❌ ADMIN: Failed to start drinking window job:"
+                (.getMessage e)])
          (server-error e))))
 
 (defn start-wine-summary-job
@@ -784,18 +793,18 @@
           wine-ids (:wine-ids body)
           provider (:provider body)
           wine-count (count wine-ids)]
-      (println "🔄 ADMIN: Starting wine summary job for" wine-count "wines...")
+      (tap> ["🔄 ADMIN: Starting wine summary job for" wine-count "wines..."])
       (if (empty? wine-ids)
         {:status 400 :body {:error "No wine IDs provided"}}
         (let [job-id (wine-cellar.admin.bulk-operations/start-wine-summary-job
                       {:wine-ids wine-ids :provider provider})]
-          (println "✅ ADMIN: Started wine summary job" job-id)
+          (tap> ["✅ ADMIN: Started wine summary job" job-id])
           {:status 200
            :body {:job-id job-id
                   :message "Wine summary regeneration job started"
                   :total-wines wine-count}})))
     (catch Exception e
-      (println "❌ ADMIN: Failed to start wine summary job:" (.getMessage e))
+      (tap> ["❌ ADMIN: Failed to start wine summary job:" (.getMessage e)])
       (server-error e))))
 
 (defn get-job-status
@@ -807,5 +816,5 @@
            {:status 200 :body status}
            {:status 404 :body {:error "Job not found"}}))
        (catch Exception e
-         (println "❌ ADMIN: Failed to get job status:" (.getMessage e))
+         (tap> ["❌ ADMIN: Failed to get job status:" (.getMessage e)])
          (server-error e))))

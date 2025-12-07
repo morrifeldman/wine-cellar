@@ -152,6 +152,11 @@
       (cond-> created_at (update :created_at timestamp->iso-string))
       (cond-> updated_at (update :updated_at timestamp->iso-string))))
 
+(defn execute-sql-query
+  "Executes a raw SQL query string and returns the result."
+  [sql-string]
+  (jdbc/execute! ds [sql-string] db-opts))
+
 (defn ping-db
   "Simple function to test database connectivity"
   []

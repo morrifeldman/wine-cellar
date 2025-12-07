@@ -18,6 +18,7 @@
                   (:show-wine-form? state) "/add-wine"
                   (= (:view state) :grape-varieties) "/grape-varieties"
                   (= (:view state) :classifications) "/classifications"
+                  (= (:view state) :sql) "/admin/sql"
                   :else "/")
         current-hash (.-hash js/location)
         current-path (if (clojure.string/starts-with? current-hash "#")
@@ -36,6 +37,8 @@
           {:view :grape-varieties :selected-wine-id nil :show-wine-form? false}
           (= path "/classifications")
           {:view :classifications :selected-wine-id nil :show-wine-form? false}
+          (= path "/admin/sql")
+          {:view :sql :selected-wine-id nil :show-wine-form? false}
           (.startsWith path "/wine/") {:view nil
                                        :selected-wine-id
                                        (js/parseInt (subs path 6) 10)

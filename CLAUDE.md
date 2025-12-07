@@ -182,7 +182,8 @@ This is a full-stack wine cellar tracking application built with:
 │           ├── version.cljs
 │           └── views
 │               ├── admin
-│               │   └── devices.cljs
+│               │   ├── devices.cljs
+│               │   └── sql.cljs
 │               ├── cellar_conditions.cljs
 │               ├── classifications
 │               │   ├── form.cljs
@@ -223,7 +224,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-44 directories, 135 files
+44 directories, 136 files
 ```
 
 ## Development Commands

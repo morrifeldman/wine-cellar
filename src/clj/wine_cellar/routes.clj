@@ -152,6 +152,7 @@
          pos?
          #(<= % 500)))
 (s/def ::cellar-condition-query (s/keys :opt-un [::device_id ::limit]))
+(s/def ::query string?)
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
@@ -352,6 +353,11 @@
      {:get {:summary "Get current AI model configuration"
             :responses {200 {:body map?}}
             :handler handlers/get-model-info}}]
+    ["/sql"
+     {:post {:summary "Admin: Execute raw SQL query"
+             :parameters {:body (s/keys :req-un [::query])}
+             :responses {200 {:body vector?} 400 {:body map?} 500 {:body map?}}
+             :handler handlers/execute-sql-query}}]
     ["/reset-database"
      {:post {:summary "Admin: Drop and recreate all database tables"
              :responses {200 {:body map?} 500 {:body map?}}

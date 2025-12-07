@@ -5,6 +5,7 @@
     [wine-cellar.views.wines.form :refer [wine-form]]
     [wine-cellar.views.components :refer [toggle-button]]
     [wine-cellar.views.admin.devices :refer [devices-page]]
+    [wine-cellar.views.admin.sql :refer [sql-page]]
     [wine-cellar.views.components.ai-provider-toggle :as provider-toggle]
     [wine-cellar.views.wines.list :refer [wine-list]]
     [wine-cellar.views.wines.detail :refer [wine-details-section]]
@@ -124,6 +125,10 @@
                       (api/fetch-classifications app-state)
                       (swap! app-state assoc :view :classifications))}
          "Classifications"]
+        [menu-item
+         {:on-click
+          (fn [] (reset! anchor-el nil) (swap! app-state assoc :view :sql))}
+         "SQL Query"]
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
@@ -365,6 +370,15 @@
                :color "primary"
                :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
             [devices-page app-state]]
+           (= (:view state) :sql)
+           [:div
+            [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
+             [typography {:variant "h5"} "Admin: SQL"]
+             [button
+              {:variant "outlined"
+               :color "primary"
+               :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
+            [sql-page]]
            ;; Wine views
            (:selected-wine-id state) [:div [wine-details-section app-state]]
            (:show-wine-form? state) [:div [top-controls app-state]

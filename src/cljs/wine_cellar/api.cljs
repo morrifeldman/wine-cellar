@@ -1201,6 +1201,11 @@
         (do (swap! app-state assoc :resetting-database? false)
             (swap! app-state assoc :error "Failed to reset database")))))
 
+(defn execute-sql
+  "Execute a raw SQL query. Returns a channel."
+  [query]
+  (POST "/api/admin/sql" {:query query} "Failed to execute SQL query"))
+
 (defn load-wine-detail-page
   "Load all data needed for the wine detail page"
   [app-state wine-id]
