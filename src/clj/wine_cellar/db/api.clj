@@ -62,12 +62,14 @@
 
 (defn wine->db-wine
   [{:keys [style level label_image label_thumbnail back_label_image
-           purchase_date]
+           purchase_date metadata]
     :as wine}]
   (cond-> wine
     purchase_date (update :purchase_date ->sql-date)
     style (update :style (partial sql-cast :wine_style))
     level (update :level (partial sql-cast :wine_level))
+    metadata (update :metadata
+                     #(sql-cast :jsonb (json/write-value-as-string %)))
     label_image (update :label_image base64->bytes)
     label_thumbnail (update :label_thumbnail base64->bytes)
     back_label_image (update :back_label_image base64->bytes)))
@@ -349,7 +351,7 @@
    :original_quantity :price :drink_from_year :drink_until_year
    :alcohol_percentage :disgorgement_year :label_thumbnail :created_at
    :updated_at :verified :purchase_date :latest_internal_rating
-   :average_external_rating :varieties])
+   :average_external_rating :varieties :metadata])
 
 (defn get-wines-for-list
   []

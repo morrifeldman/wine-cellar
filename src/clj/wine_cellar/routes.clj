@@ -138,6 +138,7 @@
 (s/def ::firmware_version (s/nilable string?))
 (s/def ::capabilities (s/nilable map?))
 (s/def ::series-query (s/keys :opt-un [::device_id ::bucket ::from ::to]))
+(s/def ::metadata (s/nilable map?))
 (s/def ::cellar-condition
   (s/keys :req-un [::device_id]
           :opt-un [::measured_at ::temperature_c ::humidity_pct ::pressure_hpa
@@ -164,32 +165,32 @@
                    ::purchase_date ::alcohol_percentage ::wine_varieties
                    ::disgorgement_year ::dosage ::tasting_window_commentary
                    ::verified ::ai_summary ::original_quantity ::closure_type
-                   ::bottle_format]))
+                   ::bottle_format ::metadata]))
 
 (def wine-update-schema
   (s/keys
-   :req-un [(or ::producer
-                ::country ::region
-                ::aoc ::classification
-                ::vineyard ::name
-                ::vintage ::style
-                ::level ::location
-                ::quantity ::original_quantity
-                ::price ::purveyor
-                ::label_image ::label_thumbnail
-                ::back_label_image ::drink_from_year
-                ::drink_until_year ::purchase_date
-                ::alcohol_percentage ::disgorgement_year
-                ::dosage ::tasting_window_commentary
-                ::verified ::ai_summary
-                ::closure_type ::bottle_format)]
+   :req-un [(or ::producer ::country
+                ::region ::aoc
+                ::classification ::vineyard
+                ::name ::vintage
+                ::style ::level
+                ::location ::quantity
+                ::original_quantity ::price
+                ::purveyor ::label_image
+                ::label_thumbnail ::back_label_image
+                ::drink_from_year ::drink_until_year
+                ::purchase_date ::alcohol_percentage
+                ::disgorgement_year ::dosage
+                ::tasting_window_commentary ::verified
+                ::ai_summary ::closure_type
+                ::bottle_format ::metadata)]
    :opt-un [::producer ::country ::region ::aoc ::classification ::vineyard
             ::name ::vintage ::style ::level ::location ::quantity
             ::original_quantity ::price ::purveyor ::label_image
             ::label_thumbnail ::back_label_image ::drink_from_year
             ::drink_until_year ::purchase_date ::alcohol_percentage
             ::disgorgement_year ::dosage ::tasting_window_commentary ::verified
-            ::ai_summary ::closure_type ::bottle_format]))
+            ::ai_summary ::closure_type ::bottle_format ::metadata]))
 
 (def image-update-schema
   (s/nilable (s/keys :opt-un

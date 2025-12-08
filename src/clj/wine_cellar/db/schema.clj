@@ -48,7 +48,7 @@
     [:disgorgement_year :integer] [:dosage :decimal [6 2]]
     [:tasting_window_commentary :text] [:verified :boolean [:default false]]
     [:ai_summary :text] [:label_image :bytea] [:label_thumbnail :bytea]
-    [:back_label_image :bytea]
+    [:back_label_image :bytea] [:metadata :jsonb]
     [[:constraint :valid_tasting_window]
      [:check
       [:or [:= :drink_from_year] [:= :drink_until_year]
@@ -65,6 +65,9 @@
 
 (def wines-add-bottle-format-column
   {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS bottle_format varchar"]})
+
+(def wines-add-metadata-column
+  {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS metadata JSONB"]})
 
 (def wines-set-default-bottle-format
   {:raw
