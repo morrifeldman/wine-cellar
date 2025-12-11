@@ -154,6 +154,30 @@
       (cond-> created_at (update :created_at timestamp->iso-string))
       (cond-> updated_at (update :updated_at timestamp->iso-string))))
 
+(defn get-db-schema
+  []
+  (let [rows (jdbc/execute! ds
+                            (sql/format
+                             {:select [:t.table_name :t.table_type
+                                       :c.column_name :c.data_type]
+                              :from [[:information_schema.tables :t]]
+                              :join [[:information_schema.columns :c]
+                                     [:and [:= :t.table_name :c.table_name]
+                                      [:= :t.table_schema :c.table_schema]]]
+                              :where [:and [:= :t.table_schema "public"]
+                                      [:in :t.table_type ["BASE TABLE" "VIEW"]]]
+                              :order-by [:t.table_name :c.ordinal_position]})
+                            db-opts)]
+    (->> rows
+         (group-by (juxt :table_name :table_type))
+         (map (fn [[[table-name table-type] columns]]
+                {:table_name table-name
+                 :table_type table-type
+                 :columns (mapv #(select-keys % [:column_name :data_type])
+                                columns)}))
+         (sort-by :table_name)
+         vec)))
+
 (defn execute-sql-query
   "Executes a raw SQL query string and returns the result."
   [sql-string]

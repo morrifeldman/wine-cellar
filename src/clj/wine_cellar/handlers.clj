@@ -550,6 +550,14 @@
   [_request]
   (response/response (wine-cellar.ai.core/get-model-info)))
 
+(defn get-db-schema
+  "Admin function to get database schema"
+  [_]
+  (try (let [schema (db-api/get-db-schema)] {:status 200 :body schema})
+       (catch Exception e
+         (tap> ["❌ ADMIN: Failed to get schema:" (.getMessage e)])
+         (server-error e))))
+
 (defn execute-sql-query
   "Admin function to execute raw SQL queries"
   [{{{:keys [query]} :body} :parameters}]

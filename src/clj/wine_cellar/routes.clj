@@ -354,6 +354,10 @@
      {:get {:summary "Get current AI model configuration"
             :responses {200 {:body map?}}
             :handler handlers/get-model-info}}]
+    ["/schema"
+     {:get {:summary "Admin: Get database schema"
+            :responses {200 {:body vector?} 500 {:body map?}}
+            :handler handlers/get-db-schema}}]
     ["/sql"
      {:post {:summary "Admin: Execute raw SQL query"
              :parameters {:body (s/keys :req-un [::query])}

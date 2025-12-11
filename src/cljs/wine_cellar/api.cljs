@@ -1206,6 +1206,11 @@
   [query]
   (POST "/api/admin/sql" {:query query} "Failed to execute SQL query"))
 
+(defn fetch-db-schema
+  "Fetch the database schema (tables and views). Returns a channel."
+  []
+  (GET "/api/admin/schema" "Failed to fetch database schema"))
+
 (defn load-wine-detail-page
   "Load all data needed for the wine detail page"
   [app-state wine-id]
