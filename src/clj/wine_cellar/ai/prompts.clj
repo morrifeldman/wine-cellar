@@ -78,6 +78,15 @@
                      (or (:drink_from_year wine) (:drink_until_year wine)))
             (str "\n  Drinking Window: " (or (:drink_from_year wine) "?")
                  " - " (or (:drink_until_year wine) "?")))])
+        metadata (:metadata wine)
+        format-meta-entry (fn [[k v]]
+                            (when (and v (not (str/blank? (str v))))
+                              (str "\n  " (common/humanize-key k) ": " v)))
+        technical-notes (->> metadata
+                             (map format-meta-entry)
+                             (remove nil?)
+                             sort
+                             (str/join ""))
         varieties (:varieties wine)
         varieties-summary
         (when (seq varieties)
@@ -148,6 +157,7 @@
                      (str "\n  Previous AI Summary: " (:ai_summary wine)))]
     (str basic-info
          classification-info
+         technical-notes
          varieties-summary
          notes-summary
          ai-summary)))

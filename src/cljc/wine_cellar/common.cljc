@@ -84,6 +84,14 @@
         str/lower-case
         (str/replace #"\s+" " "))))
 
+(defn humanize-key
+  "Convert a keyword or string key into a human-readable Title Case string.
+   e.g. :total-acidity -> \"Total Acidity\""
+  [k]
+  (-> (name k)
+      (str/replace #"[-_]" " ")
+      (str/replace #"\b\w" str/upper-case)))
+
 (defn style->info
   "Return metadata for a wine style, including canonical label, palette category, default color and WSET style code. Falls back to red when style is unknown."
   [style]
