@@ -1,5 +1,6 @@
 idf_component_register(
-    SRCS "main.c" "bmp085.c"
+    SRCS "main.c" "bmp280.c"
     INCLUDE_DIRS "."
-    REQUIRES cellar_display cellar_http cellar_light esp_driver_i2c esp_event esp_netif esp_wifi nvs_flash driver spi_flash esp_adc
+    REQUIRES nvs_flash esp_wifi esp_event esp_netif esp_http_client cellar_display cellar_http spi_flash
+    EMBED_TXTFILES "server_root_cert.pem"
 )

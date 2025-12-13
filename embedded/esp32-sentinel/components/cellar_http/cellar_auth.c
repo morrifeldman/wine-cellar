@@ -184,17 +184,8 @@ static bool json_get_string(const char *body, const char *key, char *out, size_t
     return true;
 }
 
-static bool json_get_int64(const char *body, const char *key, int64_t *out) {
-    const char *found = strstr(body, key);
-    if (!found) return false;
-    const char *colon = strchr(found, ':');
-    if (!colon) return false;
-    // skip spaces and quotes
-    const char *p = colon + 1;
-    while (*p == ' ' || *p == '"' || *p == '\t') p++;
-    *out = atoll(p);
-    return true;
-}
+extern const char server_root_cert_pem_start[] asm("_binary_server_root_cert_pem_start");
+extern const char server_root_cert_pem_end[]   asm("_binary_server_root_cert_pem_end");
 
 static esp_err_t http_post_json(const char *url, const char *json_body, char *resp_buf, size_t resp_buf_len) {
     resp_accum_t acc = {0};
@@ -210,8 +201,8 @@ static esp_err_t http_post_json(const char *url, const char *json_body, char *re
         .user_data = &acc,
         .buffer_size = resp_buf_len > 0 ? resp_buf_len : 512,
     };
-#ifdef CELLAR_API_CERT_PEM
-    cfg.cert_pem = (const char *)CELLAR_API_CERT_PEM;
+#if CELLAR_API_USE_HTTPS
+    cfg.cert_pem = server_root_cert_pem_start;
 #endif
 
     esp_http_client_handle_t client = esp_http_client_init(&cfg);
@@ -246,23 +237,20 @@ static esp_err_t refresh_tokens(void) {
 
     char access[768] = {0};
     char refresh[256] = {0};
-    if (!json_get_string(resp, "access_token", access, sizeof(access))) return ESP_FAIL;
-    json_get_string(resp, "refresh_token", refresh, sizeof(refresh));
-    // access_expires_at is ISO string; backend also sets exp in JWT, so approximate with 20 min from now if missing.
-    time_t now = 0;
-    time(&now);
-    int64_t exp_guess = now + (20 * 60);
-    int64_t exp_from_ms = 0;
-    if (json_get_int64(resp, "access_expires_at", &exp_from_ms) && exp_from_ms > 0) {
-        s_access_expiry = (time_t)(exp_from_ms / 1000);
-    } else {
-        s_access_expiry = (time_t)exp_guess;
+    if (!json_get_string(resp, "access_token", access, sizeof(access))) {
+        ESP_LOGE(TAG, "Failed to parse access_token from refresh response: %s", resp);
+        return ESP_FAIL;
     }
-
+    json_get_string(resp, "refresh_token", refresh, sizeof(refresh));
     strncpy(s_access_token, access, sizeof(s_access_token) - 1);
     if (refresh[0]) {
         strncpy(s_refresh_token, refresh, sizeof(s_refresh_token) - 1);
     }
+    // Force 15 min expiry since server sends ISO string which atoll parses as garbage (e.g. 2025 -> 2s)
+    time_t now = 0;
+    time(&now);
+    s_access_expiry = now + (15 * 60);
+    
     persist_tokens();
     return ESP_OK;
 }
@@ -297,14 +285,12 @@ static esp_err_t claim_and_poll(void) {
             json_get_string(resp, "refresh_token", refresh, sizeof(refresh));
             strncpy(s_access_token, access, sizeof(s_access_token) - 1);
             strncpy(s_refresh_token, refresh, sizeof(s_refresh_token) - 1);
-            int64_t exp_ms = 0;
-            if (json_get_int64(resp, "access_expires_at", &exp_ms) && exp_ms > 0) {
-                s_access_expiry = (time_t)(exp_ms / 1000);
-            } else {
-                time_t now = 0;
-                time(&now);
-                s_access_expiry = now + (20 * 60);
-            }
+            
+            // Force 15 min expiry since server sends ISO string
+            time_t now = 0;
+            time(&now);
+            s_access_expiry = now + (15 * 60);
+
             ESP_LOGI(TAG, "Parsed token len=%d refresh_len=%d exp=%ld",
                      (int)strlen(s_access_token),
                      (int)strlen(s_refresh_token),

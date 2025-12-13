@@ -8,24 +8,13 @@
 #define DEVICE_ID "esp32-sentinel-1"
 #define CLAIM_CODE "set-per-device-claim-code"
 
-// I2C bus (BMP085 now; you can drop a BME280 here later)
+// I2C bus
 #define I2C_SDA 21
 #define I2C_SCL 22
 #define I2C_FREQ_HZ 100000
 
-// Analog light sensor (Adafruit GA1A12S202 breakout)
-// Default wiring uses GPIO34 (ADC1_CH6) with 11 dB attenuation for 0-3.3 V
-// output. Adjust these if you choose a different ADC-capable pin.
-#define GA1A12S202_ADC_UNIT ADC_UNIT_1
-#define GA1A12S202_ADC_CHANNEL ADC_CHANNEL_6
-#define GA1A12S202_ATTEN ADC_ATTEN_DB_12
-// Nominal supply voltage to the breakout in millivolts; tweak if you power it
-// from something other than 3.3 V to keep the lux conversion accurate.
-#define GA1A12S202_SUPPLY_MV 3300
-
-// BMP085 pressure/temperature sensor
-#define BMP085_ADDRESS 0x77
-#define BMP085_OSS 0  // 0..3 oversampling; higher = slower but smoother pressure
+// BMP280 pressure/temperature sensor
+#define BMP280_ADDRESS 0x76 // 0x76 or 0x77
 
 // Display temperature in Fahrenheit on the OLED (defaults to Celsius)
 // #define DISPLAY_TEMP_FAHRENHEIT 1
@@ -41,6 +30,8 @@
 
 // Optional: display pressure in inches of mercury instead of hPa on the OLED.
 // #define DISPLAY_PRESSURE_INHG 1
+
+// #define CELLAR_API_USE_HTTPS 0
 
 /* Optional: pin your TLS cert for HTTPS endpoints
 static const char CELLAR_API_CERT_PEM[] = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n";

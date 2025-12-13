@@ -39,6 +39,9 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
+extern const char server_root_cert_pem_start[] asm("_binary_server_root_cert_pem_start");
+extern const char server_root_cert_pem_end[]   asm("_binary_server_root_cert_pem_end");
+
 esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_result_t *result_out) {
     if (!measurement) return ESP_ERR_INVALID_ARG;
 
@@ -88,8 +91,8 @@ esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_
         .url = POST_URL,
         .event_handler = http_event_handler,
         .timeout_ms = 8000,
-#ifdef CELLAR_API_CERT_PEM
-        .cert_pem = (const char *)CELLAR_API_CERT_PEM,
+#if CELLAR_API_USE_HTTPS
+        .cert_pem = server_root_cert_pem_start,
 #endif
     };
 

@@ -102,12 +102,13 @@ This is a full-stack wine cellar tracking application built with:
 │       │           └── cellar_light.h
 │       ├── dependencies.lock
 │       ├── main
-│       │   ├── bmp085.c
-│       │   ├── bmp085.h
+│       │   ├── bmp280.c
+│       │   ├── bmp280.h
 │       │   ├── CMakeLists.txt
 │       │   ├── config.example.h
 │       │   ├── idf_component.yml
-│       │   └── main.c
+│       │   ├── main.c
+│       │   └── server_root_cert.pem
 │       └── README.md
 ├── fly.toml.template
 ├── GEMINI.md
@@ -127,6 +128,7 @@ This is a full-stack wine cellar tracking application built with:
 ├── README.md
 ├── resources
 │   └── wine-classifications.edn
+├── Screenshot 2025-12-11 8.08.17 PM.png
 ├── scripts
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
@@ -196,6 +198,7 @@ This is a full-stack wine cellar tracking application built with:
 │               │   ├── image_upload.cljs
 │               │   ├── portal_debug.cljs
 │               │   ├── stats_charts.cljs
+│               │   ├── technical_data.cljs
 │               │   ├── wine_card.cljs
 │               │   ├── wine_chat.cljs
 │               │   ├── wine_color.cljs
@@ -224,7 +227,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-44 directories, 136 files
+44 directories, 139 files
 ```
 
 ## Development Commands

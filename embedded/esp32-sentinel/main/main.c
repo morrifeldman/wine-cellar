@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "bmp280.h"
 #include "driver/i2c_master.h"
 #include "esp_chip_info.h"
 #include "esp_event.h"
@@ -17,13 +18,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
+#include "i2c_bus.h"
 #include "nvs_flash.h"
 
-#include "bmp085.h"
 #include "cellar_auth.h"
 #include "cellar_display.h"
 #include "cellar_http.h"
-#include "cellar_light.h"
 #include "config.h"  // User-provided Wi-Fi + API settings (see config.example.h)
 
 #ifndef I2C_SDA
@@ -34,6 +34,11 @@
 #endif
 #ifndef I2C_FREQ_HZ
 #define I2C_FREQ_HZ 100000
+#endif
+
+// Default to standard BMP280 address if not in config
+#ifndef BMP280_ADDRESS
+#define BMP280_ADDRESS BMP280_I2C_ADDRESS_0
 #endif
 
 // Optional local altitude (meters above sea level) to derive sea-level pressure.
@@ -65,11 +70,17 @@
 static const char *TAG = "sentinel";
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
-static bool s_i2c_bus_initialized = false;
+
+// i2c_bus handle (wrapper)
+static i2c_bus_handle_t s_i2c_bus_handle = NULL;
+// Native handle extracted from wrapper (for cellar_display and bmp280)
 static i2c_master_bus_handle_t s_i2c_bus = NULL;
+
+static bmp280_handle_t s_bmp280;
+static bool s_bmp280_ready = false;
+
 static char s_ip_str[16] = "0.0.0.0";
 static bool s_time_synced = false;
-static bool s_bmp_warmed = false;
 
 static inline float pressure_to_sea_level(float station_hpa, float altitude_m) {
     if (isnan(station_hpa) || altitude_m <= 0.0f) return station_hpa;
@@ -78,19 +89,29 @@ static inline float pressure_to_sea_level(float station_hpa, float altitude_m) {
 }
 
 static void ensure_i2c_bus(void) {
-    if (s_i2c_bus_initialized) {
+    if (s_i2c_bus_handle) {
         return;
     }
-    i2c_master_bus_config_t bus_cfg = {
-        .i2c_port = I2C_NUM_0,
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
         .sda_io_num = I2C_SDA,
         .scl_io_num = I2C_SCL,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
+        .sda_pullup_en = true,
+        .scl_pullup_en = true,
+        .master.clk_speed = I2C_FREQ_HZ,
+        .clk_flags = 0,
     };
+    s_i2c_bus_handle = i2c_bus_create(I2C_NUM_0, &conf);
+    if (!s_i2c_bus_handle) {
+        ESP_LOGE(TAG, "Failed to create I2C bus");
+        return;
+    }
 
-    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_cfg, &s_i2c_bus));
-    s_i2c_bus_initialized = true;
+    // Extract the native handle for other components (like display)
+    s_i2c_bus = i2c_bus_get_internal_bus_handle(s_i2c_bus_handle);
+    if (!s_i2c_bus) {
+        ESP_LOGE(TAG, "Failed to get internal I2C bus handle");
+    }
 }
 
 static void log_chip_info(void) {
@@ -110,9 +131,11 @@ static void log_chip_info(void) {
 }
 
 static void scan_i2c_bus(void) {
-    if (!s_i2c_bus_initialized) {
+    if (!s_i2c_bus) {
         ensure_i2c_bus();
     }
+    if (!s_i2c_bus) return; // Should not happen if ensure succeeded
+
     ESP_LOGI(TAG, "Scanning I2C bus on port %d", I2C_NUM_0);
     for (int address = 0x03; address <= 0x77; ++address) {
         esp_err_t err = i2c_master_probe(s_i2c_bus, address, 20);
@@ -284,29 +307,15 @@ static esp_err_t post_cellar_condition(void) {
         have_timestamp = format_iso8601_now(timestamp, sizeof(timestamp));
     }
 
-    float bmp_temp = temperature;
-    if (!s_bmp_warmed) {
-        // Discard an initial measurement and give the sensor a brief settle time.
-        bmp085_read(NULL, NULL);
-        vTaskDelay(pdMS_TO_TICKS(50));
-        s_bmp_warmed = true;
-    }
-
-    esp_err_t bmp_err = bmp085_read(isnan(bmp_temp) ? &bmp_temp : NULL, &pressure);
-    if (bmp_err != ESP_OK) {
-        ESP_LOGE(TAG, "BMP085 read failed: %s", esp_err_to_name(bmp_err));
-    } else if (isnan(temperature) && !isnan(bmp_temp)) {
-        temperature = bmp_temp;
-    }
-
-    if (cellar_light_ready()) {
-        int light_mv = -1;
-        esp_err_t light_err = cellar_light_read(&illuminance_lux, &light_mv);
-        if (light_err != ESP_OK) {
-            ESP_LOGW(TAG, "Light sensor read failed: %s", esp_err_to_name(light_err));
+    if (s_bmp280_ready) {
+        esp_err_t bmp_read_status = bmp280_read_float(&s_bmp280, &temperature, &pressure);
+        if (bmp_read_status != ESP_OK) {
+            ESP_LOGE(TAG, "BMP280 read failed: %s", esp_err_to_name(bmp_read_status));
         } else {
-            ESP_LOGI(TAG, "Ambient light: %.1f lx (%dmV)", illuminance_lux, light_mv);
+            ESP_LOGI(TAG, "BMP280: T=%.2fC P=%.2fhPa", temperature, pressure);
         }
+    } else {
+        ESP_LOGW(TAG, "BMP280 not initialized, skipping read");
     }
 
     float reported_pressure = pressure_to_sea_level(pressure, SENSOR_ALTITUDE_M);
@@ -366,20 +375,29 @@ void app_main(void) {
     if (!sync_time_with_sntp()) {
         ESP_LOGW(TAG, "Proceeding without SNTP timestamp; API will fill server time");
     }
+    
+    // Init I2C bus (and display)
     ensure_i2c_bus();
     scan_i2c_bus();
-    esp_err_t bmp_status = bmp085_init(s_i2c_bus);
-    if (bmp_status != ESP_OK) {
-        ESP_LOGE(TAG, "BMP085 init failed: %s", esp_err_to_name(bmp_status));
+
+    // Init BMP280
+    if (s_i2c_bus) {
+        esp_err_t bmp_err = bmp280_init(s_i2c_bus, BMP280_ADDRESS, &s_bmp280);
+        if (bmp_err != ESP_OK) {
+             ESP_LOGE(TAG, "BMP280 init failed: %s", esp_err_to_name(bmp_err));
+        } else {
+             ESP_LOGI(TAG, "BMP280 init success");
+             s_bmp280_ready = true;
+        }
     }
-    // Give the sensor a moment after init before first use.
+    
+    // Give the sensor a moment
     vTaskDelay(pdMS_TO_TICKS(50));
 
     if (cellar_display_init(s_i2c_bus) != ESP_OK) {
         ESP_LOGW(TAG, "Display init failed; continuing headless");
     }
 
-    cellar_light_init();
 
     cellar_display_show(&waiting);
 
