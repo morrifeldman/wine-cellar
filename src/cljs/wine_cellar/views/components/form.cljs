@@ -18,7 +18,8 @@
     [reagent-mui.material.slider :refer [slider]]
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.autocomplete :refer [autocomplete]]
-    [reagent-mui.material.circular-progress :refer [circular-progress]]))
+    [reagent-mui.material.circular-progress :refer [circular-progress]]
+    [wine-cellar.utils.mui :refer [safe-js-props]]))
 
 ;; Form container components
 (defn form-container
@@ -267,22 +268,7 @@
            (fn [props]
              (r/as-element
               [mui-text-field/text-field
-               (merge (let [shallow-js->clj (fn [o]
-                                              (into {}
-                                                    (for [k (js/Object.keys o)]
-                                                      [(keyword k)
-                                                       (unchecked-get o k)])))
-                            p (shallow-js->clj props)
-                            p (if (:InputProps p)
-                                (update p :InputProps shallow-js->clj)
-                                p)
-                            p (if (:inputProps p)
-                                (update p :inputProps shallow-js->clj)
-                                p)
-                            p (if (:InputLabelProps p)
-                                (update p :InputLabelProps shallow-js->clj)
-                                p)]
-                        p)
+               (merge (safe-js-props props)
                       {:label label
                        :variant "outlined"
                        :size "small"

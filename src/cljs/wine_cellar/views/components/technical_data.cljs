@@ -8,7 +8,8 @@
             [reagent-mui.material.autocomplete :refer [autocomplete]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.grid :refer [grid]]
-            [wine-cellar.common :as common]))
+            [wine-cellar.common :as common]
+            [wine-cellar.utils.mui :refer [safe-js-props]]))
 
 (defn- normalize-input-key
   [input]
@@ -20,9 +21,9 @@
 
 (defn technical-data-editor
   "Component to edit arbitrary metadata fields.
-   Props:
-     :metadata - The current metadata map (or nil)
-     :on-change - Function called with updated metadata map"
+               Props:
+                 :metadata - The current metadata map (or nil)
+                 :on-change - Function called with updated metadata map"
   []
   (let [new-key-input (r/atom "")
         new-value (r/atom "")
@@ -70,28 +71,12 @@
              :options suggested-options
              :value @new-key-input
              :on-input-change (fn [_ v] (reset! new-key-input v))
-             :render-input
-             (fn [params]
-               (r/as-element
-                [text-field
-                 (merge
-                  (let [shallow-js->clj (fn [o]
-                                          (into {}
-                                                (for [k (js/Object.keys o)]
-                                                  [(keyword k)
-                                                   (unchecked-get o k)])))
-                        p (shallow-js->clj params)
-                        p (if (:InputProps p)
-                            (update p :InputProps shallow-js->clj)
-                            p)
-                        p (if (:inputProps p)
-                            (update p :inputProps shallow-js->clj)
-                            p)
-                        p (if (:InputLabelProps p)
-                            (update p :InputLabelProps shallow-js->clj)
-                            p)]
-                    p)
-                  {:label "Field" :variant "outlined" :size "small"})]))}]]
+             :render-input (fn [params]
+                             (r/as-element [text-field
+                                            (merge (safe-js-props params)
+                                                   {:label "Field"
+                                                    :variant "outlined"
+                                                    :size "small"})]))}]]
           [grid {:item true :xs 6}
            [text-field
             {:full-width true

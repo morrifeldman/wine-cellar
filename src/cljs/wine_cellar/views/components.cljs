@@ -14,7 +14,8 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [wine-cellar.utils.formatting :as formatting]
-            [wine-cellar.api :as api]))
+            [wine-cellar.api :as api]
+            [wine-cellar.utils.mui :refer [safe-js-props]]))
 
 ;; Shared styles
 (def form-field-style
@@ -176,42 +177,39 @@
   "Autocomplete implementation of editable-field"
   [{:keys [options option-label free-solo multiple] :as props}]
   [editable-field-wrapper
-   (assoc
-    props
-    :render-input-fn
-    (fn [value on-change error]
-      [autocomplete
-       {:multiple (boolean multiple)
-        :freeSolo (boolean free-solo)
-        :options options
-        :size "small"
-        :value (cond-> value multiple (or []))
-        :getOptionLabel (or option-label
-                            (fn [option]
-                              (cond (nil? option) ""
-                                    (string? option) option
-                                    :else (str option))))
-        :renderInput (fn [params]
-                       (r/as-element
-                        [text-field
-                         (merge (into {}
-                                      (for [k (js/Object.keys params)]
-                                        [(keyword k) (unchecked-get params k)]))
-                                {:variant "outlined"
-                                 :size "small"
-                                 :error (boolean error)
-                                 :helperText error
-                                 :autoFocus true})]))
-        :onChange (fn [_event new-value] (on-change new-value))
-        :on-input-change (when free-solo
-                           (fn [_event new-value reason]
-                             (when (= reason "input") (on-change new-value))))
-        :clearOnBlur true
-        :autoHighlight true
-        :selectOnFocus true
-        :disableCloseOnSelect multiple
-        :blur-on-select "touch"
-        :openOnFocus true}]))])
+   (assoc props
+          :render-input-fn
+          (fn [value on-change error]
+            [autocomplete
+             {:multiple (boolean multiple)
+              :freeSolo (boolean free-solo)
+              :options options
+              :size "small"
+              :value (cond-> value multiple (or []))
+              :getOptionLabel (or option-label
+                                  (fn [option]
+                                    (cond (nil? option) ""
+                                          (string? option) option
+                                          :else (str option))))
+              :renderInput (fn [params]
+                             (r/as-element [text-field
+                                            (merge (safe-js-props params)
+                                                   {:variant "outlined"
+                                                    :size "small"
+                                                    :error (boolean error)
+                                                    :helperText error
+                                                    :autoFocus true})]))
+              :onChange (fn [_event new-value] (on-change new-value))
+              :on-input-change (when free-solo
+                                 (fn [_event new-value reason]
+                                   (when (= reason "input")
+                                     (on-change new-value))))
+              :clearOnBlur true
+              :autoHighlight true
+              :selectOnFocus true
+              :disableCloseOnSelect multiple
+              :blur-on-select "touch"
+              :openOnFocus true}]))])
 
 (defn editable-classification-field
   "Classification field implementation of editable-field for country, region, AOC, and classification"
