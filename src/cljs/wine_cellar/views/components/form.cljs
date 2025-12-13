@@ -267,9 +267,7 @@
            (fn [props]
              (r/as-element
               [mui-text-field/text-field
-               (merge (into {}
-                            (for [k (js/Object.keys props)]
-                              [(keyword k) (unchecked-get props k)]))
+               (merge (js->clj props :keywordize-keys true)
                       {:label label
                        :variant "outlined"
                        :size "small"
