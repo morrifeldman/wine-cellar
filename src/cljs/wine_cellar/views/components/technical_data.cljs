@@ -70,15 +70,13 @@
              :options suggested-options
              :value @new-key-input
              :on-input-change (fn [_ v] (reset! new-key-input v))
-             :render-input
-             (fn [params]
-               (r/as-element
-                [text-field
-                 (merge
-                  (into {}
-                        (for [k (js/Object.keys params)]
-                          [(keyword k) (unchecked-get params k)]))
-                  {:label "Field" :variant "outlined" :size "small"})]))}]]
+             :render-input (fn [params]
+                             (r/as-element
+                              [text-field
+                               (merge (js->clj params :keywordize-keys true)
+                                      {:label "Field"
+                                       :variant "outlined"
+                                       :size "small"})]))}]]
           [grid {:item true :xs 6}
            [text-field
             {:full-width true
