@@ -18,8 +18,7 @@
     [reagent-mui.material.slider :refer [slider]]
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.autocomplete :refer [autocomplete]]
-    [reagent-mui.material.circular-progress :refer [circular-progress]]
-    [reagent-mui.util :refer [react-component]]))
+    [reagent-mui.material.circular-progress :refer [circular-progress]]))
 
 ;; Form container components
 (defn form-container
@@ -264,23 +263,24 @@
                                      (string? option) option
                                      (object? option) (or (.-label option) "")
                                      :else (str option)))
-           :render-input (react-component [props]
-                                          [mui-text-field/text-field
-                                           (merge props
-                                                  {:label label
-                                                   :variant "outlined"
-                                                   :size "small"
-                                                   :required
-                                                   (if multiple
-                                                     ;; workaround for bug
-                                                     ;; https://github.com/mui/material-ui/issues/21663
-                                                     ;; but only if the
-                                                     ;; field is actually
-                                                     ;; required
-                                                     (and required
-                                                          (= (count value) 0))
-                                                     required)
-                                                   :helperText helper-text})])
+           :render-input
+           (fn [props]
+             (r/as-element
+              [mui-text-field/text-field
+               (merge (into {}
+                            (for [k (js/Object.keys props)]
+                              [(keyword k) (unchecked-get props k)]))
+                      {:label label
+                       :variant "outlined"
+                       :size "small"
+                       :required (boolean (if multiple
+                                            ;; workaround for bug
+                                            ;; https://github.com/mui/material-ui/issues/21663
+                                            ;; but only if the field is
+                                            ;; actually required
+                                            (and required (= (count value) 0))
+                                            required))
+                       :helperText helper-text})]))
            :on-change (fn [_event new-value _reason]
                         (when on-change (on-change new-value)))
            :clear-on-blur clear-on-blur

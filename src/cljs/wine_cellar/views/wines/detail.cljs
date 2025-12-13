@@ -29,7 +29,9 @@
             [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
             [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
             [wine-cellar.views.components.ai-provider-toggle :refer
-             [provider-toggle-button]]))
+             [provider-toggle-button]]
+            [wine-cellar.views.components.technical-data :refer
+             [technical-data-editor]]))
 
 (defn editable-location
   [app-state wine]
@@ -227,63 +229,6 @@
                            (dissoc current-metadata metadata-key)
                            (assoc current-metadata metadata-key new-value))]
     (api/update-wine app-state (:id wine) {:metadata updated-metadata})))
-
-(defn editable-elevage
-  [app-state wine]
-  [editable-text-field
-   {:value (get-in wine [:metadata :elevage])
-    :on-save (fn [new-value]
-               (update-wine-metadata app-state wine :elevage new-value))
-    :empty-text "Add vinification details"
-    :text-field-props {:multiline true :rows 4}}])
-
-(defn editable-cooperage
-  [app-state wine]
-  [editable-text-field
-   {:value (get-in wine [:metadata :cooperage])
-    :on-save (fn [new-value]
-               (update-wine-metadata app-state wine :cooperage new-value))
-    :empty-text "Add cooperage details"
-    :text-field-props {:multiline true :rows 2}}])
-
-(defn editable-ph
-  [app-state wine]
-  [editable-text-field
-   {:value (when-let [ph (get-in wine [:metadata :ph])] (str ph))
-    :on-save (fn [new-value]
-               (let [parsed (js/parseFloat new-value)]
-                 (if (js/isNaN parsed)
-                   (update-wine-metadata app-state wine :ph nil)
-                   (update-wine-metadata app-state wine :ph parsed))))
-    :validate-fn (fn [value]
-                   (if (str/blank? value)
-                     nil
-                     (let [parsed (js/parseFloat value)]
-                       (cond (js/isNaN parsed) "pH must be a number"
-                             (< parsed 2.0) "pH too low"
-                             (> parsed 5.0) "pH too high"
-                             :else nil))))
-    :empty-text "Add pH"
-    :compact? true
-    :text-field-props {:type "number" :step "0.01"}}])
-
-(defn editable-producer-notes
-  [app-state wine]
-  [editable-text-field
-   {:value (get-in wine [:metadata :producer-notes])
-    :on-save (fn [new-value]
-               (update-wine-metadata app-state wine :producer-notes new-value))
-    :empty-text "Add winemaker's notes"
-    :text-field-props {:multiline true :rows 4}}])
-
-(defn editable-external-notes
-  [app-state wine]
-  [editable-text-field
-   {:value (get-in wine [:metadata :external-notes])
-    :on-save (fn [new-value]
-               (update-wine-metadata app-state wine :external-notes new-value))
-    :empty-text "Add source / context"
-    :text-field-props {:multiline true :rows 3}}])
 
 (defn editable-tasting-window-commentary
   [app-state wine]
@@ -912,28 +857,11 @@
   [app-state wine]
   [grid {:item true :xs 12}
    [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-    [typography {:variant "body2" :color "text.secondary"} "Technical & Notes"]
-    [box {:sx {:mt 2 :display "flex" :flexDirection "column" :gap 3}}
-     ;; Technical Data
-     [grid {:container true :spacing 2}
-      [grid {:item true :xs 12 :md 4}
-       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-        "pH"] [editable-ph app-state wine]]
-      [grid {:item true :xs 12 :md 8}
-       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-        "Oak / Cooperage"] [editable-cooperage app-state wine]]]
-     ;; Vinification
-     [box
-      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-       "Vinification & Aging (Elevage)"] [editable-elevage app-state wine]]
-     ;; Winemaker Notes
-     [box
-      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-       "Winemaker's Notes"] [editable-producer-notes app-state wine]]
-     ;; External Notes
-     [box
-      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-       "Source / Context"] [editable-external-notes app-state wine]]]]])
+    [technical-data-editor
+     {:metadata (or (:metadata wine) {})
+      :on-change
+      (fn [new-metadata]
+        (api/update-wine app-state (:id wine) {:metadata new-metadata}))}]]])
 
 (defn wine-tasting-notes-section
   [app-state wine]

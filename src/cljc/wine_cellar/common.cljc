@@ -186,3 +186,9 @@
     :quality-level ["FAULTY" "POOR" "ACCEPTABLE" "GOOD" "VERY GOOD"
                     "OUTSTANDING"]
     :readiness ["TOO YOUNG" "DRINK OR HOLD" "DRINK" "TOO OLD"]}})
+
+(def technical-data-keys
+  [:soil :vine-age :harvest :fermentation :aging :cooperage :percent-new-oak
+   :yeast :malo-lactic :fining :filtration :ph :total-acidity :residual-sugar
+   :base-vintage :reserve-wines :bottling-date :release-date :production-volume
+   :certification])

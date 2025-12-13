@@ -128,7 +128,6 @@ This is a full-stack wine cellar tracking application built with:
 ├── README.md
 ├── resources
 │   └── wine-classifications.edn
-├── Screenshot 2025-12-11 8.08.17 PM.png
 ├── scripts
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
@@ -227,7 +226,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-44 directories, 139 files
+44 directories, 138 files
 ```
 
 ## Development Commands
