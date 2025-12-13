@@ -349,6 +349,11 @@ static esp_err_t post_cellar_condition(void) {
     };
     cellar_display_show(&display_status);
 
+    if (http_result.status_code == 401 || http_result.status_code == 403) {
+        ESP_LOGW(TAG, "Auth rejected (status %d), clearing tokens to force re-claim", http_result.status_code);
+        cellar_auth_clear();
+    }
+
     return err;
 }
 
