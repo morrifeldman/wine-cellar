@@ -28,7 +28,10 @@
         new-value (r/atom "")
         suggested-options (mapv common/humanize-key common/technical-data-keys)]
     (fn [{:keys [metadata on-change]}]
-      (let [handle-delete (fn [k] (on-change (dissoc metadata k)))
+      (let [metadata (if (and metadata (not (map? metadata)))
+                       (js->clj metadata :keywordize-keys true)
+                       metadata)
+            handle-delete (fn [k] (on-change (dissoc metadata k)))
             handle-add (fn []
                          (let [k (normalize-input-key @new-key-input)
                                v @new-value]
