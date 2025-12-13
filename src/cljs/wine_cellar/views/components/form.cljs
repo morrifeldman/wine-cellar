@@ -267,7 +267,22 @@
            (fn [props]
              (r/as-element
               [mui-text-field/text-field
-               (merge (js->clj props :keywordize-keys true)
+               (merge (let [shallow-js->clj (fn [o]
+                                              (into {}
+                                                    (for [k (js/Object.keys o)]
+                                                      [(keyword k)
+                                                       (unchecked-get o k)])))
+                            p (shallow-js->clj props)
+                            p (if (:InputProps p)
+                                (update p :InputProps shallow-js->clj)
+                                p)
+                            p (if (:inputProps p)
+                                (update p :inputProps shallow-js->clj)
+                                p)
+                            p (if (:InputLabelProps p)
+                                (update p :InputLabelProps shallow-js->clj)
+                                p)]
+                        p)
                       {:label label
                        :variant "outlined"
                        :size "small"
