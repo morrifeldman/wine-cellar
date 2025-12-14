@@ -13,6 +13,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_netif_sntp.h"
+#include "esp_sntp.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -26,6 +27,8 @@
 #include "cellar_http.h"
 #include "opt3001.h"
 #include "veml7700.h"
+#include "onewire_bus.h"
+#include "ds18b20.h"
 #include "config.h"  // User-provided Wi-Fi + API settings (see config.example.h)
 
 #ifndef I2C_SDA
@@ -33,6 +36,9 @@
 #endif
 #ifndef I2C_SCL
 #define I2C_SCL 22
+#endif
+#ifndef ONEWIRE_BUS_GPIO
+#define ONEWIRE_BUS_GPIO 4
 #endif
 #ifndef I2C_FREQ_HZ
 #define I2C_FREQ_HZ 100000
@@ -84,6 +90,9 @@ static bool s_opt3001_ready = false;
 
 static veml7700_handle_t s_veml7700;
 static bool s_veml7700_ready = false;
+
+static ds18b20_device_handle_t s_ds18b20_device = NULL;
+static bool s_ds18b20_ready = false;
 
 static char s_ip_str[16] = "0.0.0.0";
 static bool s_time_synced = false;
@@ -244,11 +253,13 @@ static bool sync_time_with_sntp(void) {
         return true;
     }
 
-    esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
-    esp_err_t init_err = esp_netif_sntp_init(&config);
-    if (init_err != ESP_OK && init_err != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "Failed to init SNTP: %s", esp_err_to_name(init_err));
-        return false;
+    if (!esp_sntp_enabled()) {
+        esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+        esp_err_t init_err = esp_netif_sntp_init(&config);
+        if (init_err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to init SNTP: %s", esp_err_to_name(init_err));
+            return false;
+        }
     }
 
     esp_err_t wait_err = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(5000));
@@ -325,6 +336,24 @@ static esp_err_t post_cellar_condition(void) {
         }
     } else {
         ESP_LOGW(TAG, "BMP280 not initialized, skipping read");
+    }
+
+    if (s_ds18b20_ready) {
+        esp_err_t ds_err = ds18b20_trigger_temperature_conversion(s_ds18b20_device);
+        if (ds_err == ESP_OK) {
+            // Wait for conversion (12-bit needs ~750ms)
+            vTaskDelay(pdMS_TO_TICKS(800));
+            float ds_temp = 0.0f;
+            ds_err = ds18b20_get_temperature(s_ds18b20_device, &ds_temp);
+            if (ds_err == ESP_OK) {
+                ESP_LOGI(TAG, "DS18B20: T=%.2fC", ds_temp);
+                temperature = ds_temp; // Override BMP280
+            } else {
+                ESP_LOGE(TAG, "DS18B20 read failed: %s", esp_err_to_name(ds_err));
+            }
+        } else {
+             ESP_LOGE(TAG, "DS18B20 trigger failed: %s", esp_err_to_name(ds_err));
+        }
     }
 
     if (s_opt3001_ready) {
@@ -459,6 +488,40 @@ void app_main(void) {
         }
     }
     
+    // Init 1-Wire (DS18B20) on GPIO 4
+    onewire_bus_handle_t ow_bus = NULL;
+    onewire_bus_config_t bus_config = {
+        .bus_gpio_num = ONEWIRE_BUS_GPIO,
+    };
+    onewire_bus_rmt_config_t rmt_config = {
+        .max_rx_bytes = 10,
+    };
+    
+    // Create 1-Wire bus
+    if (onewire_new_bus_rmt(&bus_config, &rmt_config, &ow_bus) == ESP_OK) {
+        onewire_device_iter_handle_t iter = NULL;
+        onewire_device_t next_onewire_device;
+        if (onewire_new_device_iter(ow_bus, &iter) == ESP_OK) {
+            ESP_LOGI(TAG, "Scanning 1-Wire bus on GPIO %d...", ONEWIRE_BUS_GPIO);
+            if (onewire_device_iter_get_next(iter, &next_onewire_device) == ESP_OK) {
+                // Found a device, try to init as DS18B20
+                ds18b20_config_t ds_cfg = {}; 
+                if (ds18b20_new_device_from_enumeration(&next_onewire_device, &ds_cfg, &s_ds18b20_device) == ESP_OK) {
+                     ESP_LOGI(TAG, "Found DS18B20, init success");
+                     s_ds18b20_ready = true;
+                     ds18b20_set_resolution(s_ds18b20_device, DS18B20_RESOLUTION_12B);
+                } else {
+                     ESP_LOGE(TAG, "Found 1-Wire device but failed to init DS18B20 driver");
+                }
+            } else {
+                ESP_LOGW(TAG, "No 1-Wire devices found");
+            }
+            onewire_del_device_iter(iter);
+        }
+    } else {
+        ESP_LOGE(TAG, "Failed to create 1-Wire bus RMT");
+    }
+
     // Give the sensor a moment
     vTaskDelay(pdMS_TO_TICKS(50));
 

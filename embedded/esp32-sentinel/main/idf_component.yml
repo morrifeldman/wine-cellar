@@ -5,3 +5,5 @@ dependencies:
     version: '>=4.1.0'
   # # Put list of dependencies here
   espressif/bme280: "*"
+  espressif/ds18b20: "*"
+  espressif/onewire_bus: "*"
