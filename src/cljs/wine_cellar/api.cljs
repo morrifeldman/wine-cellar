@@ -127,7 +127,8 @@
           (swap! app-state assoc
             :devices/list (:data result)
             :devices/loading? false
-            :devices/error nil)
+            :devices/error nil
+            :devices/approve-error nil)
           (swap! app-state assoc
             :devices/loading? false
             :devices/error (:error result))))))

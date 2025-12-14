@@ -347,10 +347,27 @@ esp_err_t cellar_display_init(i2c_master_bus_handle_t bus) {
         return err;
     }
 
-    ESP_ERROR_CHECK(esp_lcd_panel_reset(s_panel));
-    ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel));
-    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_panel, true));
-    ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, true, true));
+    err = esp_lcd_panel_reset(s_panel);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "SSD1306 reset failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = esp_lcd_panel_init(s_panel);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "SSD1306 panel init failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = esp_lcd_panel_disp_on_off(s_panel, true);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "SSD1306 disp_on failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    
+    // Optional mirror config
+    esp_lcd_panel_mirror(s_panel, true, true);
+    
     s_display_ok = true;
     ESP_LOGI(TAG, "SSD1306 ready at 0x%02X (%dx%d)", OLED_ADDRESS, OLED_WIDTH, OLED_HEIGHT);
     clear_framebuffer();

@@ -14,12 +14,8 @@ const char *cellar_auth_access_token(void);
 
 // Return the claim code being used (from config or generated/stored).
 const char *cellar_auth_claim_code(void);
+const char *cellar_auth_device_id(void);
 
-// Clear stored tokens (forces re-claim on next ensure).
 void cellar_auth_clear(void);
 
-// Clear stored claim code (forces regenerate or reuse CLAIM_CODE).
-void cellar_auth_clear_claim_code(void);
-
-// Debug helper to log current token expiry.
 void cellar_auth_log_status(void);

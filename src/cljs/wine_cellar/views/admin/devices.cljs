@@ -83,14 +83,14 @@
      (when approve-error
        [typography {:variant "body2" :color "error.main" :sx {:mb 1}}
         approve-error])
+     [stack {:spacing 1 :direction "row" :alignItems "center" :sx {:mb 2}}
+      [button
+       {:variant "outlined"
+        :size "small"
+        :on-click #(api/fetch-devices app-state)} "Refresh"]]
      (cond (and (not loading?) (seq devices))
            (for [d devices] ^{:key (:device_id d)} [device-row d app-state])
            (and (not loading?) (empty? devices))
-           [stack {:spacing 1}
-            [typography {:variant "body2" :color "text.secondary"}
-             "No devices yet."]
-            [button
-             {:variant "outlined"
-              :size "small"
-              :on-click #(api/fetch-devices app-state)} "Refresh"]]
+           [typography {:variant "body2" :color "text.secondary"}
+            "No devices yet."]
            :else nil)]))

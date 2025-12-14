@@ -24,6 +24,7 @@
 #include "cellar_auth.h"
 #include "cellar_display.h"
 #include "cellar_http.h"
+#include "opt3001.h"
 #include "config.h"  // User-provided Wi-Fi + API settings (see config.example.h)
 
 #ifndef I2C_SDA
@@ -58,9 +59,7 @@
 #error "CELLAR_API_BASE must be defined in config.h"
 #endif
 
-#ifndef DEVICE_ID
-#define DEVICE_ID "esp32-sentinel"
-#endif
+
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
@@ -78,6 +77,9 @@ static i2c_master_bus_handle_t s_i2c_bus = NULL;
 
 static bmp280_handle_t s_bmp280;
 static bool s_bmp280_ready = false;
+
+static opt3001_handle_t s_opt3001;
+static bool s_opt3001_ready = false;
 
 static char s_ip_str[16] = "0.0.0.0";
 static bool s_time_synced = false;
@@ -318,6 +320,16 @@ static esp_err_t post_cellar_condition(void) {
         ESP_LOGW(TAG, "BMP280 not initialized, skipping read");
     }
 
+    if (s_opt3001_ready) {
+        esp_err_t opt_err = opt3001_read_lux(&s_opt3001, &illuminance_lux);
+        if (opt_err != ESP_OK) {
+             ESP_LOGE(TAG, "OPT3001 read failed: %s", esp_err_to_name(opt_err));
+             illuminance_lux = NAN;
+        } else {
+             ESP_LOGI(TAG, "OPT3001: Lux=%.2f", illuminance_lux);
+        }
+    }
+
     float reported_pressure = pressure_to_sea_level(pressure, SENSOR_ALTITUDE_M);
     if (isnan(reported_pressure)) {
         reported_pressure = pressure;
@@ -333,7 +345,7 @@ static esp_err_t post_cellar_condition(void) {
         .pressure_hpa = reported_pressure,
         .illuminance_lux = illuminance_lux,
         .timestamp_iso8601 = have_timestamp ? timestamp : NULL,
-        .device_id = DEVICE_ID,
+        .device_id = cellar_auth_device_id(),
     };
 
     cellar_http_result_t http_result;
@@ -393,6 +405,15 @@ void app_main(void) {
         } else {
              ESP_LOGI(TAG, "BMP280 init success");
              s_bmp280_ready = true;
+        }
+
+        // Init OPT3001
+        esp_err_t opt_err = opt3001_init(s_i2c_bus, OPT3001_I2C_ADDR_DEFAULT, &s_opt3001);
+        if (opt_err != ESP_OK) {
+             ESP_LOGW(TAG, "OPT3001 init failed (not connected?): %s", esp_err_to_name(opt_err));
+        } else {
+             ESP_LOGI(TAG, "OPT3001 init success");
+             s_opt3001_ready = true;
         }
     }
     

@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "esp_system.h" 
+#include "esp_mac.h" // For esp_read_mac
 
 #include "config.h"
 #include "esp_http_client.h"
@@ -49,6 +51,18 @@ static char s_access_token[768] = {0};
 static char s_refresh_token[256] = {0};
 static time_t s_access_expiry = 0;
 static char s_claim_code[24] = {0};
+static char s_full_device_id[64] = {0}; // Derived from config DEVICE_ID + MAC
+
+static void ensure_device_id(void) {
+    if (s_full_device_id[0] != '\0') return;
+    
+    uint8_t mac[6] = {0};
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    // Append last 3 bytes of MAC to ensure uniqueness
+    snprintf(s_full_device_id, sizeof(s_full_device_id), "%s-%02X%02X%02X", 
+             DEVICE_ID, mac[3], mac[4], mac[5]);
+    ESP_LOGI(TAG, "Device Identity: %s", s_full_device_id);
+}
 
 static void ensure_claim_code(void);
 
@@ -119,7 +133,10 @@ void cellar_auth_clear_claim_code(void) {
     ensure_claim_code();
 }
 
-void cellar_auth_init(void) { load_tokens(); }
+void cellar_auth_init(void) {
+    load_tokens();
+    ensure_device_id(); // Initialize the full device ID
+}
 
 const char *cellar_auth_access_token(void) {
     return (s_access_token[0] != '\0') ? s_access_token : NULL;
@@ -149,9 +166,15 @@ const char *cellar_auth_claim_code(void) {
     return s_claim_code;
 }
 
+const char *cellar_auth_device_id(void) {
+    ensure_device_id();
+    return s_full_device_id;
+}
+
 void cellar_auth_log_status(void) {
     ESP_LOGI(TAG,
-             "access token %s, refresh %s, exp=%ld",
+             "id=%s, access token %s, refresh %s, exp=%ld",
+             s_full_device_id,
              s_access_token[0] ? "present" : "missing",
              s_refresh_token[0] ? "present" : "missing",
              (long)s_access_expiry);
@@ -187,7 +210,7 @@ static bool json_get_string(const char *body, const char *key, char *out, size_t
 extern const char server_root_cert_pem_start[] asm("_binary_server_root_cert_pem_start");
 extern const char server_root_cert_pem_end[]   asm("_binary_server_root_cert_pem_end");
 
-static esp_err_t http_post_json(const char *url, const char *json_body, char *resp_buf, size_t resp_buf_len) {
+static esp_err_t http_post_json(const char *url, const char *json_body, char *resp_buf, size_t resp_buf_len, int *out_status) {
     resp_accum_t acc = {0};
     acc.buf = resp_buf;
     acc.cap = resp_buf_len;
@@ -200,6 +223,7 @@ static esp_err_t http_post_json(const char *url, const char *json_body, char *re
         .event_handler = http_event_handler_accum,
         .user_data = &acc,
         .buffer_size = resp_buf_len > 0 ? resp_buf_len : 512,
+        .disable_auto_redirect = true, // We don't want to follow redirects blindly
     };
 #if CELLAR_API_USE_HTTPS
     cfg.cert_pem = server_root_cert_pem_start;
@@ -214,11 +238,17 @@ static esp_err_t http_post_json(const char *url, const char *json_body, char *re
     esp_http_client_set_post_field(client, json_body, strlen(json_body));
 
     esp_err_t err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        int status = esp_http_client_get_status_code(client);
+    
+    // Special handling: if we get ESP_ERR_NOT_SUPPORTED or similar but have a valid status code, it might be the client
+    // complaining about missing auth credentials for a 401 response. We treat that as "success" (transport-wise).
+    int status = esp_http_client_get_status_code(client);
+    if (out_status) *out_status = status;
+
+    if (err == ESP_OK || (status > 0 && status < 600)) {
         int64_t len = esp_http_client_get_content_length(client);
         ESP_LOGI(TAG, "POST %s status=%d len=%lld", url, status, (long long)len);
         ESP_LOGI(TAG, "Read %u bytes body", (unsigned)acc.len);
+        err = ESP_OK; // mask the error if we got a valid HTTP response
     } else {
         ESP_LOGE(TAG, "HTTP POST failed to %s: %s", url, esp_err_to_name(err));
     }
@@ -229,11 +259,12 @@ static esp_err_t http_post_json(const char *url, const char *json_body, char *re
 
 static esp_err_t refresh_tokens(void) {
     if (s_refresh_token[0] == '\0') return ESP_FAIL;
-    char body[320];
-    snprintf(body, sizeof(body), "{\"device_id\":\"%s\",\"refresh_token\":\"%s\"}", DEVICE_ID, s_refresh_token);
+    char body[512];
+    snprintf(body, sizeof(body), "{\"device_id\":\"%s\",\"refresh_token\":\"%s\"}", s_full_device_id, s_refresh_token);
     char resp[1024];
-    esp_err_t err = http_post_json(CELLAR_API_BASE "/device-token", body, resp, sizeof(resp));
-    if (err != ESP_OK) return err;
+    int status = 0;
+    esp_err_t err = http_post_json(CELLAR_API_BASE "/device-token", body, resp, sizeof(resp), &status);
+    if (err != ESP_OK || status != 200) return ESP_FAIL;
 
     char access[768] = {0};
     char refresh[256] = {0};
@@ -258,24 +289,34 @@ static esp_err_t refresh_tokens(void) {
 static esp_err_t claim_and_poll(void) {
     char claim_body[256];
     const char *claim = cellar_auth_claim_code();
-    snprintf(claim_body, sizeof(claim_body), "{\"device_id\":\"%s\",\"claim_code\":\"%s\"}", DEVICE_ID, claim);
+    snprintf(claim_body, sizeof(claim_body), "{\"device_id\":\"%s\",\"claim_code\":\"%s\"}", s_full_device_id, claim);
     char resp[1024];
-    esp_err_t err = http_post_json(CELLAR_API_BASE "/device-claim", claim_body, resp, sizeof(resp));
-    if (err != ESP_OK) return err;
+    int status = 0;
+    esp_err_t err = http_post_json(CELLAR_API_BASE "/device-claim", claim_body, resp, sizeof(resp), &status);
+    if (err != ESP_OK || (status != 200 && status != 202)) return err;
 
-    for (int attempt = 0; attempt < 10; ++attempt) {
+    for (int attempt = 0; attempt < 60; ++attempt) { // Poll for 3 minutes (60 * 3s)
         vTaskDelay(pdMS_TO_TICKS(3000));
         memset(resp, 0, sizeof(resp));
-        err = http_post_json(CELLAR_API_BASE "/device-claim/poll", claim_body, resp, sizeof(resp));
+        err = http_post_json(CELLAR_API_BASE "/device-claim/poll", claim_body, resp, sizeof(resp), &status);
+        
+        // If we get 401/403, it means "Not yet approved" (server rejected request because device isn't claimed yet).
+        // We treat this as a "pending" state and continue polling.
+        if (err == ESP_OK && (status == 401 || status == 403)) {
+            ESP_LOGD(TAG, "Poll status %d (pending approval)...", status);
+            continue;
+        }
+
         if (err != ESP_OK) continue;
 
         ESP_LOGI(TAG, "Poll resp attempt %d: %s", attempt, resp);
-        char status[32] = {0};
-        if (!json_get_string(resp, "status", status, sizeof(status))) continue;
-        if (strcmp(status, "pending") == 0) {
+        char json_status[32] = {0};
+        if (!json_get_string(resp, "status", json_status, sizeof(json_status))) continue;
+        
+        if (strcmp(json_status, "pending") == 0) {
             continue;
         }
-        if (strcmp(status, "approved") == 0) {
+        if (strcmp(json_status, "approved") == 0) {
             char access[768] = {0};
             char refresh[256] = {0};
             if (!json_get_string(resp, "access_token", access, sizeof(access))) {
