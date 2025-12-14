@@ -309,7 +309,7 @@ static esp_err_t claim_and_poll(void) {
 
         if (err != ESP_OK) continue;
 
-        ESP_LOGI(TAG, "Poll resp attempt %d: %s", attempt, resp);
+        ESP_LOGI(TAG, "Poll resp attempt %d: (len=%d)", attempt, (int)strlen(resp));
         char json_status[32] = {0};
         if (!json_get_string(resp, "status", json_status, sizeof(json_status))) continue;
         

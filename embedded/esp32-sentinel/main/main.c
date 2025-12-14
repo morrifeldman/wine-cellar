@@ -25,6 +25,7 @@
 #include "cellar_display.h"
 #include "cellar_http.h"
 #include "opt3001.h"
+#include "veml7700.h"
 #include "config.h"  // User-provided Wi-Fi + API settings (see config.example.h)
 
 #ifndef I2C_SDA
@@ -80,6 +81,9 @@ static bool s_bmp280_ready = false;
 
 static opt3001_handle_t s_opt3001;
 static bool s_opt3001_ready = false;
+
+static veml7700_handle_t s_veml7700;
+static bool s_veml7700_ready = false;
 
 static char s_ip_str[16] = "0.0.0.0";
 static bool s_time_synced = false;
@@ -301,7 +305,10 @@ static esp_err_t post_cellar_condition(void) {
 
     float temperature = NAN;
     float pressure = NAN;
-    float illuminance_lux = NAN;
+    float illuminance_lux = NAN; // This will hold the final lux for telemetry
+    float opt_lux = NAN; // Local var for OPT3001 reading
+    float veml_lux = NAN; // Local var for VEML7700 reading
+
     char timestamp[32] = {0};
     bool have_timestamp = format_iso8601_now(timestamp, sizeof(timestamp));
     if (!have_timestamp && !s_time_synced) {
@@ -321,12 +328,22 @@ static esp_err_t post_cellar_condition(void) {
     }
 
     if (s_opt3001_ready) {
-        esp_err_t opt_err = opt3001_read_lux(&s_opt3001, &illuminance_lux);
+        esp_err_t opt_err = opt3001_read_lux(&s_opt3001, &opt_lux);
         if (opt_err != ESP_OK) {
              ESP_LOGE(TAG, "OPT3001 read failed: %s", esp_err_to_name(opt_err));
-             illuminance_lux = NAN;
         } else {
-             ESP_LOGI(TAG, "OPT3001: Lux=%.2f", illuminance_lux);
+             ESP_LOGI(TAG, "OPT3001: Lux=%.2f", opt_lux);
+             illuminance_lux = opt_lux; // OPT3001 is preferred for telemetry
+        }
+    }
+    
+    if (s_veml7700_ready) {
+        esp_err_t veml_err = veml7700_read_lux(&s_veml7700, &veml_lux);
+        if (veml_err != ESP_OK) {
+             ESP_LOGE(TAG, "VEML7700 read failed: %s", esp_err_to_name(veml_err));
+        } else {
+             ESP_LOGI(TAG, "VEML7700: Lux=%.2f", veml_lux);
+             // VEML7700 value is logged, but OPT3001 is used for telemetry if available
         }
     }
 
@@ -397,23 +414,48 @@ void app_main(void) {
     ensure_i2c_bus();
     scan_i2c_bus();
 
-    // Init BMP280
+    // Init Sensors
     if (s_i2c_bus) {
-        esp_err_t bmp_err = bmp280_init(s_i2c_bus, BMP280_ADDRESS, &s_bmp280);
-        if (bmp_err != ESP_OK) {
-             ESP_LOGE(TAG, "BMP280 init failed: %s", esp_err_to_name(bmp_err));
+        // Probe and Init BMP280
+        if (i2c_master_probe(s_i2c_bus, BMP280_ADDRESS, 50) == ESP_OK) {
+            ESP_LOGI(TAG, "Found BMP280 at 0x%02X, initializing...", BMP280_ADDRESS);
+            esp_err_t bmp_err = bmp280_init(s_i2c_bus, BMP280_ADDRESS, &s_bmp280);
+            if (bmp_err != ESP_OK) {
+                 ESP_LOGE(TAG, "BMP280 init failed: %s", esp_err_to_name(bmp_err));
+            } else {
+                 ESP_LOGI(TAG, "BMP280 init success");
+                 s_bmp280_ready = true;
+            }
         } else {
-             ESP_LOGI(TAG, "BMP280 init success");
-             s_bmp280_ready = true;
+            ESP_LOGD(TAG, "BMP280 not found at 0x%02X", BMP280_ADDRESS);
         }
 
-        // Init OPT3001
-        esp_err_t opt_err = opt3001_init(s_i2c_bus, OPT3001_I2C_ADDR_DEFAULT, &s_opt3001);
-        if (opt_err != ESP_OK) {
-             ESP_LOGW(TAG, "OPT3001 init failed (not connected?): %s", esp_err_to_name(opt_err));
+        // Probe and Init OPT3001
+        if (i2c_master_probe(s_i2c_bus, OPT3001_I2C_ADDR_DEFAULT, 50) == ESP_OK) {
+            ESP_LOGI(TAG, "Found OPT3001 at 0x%02X, initializing...", OPT3001_I2C_ADDR_DEFAULT);
+            esp_err_t opt_err = opt3001_init(s_i2c_bus, OPT3001_I2C_ADDR_DEFAULT, &s_opt3001);
+            if (opt_err != ESP_OK) {
+                 ESP_LOGE(TAG, "OPT3001 init failed: %s", esp_err_to_name(opt_err));
+            } else {
+                 ESP_LOGI(TAG, "OPT3001 init success");
+                 s_opt3001_ready = true;
+            }
         } else {
-             ESP_LOGI(TAG, "OPT3001 init success");
-             s_opt3001_ready = true;
+            ESP_LOGD(TAG, "OPT3001 not found at 0x%02X", OPT3001_I2C_ADDR_DEFAULT);
+        }
+
+        // Probe and Init VEML7700
+        if (i2c_master_probe(s_i2c_bus, VEML7700_I2C_ADDR_DEFAULT, 50) == ESP_OK) {
+            ESP_LOGI(TAG, "Found VEML7700 at 0x%02X, initializing...", VEML7700_I2C_ADDR_DEFAULT);
+            esp_err_t veml_err = veml7700_init(s_i2c_bus, VEML7700_I2C_ADDR_DEFAULT, &s_veml7700);
+            if (veml_err != ESP_OK) {
+                 ESP_LOGE(TAG, "VEML7700 init failed: %s", esp_err_to_name(veml_err));
+            } else {
+                 ESP_LOGI(TAG, "VEML7700 init success");
+                 s_veml7700_ready = true;
+            }
+        } else {
+             ESP_LOGD(TAG, "VEML7700 not found at 0x%02X", VEML7700_I2C_ADDR_DEFAULT);
         }
     }
     

@@ -100,11 +100,16 @@ This is a full-stack wine cellar tracking application built with:
 │       │   │   ├── CMakeLists.txt
 │       │   │   └── include
 │       │   │       └── cellar_light.h
-│       │   └── opt3001
+│       │   ├── opt3001
+│       │   │   ├── CMakeLists.txt
+│       │   │   ├── include
+│       │   │   │   └── opt3001.h
+│       │   │   └── opt3001.c
+│       │   └── veml7700
 │       │       ├── CMakeLists.txt
 │       │       ├── include
-│       │       │   └── opt3001.h
-│       │       └── opt3001.c
+│       │       │   └── veml7700.h
+│       │       └── veml7700.c
 │       ├── dependencies.lock
 │       ├── main
 │       │   ├── bmp280.c
@@ -232,7 +237,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-46 directories, 142 files
+48 directories, 145 files
 ```
 
 ## Development Commands

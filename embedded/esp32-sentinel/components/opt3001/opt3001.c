@@ -1,6 +1,8 @@
 #include "opt3001.h"
 #include "esp_log.h"
 #include <math.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char *TAG = "opt3001";
 
@@ -9,9 +11,9 @@ static const char *TAG = "opt3001";
 #define OPT3001_REG_MANUFACTURER_ID 0x7E
 #define OPT3001_REG_DEVICE_ID 0x7F
 
-// Config: Auto-range (1100), 800ms (1), Continuous (10 or 11)
-// 1100 1010 0001 0000 = 0xCA10
-#define OPT3001_CONFIG_DEFAULT 0xCA10 
+// Config: Auto-range (1100), 800ms (1), Continuous (10)
+// 1100 1100 0001 0000 = 0xCC10
+#define OPT3001_CONFIG_DEFAULT 0xCC10 
 
 static esp_err_t write_register(opt3001_handle_t *handle, uint8_t reg, uint16_t value) {
     uint8_t data[3];
@@ -52,7 +54,20 @@ esp_err_t opt3001_init(i2c_master_bus_handle_t bus_handle, uint8_t address, opt3
          return err;
     }
     if (mfg_id != 0x5449) { // TI ID
-        ESP_LOGW(TAG, "Unexpected Manufacturer ID: 0x%04X (expected 0x5449)", mfg_id);
+        ESP_LOGE(TAG, "Unexpected Manufacturer ID: 0x%04X (expected 0x5449)", mfg_id);
+        return ESP_FAIL;
+    }
+
+    // Verify Device ID
+    uint16_t dev_id = 0;
+    err = read_register(out_handle, OPT3001_REG_DEVICE_ID, &dev_id);
+    if (err != ESP_OK) {
+         ESP_LOGE(TAG, "Failed to read Device ID from OPT3001");
+         return err;
+    }
+    if (dev_id != 0x3001) { // OPT3001 Device ID
+        ESP_LOGE(TAG, "Unexpected Device ID: 0x%04X (expected 0x3001)", dev_id);
+        return ESP_FAIL;
     }
 
     // Configure sensor
@@ -61,6 +76,9 @@ esp_err_t opt3001_init(i2c_master_bus_handle_t bus_handle, uint8_t address, opt3
         ESP_LOGE(TAG, "Failed to configure OPT3001");
         return err;
     }
+    
+    // Give the sensor time to complete its first conversion (800ms config)
+    vTaskDelay(pdMS_TO_TICKS(1000));
 
     ESP_LOGI(TAG, "OPT3001 initialized at 0x%02X", address);
     return ESP_OK;
