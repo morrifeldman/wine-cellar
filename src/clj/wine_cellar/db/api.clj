@@ -390,6 +390,17 @@
     ;; extension
     (mapv db-wine->wine wines)))
 
+(defn get-all-metadata-keys
+  []
+  (->> (jdbc/execute! ds
+                      (sql/format {:select-distinct [[[:jsonb_object_keys
+                                                       :metadata]]]
+                                   :from :wines
+                                   :where [:not [:= :metadata nil]]})
+                      db-opts)
+       (map :jsonb_object_keys)
+       vec))
+
 (defn get-wine
   [id include-images?]
   (-> (jdbc/execute-one! ds

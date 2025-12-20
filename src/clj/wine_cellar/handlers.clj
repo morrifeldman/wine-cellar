@@ -118,6 +118,11 @@
   (try (let [wines (db-api/get-wines-for-list)] (response/response wines))
        (catch Exception e (server-error e))))
 
+(defn get-technical-data-keys
+  [_]
+  (try (let [keys (db-api/get-all-metadata-keys)] (response/response keys))
+       (catch Exception e (server-error e))))
+
 (defn get-wine
   [{{{:keys [id]} :path {:keys [include_images]} :query} :parameters}]
   (try (if-let [wine (db-api/get-wine id include_images)]

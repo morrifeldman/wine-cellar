@@ -1,6 +1,7 @@
 (ns wine-cellar.views.components.technical-data
   (:require [reagent.core :as r]
             [clojure.string :as str]
+            [cljs.core.async :refer [go <!]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.text-field :refer [text-field]]
             [reagent-mui.material.icon-button :refer [icon-button]]
@@ -9,6 +10,7 @@
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.grid :refer [grid]]
             [wine-cellar.common :as common]
+            [wine-cellar.api :as api]
             [wine-cellar.utils.mui :refer [safe-js-props]]))
 
 (defn- normalize-input-key
@@ -27,7 +29,16 @@
   []
   (let [new-key-input (r/atom "")
         new-value (r/atom "")
-        suggested-options (mapv common/humanize-key common/technical-data-keys)]
+        base-keys (mapv common/humanize-key common/technical-data-keys)
+        suggested-options (r/atom base-keys)]
+    (go (let [result (<! (api/GET "/api/wines/technical-data-keys"
+                                  "Failed to fetch technical data keys"))]
+          (when (:success result)
+            (let [dynamic-keys (:data result)
+                  combined (distinct (concat base-keys
+                                             (map common/humanize-key
+                                                  dynamic-keys)))]
+              (reset! suggested-options (sort combined))))))
     (fn [{:keys [metadata on-change]}]
       (let [metadata (if (and metadata (not (map? metadata)))
                        (js->clj metadata :keywordize-keys true)
@@ -68,7 +79,7 @@
           [grid {:item true :xs 4}
            [autocomplete
             {:free-solo true
-             :options suggested-options
+             :options @suggested-options
              :value @new-key-input
              :on-input-change (fn [_ v] (reset! new-key-input v))
              :render-input (fn [params]

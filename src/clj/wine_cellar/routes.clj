@@ -485,6 +485,10 @@
      {:get {:summary "Get all wines for list view"
             :responses {200 {:body vector?} 500 {:body map?}}
             :handler handlers/get-wines-for-list}}]
+    ["/technical-data-keys"
+     {:get {:summary "Get all unique technical data keys used in the collection"
+            :responses {200 {:body vector?} 500 {:body map?}}
+            :handler handlers/get-technical-data-keys}}]
     ["/analyze-label"
      {:post {:summary "Analyze wine label images with AI"
              :parameters {:body (s/keys :req-un [::label_image ::provider]
