@@ -301,24 +301,27 @@ static esp_err_t post_cellar_condition(void) {
         static char claim_line[32];
         const char *claim = cellar_auth_claim_code();
         snprintf(claim_line, sizeof(claim_line), "%s", claim);
-        cellar_display_status_t waiting = {
-            .temperature_c = NAN,
-            .pressure_hpa = NAN,
-            .illuminance_lux = NAN,
-            .http_status = -1,
-            .post_err = ESP_FAIL,
-            .ip_address = s_ip_str,
-            .status_line = claim_line,
-        };
-        cellar_display_show(&waiting);
+        
+        cellar_display_status_t waiting = {0};
+        waiting.temp_primary = NAN;
+        waiting.temp_secondary = NAN;
+        waiting.lux_primary = NAN;
+        waiting.lux_secondary = NAN;
+        waiting.pressure_hpa = NAN;
+        waiting.http_status = -1;
+        waiting.post_err = ESP_FAIL;
+        snprintf(waiting.ip_address, sizeof(waiting.ip_address), "%s", s_ip_str);
+        snprintf(waiting.status_line, sizeof(waiting.status_line), "%s", claim_line);
+        
+        cellar_display_update(&waiting);
         return ESP_FAIL;
     }
 
-    float temperature = NAN;
+    float temp_bmp = NAN;
+    float temp_ds = NAN;
     float pressure = NAN;
-    float illuminance_lux = NAN; // This will hold the final lux for telemetry
-    float opt_lux = NAN; // Local var for OPT3001 reading
-    float veml_lux = NAN; // Local var for VEML7700 reading
+    float lux_opt = NAN;
+    float lux_veml = NAN;
 
     char timestamp[32] = {0};
     bool have_timestamp = format_iso8601_now(timestamp, sizeof(timestamp));
@@ -327,27 +330,28 @@ static esp_err_t post_cellar_condition(void) {
         have_timestamp = format_iso8601_now(timestamp, sizeof(timestamp));
     }
 
+    // BMP280 Reading
     if (s_bmp280_ready) {
-        esp_err_t bmp_read_status = bmp280_read_float(&s_bmp280, &temperature, &pressure);
+        esp_err_t bmp_read_status = bmp280_read_float(&s_bmp280, &temp_bmp, &pressure);
         if (bmp_read_status != ESP_OK) {
             ESP_LOGE(TAG, "BMP280 read failed: %s", esp_err_to_name(bmp_read_status));
+            temp_bmp = NAN;
+            pressure = NAN;
         } else {
-            ESP_LOGI(TAG, "BMP280: T=%.2fC P=%.2fhPa", temperature, pressure);
+            ESP_LOGI(TAG, "BMP280: T=%.2fC P=%.2fhPa", temp_bmp, pressure);
         }
-    } else {
-        ESP_LOGW(TAG, "BMP280 not initialized, skipping read");
     }
 
+    // DS18B20 Reading
     if (s_ds18b20_ready) {
         esp_err_t ds_err = ds18b20_trigger_temperature_conversion(s_ds18b20_device);
         if (ds_err == ESP_OK) {
-            // Wait for conversion (12-bit needs ~750ms)
-            vTaskDelay(pdMS_TO_TICKS(800));
-            float ds_temp = 0.0f;
-            ds_err = ds18b20_get_temperature(s_ds18b20_device, &ds_temp);
+            vTaskDelay(pdMS_TO_TICKS(800)); // 12-bit conversion time
+            float t = 0.0f;
+            ds_err = ds18b20_get_temperature(s_ds18b20_device, &t);
             if (ds_err == ESP_OK) {
-                ESP_LOGI(TAG, "DS18B20: T=%.2fC", ds_temp);
-                temperature = ds_temp; // Override BMP280
+                ESP_LOGI(TAG, "DS18B20: T=%.2fC", t);
+                temp_ds = t;
             } else {
                 ESP_LOGE(TAG, "DS18B20 read failed: %s", esp_err_to_name(ds_err));
             }
@@ -356,40 +360,60 @@ static esp_err_t post_cellar_condition(void) {
         }
     }
 
+    // OPT3001 Reading
     if (s_opt3001_ready) {
-        esp_err_t opt_err = opt3001_read_lux(&s_opt3001, &opt_lux);
+        esp_err_t opt_err = opt3001_read_lux(&s_opt3001, &lux_opt);
         if (opt_err != ESP_OK) {
              ESP_LOGE(TAG, "OPT3001 read failed: %s", esp_err_to_name(opt_err));
+             lux_opt = NAN;
         } else {
-             ESP_LOGI(TAG, "OPT3001: Lux=%.2f", opt_lux);
-             illuminance_lux = opt_lux; // OPT3001 is preferred for telemetry
+             ESP_LOGI(TAG, "OPT3001: Lux=%.2f", lux_opt);
         }
     }
     
+    // VEML7700 Reading
     if (s_veml7700_ready) {
-        esp_err_t veml_err = veml7700_read_lux(&s_veml7700, &veml_lux);
+        esp_err_t veml_err = veml7700_read_lux(&s_veml7700, &lux_veml);
         if (veml_err != ESP_OK) {
              ESP_LOGE(TAG, "VEML7700 read failed: %s", esp_err_to_name(veml_err));
+             lux_veml = NAN;
         } else {
-             ESP_LOGI(TAG, "VEML7700: Lux=%.2f", veml_lux);
-             // VEML7700 value is logged, but OPT3001 is used for telemetry if available
+             ESP_LOGI(TAG, "VEML7700: Lux=%.2f", lux_veml);
         }
+    }
+
+    // Determine Primary/Secondary values for Display
+    float temp_primary = NAN;
+    float temp_secondary = NAN;
+    
+    // Prefer DS18B20 as primary
+    if (!isnan(temp_ds)) {
+        temp_primary = temp_ds;
+        if (!isnan(temp_bmp)) temp_secondary = temp_bmp;
+    } else {
+        temp_primary = temp_bmp;
+    }
+
+    // Prefer OPT3001 as primary
+    float lux_primary = NAN;
+    float lux_secondary = NAN;
+    if (!isnan(lux_opt)) {
+        lux_primary = lux_opt;
+        if (!isnan(lux_veml)) lux_secondary = lux_veml;
+    } else {
+        lux_primary = lux_veml;
     }
 
     float reported_pressure = pressure_to_sea_level(pressure, SENSOR_ALTITUDE_M);
     if (isnan(reported_pressure)) {
         reported_pressure = pressure;
-    } else {
-        ESP_LOGI(TAG, "Pressure station=%.2fhPa sea_level=%.2fhPa (alt=%.1fm)",
-                 pressure,
-                 reported_pressure,
-                 (double)SENSOR_ALTITUDE_M);
     }
 
+    // Prepare HTTP Payload (Use primaries)
     cellar_measurement_t measurement = {
-        .temperature_c = temperature,
+        .temperature_c = temp_primary,
         .pressure_hpa = reported_pressure,
-        .illuminance_lux = illuminance_lux,
+        .illuminance_lux = lux_primary,
         .timestamp_iso8601 = have_timestamp ? timestamp : NULL,
         .device_id = cellar_auth_device_id(),
     };
@@ -397,15 +421,18 @@ static esp_err_t post_cellar_condition(void) {
     cellar_http_result_t http_result;
     esp_err_t err = cellar_http_post(&measurement, &http_result);
 
-    cellar_display_status_t display_status = {
-        .temperature_c = temperature,
-        .pressure_hpa = reported_pressure,
-        .illuminance_lux = illuminance_lux,
-        .http_status = http_result.status_code,
-        .post_err = err,
-        .ip_address = s_ip_str,
-    };
-    cellar_display_show(&display_status);
+    // Update Display
+    cellar_display_status_t display_status = {0};
+    display_status.temp_primary = temp_primary;
+    display_status.temp_secondary = temp_secondary;
+    display_status.lux_primary = lux_primary;
+    display_status.lux_secondary = lux_secondary;
+    display_status.pressure_hpa = reported_pressure;
+    display_status.http_status = http_result.status_code;
+    display_status.post_err = err;
+    snprintf(display_status.ip_address, sizeof(display_status.ip_address), "%s", s_ip_str);
+    
+    cellar_display_update(&display_status);
 
     if (http_result.status_code == 401 || http_result.status_code == 403) {
         ESP_LOGW(TAG, "Auth rejected (status %d), clearing tokens to force re-claim", http_result.status_code);
@@ -426,15 +453,18 @@ void app_main(void) {
     const char *claim = cellar_auth_claim_code();
     static char claim_line[32];
     snprintf(claim_line, sizeof(claim_line), "%s", claim);
-    cellar_display_status_t waiting = {
-        .temperature_c = NAN,
-        .pressure_hpa = NAN,
-        .illuminance_lux = NAN,
-        .http_status = -1,
-        .post_err = ESP_OK,
-        .ip_address = s_ip_str,
-        .status_line = claim_line,
-    };
+    
+    cellar_display_status_t waiting = {0};
+    waiting.temp_primary = NAN;
+    waiting.temp_secondary = NAN;
+    waiting.lux_primary = NAN;
+    waiting.lux_secondary = NAN;
+    waiting.pressure_hpa = NAN;
+    waiting.http_status = -1;
+    waiting.post_err = ESP_OK;
+    snprintf(waiting.ip_address, sizeof(waiting.ip_address), "%s", s_ip_str);
+    snprintf(waiting.status_line, sizeof(waiting.status_line), "%s", claim_line);
+
     if (!sync_time_with_sntp()) {
         ESP_LOGW(TAG, "Proceeding without SNTP timestamp; API will fill server time");
     }
@@ -527,10 +557,12 @@ void app_main(void) {
 
     if (cellar_display_init(s_i2c_bus) != ESP_OK) {
         ESP_LOGW(TAG, "Display init failed; continuing headless");
+    } else {
+        cellar_display_start();
     }
 
 
-    cellar_display_show(&waiting);
+    cellar_display_update(&waiting);
 
     while (true) {
         esp_err_t err = post_cellar_condition();

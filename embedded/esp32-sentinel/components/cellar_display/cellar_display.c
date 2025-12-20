@@ -12,6 +12,9 @@
 #include "esp_lcd_panel_ssd1306.h"
 #include "esp_lcd_types.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
 
 // Default pins/addresses match config.h fallback values
 #ifndef OLED_ADDRESS
@@ -32,6 +35,20 @@ static esp_lcd_panel_io_handle_t s_panel_io = NULL;
 static esp_lcd_panel_handle_t s_panel = NULL;
 static bool s_display_ok = false;
 static uint8_t s_framebuffer[OLED_WIDTH * OLED_HEIGHT / 8] = {0};
+
+static cellar_display_status_t s_status = {
+    .temp_primary = NAN,
+    .temp_secondary = NAN,
+    .lux_primary = NAN,
+    .lux_secondary = NAN,
+    .pressure_hpa = NAN,
+    .http_status = -1,
+    .post_err = ESP_OK,
+    .ip_address = "",
+    .status_line = ""
+};
+static SemaphoreHandle_t s_mutex = NULL;
+static TaskHandle_t s_display_task_handle = NULL;
 
 // Minimal 5x7 ASCII font (0x20-0x7F), columns packed LSB = top row.
 static const uint8_t FONT_5X7[][5] = {
@@ -240,7 +257,7 @@ static void flush_display(void) {
     }
 }
 
-static void render_status(const cellar_display_status_t *status) {
+static void render_status_page(const cellar_display_status_t *status, int page) {
     clear_framebuffer();
 
     char line_temp[32];
@@ -250,15 +267,32 @@ static void render_status(const cellar_display_status_t *status) {
     char line_post[32];
     char line_status[32] = {0};
 
-    float display_temp = status->temperature_c;
+    // Determine which sensor values to show based on page
+    float display_temp_c = status->temp_primary;
+    float display_lux = status->lux_primary;
+    bool using_secondary = false;
+
+    // Logic: 
+    // Page 0: Primary
+    // Page 1: Secondary (if available)
+    
+    if (page == 1) {
+        if (!isnan(status->temp_secondary) || !isnan(status->lux_secondary)) {
+            if (!isnan(status->temp_secondary)) display_temp_c = status->temp_secondary;
+            if (!isnan(status->lux_secondary)) display_lux = status->lux_secondary;
+            using_secondary = true;
+        }
+    }
+
+    float display_temp = display_temp_c;
     char temp_unit = 'C';
 #ifdef DISPLAY_TEMP_FAHRENHEIT
-    display_temp = c_to_f(status->temperature_c);
+    display_temp = c_to_f(display_temp_c);
     temp_unit = 'F';
 #endif
 
     if (!isnan(display_temp)) {
-        snprintf(line_temp, sizeof(line_temp), "%0.1f ^%c", display_temp, temp_unit);
+        snprintf(line_temp, sizeof(line_temp), "%0.1f ^%c%s", display_temp, temp_unit, using_secondary ? "*" : "");
     } else {
         snprintf(line_temp, sizeof(line_temp), "--.- ^%c", temp_unit);
     }
@@ -274,13 +308,13 @@ static void render_status(const cellar_display_status_t *status) {
         snprintf(line_press, sizeof(line_press), "----");
     }
 
-    if (!isnan(status->illuminance_lux)) {
-        snprintf(line_lux, sizeof(line_lux), "%0.0f lx", status->illuminance_lux);
+    if (!isnan(display_lux)) {
+        snprintf(line_lux, sizeof(line_lux), "%0.0f lx%s", display_lux, using_secondary ? "*" : "");
     } else {
         snprintf(line_lux, sizeof(line_lux), "---- lx");
     }
 
-    const char *ip = status->ip_address ? status->ip_address : "0.0.0.0";
+    const char *ip = status->ip_address[0] ? status->ip_address : "0.0.0.0";
     snprintf(line_ip, sizeof(line_ip), "IP %s", ip);
 
     if (status->post_err == ESP_OK) {
@@ -289,7 +323,7 @@ static void render_status(const cellar_display_status_t *status) {
         snprintf(line_post, sizeof(line_post), "POST %s", esp_err_to_name(status->post_err));
     }
 
-    if (status->status_line && status->status_line[0]) {
+    if (status->status_line[0]) {
         snprintf(line_status, sizeof(line_status), "%s", status->status_line);
         draw_text_scaled(0, 0, line_status, 2, false);
         draw_text_line(6, line_ip, false);
@@ -304,9 +338,40 @@ static void render_status(const cellar_display_status_t *status) {
     flush_display();
 }
 
+static void display_task(void *pvParameters) {
+    int page = 0;
+    cellar_display_status_t local_status;
+
+    while (true) {
+        if (xSemaphoreTake(s_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            memcpy(&local_status, &s_status, sizeof(cellar_display_status_t));
+            xSemaphoreGive(s_mutex);
+        }
+
+        // Check if we have secondary data to toggle
+        bool has_secondary = !isnan(local_status.temp_secondary) || !isnan(local_status.lux_secondary);
+
+        if (has_secondary) {
+            render_status_page(&local_status, page);
+            page = !page; // Toggle 0 <-> 1
+        } else {
+            render_status_page(&local_status, 0);
+            page = 0;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+}
+
 esp_err_t cellar_display_init(i2c_master_bus_handle_t bus) {
     if (s_display_ok) {
         return ESP_OK;
+    }
+
+    s_mutex = xSemaphoreCreateMutex();
+    if (!s_mutex) {
+        ESP_LOGE(TAG, "Failed to create mutex");
+        return ESP_FAIL;
     }
 
     esp_lcd_panel_io_i2c_config_t io_config = {
@@ -374,9 +439,18 @@ esp_err_t cellar_display_init(i2c_master_bus_handle_t bus) {
     return ESP_OK;
 }
 
+void cellar_display_start(void) {
+    if (s_display_ok && s_display_task_handle == NULL) {
+        xTaskCreate(display_task, "display_task", 4096, NULL, 5, &s_display_task_handle);
+    }
+}
+
 bool cellar_display_ready(void) { return s_display_ok; }
 
-void cellar_display_show(const cellar_display_status_t *status) {
-    if (!s_display_ok || !status) return;
-    render_status(status);
+void cellar_display_update(const cellar_display_status_t *status) {
+    if (!s_display_ok || !status || !s_mutex) return;
+    if (xSemaphoreTake(s_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        memcpy(&s_status, status, sizeof(cellar_display_status_t));
+        xSemaphoreGive(s_mutex);
+    }
 }

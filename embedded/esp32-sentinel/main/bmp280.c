@@ -72,25 +72,27 @@ esp_err_t bmp280_init(i2c_master_bus_handle_t bus_handle, uint8_t address, bmp28
     out_handle->dig_P8 = (int16_t)((cal_data[21] << 8) | cal_data[20]);
     out_handle->dig_P9 = (int16_t)((cal_data[23] << 8) | cal_data[22]);
 
-    // Config: Normal mode, Standby 1000ms, Filter 16x
-    // Register 0xF5 (CONFIG): t_sb=101 (1000ms), filter=100 (16x), spi3w_en=0
-    // Binary: 101 100 00 -> 0xB4
-    // However, datasheet says standby 0x05 is 1000ms
-    write_byte(out_handle, REG_CONFIG, 0xA0); // Standby 1000ms (101), Filter 4x (010) -> 10101000 = 0xA8?
-                                            // Let's use Filter 16x (100) -> 10110000 = 0xB0.
-                                            // Let's stick to safe defaults: Filter 4x
-                                            // CONFIG: 101 (1000ms) | 010 (Filter 4) | 00 = 0xA8
-    write_byte(out_handle, REG_CONFIG, 0xA8);
+    // Config: Filter OFF, Standby ignored in Forced Mode
+    // Register 0xF5 (CONFIG): filter=000 (OFF), t_sb=000 (ignored), spi3w_en=0
+    write_byte(out_handle, REG_CONFIG, 0x00);
 
-    // Ctrl Meas: Osrs_T x2, Osrs_P x16, Normal Mode
-    // Register 0xF4 (CTRL_MEAS): osrs_t=010, osrs_p=101, mode=11
-    // Binary: 010 101 11 -> 0x57
-    write_byte(out_handle, REG_CTRL_MEAS, 0x57);
+    // Ctrl Meas: Osrs_T x2, Osrs_P x16, Sleep Mode (initially)
+    // Register 0xF4 (CTRL_MEAS): osrs_t=010, osrs_p=101, mode=00
+    // Binary: 010 101 00 -> 0x54
+    write_byte(out_handle, REG_CTRL_MEAS, 0x54);
 
     return ESP_OK;
 }
 
 esp_err_t bmp280_read_float(bmp280_handle_t *handle, float *temperature_c, float *pressure_hpa) {
+    // Trigger Forced Measurement
+    // Osrs_T x2 (010), Osrs_P x16 (101), Mode Forced (01) -> 0x55
+    esp_err_t err = write_byte(handle, REG_CTRL_MEAS, 0x55);
+    if (err != ESP_OK) return err;
+
+    // Wait for conversion (Calculation: ~43ms for T x2 + P x16)
+    vTaskDelay(pdMS_TO_TICKS(50));
+
     uint8_t data[6];
     ESP_RETURN_ON_ERROR(read_bytes(handle, REG_PRESS_MSB, data, 6), TAG, "Read data failed");
 
