@@ -188,7 +188,7 @@
     :readiness ["TOO YOUNG" "DRINK OR HOLD" "DRINK" "TOO OLD"]}})
 
 (def technical-data-keys
-  [:soil :vine-age :harvest :fermentation :aging :elevage :suggested-pairings
-   :notes :vintner-notes :cooperage :oak :new-oak :yeast :malo-lactic :fining
+  [:soil :vine-age :harvest :fermentation :aging :elevage :pairing-ideas :notes
+   :vintner-notes :cooperage :oak :new-oak :yeast :malo-lactic :fining
    :filtration :ph :total-acidity :residual-sugar :base-vintage :reserve-wines
    :bottling-date :release-date :production-volume :certification])
