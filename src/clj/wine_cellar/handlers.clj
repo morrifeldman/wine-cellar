@@ -174,6 +174,14 @@
          (response/not-found {:error "Wine not found"}))
        (catch Exception e (server-error e))))
 
+(defn get-inventory-history
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if (db-api/wine-exists? id)
+         (let [history (db-api/get-inventory-history id)]
+           (response/response history))
+         (response/not-found {:error "Wine not found"}))
+       (catch Exception e (server-error e))))
+
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine
   [{{{:keys [id]} :path} :parameters}]

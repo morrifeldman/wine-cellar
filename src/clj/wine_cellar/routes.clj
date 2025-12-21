@@ -530,6 +530,10 @@
                                          :opt-un [::reason ::notes])}
               :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
               :handler handlers/adjust-quantity}}]
+     ["/history"
+      {:get {:summary "Get inventory history for a wine"
+             :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}
+             :handler handlers/get-inventory-history}}]
      ["/image"
       {:put {:summary "Upload wine label image"
              :parameters {:body image-update-schema}
