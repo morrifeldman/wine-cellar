@@ -4,9 +4,13 @@
     [cljs.core.async :refer [<! go]]
     [goog.string :as gstring]
     [goog.string.format]
+    [goog.object :as gobj]
     [reagent-mui.icons.arrow-back :refer [arrow-back]]
     [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
     [reagent-mui.icons.delete :refer [delete]]
+    [reagent-mui.icons.edit :refer [edit]]
+    [reagent-mui.icons.check :refer [check]]
+    [reagent-mui.icons.close :refer [close]]
     [reagent-mui.icons.add-shopping-cart :refer [add-shopping-cart]]
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.button :refer [button]]
@@ -18,17 +22,18 @@
     [reagent-mui.material.text-field :refer [text-field]]
     [reagent-mui.material.modal :refer [modal]]
     [reagent-mui.material.backdrop :refer [backdrop]]
+    [reagent-mui.material.autocomplete :refer [autocomplete]]
     [reagent-mui.material.dialog :refer [dialog]]
     [reagent-mui.material.dialog-title :refer [dialog-title]]
     [reagent-mui.material.dialog-content :refer [dialog-content]]
     [reagent-mui.material.dialog-actions :refer [dialog-actions]]
+    ["@mui/material/TextField" :default TextField]
     [reagent-mui.material.table :refer [table]]
     [reagent-mui.material.table-body :refer [table-body]]
     [reagent-mui.material.table-cell :refer [table-cell]]
     [reagent-mui.material.table-container :refer [table-container]]
     [reagent-mui.material.table-head :refer [table-head]]
     [reagent-mui.material.table-row :refer [table-row]]
-    [reagent-mui.icons.close :refer [close]]
     [reagent.core :as r]
     [wine-cellar.api :as api]
     [wine-cellar.common :as common]
@@ -915,6 +920,147 @@
       (fn [new-metadata]
         (api/update-wine app-state (:id wine) {:metadata new-metadata}))}]]])
 
+(defn history-date-cell
+  [record edit-mode local-state]
+  [table-cell
+   (if edit-mode
+     [text-field
+      {:type "date"
+       :value (:occurred_at @local-state)
+       :onChange #(swap! local-state assoc :occurred_at (.. % -target -value))
+       :size "small"
+       :variant "standard"}]
+     (format-date-iso (:occurred_at record)))])
+
+(defn history-change-cell
+  [record]
+  [table-cell
+   {:sx {:color (if (pos? (:change_amount record)) "success.main" "error.main")
+         :fontWeight "bold"}}
+   (if (pos? (:change_amount record))
+     (str "+" (:change_amount record))
+     (:change_amount record))])
+
+(def history-reason-display->key
+  (into {} (for [[k v] common/inventory-reasons] [v k])))
+
+(defn history-reason-cell
+  [record edit-mode local-state]
+  (let [reason-key (:reason record)
+        display-label (get common/inventory-reasons
+                           (str/lower-case (or reason-key ""))
+                           reason-key)]
+    [table-cell
+     (if edit-mode
+       [autocomplete
+        {:freeSolo true
+         :options (sort (vals common/inventory-reasons))
+         :value (or (:reason-display @local-state) display-label)
+         :sx {:minWidth 130}
+         :onInputChange
+         (fn [_ new-display _]
+           (let [k (get history-reason-display->key new-display new-display)]
+             (swap! local-state assoc :reason k :reason-display new-display)))
+         :renderInput (fn [params]
+                        (let [props (gobj/clone params)]
+                          (gobj/set props "variant" "standard")
+                          (gobj/set props "size" "small")
+                          (gobj/set props "fullWidth" true)
+                          (r/create-element TextField props)))}]
+       display-label)]))
+
+(defn history-balance-cell
+  [record]
+  [table-cell {:sx {:whiteSpace "nowrap"}}
+   (if-let [oq (:original_quantity record)]
+     (if (= (str/lower-case (or (:reason record) "")) "restock")
+       (let [prev-oq (- oq (:change_amount record))]
+         (str (:previous_quantity record)
+              " / " prev-oq
+              " → " (:new_quantity record)
+              " / " oq))
+       (str (:previous_quantity record)
+            " / " oq
+            " → " (:new_quantity record)
+            " / " oq))
+     (str (:previous_quantity record) " → " (:new_quantity record)))])
+
+(defn history-notes-cell
+  [record edit-mode local-state]
+  [table-cell
+   (if edit-mode
+     [text-field
+      {:value (:notes @local-state)
+       :onChange #(swap! local-state assoc :notes (.. % -target -value))
+       :size "small"
+       :variant "standard"
+       :fullWidth true}]
+     (:notes record))])
+
+(defn history-actions-cell
+  [app-state wine-id record editing? local-state]
+  (let [edit-mode @editing?]
+    [table-cell
+     {:align "right"
+      :padding "none"
+      :sx {:minWidth 100
+           :position "sticky"
+           :right 0
+           :bgcolor "background.paper"
+           :zIndex 1
+           :borderLeft "1px solid rgba(0,0,0,0.08)"}}
+     (if edit-mode
+       [:<>
+        [icon-button
+         {:size "small"
+          :color "primary"
+          :onClick (fn []
+                     (api/update-inventory-history app-state
+                                                   wine-id
+                                                   (:id record)
+                                                   @local-state)
+                     (reset! editing? false))} [check {:fontSize "small"}]]
+        [icon-button
+         {:size "small" :color "error" :onClick #(reset! editing? false)}
+         [close {:fontSize "small"}]]]
+       [:<>
+        [icon-button
+         {:size "small"
+          :color "primary"
+          :onClick (fn []
+                     (let [reason-key (:reason record)
+                           display-label (get common/inventory-reasons
+                                              (str/lower-case (or reason-key
+                                                                  ""))
+                                              reason-key)]
+                       (reset! local-state {:occurred_at (format-date-iso
+                                                          (:occurred_at record))
+                                            :reason reason-key
+                                            :reason-display display-label
+                                            :notes (:notes record)})
+                       (reset! editing? true)))} [edit {:fontSize "small"}]]
+        [icon-button
+         {:size "small"
+          :color "error"
+          :onClick
+          (fn []
+            (when (js/confirm
+                   "Delete this history record? Quantity will NOT change.")
+              (api/delete-inventory-history app-state wine-id (:id record))))}
+         [delete {:fontSize "small"}]]])]))
+
+(defn inventory-history-row
+  [app-state wine-id record]
+  (r/with-let [editing? (r/atom false) local-state (r/atom nil)]
+              (let [edit-mode @editing?]
+                [table-row [history-date-cell record edit-mode local-state]
+                 [history-change-cell record]
+                 [history-reason-cell record edit-mode local-state]
+                 [history-balance-cell record]
+                 [history-notes-cell record edit-mode local-state]
+                 [history-actions-cell app-state wine-id record editing?
+                  local-state]])))
+
 (defn inventory-history-section
   [app-state wine]
   (let [history (get-in @app-state [:inventory-history (:id wine)])]
@@ -932,41 +1078,27 @@
         "No inventory history recorded yet."]
        [paper
         {:elevation 0
-         :sx {:border "1px solid rgba(0,0,0,0.12)" :overflow "hidden"}}
+         :sx {:border "1px solid rgba(0,0,0,0.12)" :overflow "auto"}}
         [table-container
-         [table {:size "small"}
+         [table {:size "small" :sx {:minWidth 700}}
           [table-head
-           [table-row [table-cell "Date"] [table-cell "Change"]
-            [table-cell "Reason"] [table-cell "Balance"] [table-cell "Notes"]]]
+           [table-row [table-cell {:sx {:width 110}} "Date"]
+            [table-cell {:sx {:width 60}} "Change"]
+            [table-cell {:sx {:width 130}} "Reason"]
+            [table-cell {:sx {:width 170}} "Balance"]
+            [table-cell {:sx {:minWidth 150}} "Notes"]
+            [table-cell
+             {:align "right"
+              :sx {:width 90
+                   :position "sticky"
+                   :right 0
+                   :bgcolor "background.paper"
+                   :zIndex 2
+                   :borderLeft "1px solid rgba(0,0,0,0.08)"}} "Actions"]]]
           [table-body
            (for [record history]
              ^{:key (:id record)}
-             [table-row [table-cell (format-date-iso (:occurred_at record))]
-              [table-cell
-               {:sx {:color (if (pos? (:change_amount record))
-                              "success.main"
-                              "error.main")
-                     :fontWeight "bold"}}
-               (if (pos? (:change_amount record))
-                 (str "+" (:change_amount record))
-                 (:change_amount record))]
-              [table-cell (str/capitalize (:reason record))]
-              [table-cell
-               (if-let [oq (:original_quantity record)]
-                 (if (= (:reason record) "restock")
-                   (let [prev-oq (- oq (:change_amount record))]
-                     (str (:previous_quantity record)
-                          " / " prev-oq
-                          " → " (:new_quantity record)
-                          " / " oq))
-                   (str (:previous_quantity record)
-                        " / " oq
-                        " → " (:new_quantity record)
-                        " / " oq))
-                 (str (:previous_quantity record)
-                      " → "
-                      (:new_quantity record)))]
-              [table-cell (:notes record)]])]]]])]))
+             [inventory-history-row app-state (:id wine) record])]]]])]))
 
 (defn wine-tasting-notes-section
   [app-state wine]

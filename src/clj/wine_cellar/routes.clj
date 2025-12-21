@@ -508,6 +508,16 @@
        :parameters {:body (s/keys :req-un [::wine ::provider])}
        :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
        :handler handlers/generate-wine-summary}}]
+    ["/history/:history-id"
+     {:parameters {:path {:history-id int?}}
+      :put {:summary "Update inventory history record"
+            :parameters {:body (s/keys :opt-un
+                                       [::occurred_at ::reason ::notes])}
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/update-inventory-history}
+      :delete {:summary "Delete inventory history record"
+               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+               :handler handlers/delete-inventory-history}}]
     ["/by-id/:id"
      {:parameters {:path {:id int?} :query (s/keys :opt-un [::include_images])}
       :get

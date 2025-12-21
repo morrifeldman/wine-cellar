@@ -192,3 +192,11 @@
    :vintner-notes :cooperage :oak :new-oak :yeast :malo-lactic :fining
    :filtration :ph :total-acidity :residual-sugar :base-vintage :reserve-wines
    :bottling-date :release-date :production-volume :certification])
+
+(def inventory-reasons
+  {"drunk" "Drunk"
+   "gift" "Gift"
+   "restock" "Restock"
+   "correction" "Correction"
+   "return" "Return to Cellar"
+   "broken" "Broken"})

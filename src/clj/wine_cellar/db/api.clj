@@ -34,10 +34,16 @@
           (Date/valueOf)))
 
 (defn- ->sql-timestamp
-  [^String instant-string]
-  (some-> instant-string
-          (Instant/parse)
-          (Timestamp/from)))
+  [^String input]
+  (when input
+    (try (Timestamp/from (Instant/parse input))
+         (catch Exception _
+           (try (let [date (java.time.LocalDate/parse input)]
+                  (Timestamp/from (-> date
+                                      (.atStartOfDay (java.time.ZoneId/of
+                                                      "UTC"))
+                                      .toInstant)))
+                (catch Exception _ nil))))))
 
 (defn- timestamp->iso-string
   [value]
@@ -456,7 +462,7 @@
                                   (+ current-original-quantity adjustment)
                                   current-original-quantity)
           update-map (cond-> {:quantity new-quantity :updated_at [:now]}
-                       (= actual-reason "restock")
+                       (= actual-reason "Restock")
                        (assoc :original_quantity
                               [:+ [:coalesce :original_quantity 0]
                                adjustment]))]
@@ -484,6 +490,27 @@
                               :where [:= :wine_id wine-id]
                               :order-by [[:occurred_at :desc] [:id :desc]]})
                  db-opts))
+
+(defn update-inventory-history!
+  [id updates]
+  (let [valid-updates (select-keys updates [:occurred_at :reason :notes])
+        set-map (cond-> valid-updates
+                  (:occurred_at valid-updates) (update :occurred_at
+                                                       ->sql-timestamp))]
+    (when (seq set-map)
+      (jdbc/execute-one! ds
+                         (sql/format {:update :inventory_history
+                                      :set set-map
+                                      :where [:= :id id]
+                                      :returning :*})
+                         db-opts))))
+
+(defn delete-inventory-history!
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format {:delete-from :inventory_history
+                                  :where [:= :id id]})
+                     db-opts))
 
 (defn delete-wine!
   [id]

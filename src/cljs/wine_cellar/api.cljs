@@ -411,6 +411,23 @@
           (swap! app-state assoc-in [:inventory-history wine-id] (:data result))
           (swap! app-state assoc :error (:error result))))))
 
+(defn update-inventory-history
+  [app-state wine-id history-id updates]
+  (go (let [result (<! (PUT (str "/api/wines/history/" history-id)
+                            updates
+                            "Failed to update history record"))]
+        (if (:success result)
+          (fetch-inventory-history app-state wine-id)
+          (swap! app-state assoc :error (:error result))))))
+
+(defn delete-inventory-history
+  [app-state wine-id history-id]
+  (go (let [result (<! (DELETE (str "/api/wines/history/" history-id)
+                               "Failed to delete history record"))]
+        (if (:success result)
+          (fetch-inventory-history app-state wine-id)
+          (swap! app-state assoc :error (:error result))))))
+
 (defn adjust-wine-quantity
   ([app-state wine-id adjustment]
    (adjust-wine-quantity app-state wine-id adjustment {}))

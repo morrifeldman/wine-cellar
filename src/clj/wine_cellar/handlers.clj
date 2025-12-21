@@ -182,6 +182,20 @@
          (response/not-found {:error "Wine not found"}))
        (catch Exception e (server-error e))))
 
+(defn update-inventory-history
+  [{{{:keys [history-id]} :path body :body} :parameters}]
+  (try (if-let [updated (db-api/update-inventory-history! history-id body)]
+         (response/response updated)
+         (response/not-found {:error "History record not found"}))
+       (catch Exception e (server-error e))))
+
+(defn delete-inventory-history
+  [{{{:keys [history-id]} :path} :parameters}]
+  (try (if (db-api/delete-inventory-history! history-id)
+         (no-content)
+         (response/not-found {:error "History record not found"}))
+       (catch Exception e (server-error e))))
+
 ;; Tasting Notes Handlers
 (defn get-tasting-notes-by-wine
   [{{{:keys [id]} :path} :parameters}]
