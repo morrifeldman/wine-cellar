@@ -8,6 +8,7 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.checkbox :refer [checkbox]]
+            [reagent-mui.icons.local-bar :refer [local-bar]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
             [wine-cellar.utils.vintage :refer
@@ -270,7 +271,8 @@
     [box {:sx {:display "flex" :alignItems "center" :gap 1}}
      [typography {:variant "body2" :color "text.secondary"} "Quantity:"]
      [quantity-control app-state (:id wine) quantity display-text
-      original-quantity]]))
+      original-quantity
+      {:mode :card :minus-icon [local-bar {:fontSize "small"}]}]]))
 
 (defn wine-controls
   [app-state wine status drink-from-year drink-until-year]

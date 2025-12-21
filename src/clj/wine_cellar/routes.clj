@@ -130,6 +130,7 @@
 (s/def ::battery_mv (s/nilable int?))
 (s/def ::leak_detected (s/nilable boolean?))
 (s/def ::notes (s/nilable string?))
+(s/def ::reason (s/nilable string?))
 (s/def ::bucket #{"15m" "1h" "6h" "1d"})
 (s/def ::from ::measured_at)
 (s/def ::to ::measured_at)
@@ -525,7 +526,8 @@
     ["/by-id/:id" {:parameters {:path {:id int?}}}
      ["/adjust-quantity"
       {:post {:summary "Adjust wine quantity"
-              :parameters {:body {:adjustment int?}}
+              :parameters {:body (s/keys :req-un [::adjustment]
+                                         :opt-un [::reason ::notes])}
               :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
               :handler handlers/adjust-quantity}}]
      ["/image"

@@ -438,13 +438,36 @@
       db-wine->wine))
 
 (defn adjust-quantity
-  [id adjustment]
-  (jdbc/execute-one! ds
-                     (sql/format {:update :wines
-                                  :set {:quantity [:+ :quantity adjustment]
-                                        :updated_at [:now]}
-                                  :where [:= :id id]})
-                     db-opts))
+  ([id adjustment] (adjust-quantity id adjustment {}))
+  ([id adjustment {:keys [reason notes]}]
+   (jdbc/with-transaction
+    [tx ds]
+    (let [wine (jdbc/execute-one!
+                tx
+                (sql/format {:select :quantity :from :wines :where [:= :id id]})
+                db-opts)
+          current-quantity (:quantity wine 0)
+          new-quantity (+ current-quantity adjustment)
+          actual-reason (or reason (if (neg? adjustment) "consumed" "return"))
+          update-map (cond-> {:quantity new-quantity :updated_at [:now]}
+                       (= actual-reason "restock")
+                       (assoc :original_quantity
+                              [:+ [:coalesce :original_quantity 0]
+                               adjustment]))]
+      (jdbc/execute-one! tx
+                         (sql/format {:insert-into :inventory_history
+                                      :values [{:wine_id id
+                                                :change_amount adjustment
+                                                :reason actual-reason
+                                                :previous_quantity
+                                                current-quantity
+                                                :new_quantity new-quantity
+                                                :notes notes}]})
+                         db-opts)
+      (jdbc/execute-one! tx
+                         (sql/format
+                          {:update :wines :set update-map :where [:= :id id]})
+                         db-opts)))))
 
 (defn delete-wine!
   [id]

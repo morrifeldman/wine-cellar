@@ -3,6 +3,12 @@
             [reagent.core :as r]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.menu :refer [menu]]
+            [reagent-mui.material.menu-item :refer [menu-item]]
+            [reagent-mui.material.dialog :refer [dialog]]
+            [reagent-mui.material.dialog-title :refer [dialog-title]]
+            [reagent-mui.material.dialog-content :refer [dialog-content]]
+            [reagent-mui.material.dialog-actions :refer [dialog-actions]]
             [reagent-mui.material.autocomplete :refer [autocomplete]]
             [reagent-mui.icons.arrow-drop-up :refer [arrow-drop-up]]
             [reagent-mui.icons.arrow-drop-down :refer [arrow-drop-down]]
@@ -21,38 +27,140 @@
 (def form-field-style
   {:min-width "180px" :width "75%" :backgroundColor "container.main"})
 
+;; Helper components for quantity control
+
+(defn- gift-dialog
+  [app-state wine-id open? on-close]
+  (r/with-let
+   [recipient (r/atom "")]
+   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
+    [dialog-title "Gift Recipient"]
+    [dialog-content
+     [box {:sx {:pt 1}}
+      [text-field
+       {:value @recipient
+        :label "Who is this for?"
+        :fullWidth true
+        :autoFocus true
+        :onChange (fn [e] (reset! recipient (.. e -target -value)))}]]]
+    [dialog-actions [button {:onClick on-close} "Cancel"]
+     [button
+      {:variant "contained"
+       :onClick (fn []
+                  (api/adjust-wine-quantity app-state
+                                            wine-id
+                                            -1
+                                            {:reason "gift"
+                                             :notes
+                                             (when-not (str/blank? @recipient)
+                                               (str "Recipient: " @recipient))})
+                  (reset! recipient "")
+                  (on-close))} "Gift"]]]))
+
+(defn- minus-menu
+  [app-state wine-id anchor-el options on-gift]
+  [menu
+   {:anchorEl @anchor-el
+    :open (boolean @anchor-el)
+    :onClose #(reset! anchor-el nil)}
+   (when (:drink options)
+     [menu-item
+      {:onClick
+       (fn []
+         (reset! anchor-el nil)
+         (api/adjust-wine-quantity app-state wine-id -1 {:reason "consumed"}))}
+      "Drink"])
+   (when (:gift options)
+     [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-gift))} "Gift"])
+   (when (:broken options)
+     [menu-item
+      {:onClick
+       (fn []
+         (reset! anchor-el nil)
+         (api/adjust-wine-quantity app-state wine-id -1 {:reason "broken"}))}
+      "Broken"])
+   (when (:correction options)
+     [menu-item
+      {:onClick (fn []
+                  (reset! anchor-el nil)
+                  (api/adjust-wine-quantity app-state
+                                            wine-id
+                                            -1
+                                            {:reason "correction"}))}
+      "Correction"])])
+
+(defn- plus-menu
+  [app-state wine-id anchor-el]
+  [menu
+   {:anchorEl @anchor-el
+    :open (boolean @anchor-el)
+    :onClose #(reset! anchor-el nil)}
+   [menu-item
+    {:onClick
+     (fn []
+       (reset! anchor-el nil)
+       (api/adjust-wine-quantity app-state wine-id 1 {:reason "return"}))}
+    "Return to Cellar"]
+   [menu-item
+    {:onClick
+     (fn []
+       (reset! anchor-el nil)
+       (api/adjust-wine-quantity app-state wine-id 1 {:reason "correction"}))}
+    "Correction"]])
+
 ;; Quantity control component
 (defn quantity-control
   ([app-state wine-id quantity]
-   (quantity-control app-state wine-id quantity (str quantity) nil))
+   [quantity-control app-state wine-id quantity (str quantity) nil nil])
   ([app-state wine-id quantity display-text]
-   (quantity-control app-state wine-id quantity display-text nil))
+   [quantity-control app-state wine-id quantity display-text nil nil])
   ([app-state wine-id quantity display-text original-quantity]
-   [box {:display "flex" :alignItems "center"}
-    [box
-     {:component "span"
-      :sx {:fontSize "1rem" :mx 1 :minWidth "1.5rem" :textAlign "center"}}
-     display-text]
-    [box {:display "flex" :flexDirection "column" :ml 0.5}
-     [button
-      {:variant "text"
-       :size "small"
-       :sx {:minWidth 0 :p 0 :lineHeight 0.8}
-       :disabled (and original-quantity (>= quantity original-quantity))
-       :onClick (fn []
-                  (if (and original-quantity (>= quantity original-quantity))
-                    (js/alert (str "Cannot exceed original quantity ("
-                                   original-quantity
-                                   ")"))
-                    (api/adjust-wine-quantity app-state wine-id 1)))}
-      [arrow-drop-up {:fontSize "small"}]]
-     [button
-      {:variant "text"
-       :size "small"
-       :sx {:minWidth 0 :p 0 :lineHeight 0.8}
-       :disabled (= quantity 0)
-       :onClick #(api/adjust-wine-quantity app-state wine-id -1)}
-      [arrow-drop-down {:fontSize "small"}]]]]))
+   [quantity-control app-state wine-id quantity display-text original-quantity
+    nil])
+  ([app-state wine-id quantity display-text original-quantity opts]
+   (let [mode (:mode opts :detail) ;; :card or :detail
+         show-plus? (not= mode :card)
+         minus-options
+         (if (= mode :card) #{:drink :gift} #{:drink :gift :broken :correction})
+         minus-icon (:minus-icon opts [arrow-drop-down {:fontSize "small"}])]
+     (r/with-let
+      [anchor-el-add (r/atom nil) anchor-el-sub (r/atom nil) gift-open?
+       (r/atom false)]
+      [box {:display "flex" :alignItems "center"}
+       [box
+        {:component "span"
+         :sx {:fontSize "1rem" :mx 1 :minWidth "1.5rem" :textAlign "center"}}
+        display-text]
+       [box {:display "flex" :flexDirection "column" :ml 0.5}
+        ;; Increment Button
+        (when show-plus?
+          [button
+           {:variant "text"
+            :size "small"
+            :sx {:minWidth 0 :p 0 :lineHeight 0.8}
+            :disabled (and original-quantity (>= quantity original-quantity))
+            :onClick (fn [e]
+                       (if (and original-quantity
+                                (>= quantity original-quantity))
+                         (js/alert (str "Cannot exceed original quantity ("
+                                        original-quantity
+                                        ")"))
+                         (reset! anchor-el-add (.-currentTarget e))))}
+           [arrow-drop-up {:fontSize "small"}]])
+        ;; Decrement Button
+        [button
+         {:variant "text"
+          :size "small"
+          :sx {:minWidth 0 :p 0 :lineHeight 0.8}
+          :disabled (= quantity 0)
+          :onClick (fn [e] (reset! anchor-el-sub (.-currentTarget e)))}
+         minus-icon]
+        (when show-plus? [plus-menu app-state wine-id anchor-el-add])
+        [minus-menu app-state wine-id anchor-el-sub minus-options
+         #(reset! gift-open? true)]
+        (when @gift-open?
+          [gift-dialog app-state wine-id gift-open?
+           #(reset! gift-open? false)])]]))))
 
 (defn editable-field-wrapper
   "A generic wrapper for making any field editable.

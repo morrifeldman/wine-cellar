@@ -404,18 +404,26 @@
                             (:error result))))))
 
 (defn adjust-wine-quantity
-  [app-state wine-id adjustment]
-  (go (let [result (<! (POST
-                        (str "/api/wines/by-id/" wine-id "/adjust-quantity")
-                        {:adjustment adjustment}
-                        "Failed to update wine quantity"))]
-        (if (:success result)
-          (swap! app-state update
-            :wines
-            (fn [wines]
-              (map #(if (= (:id %) wine-id) (update % :quantity + adjustment) %)
-                   wines)))
-          (swap! app-state assoc :error (:error result))))))
+  ([app-state wine-id adjustment]
+   (adjust-wine-quantity app-state wine-id adjustment {}))
+  ([app-state wine-id adjustment {:keys [reason notes]}]
+   (go
+    (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/adjust-quantity")
+                           (cond-> {:adjustment adjustment}
+                             reason (assoc :reason reason)
+                             notes (assoc :notes notes))
+                           "Failed to update wine quantity"))]
+      (if (:success result)
+        (swap! app-state update
+          :wines
+          (fn [wines]
+            (map #(if (= (:id %) wine-id)
+                    (cond-> (update % :quantity + adjustment)
+                      (= reason "restock")
+                      (update :original_quantity (fnil + 0) adjustment))
+                    %)
+                 wines)))
+        (swap! app-state assoc :error (:error result)))))))
 
 
 

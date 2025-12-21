@@ -165,9 +165,11 @@
        (catch Exception e (server-error e))))
 
 (defn adjust-quantity
-  [{{{:keys [id]} :path {:keys [adjustment]} :body} :parameters}]
+  [{{{:keys [id]} :path {:keys [adjustment reason notes]} :body} :parameters}]
   (try (if (db-api/wine-exists? id)
-         (let [updated (db-api/adjust-quantity id adjustment)]
+         (let [updated (db-api/adjust-quantity id
+                                               adjustment
+                                               {:reason reason :notes notes})]
            (response/response updated))
          (response/not-found {:error "Wine not found"}))
        (catch Exception e (server-error e))))

@@ -186,6 +186,16 @@
                   [:created_at :timestamp [:default [:now]]]]})
 #_(sql/format wine-grape-varieties-table-schema)
 
+(def inventory-history-table-schema
+  {:create-table [:inventory_history :if-not-exists]
+   :with-columns
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:wine_id :integer [:not nil]] [:change_amount :integer [:not nil]]
+    [:reason :varchar [:not nil]] [:previous_quantity :integer]
+    [:new_quantity :integer] [:occurred_at :timestamp [:default [:now]]]
+    [:created_at :timestamp [:default [:now]]] [:notes :text]
+    [[:foreign-key :wine_id] :references [:wines :id] :on-delete :cascade]]})
+
 (def cellar-conditions-table-schema
   {:create-table [:cellar_conditions :if-not-exists]
    :with-columns
