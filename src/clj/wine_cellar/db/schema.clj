@@ -192,9 +192,14 @@
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:wine_id :integer [:not nil]] [:change_amount :integer [:not nil]]
     [:reason :varchar [:not nil]] [:previous_quantity :integer]
-    [:new_quantity :integer] [:occurred_at :timestamp [:default [:now]]]
+    [:new_quantity :integer] [:original_quantity :integer]
+    [:occurred_at :timestamp [:default [:now]]]
     [:created_at :timestamp [:default [:now]]] [:notes :text]
     [[:foreign-key :wine_id] :references [:wines :id] :on-delete :cascade]]})
+
+(def inventory-history-add-original-quantity-column
+  {:raw
+   ["ALTER TABLE inventory_history ADD COLUMN IF NOT EXISTS original_quantity integer"]})
 
 (def cellar-conditions-table-schema
   {:create-table [:cellar_conditions :if-not-exists]

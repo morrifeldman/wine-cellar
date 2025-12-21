@@ -64,6 +64,7 @@
    (sql-execute-helper tx schema/grape-varieties-table-schema)
    (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
    (sql-execute-helper tx schema/inventory-history-table-schema)
+   (sql-execute-helper tx schema/inventory-history-add-original-quantity-column)
    (sql-execute-helper tx schema/cellar-conditions-table-schema)
    (sql-execute-helper tx schema/cellar-conditions-add-illuminance-column)
    (sql-execute-helper tx schema/devices-table-schema)

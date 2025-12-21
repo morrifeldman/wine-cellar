@@ -22,6 +22,12 @@
     [reagent-mui.material.dialog-title :refer [dialog-title]]
     [reagent-mui.material.dialog-content :refer [dialog-content]]
     [reagent-mui.material.dialog-actions :refer [dialog-actions]]
+    [reagent-mui.material.table :refer [table]]
+    [reagent-mui.material.table-body :refer [table-body]]
+    [reagent-mui.material.table-cell :refer [table-cell]]
+    [reagent-mui.material.table-container :refer [table-container]]
+    [reagent-mui.material.table-head :refer [table-head]]
+    [reagent-mui.material.table-row :refer [table-row]]
     [reagent-mui.icons.close :refer [close]]
     [reagent.core :as r]
     [wine-cellar.api :as api]
@@ -909,6 +915,59 @@
       (fn [new-metadata]
         (api/update-wine app-state (:id wine) {:metadata new-metadata}))}]]])
 
+(defn inventory-history-section
+  [app-state wine]
+  (let [history (get-in @app-state [:inventory-history (:id wine)])]
+    [box {:sx {:mt 4}}
+     [typography
+      {:variant "h5"
+       :component "h3"
+       :sx {:mb 2
+            :pb 1
+            :borderBottom "1px solid rgba(0,0,0,0.08)"
+            :color "primary.main"}} "Inventory History"]
+     (if (empty? history)
+       [typography
+        {:variant "body2" :color "text.secondary" :fontStyle "italic"}
+        "No inventory history recorded yet."]
+       [paper
+        {:elevation 0
+         :sx {:border "1px solid rgba(0,0,0,0.12)" :overflow "hidden"}}
+        [table-container
+         [table {:size "small"}
+          [table-head
+           [table-row [table-cell "Date"] [table-cell "Change"]
+            [table-cell "Reason"] [table-cell "Balance"] [table-cell "Notes"]]]
+          [table-body
+           (for [record history]
+             ^{:key (:id record)}
+             [table-row [table-cell (format-date-iso (:occurred_at record))]
+              [table-cell
+               {:sx {:color (if (pos? (:change_amount record))
+                              "success.main"
+                              "error.main")
+                     :fontWeight "bold"}}
+               (if (pos? (:change_amount record))
+                 (str "+" (:change_amount record))
+                 (:change_amount record))]
+              [table-cell (str/capitalize (:reason record))]
+              [table-cell
+               (if-let [oq (:original_quantity record)]
+                 (if (= (:reason record) "restock")
+                   (let [prev-oq (- oq (:change_amount record))]
+                     (str (:previous_quantity record)
+                          " / " prev-oq
+                          " → " (:new_quantity record)
+                          " / " oq))
+                   (str (:previous_quantity record)
+                        " / " oq
+                        " → " (:new_quantity record)
+                        " / " oq))
+                 (str (:previous_quantity record)
+                      " → "
+                      (:new_quantity record)))]
+              [table-cell (:notes record)]])]]]])]))
+
 (defn wine-tasting-notes-section
   [app-state wine]
   [box {:sx {:mt 4}}
@@ -945,6 +1004,7 @@
     [wine-technical-notes-section app-state wine]
     [wine-tasting-window-section app-state wine]
     [wine-ai-summary-section app-state wine]]
+   [inventory-history-section app-state wine]
    [wine-tasting-notes-section app-state wine]])
 
 (defn wine-loading-view

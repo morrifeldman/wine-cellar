@@ -403,6 +403,14 @@
           (js/console.error "Failed to fetch tasting note sources:"
                             (:error result))))))
 
+(defn fetch-inventory-history
+  [app-state wine-id]
+  (go (let [result (<! (GET (str "/api/wines/by-id/" wine-id "/history")
+                            "Failed to fetch inventory history"))]
+        (if (:success result)
+          (swap! app-state assoc-in [:inventory-history wine-id] (:data result))
+          (swap! app-state assoc :error (:error result))))))
+
 (defn adjust-wine-quantity
   ([app-state wine-id adjustment]
    (adjust-wine-quantity app-state wine-id adjustment {}))
@@ -414,18 +422,17 @@
                              notes (assoc :notes notes))
                            "Failed to update wine quantity"))]
       (if (:success result)
-        (swap! app-state update
-          :wines
-          (fn [wines]
-            (map #(if (= (:id %) wine-id)
-                    (cond-> (update % :quantity + adjustment)
-                      (= reason "restock")
-                      (update :original_quantity (fnil + 0) adjustment))
-                    %)
-                 wines)))
+        (do (fetch-inventory-history app-state wine-id) ;; Refresh history
+            (swap! app-state update
+              :wines
+              (fn [wines]
+                (map #(if (= (:id %) wine-id)
+                        (cond-> (update % :quantity + adjustment)
+                          (= reason "restock")
+                          (update :original_quantity (fnil + 0) adjustment))
+                        %)
+                     wines))))
         (swap! app-state assoc :error (:error result)))))))
-
-
 
 (defn update-wine
   [app-state id updates]
@@ -1228,7 +1235,8 @@
   (fetch-tasting-notes app-state wine-id)
   (fetch-wine-details app-state wine-id)
   (fetch-wine-varieties app-state wine-id)
-  (fetch-tasting-note-sources app-state))
+  (fetch-tasting-note-sources app-state)
+  (fetch-inventory-history app-state wine-id))
 
 (defn exit-wine-detail-page
   "Clean up state when leaving wine detail page"

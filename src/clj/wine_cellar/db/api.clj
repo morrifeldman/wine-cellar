@@ -442,13 +442,19 @@
   ([id adjustment {:keys [reason notes]}]
    (jdbc/with-transaction
     [tx ds]
-    (let [wine (jdbc/execute-one!
-                tx
-                (sql/format {:select :quantity :from :wines :where [:= :id id]})
-                db-opts)
+    (let [wine (jdbc/execute-one! tx
+                                  (sql/format {:select [:quantity
+                                                        :original_quantity]
+                                               :from :wines
+                                               :where [:= :id id]})
+                                  db-opts)
           current-quantity (:quantity wine 0)
+          current-original-quantity (:original_quantity wine 0)
           new-quantity (+ current-quantity adjustment)
           actual-reason (or reason (if (neg? adjustment) "consumed" "return"))
+          new-original-quantity (if (= actual-reason "restock")
+                                  (+ current-original-quantity adjustment)
+                                  current-original-quantity)
           update-map (cond-> {:quantity new-quantity :updated_at [:now]}
                        (= actual-reason "restock")
                        (assoc :original_quantity
@@ -456,18 +462,28 @@
                                adjustment]))]
       (jdbc/execute-one! tx
                          (sql/format {:insert-into :inventory_history
-                                      :values [{:wine_id id
-                                                :change_amount adjustment
-                                                :reason actual-reason
-                                                :previous_quantity
-                                                current-quantity
-                                                :new_quantity new-quantity
-                                                :notes notes}]})
+                                      :values
+                                      [{:wine_id id
+                                        :change_amount adjustment
+                                        :reason actual-reason
+                                        :previous_quantity current-quantity
+                                        :new_quantity new-quantity
+                                        :original_quantity new-original-quantity
+                                        :notes notes}]})
                          db-opts)
       (jdbc/execute-one! tx
                          (sql/format
                           {:update :wines :set update-map :where [:= :id id]})
                          db-opts)))))
+
+(defn get-inventory-history
+  [wine-id]
+  (jdbc/execute! ds
+                 (sql/format {:select :*
+                              :from :inventory_history
+                              :where [:= :wine_id wine-id]
+                              :order-by [[:occurred_at :desc] [:id :desc]]})
+                 db-opts))
 
 (defn delete-wine!
   [id]
