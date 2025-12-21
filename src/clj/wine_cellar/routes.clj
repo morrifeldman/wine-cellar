@@ -201,8 +201,8 @@
           :opt-un [::aoc ::classification ::vineyard ::levels]))
 
 (def tasting-note-schema
-  (s/keys :req-un [::notes]
-          :opt-un [::rating ::tasting_date ::is_external ::source ::wset_data]))
+  (s/keys :opt-un
+          [::notes ::rating ::tasting_date ::is_external ::source ::wset_data]))
 
 (defstate cors-middleware
           :start

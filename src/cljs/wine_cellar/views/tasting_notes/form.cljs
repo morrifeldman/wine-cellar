@@ -87,7 +87,10 @@
            wset-style (:wset-style style-info)
            is-external (boolean (:is_external updated-note))
            {:keys [editing? editing-note-id editing-note submitting?]}
-           form-state]
+           form-state
+           wset-mode? (boolean (get-in updated-note [:wset_data :note_type]))
+           has-existing-notes? (seq (:notes editing-note))
+           show-notes-field? (or (not wset-mode?) has-existing-notes?)]
        [form-container
         {:title (if editing? "Edit Tasting Note" "Add Tasting Note")
          :on-submit
@@ -247,22 +250,25 @@
            :on-change
            #(swap! app-state assoc-in [:new-tasting-note :tasting_date] %)}]]
         ;; Tasting notes textarea (uncontrolled for performance)
-        [grid {:item true :xs 12}
-         [mui-text-field/text-field
-          {:multiline true
-           :rows 12
-           :fullWidth true
-           :variant "outlined"
-           :size "small"
-           :margin "dense"
-           :required true
-           :defaultValue (if editing? (:notes editing-note) "")
-           :key (str "notes-" (or editing-note-id "new"))
-           :inputRef #(reset! notes-ref %)
-           :sx {"& .MuiOutlinedInput-root" {:backgroundColor "container.main"
-                                            :border "none"
-                                            :borderRadius 2}}
-           :placeholder "Enter your tasting notes here..."}]]
+        (when show-notes-field?
+          [grid {:item true :xs 12}
+           [mui-text-field/text-field
+            {:multiline true
+             :rows 12
+             :fullWidth true
+             :variant "outlined"
+             :size "small"
+             :margin "dense"
+             :required (not wset-mode?)
+             :defaultValue (if editing? (:notes editing-note) "")
+             :key (str "notes-" (or editing-note-id "new"))
+             :inputRef #(reset! notes-ref %)
+             :sx {"& .MuiOutlinedInput-root" {:backgroundColor "container.main"
+                                              :border "none"
+                                              :borderRadius 2}}
+             :placeholder (if wset-mode?
+                            "Enter your tasting notes here... (Optional)"
+                            "Enter your tasting notes here...")}]])
         ;; Rating input
         [form-row
          [number-field

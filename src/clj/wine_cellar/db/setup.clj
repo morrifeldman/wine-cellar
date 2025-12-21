@@ -56,6 +56,7 @@
    (sql-execute-helper tx schema/wines-add-metadata-column)
    (sql-execute-helper tx schema/wines-set-default-bottle-format)
    (sql-execute-helper tx schema/tasting-notes-table-schema)
+   (sql-execute-helper tx schema/tasting-notes-alter-notes-nullable)
    (sql-execute-helper tx schema/ai-conversations-table-schema)
    (sql-execute-helper tx schema/ai-conversations-add-provider-column)
    (sql-execute-helper tx schema/ai-conversations-add-pinned-column)

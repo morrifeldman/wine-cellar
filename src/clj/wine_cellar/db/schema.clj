@@ -75,17 +75,19 @@
 
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]
-   :with-columns [[:id :integer :generated :by-default :as :identity
-                   :primary-key] [:wine_id :integer [:not nil]]
-                  [:tasting_date :date] [:notes :text [:not nil]]
-                  [:rating :integer
-                   [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
-                  [:is_external :boolean [:default false]] [:source :varchar]
-                  [:wset_data :jsonb] [:created_at :timestamp [:default [:now]]]
-                  [:updated_at :timestamp [:default [:now]]]
-                  [[:foreign-key :wine_id] :references [:entity :wines]
-                   [:nest :id] :on-delete :cascade]]})
+   :with-columns
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:wine_id :integer [:not nil]] [:tasting_date :date] [:notes :text]
+    [:rating :integer [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
+    [:is_external :boolean [:default false]] [:source :varchar]
+    [:wset_data :jsonb] [:created_at :timestamp [:default [:now]]]
+    [:updated_at :timestamp [:default [:now]]]
+    [[:foreign-key :wine_id] :references [:entity :wines] [:nest :id] :on-delete
+     :cascade]]})
 #_(sql/format tasting-notes-table-schema)
+
+(def tasting-notes-alter-notes-nullable
+  {:raw ["ALTER TABLE tasting_notes ALTER COLUMN notes DROP NOT NULL"]})
 
 (def ai-conversations-table-schema
   {:create-table [:ai_conversations :if-not-exists]
