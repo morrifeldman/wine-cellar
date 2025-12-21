@@ -68,7 +68,7 @@
       {:onClick
        (fn []
          (reset! anchor-el nil)
-         (api/adjust-wine-quantity app-state wine-id -1 {:reason "consumed"}))}
+         (api/adjust-wine-quantity app-state wine-id -1 {:reason "drunk"}))}
       "Drink"])
    (when (:gift options)
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-gift))} "Gift"])

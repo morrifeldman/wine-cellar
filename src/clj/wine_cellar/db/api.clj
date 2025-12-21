@@ -451,7 +451,7 @@
           current-quantity (:quantity wine 0)
           current-original-quantity (:original_quantity wine 0)
           new-quantity (+ current-quantity adjustment)
-          actual-reason (or reason (if (neg? adjustment) "consumed" "return"))
+          actual-reason (or reason (if (neg? adjustment) "drunk" "return"))
           new-original-quantity (if (= actual-reason "restock")
                                   (+ current-original-quantity adjustment)
                                   current-original-quantity)
