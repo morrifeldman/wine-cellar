@@ -74,7 +74,7 @@
                       {:body (json/write-value-as-string request-body)
                        :headers {"Content-Type" "application/json"}
                        :as :text
-                       :timeout 60000})]
+                       :timeout 180000})]
       (when error
         (throw (ex-info "Gemini API network error" {:status 500 :error error})))
       (let [parsed (try (json/read-value body json-mapper)
