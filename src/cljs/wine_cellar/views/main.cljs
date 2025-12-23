@@ -12,6 +12,7 @@
     [wine-cellar.views.grape-varieties.list :refer [grape-varieties-page]]
     [wine-cellar.views.classifications.list :refer [classifications-page]]
     [wine-cellar.views.cellar-conditions :refer [cellar-conditions-panel]]
+    [wine-cellar.views.reports.core :refer [report-modal]]
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.button :refer [button]]
@@ -257,6 +258,13 @@
    ;; Right side: Stats + Admin
    [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
     [button
+     {:variant "contained"
+      :color "secondary"
+      :onClick #(let [provider (get-in @app-state [:ai :provider])]
+                  (swap! app-state assoc :show-report? true)
+                  (api/fetch-latest-report app-state {:provider provider}))}
+     "Insights"]
+    [button
      {:variant "outlined"
       :color "primary"
       :onClick #(swap! app-state assoc :show-collection-stats? true)} "Stats"]
@@ -385,4 +393,4 @@
                                      [wine-form app-state]]
            :else [:div [top-controls app-state] [wine-list app-state]])
      (when (:show-debug-controls? state) [debug-sidebar app-state])
-     [wine-chat app-state]]))
+     [report-modal app-state] [wine-chat app-state]]))

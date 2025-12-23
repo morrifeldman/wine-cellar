@@ -222,3 +222,14 @@
                  :max_output_tokens 1000
                  :reasoning {:effort "low"}}]
     (call-openai-responses request false)))
+
+(defn generate-report-commentary
+  "Generates a report commentary using OpenAI GPT-4o."
+  [{:keys [system user]}]
+  (assert (string? system) "Report prompt requires :system text")
+  (assert (string? user) "Report prompt requires :user text")
+  (let [request {:input
+                 [{:role "system" :content [{:type "input_text" :text system}]}
+                  {:role "user" :content [{:type "input_text" :text user}]}]
+                 :max_output_tokens 1500}]
+    (call-openai-responses request false)))

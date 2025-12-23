@@ -169,3 +169,12 @@
                  :max-tokens 1000
                  :temperature 0.2}]
     (call-gemini-api request :model-override lite-model)))
+
+(defn generate-report-commentary
+  "Generates a report commentary using Gemini."
+  [{:keys [system user]}]
+  (let [request {:system system
+                 :messages [{:role "user" :content user}]
+                 :max-tokens 20000
+                 :temperature 0.7}]
+    (call-gemini-api request)))

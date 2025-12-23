@@ -294,6 +294,10 @@
            :parameters {:query ::series-query}
            :responses {200 {:body vector?} 500 {:body map?}}
            :handler handlers/cellar-condition-series}}]
+   ["/reports/latest"
+    {:get {:summary "Get the latest cellar insight report"
+           :responses {200 {:body map?} 500 {:body map?}}
+           :handler handlers/get-latest-report}}]
    ;; Grape Varieties Routes
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"

@@ -201,6 +201,18 @@
   {:raw
    ["ALTER TABLE inventory_history ADD COLUMN IF NOT EXISTS original_quantity integer"]})
 
+(def cellar-reports-table-schema
+  {:create-table [:cellar_reports :if-not-exists]
+   :with-columns [[:id :integer :generated :by-default :as :identity
+                   :primary-key] [:report_date :date :unique [:not nil]]
+                  [:summary_data :jsonb [:not nil]] [:ai_commentary :text]
+                  [:highlight_wine_id :integer]
+                  [:viewed :boolean [:default false]]
+                  [:created_at :timestamp [:default [:now]]]
+                  [:updated_at :timestamp [:default [:now]]]
+                  [[:foreign-key :highlight_wine_id] :references [:wines :id]
+                   :on-delete :set-null]]})
+
 (def cellar-conditions-table-schema
   {:create-table [:cellar_conditions :if-not-exists]
    :with-columns

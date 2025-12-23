@@ -240,3 +240,14 @@
                  :max_tokens 40
                  :temperature 0.2}]
     (call-anthropic-api request false light-model)))
+
+(defn generate-report-commentary
+  "Generates a report commentary using Anthropic's Claude API."
+  [{:keys [system user]}]
+  (assert (string? system) "Report prompt requires :system text")
+  (assert (string? user) "Report prompt requires :user text")
+  (let [request {:system system
+                 :messages [{:role "user" :content [{:type "text" :text user}]}]
+                 :max_tokens 1000
+                 :temperature 0.7}]
+    (call-anthropic-api request false)))

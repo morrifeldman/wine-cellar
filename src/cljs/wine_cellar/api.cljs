@@ -100,6 +100,24 @@
                 (str (name k) "=" (js/encodeURIComponent (str v))))]
     (when (seq pairs) (str "?" (string/join "&" pairs)))))
 
+(defn fetch-latest-report
+  ([app-state] (fetch-latest-report app-state {}))
+  ([app-state opts]
+   (let [{:keys [force? provider]} (if (map? opts) opts {:force? opts})
+         params (cond-> {}
+                  force? (assoc :force "true")
+                  provider (assoc :provider (name provider)))
+         query (encode-query-params params)]
+     (swap! app-state assoc :loading-report? true)
+     (go
+      (let [result (<! (GET (str "/api/reports/latest" query)
+                            "Failed to fetch cellar report"))]
+        (if (:success result)
+          (swap! app-state assoc :report (:data result) :loading-report? false)
+          (swap! app-state assoc
+            :loading-report? false
+            :error (:error result))))))))
+
 (defn logout
   []
   (js/console.log "Logging out...")

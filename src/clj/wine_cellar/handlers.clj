@@ -5,6 +5,7 @@
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations]
             [wine-cellar.devices :as devices]
+            [wine-cellar.reports.core :as reports]
             [ring.util.response :as response]
             [wine-cellar.summary :as summary]
             [wine-cellar.logging :as logging])
@@ -365,6 +366,16 @@
            (response/response result)))
        (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
        (catch Exception e (server-error e))))
+
+(defn get-latest-report
+  [request]
+  (let [force? (get-in request [:query-params "force"])
+        provider (some-> (get-in request [:query-params "provider"])
+                         keyword)]
+    (try (let [report (reports/generate-report! {:force? (boolean force?)
+                                                 :provider provider})]
+           (response/response report))
+         (catch Exception e (server-error e)))))
 
 (defn health-check
   [_]

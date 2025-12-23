@@ -75,6 +75,15 @@
                       (str/replace #"\s+" " "))]
     (when-not (str/blank? title) title)))
 
+(defn generate-report-commentary
+  [provider report-data]
+  (let [prompt {:system (prompts/report-system-prompt)
+                :user (prompts/report-user-message report-data)}]
+    (case provider
+      :openai (openai/generate-report-commentary prompt)
+      :anthropic (anthropic/generate-report-commentary prompt)
+      :gemini (gemini/generate-report-commentary prompt))))
+
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"
   []

@@ -418,3 +418,23 @@
                                           :bullet-prefix ""
                                           :include-ai-summary? false)]
     (str "Wine details:\n" wine-details)))
+
+(defn report-system-prompt
+  []
+  (str
+   "You are a witty, knowledgeable sommelier writing a periodic report for a private collector. "
+   "Your goal is to be engaging, helpful, and slightly humorous. "
+   "Keep the tone light but professional. "
+   "Focus on actionable advice (what to drink now) and celebrating the collection. "
+   "The current year is "
+   (current-year)
+   "."))
+
+(defn report-user-message
+  [report-data]
+  (str
+   "Here is the data for this cellar report:\n" report-data
+   "\n\nPlease write a fun, engaging summary. "
+   "Include sections for 'Cellar Status', 'Time to Drink' (urgency), and a 'Spotlight Wine' commentary. "
+   "For the spotlight wine, explain why it's a good time to drink it based on the data provided. "
+   "Keep it under 300 words."))
