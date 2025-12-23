@@ -55,6 +55,27 @@
                               :order-by [[:ih.created_at :desc]]})
                  db-opts))
 
+(defn- fetch-past-prime-wines
+  [tx current-year]
+  (jdbc/execute! tx
+                 (sql/format {:select [:id :producer :name :vintage :region
+                                       :quantity :drink_until_year]
+                              :from :wines
+                              :where [:and [:> :quantity 0]
+                                      [:< :drink_until_year current-year]]
+                              :order-by [[:drink_until_year :asc]]})
+                 db-opts))
+
+(defn- fetch-recently-added-wines
+  [tx last-week-date]
+  (jdbc/execute! tx
+                 (sql/format {:select [:id :producer :name :vintage :region
+                                       :quantity :created_at]
+                              :from :wines
+                              :where [:>= :created_at last-week-date]
+                              :order-by [[:created_at :desc]]})
+                 db-opts))
+
 (defn- select-highlight-wine
   [_tx drink-now-wines]
   (when (seq drink-now-wines) (rand-nth (take 20 drink-now-wines))))
@@ -64,22 +85,30 @@
   (let [{:keys [today current-year last-week]} (get-date-range)
         drink-now (fetch-drink-now-wines tx current-year)
         expiring (fetch-expiring-wines tx current-year)
-        recent (fetch-recent-activity tx last-week)
+        past-prime (fetch-past-prime-wines tx current-year)
+        recent-added (fetch-recently-added-wines tx last-week)
+        recent-activity (fetch-recent-activity tx last-week)
         highlight (select-highlight-wine tx drink-now)]
     {:generated-at (str today)
      :period-start (str last-week)
      :period-end (str today)
      :drink-now-count (count drink-now)
      :expiring-count (count expiring)
-     :recent-activity-count (count recent)
+     :past-prime-count (count past-prime)
+     :recently-added-count (count recent-added)
+     :recent-activity-count (count recent-activity)
      :highlight-wine highlight
      :drink-now-sample (take 5 drink-now)
      :expiring-sample (take 5 expiring)
-     :recent-sample (take 5 recent)
+     :past-prime-sample (take 5 past-prime)
+     :recently-added-sample (take 5 recent-added)
+     :recent-sample (take 5 recent-activity)
      ;; Full ID lists for interaction
      :drink-now-ids (mapv :id drink-now)
      :expiring-ids (mapv :id expiring)
-     :recent-activity-ids (mapv :wine_id recent)}))
+     :past-prime-ids (mapv :id past-prime)
+     :recently-added-ids (mapv :id recent-added)
+     :recent-activity-ids (mapv :wine_id recent-activity)}))
 
 (defn- save-report!
   [tx report-date data-json ai-text highlight-id]
@@ -114,7 +143,10 @@
           ;; Check if the existing report has the new ID fields (stale
           ;; check)
           summary-data (:summary_data existing)
-          has-ids? (boolean (and summary-data (:drink-now-ids summary-data)))
+          has-ids? (boolean (and summary-data
+                                 (:drink-now-ids summary-data)
+                                 (:past-prime-ids summary-data)
+                                 (:recently-added-ids summary-data)))
           stale? (and existing (not has-ids?))
           should-generate? (or (nil? existing) stale? force?)
           selected-provider (or provider :gemini)]

@@ -92,99 +92,128 @@
             :gutterBottom true
             :color "primary.main"
             :sx {:fontWeight 600}} "🍷 Cellar Insights"]
-          (cond @loading?
-                [box
-                 {:sx {:display "flex"
-                       :flexDirection "column"
-                       :alignItems "center"
-                       :p 8
-                       :gap 2}} [circular-progress {:color "secondary"}]
-                 [typography {:variant "body1" :color "text.secondary"}
-                  "Consulting the sommelier..."]]
-                @report
-                (let [raw-data (:summary_data @report)
-                      data (cond (map? raw-data) (walk/keywordize-keys raw-data)
-                                 (nil? raw-data) {}
-                                 :else (js->clj raw-data :keywordize-keys true))
-                      commentary (:ai_commentary @report)
-                      highlight (:highlight-wine data)
-                      drink-now-ids (:drink-now-ids data)
-                      expiring-ids (:expiring-ids data)
-                      recent-ids (:recent-activity-ids data)]
-                  [:div
-                   [typography
-                    {:variant "subtitle1"
-                     :color "text.secondary"
-                     :gutterBottom true}
-                    (str "Report generated on " (:report_date @report))]
-                   [divider {:sx {:my 2}}]
-                   ;; AI Commentary
-                   [paper
-                    {:elevation 0
-                     :sx {:bgcolor "rgba(0,0,0,0.2)"
-                          :p 3
-                          :mb 4
-                          :borderRadius 2
-                          :border "1px solid rgba(255,255,255,0.1)"}}
-                    [typography
-                     {:variant "body1"
-                      :sx {:whiteSpace "pre-wrap"
-                           :fontStyle "italic"
-                           :lineHeight 1.6}} commentary]]
-                   ;; Stats Grid
-                   [grid {:container true :spacing 3 :sx {:mb 4}}
-                    [grid {:item true :xs 12 :md 4}
-                     [paper
-                      {:sx {:p 2
-                            :textAlign "center"
-                            :height "100%"
-                            :cursor "pointer"
-                            :transition "transform 0.2s, box-shadow 0.2s"
-                            "&:hover" {:transform "translateY(-4px)"
-                                       :boxShadow 4
-                                       :bgcolor "rgba(255,255,255,0.05)"}}
-                       :on-click #(handle-selection app-state drink-now-ids)}
-                      [typography {:variant "h3" :color "primary"}
-                       (:drink-now-count data)]
-                      [typography {:variant "subtitle2"} "Drink Now"]]]
-                    [grid {:item true :xs 12 :md 4}
-                     [paper
-                      {:sx {:p 2
-                            :textAlign "center"
-                            :height "100%"
-                            :cursor "pointer"
-                            :transition "transform 0.2s, box-shadow 0.2s"
-                            "&:hover" {:transform "translateY(-4px)"
-                                       :boxShadow 4
-                                       :bgcolor "rgba(255,255,255,0.05)"}}
-                       :on-click #(handle-selection app-state expiring-ids)}
-                      [typography {:variant "h3" :color "secondary"}
-                       (:expiring-count data)]
-                      [typography {:variant "subtitle2"} "Expiring Soon"]]]
-                    [grid {:item true :xs 12 :md 4}
-                     [paper
-                      {:sx {:p 2
-                            :textAlign "center"
-                            :height "100%"
-                            :cursor "pointer"
-                            :transition "transform 0.2s, box-shadow 0.2s"
-                            "&:hover" {:transform "translateY(-4px)"
-                                       :boxShadow 4
-                                       :bgcolor "rgba(255,255,255,0.05)"}}
-                       :on-click #(handle-selection app-state recent-ids)}
-                      [typography {:variant "h3" :color "success.main"}
-                       (:recent-activity-count data)]
-                      [typography {:variant "subtitle2"} "Recent Activity"]]]]
-                   ;; Highlight Wine
-                   (when highlight
-                     [box {:sx {:mb 4}}
-                      [typography {:variant "h5" :gutterBottom true}
-                       "Spotlight Wine"]
-                      [highlight-wine-card highlight
-                       (fn [id]
-                         (swap! app-state assoc
-                           :selected-wine-id id
-                           :show-report? false)
-                         (api/fetch-wine-details app-state id))]])])
-                :else [typography {:color "error"}
-                       "Failed to load report."])]]))))
+          (cond
+            @loading? [box
+                       {:sx {:display "flex"
+                             :flexDirection "column"
+                             :alignItems "center"
+                             :p 8
+                             :gap 2}} [circular-progress {:color "secondary"}]
+                       [typography {:variant "body1" :color "text.secondary"}
+                        "Consulting the sommelier..."]]
+            @report
+            (let [raw-data (:summary_data @report)
+                  data (cond (map? raw-data) (walk/keywordize-keys raw-data)
+                             (nil? raw-data) {}
+                             :else (js->clj raw-data :keywordize-keys true))
+                  commentary (:ai_commentary @report)
+                  highlight (:highlight-wine data)
+                  drink-now-ids (:drink-now-ids data)
+                  expiring-ids (:expiring-ids data)
+                  past-prime-ids (:past-prime-ids data)
+                  recent-added-ids (:recently-added-ids data)
+                  recent-ids (:recent-activity-ids data)]
+              [:div
+               [typography
+                {:variant "subtitle1"
+                 :color "text.secondary"
+                 :gutterBottom true}
+                (str "Report generated on " (:report_date @report))]
+               [divider {:sx {:my 2}}]
+               ;; AI Commentary
+               [paper
+                {:elevation 0
+                 :sx {:bgcolor "rgba(0,0,0,0.2)"
+                      :p 3
+                      :mb 4
+                      :borderRadius 2
+                      :border "1px solid rgba(255,255,255,0.1)"}}
+                [typography
+                 {:variant "body1"
+                  :sx
+                  {:whiteSpace "pre-wrap" :fontStyle "italic" :lineHeight 1.6}}
+                 commentary]]
+               ;; Stats Grid
+               [grid {:container true :spacing 2 :sx {:mb 4}}
+                [grid {:item true :xs 6 :sm 4}
+                 [paper
+                  {:sx {:p 2
+                        :textAlign "center"
+                        :height "100%"
+                        :cursor "pointer"
+                        :transition "transform 0.2s, box-shadow 0.2s"
+                        "&:hover" {:transform "translateY(-4px)"
+                                   :boxShadow 4
+                                   :bgcolor "rgba(255,255,255,0.05)"}}
+                   :on-click #(handle-selection app-state recent-added-ids)}
+                  [typography {:variant "h3" :color "info.main"}
+                   (:recently-added-count data)]
+                  [typography {:variant "subtitle2"} "Recently Added"]]]
+                [grid {:item true :xs 6 :sm 4}
+                 [paper
+                  {:sx {:p 2
+                        :textAlign "center"
+                        :height "100%"
+                        :cursor "pointer"
+                        :transition "transform 0.2s, box-shadow 0.2s"
+                        "&:hover" {:transform "translateY(-4px)"
+                                   :boxShadow 4
+                                   :bgcolor "rgba(255,255,255,0.05)"}}
+                   :on-click #(handle-selection app-state drink-now-ids)}
+                  [typography {:variant "h3" :color "primary"}
+                   (:drink-now-count data)]
+                  [typography {:variant "subtitle2"} "Drink Now"]]]
+                [grid {:item true :xs 6 :sm 4}
+                 [paper
+                  {:sx {:p 2
+                        :textAlign "center"
+                        :height "100%"
+                        :cursor "pointer"
+                        :transition "transform 0.2s, box-shadow 0.2s"
+                        "&:hover" {:transform "translateY(-4px)"
+                                   :boxShadow 4
+                                   :bgcolor "rgba(255,255,255,0.05)"}}
+                   :on-click #(handle-selection app-state expiring-ids)}
+                  [typography {:variant "h3" :color "secondary"}
+                   (:expiring-count data)]
+                  [typography {:variant "subtitle2"} "Expiring Soon"]]]
+                [grid {:item true :xs 6 :sm 4}
+                 [paper
+                  {:sx {:p 2
+                        :textAlign "center"
+                        :height "100%"
+                        :cursor "pointer"
+                        :transition "transform 0.2s, box-shadow 0.2s"
+                        "&:hover" {:transform "translateY(-4px)"
+                                   :boxShadow 4
+                                   :bgcolor "rgba(255,255,255,0.05)"}}
+                   :on-click #(handle-selection app-state past-prime-ids)}
+                  [typography {:variant "h3" :color "error.main"}
+                   (:past-prime-count data)]
+                  [typography {:variant "subtitle2"} "Past Prime"]]]
+                [grid {:item true :xs 12 :sm 8}
+                 [paper
+                  {:sx {:p 2
+                        :textAlign "center"
+                        :height "100%"
+                        :cursor "pointer"
+                        :transition "transform 0.2s, box-shadow 0.2s"
+                        "&:hover" {:transform "translateY(-4px)"
+                                   :boxShadow 4
+                                   :bgcolor "rgba(255,255,255,0.05)"}}
+                   :on-click #(handle-selection app-state recent-ids)}
+                  [typography {:variant "h3" :color "success.main"}
+                   (:recent-activity-count data)]
+                  [typography {:variant "subtitle2"} "Recent Activity"]]]]
+               ;; Highlight Wine
+               (when highlight
+                 [box {:sx {:mb 4}}
+                  [typography {:variant "h5" :gutterBottom true}
+                   "Spotlight Wine"]
+                  [highlight-wine-card highlight
+                   (fn [id]
+                     (swap! app-state assoc
+                       :selected-wine-id id
+                       :show-report? false)
+                     (api/fetch-wine-details app-state id))]])])
+            :else [typography {:color "error"} "Failed to load report."])]]))))
