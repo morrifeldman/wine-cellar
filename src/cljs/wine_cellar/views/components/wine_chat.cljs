@@ -435,9 +435,53 @@
         (when scroll-ref (reset! scroll-ref nil))
         nil)))
 
+(defn- render-text-with-links
+  [text app-state is-user]
+  (let [pattern #"\[([^\]]+)\]\(wine:(\d+)\)"]
+    (if (string/blank? text)
+      ""
+      (let [matches (re-seq pattern text)]
+        (if (empty? matches)
+          text
+          (let [;; Use a non-capturing regex for splitting to avoid
+                ;; capturing group issues in JS
+                split-regex (js/RegExp. "\\[[^\\]]+\\]\\(wine:\\d+\\)" "g")
+                parts (string/split text split-regex)]
+            (into
+             [:<>]
+             (map-indexed
+              (fn [idx part]
+                (if (< idx (count matches))
+                  (let [[_ link-text wine-id] (nth matches idx)]
+                    [:<> part
+                     [typography
+                      {:component "span"
+                       :variant "body2"
+                       :sx {:color
+                            (if is-user "secondary.light" "primary.light")
+                            :textDecoration "underline"
+                            :cursor "pointer"
+                            :fontWeight 600
+                            :whiteSpace "nowrap"
+                            :lineHeight "inherit"
+                            :&:hover
+                            {:color (if is-user "common.white" "primary.main")}}
+                       :on-click (fn [e]
+                                   (.preventDefault e)
+                                   (.stopPropagation e)
+                                   (swap! app-state
+                                     (fn [state]
+                                       (-> state
+                                           (assoc :selected-wine-id
+                                                  (js/parseInt wine-id))
+                                           (assoc-in [:chat :open?] false)))))}
+                      link-text]])
+                  part))
+              parts))))))))
+
 (defn message-bubble
   "Renders a single chat message bubble"
-  [{:keys [text is-user timestamp id]} on-edit & [ref-callback]]
+  [{:keys [text is-user timestamp id]} on-edit app-state & [ref-callback]]
   [box
    {:ref ref-callback
     :sx {:display "flex"
@@ -458,7 +502,7 @@
       :sx {:color "inherit"
            :white-space "pre-wrap"
            :word-wrap "break-word"
-           :line-height 1.6}} text]
+           :line-height 1.6}} (render-text-with-links text app-state is-user)]
     (when timestamp
       [typography
        {:variant "caption"
@@ -611,7 +655,7 @@
 
 (defn chat-messages
   "Scrollable container for chat messages"
-  [messages on-edit auto-scroll? scroll-container-ref]
+  [messages on-edit auto-scroll? scroll-container-ref app-state]
   (let [scroll-ref (r/atom nil)
         last-ai-message-ref (r/atom nil)
         messages-atom messages
@@ -649,7 +693,7 @@
                       (let [is-last-message? (= message
                                                 (last current-messages))]
                         ^{:key (:id message)}
-                        [message-bubble message edit-handler
+                        [message-bubble message edit-handler app-state
                          (when is-last-message?
                            #(reset! last-ai-message-ref %))])))))])})))
 
@@ -1027,7 +1071,7 @@
          (cond-> @show-camera? (conj [camera-capture handle-camera-capture
                                       handle-camera-cancel]))
          (conj [chat-messages messages message-edit-handler auto-scroll?
-                messages-scroll-ref])
+                messages-scroll-ref app-state])
          (cond->
            (is-editing?)
            (conj

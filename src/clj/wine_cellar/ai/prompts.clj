@@ -43,6 +43,7 @@
          include-drinking-window? true
          include-ai-summary? true}}]
   (let [basic-info (str bullet-prefix
+                        (when (:id wine) (str "{ID: " (:id wine) "} "))
                         (:producer wine)
                         (when (:name wine) (str " " (:name wine)))
                         (when (:vintage wine) (str " " (:vintage wine)))
@@ -260,15 +261,14 @@
    "food pairings, optimal drinking windows, storage advice, or any wine-related questions. "
    "When images are provided, analyze wine labels, wine lists, or other wine-related images to help with "
    "identification, recommendations, or general wine advice. "
+   "When you mention a specific wine from the user's collection, link to it using this syntax: [Wine Name and Vintage](wine:ID). "
+   "The ID must be taken from the {ID: ...} tag in the provided data. Do not show the ID number itself in the visible text of the link. "
+   "For example: 'I recommend the [Chateau Margaux 2015](wine:123) for this pairing.'\n\n"
    "The current year is "
    (current-year)
    ". "
-   "CRITICAL FORMATTING REQUIREMENT: You MUST respond in plain text only. Do NOT use any markdown formatting whatsoever. This means:\n"
-   "- NO headers starting with #\n"
-   "- NO bold text with **\n" "- NO italic text with _ or *\n"
-   "- NO code blocks with ```\n" "- NO bullet points with -\n"
-   "- NO numbered lists\n"
-   "Write your response as simple, natural conversational text with normal punctuation only."))
+   "FORMATTING RULES: Respond in plain text with normal punctuation. Do not use markdown headers, bold, or italics. "
+   "You may use bullet points (using -) or numbered lists for readability when suggesting multiple wines."))
 
 (defn- strip-image-data-url
   [image]
