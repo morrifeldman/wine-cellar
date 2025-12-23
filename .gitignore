@@ -45,6 +45,7 @@ embedded/esp32-sentinel/sdkconfig
 wine-cellar.db
 
 untracked/
+.venv/
 
 # Generated deployment config
 fly.toml

@@ -8,42 +8,42 @@
 
 ;; Wine Folly colors extracted from poster
 (def wine-folly-colors
-  {:pale-straw "#fdfbee"
-   :medium-straw "#faf9da"
-   :deep-straw "#eeebbe"
-   :pale-yellow "#f4f5ce"
-   :medium-yellow "#f7f3b0"
-   :deep-yellow "#f2e647"
-   :pale-gold "#f2eecc"
-   :medium-gold "#f2e49a"
-   :deep-gold "#f4d165"
-   :pale-brown "#e8af3e"
-   :medium-brown "#ce8e2c"
-   :deep-brown "#5b391b"
-   :pale-amber "#fccf6a"
-   :medium-amber "#f4b245"
-   :deep-amber "#e47929"
-   :pale-copper "#efc7a4"
-   :medium-copper "#f7ad7c"
-   :deep-copper "#e67b41"
-   :pale-salmon "#f7d0c9"
-   :medium-salmon "#f1a595"
-   :deep-salmon "#ed7e62"
-   :pale-pink "#f6d5d6"
-   :medium-pink "#ed9293"
-   :deep-pink "#ef6972"
-   :pale-ruby "#9a1b39"
-   :medium-ruby "#7f1b35"
-   :deep-ruby "#3b101a"
-   :pale-purple "#9d1c45"
-   :medium-purple "#52182e"
-   :deep-purple "#210d14"
-   :pale-garnet "#c02824"
-   :medium-garnet "#a32129"
-   :deep-garnet "#581211"
-   :pale-tawny "#ac4325"
-   :medium-tawny "#943921"
-   :deep-tawny "#80231a"})
+  {:pale-straw "#dddac2"
+   :medium-straw "#dad4a6"
+   :deep-straw "#e6e19f"
+   :pale-yellow "#f4f1bb"
+   :medium-yellow "#e2db7d"
+   :deep-yellow "#e5d649"
+   :pale-gold "#e1d7a1"
+   :medium-gold "#e6d580"
+   :deep-gold "#f2d063"
+   :pale-brown "#daa235"
+   :medium-brown "#bf7a29"
+   :deep-brown "#74411d"
+   :pale-amber "#e8b249"
+   :medium-amber "#e79526"
+   :deep-amber "#de7129"
+   :pale-copper "#ebb78f"
+   :medium-copper "#eb8d4e"
+   :deep-copper "#df6d34"
+   :pale-salmon "#e7b3a9"
+   :medium-salmon "#f08d79"
+   :deep-salmon "#ea6445"
+   :pale-pink "#f2c2c2"
+   :medium-pink "#e77c81"
+   :deep-pink "#e05162"
+   :pale-ruby "#8d1631"
+   :medium-ruby "#8e192f"
+   :deep-ruby "#781b2d"
+   :pale-purple "#951940"
+   :medium-purple "#721a3a"
+   :deep-purple "#571329"
+   :pale-garnet "#bf2d24"
+   :medium-garnet "#951c20"
+   :deep-garnet "#731714"
+   :pale-tawny "#bb4d26"
+   :medium-tawny "#983d20"
+   :deep-tawny "#762317"})
 
 
 ;; Base colors without intensity
@@ -68,7 +68,90 @@
     (let [full-color-key (keyword (str (name intensity) "-" (name base-color)))]
       (get wine-folly-colors full-color-key))))
 
-
+(defn- WineGlassIcon
+  "SVG Wine Glass Icon with realistic shading, highlights, and 3D effects"
+  [{:keys [color width height viewBox]
+    :or {width 48 height 96 viewBox "0 0 64 128"}}]
+  (let [gradient-id (str "glass-gradient-" (hash color))]
+    [:svg
+     {:viewBox viewBox
+      :width width
+      :height height
+      :style {:filter "drop-shadow(0px 4px 6px rgba(0,0,0,0.2))"}}
+     [:defs
+      ;; Complex gradient for volume: Bright top (light entry), Deep bottom
+      ;; (sediment/depth)
+      [:linearGradient {:id gradient-id :x1 "0%" :y1 "0%" :x2 "0%" :y2 "100%"}
+       [:stop {:offset "0%" :stop-color "white" :stop-opacity "0.9"}]
+       [:stop {:offset "15%" :stop-color "white" :stop-opacity "0.3"}]
+       [:stop {:offset "45%" :stop-color "white" :stop-opacity "0.0"}] ;; True
+                                                                       ;; color
+                                                                       ;; window
+       [:stop {:offset "80%" :stop-color "black" :stop-opacity "0.3"}]
+       [:stop {:offset "100%" :stop-color "black" :stop-opacity "0.6"}]]]
+     ;; --- Base & Stem (Behind Bowl) ---
+     ;; Base with slight perspective curve
+     [:path
+      {:d "M16 120 Q32 125 48 120 L48 119 Q32 124 16 119 Z"
+       :fill "#d0d0d0"
+       :stroke "#999"
+       :stroke-width "0.5"}]
+     ;; Stem
+     [:path
+      {:d "M32 84 L32 119"
+       :stroke "#a0a0a0"
+       :stroke-width "2.5"
+       :stroke-linecap "square"}]
+     ;; --- Liquid & Bowl ---
+     [:g
+      ;; 1. Main Liquid Body
+      [:path
+       {:d "M12 24 C12 62 18 84 32 84 C46 84 52 62 52 24 Z"
+        :fill (or color "#f5f5f5")}]
+      ;; 2. Gradient Overlay for 3D Volume
+      [:path
+       {:d "M12 24 C12 62 18 84 32 84 C46 84 52 62 52 24 Z"
+        :fill (str "url(#" gradient-id ")")
+        :style {:mix-blend-mode "multiply"}}]
+      ;; 3. Glass Wall Highlight (Inner Left)
+      [:path
+       {:d "M13.5 26 C13.5 60 19 82 30 82"
+        :stroke "rgba(255,255,255,0.25)"
+        :stroke-width "1.5"
+        :fill "none"}]
+      ;; 4. Specular Highlight (The "Gloss" Reflection) - Key for realism
+      [:path
+       {:d "M15 32 Q14 55 19 72"
+        :stroke "rgba(255,255,255,0.85)"
+        :stroke-width "2.5"
+        :stroke-linecap "round"
+        :fill "none"
+        :filter "blur(0.8px)"}]
+      ;; 5. Meniscus / Surface
+      ;; Surface Fill (faint reflection)
+      [:ellipse
+       {:cx "32" :cy "24" :rx "20" :ry "5" :fill "rgba(255,255,255,0.15)"}]
+      ;; Darker Meniscus Ring (where liquid touches glass)
+      [:ellipse
+       {:cx "32"
+        :cy "24"
+        :rx "19.5"
+        :ry "4.5"
+        :stroke "rgba(0,0,0,0.15)"
+        :stroke-width "1"
+        :fill "none"}]
+      ;; Front Rim Highlight (Glass Edge)
+      [:path
+       {:d "M12 24 A 20 5 0 0 0 52 24"
+        :stroke "rgba(255,255,255,0.6)"
+        :stroke-width "1.5"
+        :fill "none"}]
+      ;; 6. Bowl Outline (Subtle Container)
+      [:path
+       {:d "M12 24 C12 62 18 84 32 84 C46 84 52 62 52 24"
+        :fill "none"
+        :stroke "rgba(0,0,0,0.15)" ;; Very faint dark line for definition
+        :stroke-width "1"}]]]))
 
 (defn wine-color-selector
   "Wine color selection component with Wine Folly colors"
@@ -135,7 +218,6 @@
                     :flexDirection "column"
                     :alignItems "center"
                     :gap 0
-                    #_1.25
                     :width "75%"
                     :maxWidth "320px"
                     :backgroundColor "white"
@@ -143,15 +225,11 @@
                     :borderRadius 2
                     :boxShadow "0 2px 8px rgba(0,0,0,0.1)"
                     :border "1px solid #e0e0e0"}}
-              [box
-               {:sx {:width 48
-                     :height 78
-                     :backgroundColor (or current-hex "#f5f5f5")
-                     :border "2px solid #666"
-                     :borderRadius "0 0 30px 30px"
-                     :position "relative"
-                     :boxShadow "inset 0 2px 4px rgba(0,0,0,0.1)"
-                     :clipPath "polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)"}}]]
+              [WineGlassIcon
+               {:color current-hex
+                :width 100
+                :height 140
+                :viewBox "0 12 64 90"}]]
              [box {:sx {:width "100%" :maxWidth "260px" :mx "auto"}}
               [slider
                {:orientation "horizontal"
@@ -182,31 +260,23 @@
   "Display selected wine color as small wine glass on white background"
   [{:keys [selected-color selected-intensity size]}]
   (when (and selected-color selected-intensity)
-    (let [glass-size (case size
-                       :small 22
-                       :large 38
-                       30)
-          glass-height (case size
-                         :small 30
-                         :large 50
-                         40)
+    (let [{:keys [width height]} (case size
+                                   :small {:width 20 :height 40}
+                                   :large {:width 40 :height 80}
+                                   {:width 30 :height 60})
           current-hex (get-color-hex selected-color selected-intensity)]
       [box {:sx {:display "flex" :alignItems "center" :gap 1.5}}
        ;; Wine glass on white background
        [box
         {:sx {:backgroundColor "white"
-              :padding 1
-              :borderRadius 1
-              :boxShadow "0 1px 3px rgba(0,0,0,0.2)"
-              :border "1px solid #e0e0e0"}}
-        [box
-         {:sx {:width glass-size
-               :height glass-height
-               :backgroundColor (or current-hex "#f5f5f5")
-               :border "1px solid #666"
-               :borderRadius "0 0 12px 12px"
-               :boxShadow "inset 0 1px 2px rgba(0,0,0,0.1)"
-               :clipPath "polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)"}}]]
+              :padding "6px"
+              :borderRadius "4px"
+              :boxShadow "0 1px 3px rgba(0,0,0,0.15)"
+              :border "1px solid #e0e0e0"
+              :display "flex"
+              :alignItems "center"
+              :justifyContent "center"}}
+        [WineGlassIcon {:color current-hex :width width :height height}]]
        [typography
         {:variant (case size
                     :small "caption"
