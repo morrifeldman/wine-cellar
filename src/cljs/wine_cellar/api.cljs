@@ -961,7 +961,8 @@
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with wine IDs and conversation history.
-   Provider is read from app-state. Optionally includes image data."
+   Provider is read from app-state. Optionally includes image data.
+   Returns a zero-arity function that can be called to cancel the request."
   ([app-state message wines include? conversation-history callback]
    (send-chat-message app-state
                       message
@@ -971,25 +972,41 @@
                       nil
                       callback))
   ([app-state message wines include? conversation-history image callback]
-   (go
-    (let
-      [provider (get-in @app-state [:ai :provider])
-       wine-ids (->> wines
-                     (map :id)
-                     (remove nil?)
-                     vec)
-       payload (cond-> {:conversation-history conversation-history
-                        :include-visible-wines? include?
-                        :provider provider}
-                 (seq message) (assoc :message message)
-                 (and include? (seq wine-ids)) (assoc :wine-ids wine-ids)
-                 image (assoc :image image))
-       fallback-msg
-       "Sorry, I'm having trouble connecting right now. Please try again later."]
-      (if-let [result
-               (<! (POST "/api/chat" payload "Failed to send chat message"))]
-        (if (:success result) (callback (:data result)) (callback fallback-msg))
-        (callback fallback-msg))))))
+   (let
+     [provider (get-in @app-state [:ai :provider])
+      wine-ids (->> wines
+                    (map :id)
+                    (remove nil?)
+                    vec)
+      payload (cond-> {:conversation-history conversation-history
+                       :include-visible-wines? include?
+                       :provider provider}
+                (seq message) (assoc :message message)
+                (and include? (seq wine-ids)) (assoc :wine-ids wine-ids)
+                image (assoc :image image))
+      fallback-msg
+      "Sorry, I'm having trouble connecting right now. Please try again later."]
+     (if @headless-mode?
+       (do (js/console.log
+            "API CALL INTERCEPTED (headless mode): POST /api/chat"
+            (clj->js payload))
+           (go (callback "This is a mock response in headless mode."))
+           (fn [] (js/console.log "Mock request cancelled")))
+       (let [request-opts (merge default-opts {:json-params payload})
+             request-ch (http/post (str api-base-url "/api/chat") request-opts)]
+         (go (let [response (<! request-ch)]
+               (when response ;; If response is nil, the channel was closed
+                              ;; (cancelled)
+                 (let [result (handle-api-response
+                               response
+                               "Failed to send chat message")]
+                   (if (:success result)
+                     (callback (:data result))
+                     (callback fallback-msg))))))
+         ;; Return a cancel function that closes the request channel
+         (fn []
+           (js/console.log "Cancelling chat request...")
+           (cljs.core.async/close! request-ch)))))))
 
 ;; Admin endpoints
 

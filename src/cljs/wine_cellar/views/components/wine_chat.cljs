@@ -479,7 +479,7 @@
 (defn chat-input
   "Chat input field with send button and camera button - uncontrolled for performance"
   [message-ref on-send disabled? reset-key app-state on-image-capture
-   attached-image on-image-remove]
+   attached-image on-image-remove on-cancel-request]
   (let [has-image? @attached-image
         container-ref (r/atom nil)]
     (when has-image?
@@ -580,6 +580,13 @@
            :on-click trigger-upload
            :sx {:minWidth (if is-mobile? "90px" "100px")}}
           (if is-mobile? "Photos" "Upload")]
+         (when @disabled?
+           [button
+            {:variant "outlined"
+             :color "error"
+             :size "small"
+             :on-click on-cancel-request
+             :sx {:minWidth "60px"}} "Stop"])
          [button
           {:variant "contained"
            :disabled @disabled?
@@ -648,7 +655,8 @@
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with conversation history and optional image.
-   Provider is read from app-state by api.cljs."
+   Provider is read from app-state by api.cljs.
+   Returns a cancel function."
   ([app-state message wines include? conversation-history callback]
    (send-chat-message app-state
                       message
@@ -670,7 +678,8 @@
 
 (defn- handle-send-message
   "Handle sending a message to the AI assistant with optional image"
-  [app-state message-text messages is-sending? auto-scroll? & [image]]
+  [app-state message-text messages is-sending? cancel-fn-atom auto-scroll? &
+   [image]]
   (when (and (not @is-sending?) (or (seq message-text) image))
     (reset! is-sending? true)
     (let [state @app-state
@@ -690,33 +699,36 @@
          image (assoc :image_data image))
        (fn [conversation-id]
          (sync-conversation-context! app-state wines conversation-id)))
-      (send-chat-message
-       app-state
-       message-text
-       wines
-       include?
-       @messages
-       image
-       (fn [response]
-         (let [ai-message {:id (random-uuid)
-                           :text response
-                           :is-user false
-                           :timestamp (.getTime (js/Date.))}]
-           (swap! messages conj ai-message)
-           (swap! app-state assoc-in [:chat :messages] @messages)
-           (when auto-scroll? (reset! auto-scroll? true))
-           (persist-conversation-message!
-            app-state
-            wines
-            {:is_user false :content response}
-            (fn [conversation-id]
-              (when conversation-id
-                (api/update-conversation-provider! app-state
-                                                   conversation-id
-                                                   (get-in @app-state
-                                                           [:ai :provider])))
-              (api/load-conversations! app-state {:force? true})))
-           (reset! is-sending? false)))))))
+      (let [cancel-fn
+            (send-chat-message
+             app-state
+             message-text
+             wines
+             include?
+             @messages
+             image
+             (fn [response]
+               (reset! cancel-fn-atom nil)
+               (let [ai-message {:id (random-uuid)
+                                 :text response
+                                 :is-user false
+                                 :timestamp (.getTime (js/Date.))}]
+                 (swap! messages conj ai-message)
+                 (swap! app-state assoc-in [:chat :messages] @messages)
+                 (when auto-scroll? (reset! auto-scroll? true))
+                 (persist-conversation-message!
+                  app-state
+                  wines
+                  {:is_user false :content response}
+                  (fn [conversation-id]
+                    (when conversation-id
+                      (api/update-conversation-provider!
+                       app-state
+                       conversation-id
+                       (get-in @app-state [:ai :provider])))
+                    (api/load-conversations! app-state {:force? true})))
+                 (reset! is-sending? false))))]
+        (reset! cancel-fn-atom cancel-fn)))))
 
 (defn- use-edit-state
   [app-state messages]
@@ -802,34 +814,37 @@
     (sync-conversation-context! app-state wines conversation-id)))
 
 (defn- enqueue-ai-followup!
-  [app-state messages message-text wines include? auto-scroll? is-sending?]
-  (let [history @messages]
-    (send-chat-message
-     app-state
-     message-text
-     wines
-     include?
-     history
-     (fn [response]
-       (let [ai-message {:id (random-uuid)
-                         :text response
-                         :is-user false
-                         :timestamp (.getTime (js/Date.))}]
-         (swap! messages conj ai-message)
-         (swap! app-state assoc-in [:chat :messages] @messages)
-         (when auto-scroll? (reset! auto-scroll? true))
-         (persist-conversation-message!
-          app-state
-          wines
-          {:is_user false :content response}
-          (fn [conversation-id]
-            (when conversation-id
-              (api/update-conversation-provider! app-state
-                                                 conversation-id
-                                                 (get-in @app-state
-                                                         [:ai :provider])))
-            (api/load-conversations! app-state {:force? true})))
-         (reset! is-sending? false))))))
+  [app-state messages message-text wines include? auto-scroll? is-sending?
+   cancel-fn-atom]
+  (let [history @messages
+        cancel-fn (send-chat-message
+                   app-state
+                   message-text
+                   wines
+                   include?
+                   history
+                   (fn [response]
+                     (reset! cancel-fn-atom nil)
+                     (let [ai-message {:id (random-uuid)
+                                       :text response
+                                       :is-user false
+                                       :timestamp (.getTime (js/Date.))}]
+                       (swap! messages conj ai-message)
+                       (swap! app-state assoc-in [:chat :messages] @messages)
+                       (when auto-scroll? (reset! auto-scroll? true))
+                       (persist-conversation-message!
+                        app-state
+                        wines
+                        {:is_user false :content response}
+                        (fn [conversation-id]
+                          (when conversation-id
+                            (api/update-conversation-provider!
+                             app-state
+                             conversation-id
+                             (get-in @app-state [:ai :provider])))
+                          (api/load-conversations! app-state {:force? true})))
+                       (reset! is-sending? false))))]
+    (reset! cancel-fn-atom cancel-fn)))
 
 (defn- apply-server-edit!
   [app-state messages message-idx
@@ -841,8 +856,8 @@
   data)
 
 (defn- handle-edit-send
-  [app-state editing-message-id message-ref messages is-sending? auto-scroll?
-   on-edit-complete]
+  [app-state editing-message-id message-ref messages is-sending? cancel-fn-atom
+   auto-scroll? on-edit-complete]
   (when @message-ref
     (let [message-text (.-value @message-ref)]
       (if-let [message-idx (find-message-index @messages @editing-message-id)]
@@ -870,7 +885,8 @@
                                                  wines
                                                  include?
                                                  auto-scroll?
-                                                 is-sending?)
+                                                 is-sending?
+                                                 cancel-fn-atom)
                 handle-update-success
                 (fn [data]
                   (apply-server-edit! app-state messages message-idx data)
@@ -1003,7 +1019,7 @@
            messages message-edit-handler handle-send is-sending? app-state
            handle-image-capture pending-image handle-image-remove message-ref
            is-editing? handle-cancel filter-panel auto-scroll?
-           messages-scroll-ref]}]
+           messages-scroll-ref on-cancel-request]}]
   (let
     [components
      (-> []
@@ -1019,8 +1035,8 @@
              {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
              "Editing message - all responses after this will be regenerated"]))
          (conj [chat-input message-ref handle-send is-sending? "chat-input"
-                app-state handle-image-capture pending-image
-                handle-image-remove])
+                app-state handle-image-capture pending-image handle-image-remove
+                on-cancel-request])
          (cond-> (is-editing?) (conj [button
                                       {:variant "text"
                                        :size "small"
@@ -1063,6 +1079,7 @@
         sidebar-scroll-requested? (r/atom false)
         auto-scroll? (r/atom true)
         messages-scroll-ref (r/atom nil)
+        cancel-fn-atom (r/atom nil)
         edit-state (use-edit-state app-state messages)
         {:keys [editing-message-id handle-edit handle-cancel handle-commit
                 is-editing?]}
@@ -1075,15 +1092,21 @@
                                           message-ref
                                           messages
                                           is-sending?
+                                          cancel-fn-atom
                                           auto-scroll?
                                           handle-commit)
                         (do (handle-send-message app-state
                                                  message-text
                                                  messages
                                                  is-sending?
+                                                 cancel-fn-atom
                                                  auto-scroll?
                                                  @pending-image)
                             (reset! pending-image nil))))
+        handle-cancel-request (fn []
+                                (when-let [cancel @cancel-fn-atom] (cancel))
+                                (reset! cancel-fn-atom nil)
+                                (reset! is-sending? false))
         handle-image-capture (fn [] (reset! show-camera? true))
         handle-camera-capture (fn [image-data]
                                 (reset! show-camera? false)
@@ -1237,7 +1260,8 @@
                           :handle-cancel handle-cancel
                           :filter-panel filter-panel
                           :auto-scroll? auto-scroll?
-                          :messages-scroll-ref messages-scroll-ref})
+                          :messages-scroll-ref messages-scroll-ref
+                          :on-cancel-request handle-cancel-request})
             header-props {:app-state app-state
                           :messages messages
                           :message-ref message-ref
