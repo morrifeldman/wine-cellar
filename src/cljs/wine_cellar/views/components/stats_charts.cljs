@@ -14,17 +14,49 @@
 
 (defn- metric->label
   [metric value]
-  (case metric
+  (case (keyword metric)
     :bottles (str value " " (if (= value 1) "bottle" "bottles"))
     (str value " " (if (= value 1) "wine" "wines"))))
 
-(defn- tooltip-formatter
-  [metric value props]
-  (let [count (if (array? value) (aget value 0) value)
-        label (some-> props
-                      (.-payload)
-                      (.-year))]
-    #js [(metric->label metric count) (str "Year " label)]))
+(defn- CustomTooltip
+  [{:keys [active payload label metric]}]
+  (if (and active payload (seq payload))
+    [:div
+     {:style {:backgroundColor "rgba(20, 20, 20, 0.95)"
+              :border "1px solid rgba(255, 255, 255, 0.1)"
+              :padding "12px"
+              :borderRadius "4px"
+              :boxShadow "0 4px 6px rgba(0, 0, 0, 0.3)"
+              :minWidth "180px"}}
+     [:p
+      {:style {:color "#9e9e9e"
+               :margin "0 0 8px 0"
+               :fontSize "0.75rem"
+               :textTransform "uppercase"
+               :letterSpacing "0.05em"}} (str "Year " label)]
+     (doall (map-indexed (fn [idx item]
+                           (let [name (:name item)
+                                 value (:value item)
+                                 color (:color item)]
+                             ^{:key (str name "-" idx)}
+                             [:div
+                              {:style {:display "flex"
+                                       :justifyContent "space-between"
+                                       :alignItems "center"
+                                       :marginBottom "4px"
+                                       :color color
+                                       :fontSize "0.875rem"}}
+                              [:span {:style {:marginRight "12px"}} name]
+                              [:span {:style {:fontWeight 500}}
+                               (metric->label metric value)]]))
+                         payload))]
+    nil))
+
+(defn- render-tooltip
+  [metric props]
+  (r/as-element [CustomTooltip
+                 (merge (js->clj props :keywordize-keys true)
+                        {:metric metric})]))
 
 (defn- build-line-data
   [series metric]
@@ -75,12 +107,7 @@
                :width 50
                :stroke "rgba(255,255,255,0.6)"}]
              [:> Tooltip
-              {:formatter (fn [value name props]
-                            (let [label (some-> props
-                                                (.-payload)
-                                                (.-year))]
-                              #js [(metric->label metric value)
-                                   (str name " • " label)]))
+              {:content (partial render-tooltip metric)
                :cursor (clj->js {:stroke "rgba(255,255,255,0.35)"})}]
              [:> Legend
               {:wrapperStyle (clj->js {:color "rgba(255,255,255,0.72)"})}]
@@ -117,8 +144,7 @@
                :width 50
                :stroke "rgba(255,255,255,0.6)"}]
              [:> Tooltip
-              {:formatter (fn [value _ props]
-                            (tooltip-formatter metric value props))
+              {:content (partial render-tooltip metric)
                :cursor (clj->js {:fill "rgba(255,255,255,0.08)"})}]
              (when current-year
                [:> ReferenceLine
@@ -142,3 +168,83 @@
        :else
        [:div {:style {:color "var(--mui-palette-text-secondary)"}}
         "No drinking-window data yet. Add drink-from and drink-until years to see the forecast."]))))
+
+(defn cumulative-leaving-chart
+  [{:keys [series metric]}]
+  (let [metric (or metric :wines)
+        multi-series? (> (count series) 1)]
+    (r/with-let
+     [mounted? (r/atom false)]
+     (r/after-render #(reset! mounted? true))
+     (cond
+       (not @mounted?) [:div {:style {:height 260}}]
+       (seq series)
+       (let [chart-data (if multi-series?
+                          (build-line-data series metric)
+                          (map (fn [point]
+                                 {:year (:year point)
+                                  :value (get point metric 0)})
+                               (:points (first series))))]
+         [:> ResponsiveContainer {:width "100%" :height 260}
+          (if multi-series?
+            [:> LineChart
+             {:data (clj->js chart-data)
+              :margin (clj->js {:top 20 :right 30 :bottom 0 :left 0})}
+             [:> CartesianGrid
+              {:strokeDasharray "3 3" :stroke "rgba(255,255,255,0.12)"}]
+             [:> XAxis
+              {:dataKey "year"
+               :tickFormatter (fn [value] (str value))
+               :stroke "rgba(255,255,255,0.6)"}]
+             [:> YAxis
+              {:allowDecimals false
+               :tickFormatter format-number
+               :width 50
+               :stroke "rgba(255,255,255,0.6)"}]
+             [:> Tooltip
+              {:content (partial render-tooltip metric)
+               :cursor (clj->js {:stroke "rgba(255,255,255,0.35)"})}]
+             [:> Legend
+              {:wrapperStyle (clj->js {:color "rgba(255,255,255,0.72)"})}]
+             (doall (map-indexed (fn [idx {:keys [key label]}]
+                                   ^{:key key}
+                                   [:> Line
+                                    {:type "monotone"
+                                     :dataKey key
+                                     :name label
+                                     :stroke (nth palette
+                                                  (mod idx (count palette)))
+                                     :strokeWidth 2
+                                     :dot false
+                                     :isAnimationActive false}])
+                                 series))]
+            [:> AreaChart
+             {:data (clj->js chart-data)
+              :margin (clj->js {:top 20 :right 30 :bottom 0 :left 0})}
+             [:> CartesianGrid
+              {:strokeDasharray "3 3" :stroke "rgba(255,255,255,0.12)"}]
+             [:> XAxis
+              {:dataKey "year"
+               :tickFormatter (fn [value] (str value))
+               :stroke "rgba(255,255,255,0.6)"}]
+             [:> YAxis
+              {:allowDecimals false
+               :tickFormatter format-number
+               :width 50
+               :stroke "rgba(255,255,255,0.6)"}]
+             [:> Tooltip
+              {:content (partial render-tooltip metric)
+               :cursor (clj->js {:fill "rgba(255,255,255,0.08)"})}]
+             [:> Area
+              {:type "monotone"
+               :dataKey "value"
+               :name (case metric
+                       :bottles "Bottles"
+                       "Wines")
+               :stroke "#ef5350"
+               :fill "rgba(239, 83, 80, 0.35)"
+               :strokeWidth 2
+               :isAnimationActive false}]])])
+       :else
+       [:div {:style {:color "var(--mui-palette-text-secondary)"}}
+        "No drinking-window data yet. Add drink-until years to see the forecast."]))))

@@ -446,6 +446,50 @@
         :unscheduled unscheduled
         :group-by grouping}))))
 
+(defn- cumulative-points-for-year
+  [year entries]
+  (let [leaving (filter (fn [{:keys [window]}]
+                          (let [{:keys [to]} window] (and to (<= to year))))
+                        entries)
+        total-bottles (reduce + 0 (map :quantity leaving))]
+    {:year year :wines (count leaving) :bottles total-bottles}))
+
+(defn- build-cumulative-series
+  [group-by years grouped]
+  (->> grouped
+       (map (fn [[label entries]]
+              {:key (series-key group-by label)
+               :label label
+               :points (vec (map #(cumulative-points-for-year % entries)
+                                 years))}))
+       (sort-by (fn [{:keys [label]}] (if (= label "All wines") "" label)))))
+
+(defn cumulative-leaving-window-timeline
+  ([wines] (cumulative-leaving-window-timeline wines {}))
+  ([wines {grouping :group-by}]
+   (let [entries (map #(window-entry grouping %) wines)
+         windows (filter :window entries)
+         current (current-year)
+         ;; Range: current year to current + 5
+         years (range current (+ current 6))
+         unscheduled (tally-unscheduled entries)]
+     (if (seq windows)
+       (let [grouped (ensure-overall-group (clojure.core/group-by :label
+                                                                  windows)
+                                           windows
+                                           (some? grouping))
+             series (build-cumulative-series grouping years grouped)]
+         {:series (vec series)
+          :years (vec years)
+          :current-year current
+          :unscheduled unscheduled
+          :group-by grouping})
+       {:series []
+        :years []
+        :current-year current
+        :unscheduled unscheduled
+        :group-by grouping}))))
+
 (defn collection-stats
   "Compute detailed collection stats for front-end displays.
    Mirrors the previous cljs implementation so CLJ/CLJS can share logic."
@@ -492,7 +536,15 @@
          {:overall (optimal-window-timeline chart-wines)
           :style (optimal-window-timeline chart-wines {:group-by :style})
           :country (optimal-window-timeline chart-wines {:group-by :country})
-          :price (optimal-window-timeline chart-wines {:group-by :price})}]
+          :price (optimal-window-timeline chart-wines {:group-by :price})}
+         cumulative-leaving
+         {:overall (cumulative-leaving-window-timeline chart-wines)
+          :style (cumulative-leaving-window-timeline chart-wines
+                                                     {:group-by :style})
+          :country (cumulative-leaving-window-timeline chart-wines
+                                                       {:group-by :country})
+          :price (cumulative-leaving-window-timeline chart-wines
+                                                     {:group-by :price})}]
      {:totals totals
       :style style-data
       :country country-data
@@ -500,7 +552,8 @@
       :drinking-window drinking-window-data
       :varieties variety-data
       :inventory inventory
-      :optimal-window optimal-window})))
+      :optimal-window optimal-window
+      :cumulative-leaving cumulative-leaving})))
 
 (defn condensed-summary
   "Produce a condensed breakdown for in-stock wines.

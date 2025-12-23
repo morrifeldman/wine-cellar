@@ -270,10 +270,41 @@
                 (if plural? " do not" " does not")
                 " have a tasting window yet.")]))]]))
 
+(defn- cumulative-leaving-card
+  [app-state cumulative-leaving metric]
+  (let [group (or (:stats-window-group @app-state) :overall)
+        dataset (or (get cumulative-leaving group)
+                    (get cumulative-leaving :overall))
+        series (or (:series dataset) [])
+        current-year (:current-year dataset)
+        metric-label-text (case metric
+                            :bottles "Bottles"
+                            "Wines")
+        group-label (case group
+                      :style " by style"
+                      :country " by country"
+                      :price " by price band"
+                      "")
+        title (str metric-label-text
+                   " leaving optimal window (cumulative)"
+                   group-label)]
+    [grid {:item true :xs 12}
+     [paper
+      {:elevation 1
+       :sx
+       {:p 2.5 :height "100%" :display "flex" :flexDirection "column" :gap 1.5}}
+      [box
+       {:sx
+        {:display "flex" :justifyContent "space-between" :alignItems "center"}}
+       [typography {:variant "subtitle1" :sx {:fontWeight 600}} title]
+       [window-group-toggle app-state]]
+      [stats-charts/cumulative-leaving-chart
+       {:series series :current-year current-year :metric metric}]]]))
+
 (defn- stats-content
   [app-state stats metric {:keys [compact?]}]
   (let [{:keys [totals style price drinking-window country varieties inventory
-                optimal-window]}
+                optimal-window cumulative-leaving]}
         stats
         max-items (if compact? 4 7)]
     [:<> [stats-summary-grid totals]
@@ -305,7 +336,8 @@
         :progress? false
         :empty-copy "Capture grape varieties to surface favorites."}]
       [inventory-card inventory metric {:compact? compact?}]
-      [optimal-window-card app-state optimal-window metric]]]))
+      [optimal-window-card app-state optimal-window metric]
+      [cumulative-leaving-card app-state cumulative-leaving metric]]]))
 
 (defn collection-stats-modal
   [app-state]
