@@ -20,14 +20,26 @@
     [reagent-mui.material.typography :refer [typography]]
     [reagent-mui.material.menu :refer [menu]]
     [reagent-mui.material.menu-item :refer [menu-item]]
+    [reagent-mui.material.list-item-icon :refer [list-item-icon]]
     [reagent-mui.material.divider :refer [divider]]
     [reagent.core :as r]
     [reagent-mui.icons.close :refer [close]]
+    [reagent-mui.icons.add :refer [add]]
+    [reagent-mui.icons.arrow-back :refer [arrow-back]]
+    [reagent-mui.icons.more-vert :refer [more-vert]]
+    [reagent-mui.icons.insights :refer [insights]]
+    [reagent-mui.icons.bar-chart :refer [bar-chart]]
+    [reagent-mui.icons.thermostat :refer [thermostat]]
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.views.components.wine-chat :refer [wine-chat]]
     [wine-cellar.portal-debug :as pd]
     [wine-cellar.version :as version]
     [wine-cellar.utils.filters]))
+
+(defn- mobile?
+  []
+  (boolean (and (exists? js/navigator)
+                (pos? (or (.-maxTouchPoints js/navigator) 0)))))
 
 (defn- job-progress-card
   [state {:keys [flag job-type running-text starting-text]}]
@@ -67,182 +79,242 @@
                     :borderRadius 1}}]]])
          [typography {:variant "body1"} starting-text])])))
 
+(defn admin-menu-items
+  [app-state close-menu!]
+  [:<>
+   ;; Version info
+   [menu-item
+    {:disabled true
+     :sx {:fontSize "0.875rem" :color "text.secondary" :fontFamily "monospace"}}
+    (version/version-string)] [divider]
+   (let [provider (get-in @app-state [:ai :provider])
+         models (get-in @app-state [:ai :models])
+         model (get models provider)]
+     [menu-item
+      {:on-click #(provider-toggle/toggle-provider! app-state)
+       :sx {:display "flex"
+            :flex-direction "column"
+            :align-items "flex-start"
+            :gap 0.5}}
+      [:div
+       {:style {:display "flex" :justify-content "space-between" :width "100%"}}
+       [:span "AI Provider"]
+       [:span {:style {:fontSize "0.85rem" :fontWeight 600}}
+        (common/provider-label provider)]]
+      (when model
+        [:div
+         {:style {:align-self "flex-end"
+                  :fontSize "0.75rem"
+                  :color "rgba(255, 255, 255, 0.7)"
+                  :font-family "monospace"}} model])]) [divider]
+   [menu-item
+    {:on-click (fn []
+                 (close-menu!)
+                 (api/fetch-devices app-state)
+                 (swap! app-state assoc :view :devices))} "Devices"]
+   [menu-item
+    {:on-click (fn []
+                 (close-menu!)
+                 (api/fetch-grape-varieties app-state)
+                 (swap! app-state assoc :view :grape-varieties))}
+    "Grape Varieties"]
+   [menu-item
+    {:on-click (fn []
+                 (close-menu!)
+                 (api/fetch-classifications app-state)
+                 (swap! app-state assoc :view :classifications))}
+    "Classifications"]
+   [menu-item
+    {:on-click (fn [] (close-menu!) (swap! app-state assoc :view :sql))}
+    "SQL Query"]
+   [menu-item
+    {:on-click
+     (fn [] (close-menu!) (swap! app-state update :show-debug-controls? not))}
+    (if (:show-debug-controls? @app-state)
+      "Hide Debug Controls"
+      "Show Debug Controls")]
+   [menu-item {:on-click (fn [] (close-menu!) (pd/toggle-debugging! app-state))}
+    (if (pd/debugging?) "Stop Portal Debugging" "Start Portal Debugging")]
+   (let [verbose-logging (get @app-state :verbose-logging)
+         verbose-enabled? (:enabled? verbose-logging)
+         verbose-updating? (:updating? verbose-logging)]
+     [menu-item
+      {:disabled verbose-updating?
+       :on-click (fn []
+                   (close-menu!)
+                   (api/set-verbose-logging-state app-state
+                                                  (not verbose-enabled?)))}
+      (str (if verbose-enabled? "Disable" "Enable")
+           " verbose backend logging"
+           (when verbose-updating? "…"))])
+   (when (pd/debugging?)
+     [menu-item {:on-click (fn [] (close-menu!) (pd/reconnect-if-needed))}
+      "Open Portal"])
+   (when (pd/debugging?)
+     [menu-item {:on-click (fn [] (close-menu!) (tap> app-state))}
+      "Tap> app-state"])
+   (when (pd/debugging?)
+     [menu-item {:on-click (fn [] (close-menu!) (pd/watch-app-state app-state))}
+      "Watch App State"])
+   (when (pd/debugging?)
+     [menu-item
+      {:on-click (fn [] (close-menu!) (pd/unwatch-app-state app-state))}
+      "Unwatch App State"])
+   [menu-item
+    {:on-click (fn []
+                 (close-menu!)
+                 (swap! app-state update :show-verification-checkboxes? not))}
+    (if (:show-verification-checkboxes? @app-state)
+      "Hide Verification Checkboxes"
+      "Show Verification Checkboxes")]
+   [menu-item
+    {:on-click
+     (fn []
+       (close-menu!)
+       (when
+         (js/confirm
+          "Mark all wines as unverified? This will require you to verify them individually.")
+         (api/mark-all-wines-unverified app-state)))}
+    "Mark All Wines Unverified"]
+   [menu-item
+    {:on-click
+     (fn []
+       (close-menu!)
+       (let [filtered-count (count
+                             (wine-cellar.utils.filters/filtered-sorted-wines
+                              app-state))]
+         (when
+           (js/confirm
+            (str
+             "Regenerate drinking windows for "
+             filtered-count
+             " currently visible wines? This may take several minutes and will use AI API credits."))
+           (api/regenerate-filtered-drinking-windows app-state))))
+     :disabled (:regenerating-drinking-windows? @app-state)}
+    (if (:regenerating-drinking-windows? @app-state)
+      "Regenerating Drinking Windows..."
+      "Regenerate Filtered Drinking Windows")]
+   [menu-item
+    {:on-click
+     (fn []
+       (close-menu!)
+       (let [filtered-count (count
+                             (wine-cellar.utils.filters/filtered-sorted-wines
+                              app-state))]
+         (when
+           (js/confirm
+            (str
+             "Regenerate wine summaries for "
+             filtered-count
+             " currently visible wines? This may take several minutes and will use AI API credits."))
+           (api/regenerate-filtered-wine-summaries app-state))))
+     :disabled (:regenerating-wine-summaries? @app-state)}
+    (if (:regenerating-wine-summaries? @app-state)
+      "Regenerating Wine Summaries..."
+      "Regenerate Filtered Wine Summaries")]
+   [menu-item
+    {:on-click (fn [] (close-menu!) (api/logout)) :sx {:color "secondary.main"}}
+    "Logout"]
+   [menu-item
+    {:on-click
+     (fn []
+       (close-menu!)
+       (when
+         (js/confirm
+          "⚠️ DANGER: This will DELETE ALL DATA and reset the database schema!\n\nAre you absolutely sure you want to continue?")
+         (api/reset-database app-state)))
+     :sx {:color "error.main"}} "🔥 Reset Database"]])
+
 (defn admin-menu
+  [app-state]
+  (let [anchor-el (r/atom nil)]
+    (fn [] [box
+            [button
+             {:variant "outlined"
+              :color "primary"
+              :on-click #(do (reset! anchor-el (.-currentTarget %))
+                             (version/fetch-version!)
+                             (api/fetch-model-info app-state))} "Admin"]
+            [menu
+             {:anchor-el @anchor-el
+              :open (boolean @anchor-el)
+              :on-close #(reset! anchor-el nil)}
+             (admin-menu-items app-state #(reset! anchor-el nil))]])))
+
+(defn more-menu
   [app-state]
   (let [anchor-el (r/atom nil)]
     (fn []
       [box
-       [button
-        {:variant "outlined"
-         :color "primary"
-         :on-click #(do (reset! anchor-el (.-currentTarget %))
+       [icon-button
+        {:on-click #(do (reset! anchor-el (.-currentTarget %))
                         (version/fetch-version!)
-                        (api/fetch-model-info app-state))} "Admin"]
+                        (api/fetch-model-info app-state))
+         :size "large"
+         :color "primary"
+         :sx {:border "1px solid"
+              :border-color "primary.main"
+              :opacity 0.8
+              :borderRadius 1
+              "&:hover" {:opacity 1 :bgcolor "rgba(232,195,200,0.08)"}}}
+        [more-vert]]
        [menu
         {:anchor-el @anchor-el
          :open (boolean @anchor-el)
          :on-close #(reset! anchor-el nil)}
-        ;; Version info
+        ;; Main Actions
         [menu-item
-         {:disabled true
-          :sx {:fontSize "0.875rem"
+         {:on-click (fn []
+                      (reset! anchor-el nil)
+                      (let [provider (get-in @app-state [:ai :provider])]
+                        (swap! app-state assoc :show-report? true)
+                        (api/fetch-latest-report app-state
+                                                 {:provider provider})))}
+         [list-item-icon [insights {:fontSize "small" :color "secondary"}]]
+         "Insights"]
+        [menu-item
+         {:on-click (fn []
+                      (reset! anchor-el nil)
+                      (swap! app-state assoc :show-collection-stats? true))}
+         [list-item-icon [bar-chart {:fontSize "small" :color "primary"}]]
+         "Stats"]
+        [menu-item
+         {:on-click (fn []
+                      (reset! anchor-el nil)
+                      (swap! app-state assoc :view :cellar-conditions))}
+         [list-item-icon [thermostat {:fontSize "small" :color "primary"}]]
+         "Cellar Env"] [divider]
+        [typography
+         {:variant "caption"
+          :sx {:px 2
+               :py 1
+               :display "block"
                :color "text.secondary"
-               :fontFamily "monospace"}} (version/version-string)] [divider]
-        (let [provider (get-in @app-state [:ai :provider])
-              models (get-in @app-state [:ai :models])
-              model (get models provider)]
-          [menu-item
-           {:on-click #(provider-toggle/toggle-provider! app-state)
-            :sx {:display "flex"
-                 :flex-direction "column"
-                 :align-items "flex-start"
-                 :gap 0.5}}
-           [:div
-            {:style
-             {:display "flex" :justify-content "space-between" :width "100%"}}
-            [:span "AI Provider"]
-            [:span {:style {:fontSize "0.85rem" :fontWeight 600}}
-             (common/provider-label provider)]]
-           (when model
-             [:div
-              {:style {:align-self "flex-end"
-                       :fontSize "0.75rem"
-                       :color "rgba(255, 255, 255, 0.7)"
-                       :font-family "monospace"}} model])]) [divider]
-        [menu-item
-         {:on-click (fn []
-                      (reset! anchor-el nil)
-                      (api/fetch-devices app-state)
-                      (swap! app-state assoc :view :devices))} "Devices"]
-        [menu-item
-         {:on-click (fn []
-                      (reset! anchor-el nil)
-                      (api/fetch-grape-varieties app-state)
-                      (swap! app-state assoc :view :grape-varieties))}
-         "Grape Varieties"]
-        [menu-item
-         {:on-click (fn []
-                      (reset! anchor-el nil)
-                      (api/fetch-classifications app-state)
-                      (swap! app-state assoc :view :classifications))}
-         "Classifications"]
-        [menu-item
-         {:on-click
-          (fn [] (reset! anchor-el nil) (swap! app-state assoc :view :sql))}
-         "SQL Query"]
-        [menu-item
-         {:on-click (fn []
-                      (reset! anchor-el nil)
-                      (swap! app-state update :show-debug-controls? not))}
-         (if (:show-debug-controls? @app-state)
-           "Hide Debug Controls"
-           "Show Debug Controls")]
-        [menu-item
-         {:on-click
-          (fn [] (reset! anchor-el nil) (pd/toggle-debugging! app-state))}
-         (if (pd/debugging?) "Stop Portal Debugging" "Start Portal Debugging")]
-        (let [verbose-logging (get @app-state :verbose-logging)
-              verbose-enabled? (:enabled? verbose-logging)
-              verbose-updating? (:updating? verbose-logging)]
-          [menu-item
-           {:disabled verbose-updating?
-            :on-click (fn []
-                        (reset! anchor-el nil)
-                        (api/set-verbose-logging-state app-state
-                                                       (not verbose-enabled?)))}
-           (str (if verbose-enabled? "Disable" "Enable")
-                " verbose backend logging"
-                (when verbose-updating? "…"))])
-        (when (pd/debugging?)
-          [menu-item
-           {:on-click (fn [] (reset! anchor-el nil) (pd/reconnect-if-needed))}
-           "Open Portal"])
-        (when (pd/debugging?)
-          [menu-item {:on-click (fn [] (reset! anchor-el nil) (tap> app-state))}
-           "Tap> app-state"])
-        (when (pd/debugging?)
-          [menu-item
-           {:on-click
-            (fn [] (reset! anchor-el nil) (pd/watch-app-state app-state))}
-           "Watch App State"])
-        (when (pd/debugging?)
-          [menu-item
-           {:on-click
-            (fn [] (reset! anchor-el nil) (pd/unwatch-app-state app-state))}
-           "Unwatch App State"])
-        [menu-item
-         {:on-click
-          (fn []
-            (reset! anchor-el nil)
-            (swap! app-state update :show-verification-checkboxes? not))}
-         (if (:show-verification-checkboxes? @app-state)
-           "Hide Verification Checkboxes"
-           "Show Verification Checkboxes")]
-        [menu-item
-         {:on-click
-          (fn []
-            (reset! anchor-el nil)
-            (when
-              (js/confirm
-               "Mark all wines as unverified? This will require you to verify them individually.")
-              (api/mark-all-wines-unverified app-state)))}
-         "Mark All Wines Unverified"]
-        [menu-item
-         {:on-click
-          (fn []
-            (reset! anchor-el nil)
-            (let [filtered-count
-                  (count (wine-cellar.utils.filters/filtered-sorted-wines
-                          app-state))]
-              (when
-                (js/confirm
-                 (str
-                  "Regenerate drinking windows for "
-                  filtered-count
-                  " currently visible wines? This may take several minutes and will use AI API credits."))
-                (api/regenerate-filtered-drinking-windows app-state))))
-          :disabled (:regenerating-drinking-windows? @app-state)}
-         (if (:regenerating-drinking-windows? @app-state)
-           "Regenerating Drinking Windows..."
-           "Regenerate Filtered Drinking Windows")]
-        [menu-item
-         {:on-click
-          (fn []
-            (reset! anchor-el nil)
-            (let [filtered-count
-                  (count (wine-cellar.utils.filters/filtered-sorted-wines
-                          app-state))]
-              (when
-                (js/confirm
-                 (str
-                  "Regenerate wine summaries for "
-                  filtered-count
-                  " currently visible wines? This may take several minutes and will use AI API credits."))
-                (api/regenerate-filtered-wine-summaries app-state))))
-          :disabled (:regenerating-wine-summaries? @app-state)}
-         (if (:regenerating-wine-summaries? @app-state)
-           "Regenerating Wine Summaries..."
-           "Regenerate Filtered Wine Summaries")]
-        [menu-item
-         {:on-click (fn [] (reset! anchor-el nil) (api/logout))
-          :sx {:color "secondary.main"}} "Logout"]
-        [menu-item
-         {:on-click
-          (fn []
-            (reset! anchor-el nil)
-            (when
-              (js/confirm
-               "⚠️ DANGER: This will DELETE ALL DATA and reset the database schema!\n\nAre you absolutely sure you want to continue?")
-              (api/reset-database app-state)))
-          :sx {:color "error.main"}} "🔥 Reset Database"]]])))
+               :fontWeight 600
+               :letterSpacing "0.1em"}} "ADMIN"]
+        ;; Admin Items (flattened)
+        (admin-menu-items app-state #(reset! anchor-el nil))]])))
 
 (defn new-wine-or-list
   [app-state]
-  [toggle-button
-   {:app-state app-state
-    :path [:show-wine-form?]
-    :show-text "Add New Wine"
-    :hide-text "Show Wine List"}])
+  (let [show-form? (:show-wine-form? @app-state)]
+    (if (mobile?)
+      [icon-button
+       {:variant "contained"
+        :color "primary"
+        :sx {:bgcolor "primary.main"
+             "&:hover" {:bgcolor "primary.dark"}
+             :color "background.default" ;; Dark text/icon on light primary
+             :width 48
+             :height 48
+             :boxShadow 3}
+        :on-click #(swap! app-state update :show-wine-form? not)}
+       (if show-form? [arrow-back] [add])]
+      [toggle-button
+       {:app-state app-state
+        :path [:show-wine-form?]
+        :show-text "Add New Wine"
+        :hide-text "Show Wine List"}])))
 
 (defn top-controls
   [app-state]
@@ -253,26 +325,28 @@
          :mb 3
          :pb 2
          :borderBottom "1px solid rgba(0,0,0,0.08)"}}
-   ;; Left side: Add New Wine / Show Wine List
+   ;; Left side
    [new-wine-or-list app-state]
-   ;; Right side: Stats + Admin
-   [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
-    [button
-     {:variant "contained"
-      :color "secondary"
-      :onClick #(let [provider (get-in @app-state [:ai :provider])]
-                  (swap! app-state assoc :show-report? true)
-                  (api/fetch-latest-report app-state {:provider provider}))}
-     "Insights"]
-    [button
-     {:variant "outlined"
-      :color "primary"
-      :onClick #(swap! app-state assoc :show-collection-stats? true)} "Stats"]
-    [button
-     {:variant "outlined"
-      :color "primary"
-      :onClick #(swap! app-state assoc :view :cellar-conditions)} "Cellar Env"]
-    [admin-menu app-state]]])
+   ;; Right side
+   (if (mobile?)
+     [more-menu app-state]
+     [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
+      [button
+       {:variant "contained"
+        :color "secondary"
+        :onClick #(let [provider (get-in @app-state [:ai :provider])]
+                    (swap! app-state assoc :show-report? true)
+                    (api/fetch-latest-report app-state {:provider provider}))}
+       "Insights"]
+      [button
+       {:variant "outlined"
+        :color "primary"
+        :onClick #(swap! app-state assoc :show-collection-stats? true)} "Stats"]
+      [button
+       {:variant "outlined"
+        :color "primary"
+        :onClick #(swap! app-state assoc :view :cellar-conditions)}
+       "Cellar Env"] [admin-menu app-state]])])
 
 (defn main-app
   [app-state]

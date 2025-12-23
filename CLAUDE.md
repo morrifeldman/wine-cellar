@@ -234,14 +234,16 @@ This is a full-stack wine cellar tracking application built with:
 │                   ├── form.cljs
 │                   ├── list.cljs
 │                   └── varieties.cljs
-└── tools
-    └── wine-color-picker
-        ├── requirements.txt
-        ├── serve_color_picker.py
-        ├── web_color_picker.html
-        └── wine-colors.jpg
+├── tools
+│   └── wine-color-picker
+│       ├── requirements.txt
+│       ├── serve_color_picker.py
+│       ├── web_color_picker.html
+│       └── wine-colors.jpg
+├── WhatsApp Image 2025-12-22 at 7.45.40 PM.jpeg
+└── WhatsApp Image 2025-12-22 at 7.54.52 PM.jpeg
 
-50 directories, 147 files
+50 directories, 149 files
 ```
 
 ## Development Commands
