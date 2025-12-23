@@ -54,7 +54,7 @@ wine-cellar/anthropic-light-model # Optional
 wine-cellar/openai-light-model    # Optional
 wine-cellar/gemini-api-key        # Optional
 wine-cellar/gemini-model          # Optional
-wine-cellar/gemini-lite-model    # Optional
+wine-cellar/gemini-light-model    # Optional
 ```
 
 See the README.md for instructions on setting up `pass` for local development.
