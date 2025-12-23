@@ -198,9 +198,10 @@
         [typography {:variant "body2" :color "text.secondary"} empty-copy])]]))
 
 (defn- inventory-card
-  [inventory {:keys [compact?]}]
+  [inventory metric {:keys [compact?]}]
   (let [ordered (vec inventory)
-        rows (if compact? (take-last 4 ordered) (take-last 7 ordered))]
+        rows (if compact? (take-last 4 ordered) (take-last 7 ordered))
+        label-suffix (if (= metric :bottles) "" " (wines)")]
     [grid {:item true :xs 12 :md 6}
      [paper
       {:elevation 1
@@ -210,23 +211,26 @@
             :flexDirection "column"
             :gap 1.25}}
       [typography {:variant "subtitle1" :sx {:fontWeight 600}}
-       "Stock by purchase year"]
+       (str "Stock by purchase year" label-suffix)]
       (if (seq rows)
-        (into [:<>]
-              (map (fn [{:keys [year remaining purchased]}]
-                     ^{:key (str "inventory-" year)}
-                     [box
-                      {:sx {:display "flex"
-                            :justifyContent "space-between"
-                            :alignItems "baseline"}}
-                      [typography {:variant "body2" :sx {:fontWeight 600}} year]
-                      [box
-                       {:sx {:display "flex" :gap 1.5 :color "text.secondary"}}
-                       [typography {:variant "body2"}
-                        (str (format-number remaining) " remaining")]
-                       [typography {:variant "body2"}
-                        (str (format-number purchased) " original")]]])
-                   rows))
+        (into
+         [:<>]
+         (map (fn [{:keys [year remaining purchased wines-remaining
+                           wines-purchased]}]
+                (let [current (if (= metric :bottles) remaining wines-remaining)
+                      total (if (= metric :bottles) purchased wines-purchased)]
+                  ^{:key (str "inventory-" year)}
+                  [box
+                   {:sx {:display "flex"
+                         :justifyContent "space-between"
+                         :alignItems "baseline"}}
+                   [typography {:variant "body2" :sx {:fontWeight 600}} year]
+                   [box {:sx {:display "flex" :gap 1.5 :color "text.secondary"}}
+                    [typography {:variant "body2"}
+                     (str (format-number current) " remaining")]
+                    [typography {:variant "body2"}
+                     (str (format-number total) " original")]]]))
+              rows))
         [typography {:variant "body2" :color "text.secondary"}
          "Add purchase dates to see inventory trends."])]]))
 
@@ -300,7 +304,7 @@
        {:max-items (if compact? 5 8)
         :progress? false
         :empty-copy "Capture grape varieties to surface favorites."}]
-      [inventory-card inventory {:compact? compact?}]
+      [inventory-card inventory metric {:compact? compact?}]
       [optimal-window-card app-state optimal-window metric]]]))
 
 (defn collection-stats-modal

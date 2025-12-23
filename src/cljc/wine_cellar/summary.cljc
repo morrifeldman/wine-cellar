@@ -338,8 +338,16 @@
                          (fnil (fn [data]
                                  (-> data
                                      (update :remaining (fnil + 0) remaining)
-                                     (update :purchased (fnil + 0) purchased)))
-                               {:year year :remaining 0 :purchased 0})))
+                                     (update :purchased (fnil + 0) purchased)
+                                     (update :wines-remaining
+                                             (fnil + 0)
+                                             (if (pos? remaining) 1 0))
+                                     (update :wines-purchased (fnil + 0) 1)))
+                               {:year year
+                                :remaining 0
+                                :purchased 0
+                                :wines-remaining 0
+                                :wines-purchased 0})))
                {})
        vals
        (sort-by :year)))
