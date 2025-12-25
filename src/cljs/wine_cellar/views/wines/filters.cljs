@@ -34,33 +34,44 @@
   (.toLocaleString (js/Number. (or value 0)) "en-US"))
 
 (defn- visible-wine-indicator
-  [{:keys [visible total compact?]}]
+  [{:keys [visible total compact? inline? sx]}]
   (when (and (some? visible) (some? total))
     (let [visible-text (format-number visible)
           total-text (format-number total)
           total-line (str total-text " Total")
-          filtered-line (str visible-text " (" total-text " Total)")
+          filtered-line (if inline?
+                          (str visible-text " / " total-text)
+                          (str visible-text " (" total-text " Total)"))
           same-count? (= visible total)
-          margin-top (if compact? 0.25 0.5)]
-      [box {:sx {:mt margin-top}}
-       (if same-count?
-         [typography {:variant "body2" :color "text.secondary"} total-line]
-         [typography {:variant "body2" :color "text.secondary"}
-          filtered-line])])))
+          margin-top (if (or compact? inline?) 0 0.5)
+          display (if inline? "inline-flex" "flex")
+          align-items (if inline? "center" "flex-start")]
+      [box
+       {:sx (merge {:mt margin-top :display display :alignItems align-items}
+                   sx)}
+       [typography
+        {:variant "body2"
+         :color "text.secondary"
+         :component "span"
+         :sx {:whiteSpace "nowrap"}}
+        (if same-count? total-line filtered-line)]])))
 
 (defn search-field
   [app-state]
   (let [filters (:filters @app-state)]
-    [grid {:item true :xs 12 :md 4}
-     [text-field
-      {:fullWidth true
-       :label "Search"
-       :variant "outlined"
-       :size "small"
-       :placeholder "Search all wine properties..."
-       :value (:search filters)
-       :onChange
-       #(swap! app-state assoc-in [:filters :search] (.. % -target -value))}]]))
+    [text-field
+     {:fullWidth true
+      :label "Search"
+      :variant "outlined"
+      :size "small"
+      :placeholder "Search all wine properties..."
+      :value (:search filters)
+      :sx {"& .MuiOutlinedInput-root"
+           {"& fieldset" {:borderColor "divider" :opacity 0.8}
+            "&:hover fieldset" {:borderColor "text.secondary" :opacity 1}
+            "&.Mui-focused fieldset" {:borderColor "primary.main" :opacity 1}}}
+      :onChange
+      #(swap! app-state assoc-in [:filters :search] (.. % -target -value))}]))
 
 (defn country-filter
   [app-state classifications]
@@ -103,8 +114,8 @@
        (for [region (regions-for-country classifications (:country filters))]
          ^{:key region} [menu-item {:value region} region])]]]))
 
-(defn style-filter
-  [app-state]
+(defn style-selector
+  [app-state & [{:keys [sx] :as opts}]]
   (let [filters (:filters @app-state)
         selected-styles (let [raw (:styles filters)
                               legacy (:style filters)]
@@ -124,46 +135,44 @@
                                       :else [(str converted)])))
         clear-marker? (fn [value]
                         (or (= value "__clear__") (= value {"__clear__" true})))
-        label-id "style-filter-label"
         select-id "style-filter-select"]
-    [grid {:item true :xs 12 :md 2}
-     [form-control
-      {:variant "outlined" :fullWidth true :size "small" :sx {:mt 0}}
-      [input-label {:id label-id :shrink true} "Style"]
-      [select
-       {:multiple true
-        :displayEmpty true
-        :labelId label-id
-        :id select-id
-        :value (clj->js selected-styles)
-        :label "Style"
-        :renderValue
-        (fn [selected]
-          (let [values (normalize-selection selected)
-                cleaned (->> values
-                             (remove clear-marker?)
-                             (into []))]
-            (if (seq cleaned) (str/join ", " cleaned) "All Styles")))
-        :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
-        :onChange (fn [event]
-                    (let [raw (.. event -target -value)
-                          values (normalize-selection raw)
-                          cleaned (if (some clear-marker? values)
-                                    []
-                                    (->> values
-                                         (remove clear-marker?)
-                                         (into [])))]
-                      (swap! app-state assoc-in
-                        [:filters :styles]
-                        (if (seq cleaned) cleaned []))))}
-       [menu-item {:value "__clear__"}
-        [typography {:variant "body2" :sx {:fontStyle "italic"}} "All Styles"]]
-       (for [style common/wine-styles]
-         ^{:key style}
-         [menu-item {:value style}
-          [checkbox
-           {:checked (contains? selected-set style) :size "small" :sx {:mr 1}}]
-          [list-item-text {:primary style}]])]]]))
+    [form-control
+     {:variant "outlined"
+      :size "small"
+      :sx (merge {:mt 0 :minWidth 120} sx)
+      :fullWidth (:fullWidth opts)}
+     [select
+      {:multiple true
+       :displayEmpty true
+       :id select-id
+       :value (clj->js selected-styles)
+       :renderValue
+       (fn [selected]
+         (let [values (normalize-selection selected)
+               cleaned (->> values
+                            (remove clear-marker?)
+                            (into []))]
+           (if (seq cleaned) (str/join ", " cleaned) "All Styles")))
+       :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
+       :onChange (fn [event]
+                   (let [raw (.. event -target -value)
+                         values (normalize-selection raw)
+                         cleaned (if (some clear-marker? values)
+                                   []
+                                   (->> values
+                                        (remove clear-marker?)
+                                        (into [])))]
+                     (swap! app-state assoc-in
+                       [:filters :styles]
+                       (if (seq cleaned) cleaned []))))}
+      [menu-item {:value "__clear__"}
+       [typography {:variant "body2" :sx {:fontStyle "italic"}} "All Styles"]]
+      (for [style common/wine-styles]
+        ^{:key style}
+        [menu-item {:value style}
+         [checkbox
+          {:checked (contains? selected-set style) :size "small" :sx {:mr 1}}]
+         [list-item-text {:primary style}]])]]))
 
 (defn variety-filter
   [app-state]
@@ -329,7 +338,7 @@
    (let [state @app-state
          gap (if compact? 0.4 0.75)
          margin-bottom (if compact? 0.75 2)
-         button-gap (if compact? 0.75 1)
+         button-gap (if compact? 0.5 {:xs 0.5 :md 1})
          button-color (if (:show-out-of-stock? state) "secondary" "primary")
          show-controls? (if compact? (:show-filters? state) true)
          selected-count (count (or (:selected-wine-ids state) #{}))
@@ -337,14 +346,13 @@
                              (pos? selected-count))
          header-buttons
          (cond-> []
-           true
-           (conj
-            [button
-             {:variant "outlined"
-              :size "small"
-              :color button-color
-              :onClick #(swap! app-state update :show-out-of-stock? not)}
-             (if (:show-out-of-stock? state) "In Cellar Only" "All History")])
+           true (conj
+                 [button
+                  {:variant "outlined"
+                   :size "small"
+                   :color button-color
+                   :onClick #(swap! app-state update :show-out-of-stock? not)}
+                  (if (:show-out-of-stock? state) "In Cellar" "All History")])
            true (conj
                  [button
                   {:variant "outlined"
@@ -363,22 +371,27 @@
                                 :tasting-window nil
                                 :verification nil
                                 :columns #{}})} "Clear Filters"])
-           true (conj [button
-                       {:variant (if show-selected? "contained" "outlined")
-                        :size "small"
-                        :color (if show-selected? "primary" "secondary")
-                        :disabled (zero? selected-count)
-                        :onClick (fn []
-                                   (when (pos? selected-count)
-                                     (swap! app-state assoc
-                                       :show-selected-wines?
-                                       (not show-selected?))))}
-                       (str "Selected (" selected-count ")")])
+           (and count-info (not compact?)) (conj [visible-wine-indicator
+                                                  (assoc count-info
+                                                         :compact? compact?
+                                                         :inline? true
+                                                         :sx {:ml "auto"})]))
+         selection-buttons
+         (cond-> []
+           (pos? selected-count)
+           (conj [button
+                  {:variant (if show-selected? "contained" "outlined")
+                   :size "small"
+                   :color (if show-selected? "primary" "secondary")
+                   :onClick (fn []
+                              (swap! app-state assoc
+                                :show-selected-wines?
+                                (not show-selected?)))}
+                  (str "Selected (" selected-count ")")])
            (pos? selected-count) (conj [button
-                                        {:variant "text"
+                                        {:variant "outlined"
                                          :size "small"
                                          :color "secondary"
-                                         :sx {:textTransform "none"}
                                          :onClick
                                          #(app-state-core/clear-selected-wines!
                                            app-state)} "Clear Selection"]))]
@@ -389,7 +402,7 @@
              :justifyContent "space-between"
              :alignItems "center"
              :flexWrap "wrap"
-             :rowGap 0.35}}
+             :gap 1}}
        [box {:sx {:display "flex" :alignItems "center" :gap gap}}
         [typography
          {:variant (if compact? "subtitle2" "subtitle1")
@@ -399,26 +412,38 @@
           :size "small"
           :sx {:color "text.secondary" :p 0.5}}
          (if (:show-filters? state) [expand-less] [expand-more])]]
-       (when show-controls?
-         (into [box {:sx {:display "flex" :gap button-gap :flexWrap "wrap"}}]
-               header-buttons))]
-      (when (and (not compact?) count-info)
+       [style-selector app-state {:sx {:width 140}}]]
+      (when show-controls?
+        [box {:sx {:display "flex" :flexDirection "column" :gap 0.75 :mt 0.5}}
+         (into [box
+                {:sx {:display "flex"
+                      :gap button-gap
+                      :flexWrap "wrap"
+                      :alignItems "center"}}]
+               header-buttons)
+         (when (seq selection-buttons)
+           (into [box
+                  {:sx {:display "flex"
+                        :gap button-gap
+                        :flexWrap "wrap"
+                        :alignItems "center"}}]
+                 selection-buttons))])
+      (when (and (not compact?) count-info compact?)
         (visible-wine-indicator (assoc count-info :compact? compact?)))])))
 
 (defn- filter-controls-grid
   [app-state classifications spacing]
   [grid {:container true :spacing spacing}
    [country-filter app-state classifications]
-   [region-filter app-state classifications] [style-filter app-state]
-   [variety-filter app-state] [price-range-filter app-state]
-   [tasting-window-filter app-state] [verification-filter app-state]
-   [column-filter app-state]])
+   [region-filter app-state classifications] [variety-filter app-state]
+   [price-range-filter app-state] [tasting-window-filter app-state]
+   [verification-filter app-state] [column-filter app-state]])
 
 (defn- sort-controls-row
   [app-state {:keys [compact?]}]
   (let [gap (if compact? 1.5 2)
-        margin-top (if compact? 1.5 2)
-        padding-top (if compact? 1 2)
+        margin-top (if compact? 1 1.25)
+        padding-top (if compact? 0.75 1)
         min-width (if compact? 160 180)]
     [box
      {:sx
@@ -470,11 +495,11 @@
   ([app-state] (filter-bar app-state nil))
   ([app-state count-info]
    (let [classifications (:classifications @app-state)]
-     [paper {:elevation 1 :sx {:p 3 :mb 3 :borderRadius 2}}
+     [paper {:elevation 1 :sx {:p {:xs 2 :md 3} :mb 3 :borderRadius 2}}
       [filter-header app-state count-info]
-      [box {:sx {:mt 2}} [search-field app-state]]
+      [box {:sx {:mt 1.5 :mb 0.5}} [search-field app-state]]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}
-       [filter-controls-grid app-state classifications 2]]
+       [box {:sx {:pt 1.5}} [filter-controls-grid app-state classifications 2]]]
       (sort-controls-row app-state {:compact? false})])))
 
 (defn compact-filter-bar
@@ -491,7 +516,7 @@
             :backgroundColor "background.default"}}
       [filter-header app-state count-info {:compact? true}]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}
-       [box {:sx {:display "flex" :flexDirection "column" :gap 1.5}}
-        [box [search-field app-state]]
+       [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+        [box {:sx {:mt 1}} [search-field app-state]]
         [filter-controls-grid app-state classifications 2]
         (sort-controls-row app-state {:compact? true})]]])))

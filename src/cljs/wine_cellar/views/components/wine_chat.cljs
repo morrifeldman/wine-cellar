@@ -1362,7 +1362,7 @@
          :right 16
          :z-index 1000
          "@media (max-width:600px)" {:bottom "auto"
-                                     :top "50%"
+                                     :top "42%"
                                      :transform "translateY(-50%)"
                                      :right 16
                                      :left "auto"}}
