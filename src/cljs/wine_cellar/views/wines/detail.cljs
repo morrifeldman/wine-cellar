@@ -327,15 +327,15 @@
     :empty-text "Add vintage"
     :compact? true}])
 
-(defn editable-level
+(defn editable-designation
   [app-state wine]
   [editable-autocomplete-field
-   {:value (:level wine)
-    :options (vec (sort common/wine-levels))
+   {:value (:designation wine)
+    :options (vec (sort common/wine-designations))
     :free-solo false
     :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:level new-value}))
-    :empty-text "Add level"
+               (api/update-wine app-state (:id wine) {:designation new-value}))
+    :empty-text "Add designation"
     :compact? true}])
 
 (defn editable-country
@@ -666,11 +666,11 @@
 (defn wine-classification-section
   [app-state wine]
   [:<>
-   ;; Classification + Level + Vineyard
+   ;; Classification + Designation + Vineyard
    [grid {:item true :xs 12 :md 6}
     [inline-field-group
      [["Classification" [editable-classification app-state wine]]
-      ["Level" [editable-level app-state wine]]
+      ["Designation" [editable-designation app-state wine]]
       ["Vineyard" [editable-vineyard app-state wine]]]]]])
 
 (defn restock-dialog

@@ -568,7 +568,7 @@
   [{:keys [wine varieties tasting-notes]}]
   (let [prepared (-> wine
                      (update :style identity)
-                     (update :level identity)
+                     (update :designation identity)
                      (assoc :verified true))
         wine-id (if-let [existing-id (find-wine-id prepared)]
                   (do (jdbc/execute-one!

@@ -104,7 +104,7 @@
         (assoc :canonical (or style (:canonical info))))
       (get style-metadata default-style-key))))
 
-(def wine-levels
+(def wine-designations
   #{"Joven" "Crianza" "Reserva" "Gran Reserva" ; Rioja
     "Riserva" "Gran Selezione" ; Chianti
     "Reserve"})

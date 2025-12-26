@@ -31,16 +31,17 @@
     [:<>
      ;; Use the shared classification fields component
      [classification-fields app-state [:editing-classification] classifications]
-     ;; Allowed levels field
+     ;; Allowed designations field
      [form/form-row
       [form/select-field
-       {:label "Allowed Levels"
+       {:label "Allowed Designations"
         :multiple true
-        :value (get-in @app-state [:editing-classification :levels] [])
-        :options common/wine-levels
+        :value (get-in @app-state [:editing-classification :designations] [])
+        :options common/wine-designations
         :sx {"& .MuiAutocomplete-popupIndicator" {:color "text.secondary"}}
-        :on-change
-        #(swap! app-state assoc-in [:editing-classification :levels] %)}]]]))
+        :on-change #(swap! app-state assoc-in
+                      [:editing-classification :designations]
+                      %)}]]]))
 
 (defn edit-classification-form
   [app-state]
@@ -97,11 +98,12 @@
      :on-click #(swap! app-state assoc :deleting-classification classification)}
     "Delete"]])
 
-(defn classification-level-chips
-  [levels]
+(defn classification-designation-chips
+  [designations]
   [box {:sx {:display "flex" :flexWrap "wrap" :gap 0.5}}
-   (for [level (or levels [])]
-     ^{:key level} [chip {:label level :size "small" :variant "outlined"}])])
+   (for [designation (or designations [])]
+     ^{:key designation}
+     [chip {:label designation :size "small" :variant "outlined"}])])
 
 (defn classification-table-row
   [classification app-state]
@@ -110,7 +112,8 @@
    [table-cell (or (:aoc classification) "")]
    [table-cell (or (:classification classification) "")]
    [table-cell (or (:vineyard classification) "")]
-   [table-cell [classification-level-chips (:levels classification)]]
+   [table-cell
+    [classification-designation-chips (:designations classification)]]
    [table-cell [classification-actions classification app-state]]])
 
 (defn classifications-table
@@ -120,7 +123,7 @@
     [table-head
      [table-row [table-cell "Country"] [table-cell "Region"] [table-cell "AOC"]
       [table-cell "Classification"] [table-cell "Vineyard"]
-      [table-cell "Allowed Levels"] [table-cell "Actions"]]]
+      [table-cell "Allowed Designations"] [table-cell "Actions"]]]
     [table-body
      (if (empty? classifications)
        [table-row

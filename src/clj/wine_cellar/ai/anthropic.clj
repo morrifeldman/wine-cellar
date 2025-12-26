@@ -52,7 +52,7 @@
 
 (def label-analysis-tool
   (let [style-options (str/join ", " (sort common/wine-styles))
-        level-options (str/join ", " (sort common/wine-levels))
+        designation-options (str/join ", " (sort common/wine-designations))
         format-options (str/join ", " common/bottle-formats)
         null-note
         "Return null when the label does not provide this information."]
@@ -92,11 +92,12 @@
                :description (str "Wine style wording; align with: "
                                  style-options
                                  ". " null-note)}
-       :level
+       :designation
        {:type ["string" "null"]
         :description
         (str
-         "Production tier or quality/aging designation (e.g. " level-options
+         "Production tier or quality/aging designation (e.g. "
+         designation-options
          "), often indicating longer maturation or specially selected lots. "
          null-note)}
        :bottle_format {:type ["string" "null"]
@@ -108,7 +109,7 @@
                             (str "Alcohol percentage as a number (e.g. 12.5). "
                                  null-note)}}
       :required [:producer :name :vintage :country :region :aoc :vineyard
-                 :classification :style :level :bottle_format
+                 :classification :style :designation :bottle_format
                  :alcohol_percentage]
       :additionalProperties false}}))
 

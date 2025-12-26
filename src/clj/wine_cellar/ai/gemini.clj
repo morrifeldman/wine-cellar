@@ -133,19 +133,19 @@
 
 (def label-analysis-schema
   {:type "OBJECT"
-   :properties {:producer {:type "STRING"}
-                :name {:type "STRING"}
-                :vintage {:type "INTEGER"}
-                :country {:type "STRING"}
-                :region {:type "STRING"}
-                :aoc {:type "STRING"}
-                :vineyard {:type "STRING"}
-                :classification {:type "STRING"}
-                :style {:type "STRING" :enum (vec (sort common/wine-styles))}
-                :level {:type "STRING" :enum (vec (sort common/wine-levels))}
-                :bottle_format {:type "STRING"
-                                :enum (vec common/bottle-formats)}
-                :alcohol_percentage {:type "NUMBER"}}})
+   :properties
+   {:producer {:type "STRING"}
+    :name {:type "STRING"}
+    :vintage {:type "INTEGER"}
+    :country {:type "STRING"}
+    :region {:type "STRING"}
+    :aoc {:type "STRING"}
+    :vineyard {:type "STRING"}
+    :classification {:type "STRING"}
+    :style {:type "STRING" :enum (vec (sort common/wine-styles))}
+    :designation {:type "STRING" :enum (vec (sort common/wine-designations))}
+    :bottle_format {:type "STRING" :enum (vec common/bottle-formats)}
+    :alcohol_percentage {:type "NUMBER"}}})
 
 (defn analyze-wine-label
   [{:keys [system user-content]}]

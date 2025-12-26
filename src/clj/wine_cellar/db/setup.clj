@@ -45,11 +45,14 @@
 (defn- ensure-tables
   ([] (jdbc/with-transaction [tx ds] (ensure-tables tx)))
   ([tx]
+   (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/create-wine-style-type)
    (sql-execute-helper tx schema/ensure-red-sparkling-style)
-   (sql-execute-helper tx schema/create-wine-level-type)
    (sql-execute-helper tx schema/classifications-table-schema)
+   (sql-execute-helper tx schema/classifications-migrate-levels-to-designations)
    (sql-execute-helper tx schema/wines-table-schema)
+   (sql-execute-helper tx schema/wines-migrate-level-to-designation)
+   (sql-execute-helper tx schema/drop-wine-level-type)
    (sql-execute-helper tx schema/wines-add-closure-type-column)
    (sql-execute-helper tx schema/wines-add-dosage-column)
    (sql-execute-helper tx schema/wines-add-bottle-format-column)

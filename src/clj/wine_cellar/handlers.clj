@@ -140,7 +140,8 @@
                                :region (:region wine)
                                :aoc (:aoc wine)
                                :classification (:classification wine)
-                               :levels (when (:level wine) [(:level wine)])}]
+                               :designations (when (:designation wine)
+                                               [(:designation wine)])}]
            ;; Only create if all required fields are present
            (when (and (:country classification) (:region classification))
              (db-api/create-or-update-classification classification)))

@@ -63,7 +63,8 @@
           (when (:vineyard wine) (str "\n  Vineyard: " (:vineyard wine)))
           (when (:classification wine)
             (str "\n  Classification: " (:classification wine)))
-          (when (:level wine) (str "\n  Level: " (:level wine)))
+          (when (:designation wine)
+            (str "\n  Designation: " (:designation wine)))
           (when (:closure_type wine) (str "\n  Closure: " (:closure_type wine)))
           (when (:bottle_format wine)
             (str "\n  Bottle Format: " (:bottle_format wine)))
@@ -321,7 +322,7 @@
 (defn label-analysis-system-prompt
   []
   (let [style-options (str/join ", " (sort common/wine-styles))
-        level-options (str/join ", " (sort common/wine-levels))
+        designation-options (str/join ", " (sort common/wine-designations))
         format-options (str/join ", " common/bottle-formats)]
     (str
      "You are a wine expert tasked with extracting information from wine label images. "
@@ -337,8 +338,8 @@
      "- style: The wine style. Must be one of: "
      style-options
      "\n"
-     "- level: The wine level (only if applicable). Must be one of: "
-     level-options
+     "- designation: The wine designation (only if applicable). Must be one of: "
+     designation-options
      "\n"
      "- bottle_format: The bottle size/format. Must be one of: " format-options
      "\n" "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"

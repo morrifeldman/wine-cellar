@@ -9,9 +9,10 @@
             [wine-cellar.api :as api]
             [wine-cellar.common :as common]
             [wine-cellar.utils.formatting :refer
-             [aocs-for-region classifications-for-aoc levels-for-classification
-              regions-for-country unique-countries unique-purveyors
-              valid-name-producer? vineyards-for-region]]
+             [aocs-for-region classifications-for-aoc
+              designations-for-classification regions-for-country
+              unique-countries unique-purveyors valid-name-producer?
+              vineyards-for-region]]
             [wine-cellar.utils.vintage :as vintage]
             [wine-cellar.views.components.form :refer
              [currency-field date-field form-actions form-container form-divider
@@ -125,11 +126,12 @@
                 (nil? (:quantity new-wine)) "Quantity is required"
                 (not (common/valid-location? (:location new-wine)))
                 common/format-location-error
-                (and (:level new-wine)
-                     (seq (:level new-wine))
-                     (not (contains? common/wine-levels (:level new-wine))))
-                (str "Level must be one of: "
-                     (str/join ", " (sort common/wine-levels)))
+                (and (:designation new-wine)
+                     (seq (:designation new-wine))
+                     (not (contains? common/wine-designations
+                                     (:designation new-wine))))
+                (str "Designation must be one of: "
+                     (str/join ", " (sort common/wine-designations)))
                 :else nil))
         submit-handler
         (fn []
@@ -275,22 +277,25 @@
                                 (:country new-wine)
                                 (:region new-wine)
                                 (:aoc new-wine))]
-      [smart-select-field app-state [:new-wine :level] :free-solo true :disabled
-       (or (empty? (:country new-wine)) (empty? (:region new-wine))) :options
-       (levels-for-classification classifications
-                                  (:country new-wine)
-                                  (:region new-wine)
-                                  (:aoc new-wine)
-                                  (:classification new-wine)) :helper-text
-       (str "Must be one of: " (str/join ", " (sort common/wine-levels)))
+      [smart-select-field app-state [:new-wine :designation] :free-solo true
+       :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
+       :options
+       (designations-for-classification classifications
+                                        (:country new-wine)
+                                        (:region new-wine)
+                                        (:aoc new-wine)
+                                        (:classification new-wine)) :label
+       "Designation" :helper-text
+       (str "Must be one of: " (str/join ", " (sort common/wine-designations)))
        :on-blur
-       #(when (and (:level new-wine)
-                   (seq (:level new-wine))
-                   (not (contains? common/wine-levels (:level new-wine))))
+       #(when (and (:designation new-wine)
+                   (seq (:designation new-wine))
+                   (not (contains? common/wine-designations
+                                   (:designation new-wine))))
           (swap! app-state assoc
             :error
-            (str "Level must be one of: "
-                 (str/join ", " (sort common/wine-levels)))))]]
+            (str "Designation must be one of: "
+                 (str/join ", " (sort common/wine-designations)))))]]
      [form-row
       [number-field
        {:label "Alcohol %"

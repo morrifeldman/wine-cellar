@@ -17,16 +17,16 @@
                                              (:new-classification @app-state))}
      ;; Use the shared classification fields component
      [classification-fields app-state [:new-classification] classifications]
-     ;; Allowed levels field
+     ;; Allowed designations field
      [form-row
       [select-field
-       {:label "Allowed Levels"
+       {:label "Allowed Designations"
         :multiple true
-        :value (:levels new-class [])
-        :options common/wine-levels
+        :value (:designations new-class [])
+        :options common/wine-designations
         :sx {"& .MuiAutocomplete-popupIndicator" {:color "text.secondary"}}
         :on-change
-        #(swap! app-state assoc-in [:new-classification :levels] %)}]]
+        #(swap! app-state assoc-in [:new-classification :designations] %)}]]
      ;; Form buttons
      [form-actions
       {:on-submit #(api/create-classification app-state

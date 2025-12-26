@@ -335,11 +335,12 @@
                                                               country
                                                               region
                                                               aoc)
-          :level (formatting/levels-for-classification classifications
-                                                       country
-                                                       region
-                                                       aoc
-                                                       classification)
+          :designation (formatting/designations-for-classification
+                        classifications
+                        country
+                        region
+                        aoc
+                        classification)
           [])
         options (into [] (map str) (or raw-options []))]
     [editable-autocomplete-field

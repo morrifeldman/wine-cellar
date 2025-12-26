@@ -60,8 +60,8 @@
 (s/def ::name string?)
 (s/def ::vintage (s/nilable int?))
 (s/def ::style (set common/wine-styles))
-(s/def ::level (s/nilable (set common/wine-levels)))
-(s/def ::levels (s/coll-of (set common/wine-levels)))
+(s/def ::designation (s/nilable (set common/wine-designations)))
+(s/def ::designations (s/coll-of (set common/wine-designations)))
 (s/def ::location (s/nilable (s/and string? #(common/valid-location? %))))
 (s/def ::quantity int?)
 (s/def ::original_quantity (s/nilable int?))
@@ -160,7 +160,7 @@
 
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer) ::country ::region ::style ::quantity]
-          :opt-un [::aoc ::classification ::vineyard ::location ::level
+          :opt-un [::aoc ::classification ::vineyard ::location ::designation
                    ::purveyor ::label_image ::label_thumbnail ::back_label_image
                    ::drink_from_year ::drink_until_year ::vintage ::price
                    ::purchase_date ::alcohol_percentage ::wine_varieties
@@ -174,7 +174,7 @@
                 ::region ::aoc
                 ::classification ::vineyard
                 ::name ::vintage
-                ::style ::level
+                ::style ::designation
                 ::location ::quantity
                 ::original_quantity ::price
                 ::purveyor ::label_image
@@ -186,8 +186,8 @@
                 ::ai_summary ::closure_type
                 ::bottle_format ::metadata)]
    :opt-un [::producer ::country ::region ::aoc ::classification ::vineyard
-            ::name ::vintage ::style ::level ::location ::quantity
-            ::original_quantity ::price ::purveyor ::label_image
+            ::vineyard ::name ::vintage ::style ::designation ::location
+            ::quantity ::original_quantity ::price ::purveyor ::label_image
             ::label_thumbnail ::back_label_image ::drink_from_year
             ::drink_until_year ::purchase_date ::alcohol_percentage
             ::disgorgement_year ::dosage ::tasting_window_commentary ::verified
@@ -199,7 +199,7 @@
 
 (def classification-schema
   (s/keys :req-un [::country ::region]
-          :opt-un [::aoc ::classification ::vineyard ::levels]))
+          :opt-un [::aoc ::classification ::vineyard ::designations]))
 
 (def tasting-note-schema
   (s/keys :opt-un

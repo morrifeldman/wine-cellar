@@ -65,7 +65,7 @@
        distinct
        sort))
 
-(defn levels-for-classification
+(defn designations-for-classification
   [classifications country region aoc classification]
   (or (->> classifications
            (filter #(and (= country (:country %))
@@ -73,7 +73,7 @@
                          (= aoc (:aoc %))
                          (= classification (:classification %))))
            first
-           :levels)
+           :designations)
       []))
 
 (defn unique-purveyors

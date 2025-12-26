@@ -4,7 +4,7 @@
   (:require [wine-cellar.utils.formatting :refer
              [unique-countries regions-for-country aocs-for-region
               vineyards-for-region classifications-for-aoc
-              levels-for-classification]]
+              designations-for-classification]]
             [wine-cellar.views.components.form :as form]))
 
 (defn classification-fields
@@ -15,18 +15,18 @@
    - path: The path in app-state where classification data is stored
    - classifications: The list of all classifications
    - options: Map of options:
-     - :include-level? - Whether to include the level field (default: false)
+     - :include-designation? - Whether to include the designation field (default: false)
      - :required? - Whether fields are required (default: true for country/region, false for others)
      - :on-change - Optional callback when any field changes"
   [app-state path classifications &
-   {:keys [include-level? required? on-change]
-    :or {include-level? false
+   {:keys [include-designation? required? on-change]
+    :or {include-designation? false
          required? {:country true
                     :region true
                     :aoc false
                     :classification false
                     :vineyard false
-                    :level false}}}]
+                    :designation false}}}]
   (let [data (get-in @app-state path)
         country (:country data)
         region (:region data)
@@ -52,7 +52,8 @@
                           (update-field! :aoc nil)
                           (update-field! :classification nil)
                           (update-field! :vineyard nil)
-                          (when include-level? (update-field! :level nil))))}]
+                          (when include-designation?
+                            (update-field! :designation nil))))}]
       [form/select-field
        {:label "Region"
         :required (get required? :region true)
@@ -66,7 +67,8 @@
                           (update-field! :aoc nil)
                           (update-field! :classification nil)
                           (update-field! :vineyard nil)
-                          (when include-level? (update-field! :level nil))))}]
+                          (when include-designation?
+                            (update-field! :designation nil))))}]
       [form/select-field
        {:label "AOC"
         :required (get required? :aoc false)
@@ -78,7 +80,8 @@
                         ;; Clear dependent fields when AOC changes
                         (when (not= aoc %)
                           (update-field! :classification nil)
-                          (when include-level? (update-field! :level nil))))}]]
+                          (when include-designation?
+                            (update-field! :designation nil))))}]]
      [form/form-row
       [form/select-field
        {:label "Classification"
@@ -90,8 +93,8 @@
         :on-change #(do (update-field! :classification %)
                         ;; Clear dependent fields when classification
                         ;; changes
-                        (when (and include-level? (not= classification %))
-                          (update-field! :level nil)))}]
+                        (when (and include-designation? (not= classification %))
+                          (update-field! :designation nil)))}]
       [form/select-field
        {:label "Vineyard"
         :required (get required? :vineyard false)
@@ -100,16 +103,16 @@
         :value (:vineyard data)
         :options (vineyards-for-region classifications country region)
         :on-change #(update-field! :vineyard %)}]
-      (when include-level?
+      (when include-designation?
         [form/select-field
-         {:label "Level"
-          :required (get required? :level false)
+         {:label "Designation"
+          :required (get required? :designation false)
           :free-solo true
           :disabled (or (empty? country) (empty? region))
-          :value (:level data)
-          :options (levels-for-classification classifications
-                                              country
-                                              region
-                                              aoc
-                                              classification)
-          :on-change #(update-field! :level %)}])]]))
+          :value (:designation data)
+          :options (designations-for-classification classifications
+                                                    country
+                                                    region
+                                                    aoc
+                                                    classification)
+          :on-change #(update-field! :designation %)}])]]))

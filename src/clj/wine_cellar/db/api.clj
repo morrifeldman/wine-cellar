@@ -67,13 +67,12 @@
          (String. (.encode (Base64/getEncoder) bytes) "UTF-8"))))
 
 (defn wine->db-wine
-  [{:keys [style level label_image label_thumbnail back_label_image
+  [{:keys [style designation label_image label_thumbnail back_label_image
            purchase_date metadata]
     :as wine}]
   (cond-> wine
     purchase_date (update :purchase_date ->sql-date)
     style (update :style (partial sql-cast :wine_style))
-    level (update :level (partial sql-cast :wine_level))
     metadata (update :metadata
                      #(sql-cast :jsonb (json/write-value-as-string %)))
     label_image (update :label_image base64->bytes)
@@ -376,9 +375,9 @@
                      db-opts))
 
 (def wine-list-fields
-  [:id :producer :country :region :aoc :classification :vineyard :level :name
-   :vintage :style :closure_type :bottle_format :location :purveyor :quantity
-   :original_quantity :price :drink_from_year :drink_until_year
+  [:id :producer :country :region :aoc :classification :vineyard :designation
+   :name :vintage :style :closure_type :bottle_format :location :purveyor
+   :quantity :original_quantity :price :drink_from_year :drink_until_year
    :alcohol_percentage :disgorgement_year :label_thumbnail :created_at
    :updated_at :verified :purchase_date :latest_internal_rating
    :average_external_rating :varieties :metadata])
@@ -537,18 +536,21 @@
                    [:coalesce (:vineyard classification) ""]]]}
          existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
      (if existing
-       ;; Update existing classification - merge levels
-       (let [levels1 (or (:levels existing) [])
-             levels2 (or (:levels classification) [])
-             combined-levels (vec (distinct (concat levels1 levels2)))
+       ;; Update existing classification - merge designations
+       (let [designations1 (or (:designations existing) [])
+             designations2 (or (:designations classification) [])
+             combined-designations (vec (distinct (concat designations1
+                                                          designations2)))
              update-query {:update :wine_classifications
-                           :set {:levels (->pg-array combined-levels)}
+                           :set {:designations (->pg-array
+                                                combined-designations)}
                            :where [:= :id (:id existing)]
                            :returning :*}]
          (jdbc/execute-one! tx (sql/format update-query) db-opts))
        ;; Create new classification
        (let [insert-query {:insert-into :wine_classifications
-                           :values [(update classification :levels ->pg-array)]
+                           :values
+                           [(update classification :designations ->pg-array)]
                            :returning :*}]
          (jdbc/execute-one! tx (sql/format insert-query) db-opts))))))
 
@@ -570,11 +572,11 @@
 (defn update-classification!
   [id classification]
   (jdbc/execute-one! ds
-                     (sql/format {:update :wine_classifications
-                                  :set
-                                  (update classification :levels ->pg-array)
-                                  :where [:= :id id]
-                                  :returning :*})
+                     (sql/format
+                      {:update :wine_classifications
+                       :set (update classification :designations ->pg-array)
+                       :where [:= :id id]
+                       :returning :*})
                      db-opts))
 
 (defn delete-classification!

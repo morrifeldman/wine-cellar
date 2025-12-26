@@ -2,13 +2,6 @@
   (:require [wine-cellar.common :as common]))
 
 ;; Type definitions
-(def create-wine-level-type
-  {:raw
-   ["DO $$ BEGIN "
-    "IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'wine_level') THEN "
-    "CREATE TYPE wine_level AS ENUM " [:inline (vec common/wine-levels)]
-    "; END IF; END $$;"]})
-
 (def create-wine-style-type
   {:raw
    ["DO $$ BEGIN "
@@ -26,10 +19,18 @@
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:country :varchar [:not nil]] [:region :varchar [:not nil]] [:aoc :varchar]
-    [:classification :varchar] [:vineyard :varchar] [:levels :wine_level :array]
-    [:created_at :timestamp [:default [:now]]]
+    [:classification :varchar] [:vineyard :varchar]
+    [:designations :varchar :array] [:created_at :timestamp [:default [:now]]]
     [[:constraint :wine_classifications_natural_key] :unique-nulls-not-distinct
      [:composite :country :region :aoc :classification :vineyard]]]})
+
+(def classifications-migrate-levels-to-designations
+  {:raw
+   ["DO $$ BEGIN "
+    "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wine_classifications' AND column_name = 'levels') THEN "
+    "ALTER TABLE wine_classifications RENAME COLUMN levels TO designations; "
+    "ALTER TABLE wine_classifications ALTER COLUMN designations TYPE varchar[] USING designations::text[]; "
+    "END IF; END $$;"]})
 
 #_(sql/format classifications-table-schema)
 
@@ -39,7 +40,7 @@
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:producer :varchar] [:country :varchar [:not nil]]
     [:region :varchar [:not nil]] [:aoc :varchar] [:classification :varchar]
-    [:vineyard :varchar] [:level :wine_level] [:name :varchar]
+    [:vineyard :varchar] [:designation :varchar] [:name :varchar]
     [:vintage :integer :null] [:style :wine_style] [:location :varchar]
     [:closure_type :varchar] [:purveyor :varchar]
     [:quantity :integer [:not nil] [:default 0]] [:original_quantity :integer]
@@ -55,6 +56,20 @@
        [:<= :drink_from_year :drink_until_year]]]]
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]]})
+
+(def wines-migrate-level-to-designation
+  {:raw
+   ["DO $$ BEGIN "
+    "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wines' AND column_name = 'level') THEN "
+    "ALTER TABLE wines RENAME COLUMN level TO designation; "
+    "ALTER TABLE wines ALTER COLUMN designation TYPE varchar USING designation::text; "
+    "END IF; END $$;"]})
+
+(def drop-wine-level-type
+  {:raw ["DO $$ BEGIN "
+         "IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'wine_level') THEN "
+         "DROP TYPE wine_level; " "END IF; END $$;"]})
+
 #_(sql/format wines-table-schema)
 
 (def wines-add-closure-type-column
