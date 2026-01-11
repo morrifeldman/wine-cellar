@@ -13,8 +13,8 @@
 #define I2C_SCL 22
 #define I2C_FREQ_HZ 100000
 
-// BMP280 pressure/temperature sensor
-#define BMP280_ADDRESS 0x76 // 0x76 or 0x77
+// BME280 pressure/temperature/humidity sensor
+#define BME280_ADDRESS 0x76 // 0x76 or 0x77
 
 // Display temperature in Fahrenheit on the OLED (defaults to Celsius)
 // #define DISPLAY_TEMP_FAHRENHEIT 1

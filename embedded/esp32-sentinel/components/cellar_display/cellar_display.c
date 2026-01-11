@@ -262,26 +262,27 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
 
     char line_temp[32];
     char line_ip[32];
-    char line_press[32];
+    char line_mid[32]; // Pressure or Humidity
     char line_lux[32];
     char line_post[32];
     char line_status[32] = {0};
 
-    // Determine which sensor values to show based on page
+    // Page mapping:
+    // 0: Primary + Pressure
+    // 1: Primary + Humidity
+    // 2: Secondary + Pressure
+    // 3: Secondary + Humidity
+
+    bool use_secondary = (page >= 2);
+    bool show_humidity = (page % 2 != 0);
+
+    // Determine which sensor values to show
     float display_temp_c = status->temp_primary;
     float display_lux = status->lux_primary;
-    bool using_secondary = false;
-
-    // Logic: 
-    // Page 0: Primary
-    // Page 1: Secondary (if available)
     
-    if (page == 1) {
-        if (!isnan(status->temp_secondary) || !isnan(status->lux_secondary)) {
-            if (!isnan(status->temp_secondary)) display_temp_c = status->temp_secondary;
-            if (!isnan(status->lux_secondary)) display_lux = status->lux_secondary;
-            using_secondary = true;
-        }
+    if (use_secondary) {
+        if (!isnan(status->temp_secondary)) display_temp_c = status->temp_secondary;
+        if (!isnan(status->lux_secondary)) display_lux = status->lux_secondary;
     }
 
     float display_temp = display_temp_c;
@@ -292,24 +293,33 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
 #endif
 
     if (!isnan(display_temp)) {
-        snprintf(line_temp, sizeof(line_temp), "%0.1f ^%c%s", display_temp, temp_unit, using_secondary ? "*" : "");
+        snprintf(line_temp, sizeof(line_temp), "%0.1f ^%c%s", display_temp, temp_unit, use_secondary ? "*" : "");
     } else {
         snprintf(line_temp, sizeof(line_temp), "--.- ^%c", temp_unit);
     }
 
-    if (!isnan(status->pressure_hpa)) {
-#ifdef DISPLAY_PRESSURE_INHG
-        float pressure_inhg = hpa_to_inhg(status->pressure_hpa);
-        snprintf(line_press, sizeof(line_press), "%4.2f inHg", pressure_inhg);
-#else
-        snprintf(line_press, sizeof(line_press), "%4.0f hPa", status->pressure_hpa);
-#endif
+    // Middle line: Pressure or Humidity
+    if (show_humidity) {
+        if (!isnan(status->humidity_pct)) {
+            snprintf(line_mid, sizeof(line_mid), "%0.1f %%RH", status->humidity_pct);
+        } else {
+            snprintf(line_mid, sizeof(line_mid), "--.- %%RH");
+        }
     } else {
-        snprintf(line_press, sizeof(line_press), "----");
+        if (!isnan(status->pressure_hpa)) {
+#ifdef DISPLAY_PRESSURE_INHG
+            float pressure_inhg = hpa_to_inhg(status->pressure_hpa);
+            snprintf(line_mid, sizeof(line_mid), "%4.2f inHg", pressure_inhg);
+#else
+            snprintf(line_mid, sizeof(line_mid), "%4.0f hPa", status->pressure_hpa);
+#endif
+        } else {
+            snprintf(line_mid, sizeof(line_mid), "----");
+        }
     }
 
     if (!isnan(display_lux)) {
-        snprintf(line_lux, sizeof(line_lux), "%0.0f lx%s", display_lux, using_secondary ? "*" : "");
+        snprintf(line_lux, sizeof(line_lux), "%0.0f lx%s", display_lux, use_secondary ? "*" : "");
     } else {
         snprintf(line_lux, sizeof(line_lux), "---- lx");
     }
@@ -330,7 +340,7 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
         draw_text_line(7, line_post, false);
     } else {
         draw_text_scaled(0, 0, line_temp, 2, false);
-        draw_text_scaled(0, 16, line_press, 2, false);
+        draw_text_scaled(0, 16, line_mid, 2, false);
         draw_text_scaled(0, 32, line_lux, 2, false);
         draw_text_line(6, line_ip, false);
         draw_text_line(7, line_post, false);
@@ -350,14 +360,10 @@ static void display_task(void *pvParameters) {
 
         // Check if we have secondary data to toggle
         bool has_secondary = !isnan(local_status.temp_secondary) || !isnan(local_status.lux_secondary);
+        int max_pages = has_secondary ? 4 : 2;
 
-        if (has_secondary) {
-            render_status_page(&local_status, page);
-            page = !page; // Toggle 0 <-> 1
-        } else {
-            render_status_page(&local_status, 0);
-            page = 0;
-        }
+        render_status_page(&local_status, page);
+        page = (page + 1) % max_pages;
 
         vTaskDelay(pdMS_TO_TICKS(3000));
     }

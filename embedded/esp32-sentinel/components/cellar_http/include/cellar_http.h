@@ -14,6 +14,7 @@ typedef struct {
 typedef struct {
     float temperature_c;
     float pressure_hpa;
+    float humidity_pct;
     float illuminance_lux;
     const char *timestamp_iso8601;  // optional
     const char *device_id;          // optional, falls back to DEVICE_ID macro

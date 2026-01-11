@@ -112,8 +112,6 @@ This is a full-stack wine cellar tracking application built with:
 │       │       └── veml7700.c
 │       ├── dependencies.lock
 │       ├── main
-│       │   ├── bmp280.c
-│       │   ├── bmp280.h
 │       │   ├── CMakeLists.txt
 │       │   ├── config.example.h
 │       │   ├── idf_component.yml
@@ -244,7 +242,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-50 directories, 150 files
+50 directories, 148 files
 ```
 
 ## Development Commands

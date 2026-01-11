@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "bmp280.h"
+#include "bme280.h"
 #include "driver/i2c_master.h"
 #include "esp_chip_info.h"
 #include "esp_event.h"
@@ -44,9 +44,9 @@
 #define I2C_FREQ_HZ 100000
 #endif
 
-// Default to standard BMP280 address if not in config
-#ifndef BMP280_ADDRESS
-#define BMP280_ADDRESS BMP280_I2C_ADDRESS_0
+// Default to standard BME280 address if not in config
+#ifndef BME280_ADDRESS
+#define BME280_ADDRESS BME280_I2C_ADDRESS_DEFAULT
 #endif
 
 // Optional local altitude (meters above sea level) to derive sea-level pressure.
@@ -79,11 +79,11 @@ static int s_retry_num = 0;
 
 // i2c_bus handle (wrapper)
 static i2c_bus_handle_t s_i2c_bus_handle = NULL;
-// Native handle extracted from wrapper (for cellar_display and bmp280)
+// Native handle extracted from wrapper (for cellar_display and bme280)
 static i2c_master_bus_handle_t s_i2c_bus = NULL;
 
-static bmp280_handle_t s_bmp280;
-static bool s_bmp280_ready = false;
+static bme280_handle_t s_bme280;
+static bool s_bme280_ready = false;
 
 static opt3001_handle_t s_opt3001;
 static bool s_opt3001_ready = false;
@@ -308,6 +308,7 @@ static esp_err_t post_cellar_condition(void) {
         waiting.lux_primary = NAN;
         waiting.lux_secondary = NAN;
         waiting.pressure_hpa = NAN;
+        waiting.humidity_pct = NAN;
         waiting.http_status = -1;
         waiting.post_err = ESP_FAIL;
         snprintf(waiting.ip_address, sizeof(waiting.ip_address), "%s", s_ip_str);
@@ -317,9 +318,10 @@ static esp_err_t post_cellar_condition(void) {
         return ESP_FAIL;
     }
 
-    float temp_bmp = NAN;
+    float temp_bme = NAN;
     float temp_ds = NAN;
     float pressure = NAN;
+    float humidity = NAN;
     float lux_opt = NAN;
     float lux_veml = NAN;
 
@@ -330,15 +332,27 @@ static esp_err_t post_cellar_condition(void) {
         have_timestamp = format_iso8601_now(timestamp, sizeof(timestamp));
     }
 
-    // BMP280 Reading
-    if (s_bmp280_ready) {
-        esp_err_t bmp_read_status = bmp280_read_float(&s_bmp280, &temp_bmp, &pressure);
-        if (bmp_read_status != ESP_OK) {
-            ESP_LOGE(TAG, "BMP280 read failed: %s", esp_err_to_name(bmp_read_status));
-            temp_bmp = NAN;
+    // BME280 Reading
+    if (s_bme280_ready) {
+        esp_err_t t_err = bme280_read_temperature(s_bme280, &temp_bme);
+        esp_err_t p_err = bme280_read_pressure(s_bme280, &pressure);
+        esp_err_t h_err = bme280_read_humidity(s_bme280, &humidity);
+        
+        if (t_err != ESP_OK || p_err != ESP_OK || h_err != ESP_OK) {
+             ESP_LOGW(TAG, "BME280 read failed, retrying...");
+             vTaskDelay(pdMS_TO_TICKS(100));
+             t_err = bme280_read_temperature(s_bme280, &temp_bme);
+             p_err = bme280_read_pressure(s_bme280, &pressure);
+             h_err = bme280_read_humidity(s_bme280, &humidity);
+        }
+
+        if (t_err != ESP_OK || p_err != ESP_OK || h_err != ESP_OK) {
+            ESP_LOGE(TAG, "BME280 read failed");
+            temp_bme = NAN;
             pressure = NAN;
+            humidity = NAN;
         } else {
-            ESP_LOGI(TAG, "BMP280: T=%.2fC P=%.2fhPa", temp_bmp, pressure);
+            ESP_LOGI(TAG, "BME280: T=%.2fC P=%.2fhPa H=%.1f%%", temp_bme, pressure, humidity);
         }
     }
 
@@ -389,9 +403,9 @@ static esp_err_t post_cellar_condition(void) {
     // Prefer DS18B20 as primary
     if (!isnan(temp_ds)) {
         temp_primary = temp_ds;
-        if (!isnan(temp_bmp)) temp_secondary = temp_bmp;
+        if (!isnan(temp_bme)) temp_secondary = temp_bme;
     } else {
-        temp_primary = temp_bmp;
+        temp_primary = temp_bme;
     }
 
     // Prefer OPT3001 as primary
@@ -413,6 +427,7 @@ static esp_err_t post_cellar_condition(void) {
     cellar_measurement_t measurement = {
         .temperature_c = temp_primary,
         .pressure_hpa = reported_pressure,
+        .humidity_pct = humidity,
         .illuminance_lux = lux_primary,
         .timestamp_iso8601 = have_timestamp ? timestamp : NULL,
         .device_id = cellar_auth_device_id(),
@@ -428,6 +443,7 @@ static esp_err_t post_cellar_condition(void) {
     display_status.lux_primary = lux_primary;
     display_status.lux_secondary = lux_secondary;
     display_status.pressure_hpa = reported_pressure;
+    display_status.humidity_pct = humidity;
     display_status.http_status = http_result.status_code;
     display_status.post_err = err;
     snprintf(display_status.ip_address, sizeof(display_status.ip_address), "%s", s_ip_str);
@@ -460,6 +476,7 @@ void app_main(void) {
     waiting.lux_primary = NAN;
     waiting.lux_secondary = NAN;
     waiting.pressure_hpa = NAN;
+    waiting.humidity_pct = NAN;
     waiting.http_status = -1;
     waiting.post_err = ESP_OK;
     snprintf(waiting.ip_address, sizeof(waiting.ip_address), "%s", s_ip_str);
@@ -475,18 +492,23 @@ void app_main(void) {
 
     // Init Sensors
     if (s_i2c_bus) {
-        // Probe and Init BMP280
-        if (i2c_master_probe(s_i2c_bus, BMP280_ADDRESS, 50) == ESP_OK) {
-            ESP_LOGI(TAG, "Found BMP280 at 0x%02X, initializing...", BMP280_ADDRESS);
-            esp_err_t bmp_err = bmp280_init(s_i2c_bus, BMP280_ADDRESS, &s_bmp280);
-            if (bmp_err != ESP_OK) {
-                 ESP_LOGE(TAG, "BMP280 init failed: %s", esp_err_to_name(bmp_err));
+        // Probe and Init BME280
+        if (i2c_master_probe(s_i2c_bus, BME280_ADDRESS, 50) == ESP_OK) {
+            ESP_LOGI(TAG, "Found BME280 at 0x%02X, initializing...", BME280_ADDRESS);
+            s_bme280 = bme280_create(s_i2c_bus_handle, BME280_ADDRESS);
+            if (!s_bme280) {
+                 ESP_LOGE(TAG, "BME280 create failed");
             } else {
-                 ESP_LOGI(TAG, "BMP280 init success");
-                 s_bmp280_ready = true;
+                 esp_err_t bme_err = bme280_default_init(s_bme280);
+                 if (bme_err != ESP_OK) {
+                      ESP_LOGE(TAG, "BME280 init failed: %s", esp_err_to_name(bme_err));
+                 } else {
+                      ESP_LOGI(TAG, "BME280 init success");
+                      s_bme280_ready = true;
+                 }
             }
         } else {
-            ESP_LOGD(TAG, "BMP280 not found at 0x%02X", BMP280_ADDRESS);
+            ESP_LOGD(TAG, "BME280 not found at 0x%02X", BME280_ADDRESS);
         }
 
         // Probe and Init OPT3001
@@ -563,6 +585,9 @@ void app_main(void) {
 
 
     cellar_display_update(&waiting);
+
+    // Allow sensors to settle
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
     while (true) {
         esp_err_t err = post_cellar_condition();

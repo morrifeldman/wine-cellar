@@ -71,6 +71,10 @@ esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_
         has_measurement = true;
         written += snprintf(payload + written, sizeof(payload) - written, ",\"pressure_hpa\":%.2f", measurement->pressure_hpa);
     }
+    if (!isnan(measurement->humidity_pct)) {
+        has_measurement = true;
+        written += snprintf(payload + written, sizeof(payload) - written, ",\"humidity_pct\":%.1f", measurement->humidity_pct);
+    }
     if (!isnan(measurement->illuminance_lux)) {
         has_measurement = true;
         written += snprintf(payload + written, sizeof(payload) - written, ",\"illuminance_lux\":%.1f", measurement->illuminance_lux);

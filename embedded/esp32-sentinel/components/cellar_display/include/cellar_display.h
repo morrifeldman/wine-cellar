@@ -14,10 +14,11 @@
 
 typedef struct {
     float temp_primary;      // e.g. DS18B20
-    float temp_secondary;    // e.g. BMP280
+    float temp_secondary;    // e.g. BMP280/BME280
     float lux_primary;       // e.g. OPT3001
     float lux_secondary;     // e.g. VEML7700
     float pressure_hpa;
+    float humidity_pct;
     int http_status;         // HTTP status code returned by the API (or -1 on failure)
     esp_err_t post_err;      // esp_err_t from the POST attempt
     char ip_address[16];     // dotted-quad string
