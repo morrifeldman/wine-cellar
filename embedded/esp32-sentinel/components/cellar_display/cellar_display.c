@@ -295,7 +295,7 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
     if (!isnan(display_temp)) {
         snprintf(line_temp, sizeof(line_temp), "%0.1f ^%c%s", display_temp, temp_unit, use_secondary ? "*" : "");
     } else {
-        snprintf(line_temp, sizeof(line_temp), "--.- ^%c", temp_unit);
+        line_temp[0] = '\0';
     }
 
     // Middle line: Pressure or Humidity
@@ -303,7 +303,7 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
         if (!isnan(status->humidity_pct)) {
             snprintf(line_mid, sizeof(line_mid), "%0.1f %%RH", status->humidity_pct);
         } else {
-            snprintf(line_mid, sizeof(line_mid), "--.- %%RH");
+            line_mid[0] = '\0';
         }
     } else {
         if (!isnan(status->pressure_hpa)) {
@@ -314,14 +314,14 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
             snprintf(line_mid, sizeof(line_mid), "%4.0f hPa", status->pressure_hpa);
 #endif
         } else {
-            snprintf(line_mid, sizeof(line_mid), "----");
+            line_mid[0] = '\0';
         }
     }
 
     if (!isnan(display_lux)) {
         snprintf(line_lux, sizeof(line_lux), "%0.0f lx%s", display_lux, use_secondary ? "*" : "");
     } else {
-        snprintf(line_lux, sizeof(line_lux), "---- lx");
+        line_lux[0] = '\0';
     }
 
     const char *ip = status->ip_address[0] ? status->ip_address : "0.0.0.0";
