@@ -544,6 +544,7 @@ void app_main(void) {
     onewire_bus_handle_t ow_bus = NULL;
     onewire_bus_config_t bus_config = {
         .bus_gpio_num = ONEWIRE_BUS_GPIO,
+        .flags.en_pull_up = true, // Enables the ESP32 internal ~45k pull-up
     };
     onewire_bus_rmt_config_t rmt_config = {
         .max_rx_bytes = 10,
