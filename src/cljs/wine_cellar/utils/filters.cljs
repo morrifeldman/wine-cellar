@@ -23,7 +23,7 @@
           ;; All searchable text fields
           searchable-fields
           [(or (:name wine) "") (or (:producer wine) "") (or (:region wine) "")
-           (or (:aoc wine) "") (or (:country wine) "")
+           (or (:appellation wine) "") (or (:country wine) "")
            (or (:classification wine) "") (or (:vineyard wine) "")
            (or (:style wine) "") (or (:location wine) "")
            (or (:purveyor wine) "") (or (:tasting_window_commentary wine) "")

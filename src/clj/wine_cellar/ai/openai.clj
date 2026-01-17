@@ -75,14 +75,14 @@
                 :vintage {:type ["integer" "null"]}
                 :country {:type ["string" "null"]}
                 :region {:type ["string" "null"]}
-                :aoc {:type ["string" "null"]}
+                :appellation {:type ["string" "null"]}
                 :vineyard {:type ["string" "null"]}
                 :classification {:type ["string" "null"]}
                 :style {:type ["string" "null"]}
                 :designation {:type ["string" "null"]}
                 :bottle_format {:type ["string" "null"]}
                 :alcohol_percentage {:type ["number" "null"]}}
-   :required [:producer :name :vintage :country :region :aoc :vineyard
+   :required [:producer :name :vintage :country :region :appellation :vineyard
               :classification :style :designation :bottle_format
               :alcohol_percentage]
    :additionalProperties false})

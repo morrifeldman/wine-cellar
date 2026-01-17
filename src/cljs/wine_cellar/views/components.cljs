@@ -320,26 +320,30 @@
               :openOnFocus true}]))])
 
 (defn editable-classification-field
-  "Classification field implementation of editable-field for country, region, AOC, and classification"
+  "Classification field implementation of editable-field for country, region, Appellation, and classification"
   [{:keys [field-type wine classifications] :as props}]
   (let [country (:country wine)
         region (:region wine)
-        aoc (:aoc wine)
+        appellation (:appellation wine)
         classification (:classification wine)
         raw-options
         (case field-type
           :country (formatting/unique-countries classifications)
           :region (formatting/regions-for-country classifications country)
-          :aoc (formatting/aocs-for-region classifications country region)
-          :classification (formatting/classifications-for-aoc classifications
-                                                              country
-                                                              region
-                                                              aoc)
+          :appellation
+          (formatting/appellations-for-region classifications country region)
+          :vineyard
+          (formatting/vineyards-for-region classifications country region)
+          :classification (formatting/classifications-for-appellation
+                           classifications
+                           country
+                           region
+                           appellation)
           :designation (formatting/designations-for-classification
                         classifications
                         country
                         region
-                        aoc
+                        appellation
                         classification)
           [])
         options (into [] (map str) (or raw-options []))]

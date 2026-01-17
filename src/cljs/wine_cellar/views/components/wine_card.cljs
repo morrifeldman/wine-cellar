@@ -84,7 +84,8 @@
      {:variant "body2" :color "text.secondary" :sx {:mr 1 :minWidth "60px"}}
      "Region:"]
     [typography {:variant "body2"}
-     (str (:region wine) (when (:aoc wine) (str " • " (:aoc wine))))]]])
+     (str (:region wine)
+          (when (:appellation wine) (str " • " (:appellation wine))))]]])
 
 (defn wine-style-info
   [wine]

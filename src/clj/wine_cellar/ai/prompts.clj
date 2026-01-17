@@ -59,7 +59,8 @@
         classification-info
         (str/join
          ""
-         [(when (:aoc wine) (str "\n  AOC/AVA: " (:aoc wine)))
+         [(when (:appellation wine)
+            (str "\n  Appellation: " (:appellation wine)))
           (when (:vineyard wine) (str "\n  Vineyard: " (:vineyard wine)))
           (when (:classification wine)
             (str "\n  Classification: " (:classification wine)))
@@ -332,7 +333,7 @@
      "- vintage: The year the wine was produced (numeric, or null for non-vintage)\n"
      "- country: The country of origin\n"
      "- region: The wine region within the country\n"
-     "- aoc: The appellation or controlled designation of origin (if applicable)\n"
+     "- appellation: The specific appellation (e.g., AOC, AVA, DOCG) or region (if applicable)\n"
      "- vineyard: The specific vineyard name (if mentioned)\n"
      "- classification: The rank or quality tier of the specific site or estate (e.g., Grand Cru, Premier Cru, Grosse Lage). Distinct from designation, which describes process/aging.\n"
      "- style: The wine style. Must be one of: "

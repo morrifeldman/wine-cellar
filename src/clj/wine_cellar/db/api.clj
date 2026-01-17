@@ -375,11 +375,11 @@
                      db-opts))
 
 (def wine-list-fields
-  [:id :producer :country :region :aoc :classification :vineyard :designation
-   :name :vintage :style :closure_type :bottle_format :location :purveyor
-   :quantity :original_quantity :price :drink_from_year :drink_until_year
-   :alcohol_percentage :disgorgement_year :label_thumbnail :created_at
-   :updated_at :verified :purchase_date :latest_internal_rating
+  [:id :producer :country :region :appellation :classification :vineyard
+   :designation :name :vintage :style :closure_type :bottle_format :location
+   :purveyor :quantity :original_quantity :price :drink_from_year
+   :drink_until_year :alcohol_percentage :disgorgement_year :label_thumbnail
+   :created_at :updated_at :verified :purchase_date :latest_internal_rating
    :average_external_rating :varieties :metadata])
 
 (defn get-wines-for-list
@@ -524,16 +524,17 @@
    (jdbc/with-transaction [tx ds]
                           (create-or-update-classification tx classification)))
   ([tx classification]
-   (let [existing-query
-         {:select :*
-          :from :wine_classifications
-          :where [:and [:= :country (:country classification)]
-                  [:= :region (:region classification)]
-                  [:= [:coalesce :aoc ""] [:coalesce (:aoc classification) ""]]
-                  [:= [:coalesce :classification ""]
-                   [:coalesce (:classification classification) ""]]
-                  [:= [:coalesce :vineyard ""]
-                   [:coalesce (:vineyard classification) ""]]]}
+   (let [existing-query {:select :*
+                         :from :wine_classifications
+                         :where [:and [:= :country (:country classification)]
+                                 [:= :region (:region classification)]
+                                 [:= [:coalesce :appellation ""]
+                                  [:coalesce (:appellation classification) ""]]
+                                 [:= [:coalesce :classification ""]
+                                  [:coalesce (:classification classification)
+                                   ""]]
+                                 [:= [:coalesce :vineyard ""]
+                                  [:coalesce (:vineyard classification) ""]]]}
          existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
      (if existing
        ;; Update existing classification - merge designations
@@ -559,7 +560,7 @@
   (jdbc/execute! ds
                  (sql/format {:select :*
                               :from :wine_classifications
-                              :order-by [:country :region :aoc]})
+                              :order-by [:country :region :appellation]})
                  db-opts))
 
 (defn get-classification
@@ -595,14 +596,14 @@
                               :order-by [:region]})
                  db-opts))
 
-(defn get-aocs-by-region
+(defn get-appellations-by-region
   [country region]
   (jdbc/execute! ds
-                 (sql/format {:select [:distinct :aoc]
+                 (sql/format {:select [:distinct :appellation]
                               :from :wine_classifications
                               :where [:and [:= :country country]
                                       [:= :region region]]
-                              :order-by [:aoc]})
+                              :order-by [:appellation]})
                  db-opts))
 
 ;; Tasting Notes Operations

@@ -18,11 +18,11 @@
   {:create-table [:wine_classifications :if-not-exists]
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
-    [:country :varchar [:not nil]] [:region :varchar [:not nil]] [:aoc :varchar]
-    [:classification :varchar] [:vineyard :varchar]
+    [:country :varchar [:not nil]] [:region :varchar [:not nil]]
+    [:appellation :varchar] [:classification :varchar] [:vineyard :varchar]
     [:designations :varchar :array] [:created_at :timestamp [:default [:now]]]
     [[:constraint :wine_classifications_natural_key] :unique-nulls-not-distinct
-     [:composite :country :region :aoc :classification :vineyard]]]})
+     [:composite :country :region :appellation :classification :vineyard]]]})
 
 (def classifications-migrate-levels-to-designations
   {:raw
@@ -32,6 +32,13 @@
     "ALTER TABLE wine_classifications ALTER COLUMN designations TYPE varchar[] USING designations::text[]; "
     "END IF; END $$;"]})
 
+(def classifications-migrate-aoc-to-appellation
+  {:raw
+   ["DO $$ BEGIN "
+    "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wine_classifications' AND column_name = 'aoc') THEN "
+    "ALTER TABLE wine_classifications RENAME COLUMN aoc TO appellation; "
+    "END IF; END $$;"]})
+
 #_(sql/format classifications-table-schema)
 
 (def wines-table-schema
@@ -39,10 +46,10 @@
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:producer :varchar] [:country :varchar [:not nil]]
-    [:region :varchar [:not nil]] [:aoc :varchar] [:classification :varchar]
-    [:vineyard :varchar] [:designation :varchar] [:name :varchar]
-    [:vintage :integer :null] [:style :wine_style] [:location :varchar]
-    [:closure_type :varchar] [:purveyor :varchar]
+    [:region :varchar [:not nil]] [:appellation :varchar]
+    [:classification :varchar] [:vineyard :varchar] [:designation :varchar]
+    [:name :varchar] [:vintage :integer :null] [:style :wine_style]
+    [:location :varchar] [:closure_type :varchar] [:purveyor :varchar]
     [:quantity :integer [:not nil] [:default 0]] [:original_quantity :integer]
     [:price :decimal [10 2]] [:purchase_date :date] [:drink_from_year :integer]
     [:drink_until_year :integer] [:alcohol_percentage :decimal [4 2]]
@@ -64,6 +71,12 @@
     "ALTER TABLE wines RENAME COLUMN level TO designation; "
     "ALTER TABLE wines ALTER COLUMN designation TYPE varchar USING designation::text; "
     "END IF; END $$;"]})
+
+(def wines-migrate-aoc-to-appellation
+  {:raw
+   ["DO $$ BEGIN "
+    "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wines' AND column_name = 'aoc') THEN "
+    "ALTER TABLE wines RENAME COLUMN aoc TO appellation; " "END IF; END $$;"]})
 
 (def drop-wine-level-type
   {:raw ["DO $$ BEGIN "

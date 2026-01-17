@@ -54,7 +54,7 @@
 (s/def ::producer string?)
 (s/def ::country string?)
 (s/def ::region string?)
-(s/def ::aoc (s/nilable string?))
+(s/def ::appellation (s/nilable string?))
 (s/def ::classification (s/nilable string?))
 (s/def ::vineyard (s/nilable string?))
 (s/def ::name string?)
@@ -160,18 +160,19 @@
 
 (def wine-schema
   (s/keys :req-un [(or ::name ::producer) ::country ::region ::style ::quantity]
-          :opt-un [::aoc ::classification ::vineyard ::location ::designation
-                   ::purveyor ::label_image ::label_thumbnail ::back_label_image
-                   ::drink_from_year ::drink_until_year ::vintage ::price
-                   ::purchase_date ::alcohol_percentage ::wine_varieties
-                   ::disgorgement_year ::dosage ::tasting_window_commentary
-                   ::verified ::ai_summary ::original_quantity ::closure_type
-                   ::bottle_format ::metadata]))
+          :opt-un [::appellation ::classification ::vineyard ::location
+                   ::designation ::purveyor ::label_image ::label_thumbnail
+                   ::back_label_image ::drink_from_year ::drink_until_year
+                   ::vintage ::price ::purchase_date ::alcohol_percentage
+                   ::wine_varieties ::disgorgement_year ::dosage
+                   ::tasting_window_commentary ::verified ::ai_summary
+                   ::original_quantity ::closure_type ::bottle_format
+                   ::metadata]))
 
 (def wine-update-schema
   (s/keys
    :req-un [(or ::producer ::country
-                ::region ::aoc
+                ::region ::appellation
                 ::classification ::vineyard
                 ::name ::vintage
                 ::style ::designation
@@ -185,10 +186,10 @@
                 ::tasting_window_commentary ::verified
                 ::ai_summary ::closure_type
                 ::bottle_format ::metadata)]
-   :opt-un [::producer ::country ::region ::aoc ::classification ::vineyard
-            ::vineyard ::name ::vintage ::style ::designation ::location
-            ::quantity ::original_quantity ::price ::purveyor ::label_image
-            ::label_thumbnail ::back_label_image ::drink_from_year
+   :opt-un [::producer ::country ::region ::appellation ::classification
+            ::vineyard ::vineyard ::name ::vintage ::style ::designation
+            ::location ::quantity ::original_quantity ::price ::purveyor
+            ::label_image ::label_thumbnail ::back_label_image ::drink_from_year
             ::drink_until_year ::purchase_date ::alcohol_percentage
             ::disgorgement_year ::dosage ::tasting_window_commentary ::verified
             ::ai_summary ::closure_type ::bottle_format ::metadata]))
@@ -199,7 +200,7 @@
 
 (def classification-schema
   (s/keys :req-un [::country ::region]
-          :opt-un [::aoc ::classification ::vineyard ::designations]))
+          :opt-un [::appellation ::classification ::vineyard ::designations]))
 
 (def tasting-note-schema
   (s/keys :opt-un
@@ -463,11 +464,11 @@
       :get {:summary "Get regions for a country"
             :responses {200 {:body vector?} 500 {:body map?}}
             :handler handlers/get-regions-by-country}}]
-    ["/aocs/:country/:region"
+    ["/appellations/:country/:region"
      {:parameters {:path {:country string? :region string?}}
-      :get {:summary "Get AOCs for a region"
+      :get {:summary "Get appellations (AOCs/AVAs) for a region"
             :responses {200 {:body vector?} 500 {:body map?}}
-            :handler handlers/get-aocs-by-region}}]
+            :handler handlers/get-appellations-by-region}}]
     ["/:id"
      {:parameters {:path {:id int?}}
       :get {:summary "Get classification by ID"

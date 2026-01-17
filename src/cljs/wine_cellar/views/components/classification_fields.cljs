@@ -2,8 +2,8 @@
 ;; src/cljs/wine_cellar/views/components/classification_fields.cljs
 (ns wine-cellar.views.components.classification-fields
   (:require [wine-cellar.utils.formatting :refer
-             [unique-countries regions-for-country aocs-for-region
-              vineyards-for-region classifications-for-aoc
+             [unique-countries regions-for-country appellations-for-region
+              vineyards-for-region classifications-for-appellation
               designations-for-classification]]
             [wine-cellar.views.components.form :as form]))
 
@@ -23,14 +23,14 @@
     :or {include-designation? false
          required? {:country true
                     :region true
-                    :aoc false
+                    :appellation false
                     :classification false
                     :vineyard false
                     :designation false}}}]
   (let [data (get-in @app-state path)
         country (:country data)
         region (:region data)
-        aoc (:aoc data)
+        appellation (:appellation data)
         classification (:classification data)
         update-field! (fn [field value]
                         (tap> ["fields-component path field" path field value])
@@ -49,7 +49,7 @@
                         ;; Clear dependent fields when country changes
                         (when (not= country %)
                           (update-field! :region nil)
-                          (update-field! :aoc nil)
+                          (update-field! :appellation nil)
                           (update-field! :classification nil)
                           (update-field! :vineyard nil)
                           (when include-designation?
@@ -64,21 +64,21 @@
         :on-change #(do (update-field! :region %)
                         ;; Clear dependent fields when region changes
                         (when (not= region %)
-                          (update-field! :aoc nil)
+                          (update-field! :appellation nil)
                           (update-field! :classification nil)
                           (update-field! :vineyard nil)
                           (when include-designation?
                             (update-field! :designation nil))))}]
       [form/select-field
-       {:label "AOC"
-        :required (get required? :aoc false)
+       {:label "Appellation"
+        :required (get required? :appellation false)
         :free-solo true
         :disabled (or (empty? country) (empty? region))
-        :value aoc
-        :options (aocs-for-region classifications country region)
-        :on-change #(do (update-field! :aoc %)
-                        ;; Clear dependent fields when AOC changes
-                        (when (not= aoc %)
+        :value appellation
+        :options (appellations-for-region classifications country region)
+        :on-change #(do (update-field! :appellation %)
+                        ;; Clear dependent fields when appellation changes
+                        (when (not= appellation %)
                           (update-field! :classification nil)
                           (when include-designation?
                             (update-field! :designation nil))))}]]
@@ -89,7 +89,10 @@
         :free-solo true
         :disabled (or (empty? country) (empty? region))
         :value classification
-        :options (classifications-for-aoc classifications country region aoc)
+        :options (classifications-for-appellation classifications
+                                                  country
+                                                  region
+                                                  appellation)
         :on-change #(do (update-field! :classification %)
                         ;; Clear dependent fields when classification
                         ;; changes
@@ -113,6 +116,6 @@
           :options (designations-for-classification classifications
                                                     country
                                                     region
-                                                    aoc
+                                                    appellation
                                                     classification)
           :on-change #(update-field! :designation %)}])]]))

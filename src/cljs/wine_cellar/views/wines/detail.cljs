@@ -365,17 +365,17 @@
     :validate-fn (fn [value] (when (str/blank? value) "Region cannot be empty"))
     :empty-text "Add region"}])
 
-(defn editable-aoc
+(defn editable-appellation
   [app-state wine]
   [editable-classification-field
-   {:value (:aoc wine)
-    :field-type :aoc
+   {:value (:appellation wine)
+    :field-type :appellation
     :app-state app-state
     :wine wine
     :classifications (:classifications @app-state)
     :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:aoc new-value}))
-    :empty-text "Add AOC/AVA"}])
+               (api/update-wine app-state (:id wine) {:appellation new-value}))
+    :empty-text "Add Appellation"}])
 
 (defn editable-vineyard
   [app-state wine]
@@ -503,7 +503,7 @@
     [grid {:item true :xs 12 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Wine Name"]
      [editable-name app-state wine]]]
-   ;; Country + Region + AOC
+   ;; Country + Region + Appellation
    [grid {:container true :spacing 1 :sx {:mt 2}}
     [grid {:item true :xs 4 :sm 4}
      [typography {:variant "body2" :color "text.secondary"} "Country"]
@@ -512,8 +512,8 @@
      [typography {:variant "body2" :color "text.secondary"} "Region"]
      [editable-region app-state wine]]
     [grid {:item true :xs 4 :sm 4}
-     [typography {:variant "body2" :color "text.secondary"} "AOC/AVA"]
-     [editable-aoc app-state wine]]]])
+     [typography {:variant "body2" :color "text.secondary"} "Appellation"]
+     [editable-appellation app-state wine]]]])
 
 (defn image-zoom-modal
   [app-state image-data image-title]

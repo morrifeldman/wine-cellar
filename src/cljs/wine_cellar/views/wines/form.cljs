@@ -9,7 +9,7 @@
             [wine-cellar.api :as api]
             [wine-cellar.common :as common]
             [wine-cellar.utils.formatting :refer
-             [aocs-for-region classifications-for-aoc
+             [appellations-for-region classifications-for-appellation
               designations-for-classification regions-for-country
               unique-countries unique-purveyors valid-name-producer?
               vineyards-for-region]]
@@ -258,11 +258,12 @@
       [smart-select-field app-state [:new-wine :region] :required true
        :free-solo true :disabled (empty? (:country new-wine)) :options
        (regions-for-country classifications (:country new-wine))]
-      [smart-select-field app-state [:new-wine :aoc] :free-solo true :disabled
-       (or (empty? (:country new-wine)) (empty? (:region new-wine))) :options
-       (aocs-for-region classifications
-                        (:country new-wine)
-                        (:region new-wine))]]
+      [smart-select-field app-state [:new-wine :appellation] :free-solo true
+       :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
+       :label "Appellation" :options
+       (appellations-for-region classifications
+                                (:country new-wine)
+                                (:region new-wine))]]
      [form-row
       [smart-select-field app-state [:new-wine :vineyard] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
@@ -273,17 +274,17 @@
       [smart-select-field app-state [:new-wine :classification] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
        :options
-       (classifications-for-aoc classifications
-                                (:country new-wine)
-                                (:region new-wine)
-                                (:aoc new-wine))]
+       (classifications-for-appellation classifications
+                                        (:country new-wine)
+                                        (:region new-wine)
+                                        (:appellation new-wine))]
       [smart-select-field app-state [:new-wine :designation] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
        :options
        (designations-for-classification classifications
                                         (:country new-wine)
                                         (:region new-wine)
-                                        (:aoc new-wine)
+                                        (:appellation new-wine)
                                         (:classification new-wine)) :label
        "Designation" :helper-text
        (str "Must be one of: " (str/join ", " (sort common/wine-designations)))

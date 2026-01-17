@@ -139,7 +139,7 @@
     :vintage {:type "INTEGER"}
     :country {:type "STRING"}
     :region {:type "STRING"}
-    :aoc {:type "STRING"}
+    :appellation {:type "STRING"}
     :vineyard {:type "STRING"}
     :classification {:type "STRING"}
     :style {:type "STRING" :enum (vec (sort common/wine-styles))}

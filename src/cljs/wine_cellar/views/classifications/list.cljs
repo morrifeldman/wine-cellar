@@ -72,7 +72,8 @@
             (:country classification)
             " - "
             (:region classification)
-            (when-let [aoc (:aoc classification)] (str " - " aoc))
+            (when-let [appellation (:appellation classification)]
+              (str " - " appellation))
             "?")]]
      [dialog-actions
       [button {:on-click #(swap! app-state dissoc :deleting-classification)}
@@ -109,7 +110,7 @@
   [classification app-state]
   [table-row [table-cell (:country classification)]
    [table-cell (:region classification)]
-   [table-cell (or (:aoc classification) "")]
+   [table-cell (or (:appellation classification) "")]
    [table-cell (or (:classification classification) "")]
    [table-cell (or (:vineyard classification) "")]
    [table-cell
@@ -121,9 +122,10 @@
   [paper
    [table
     [table-head
-     [table-row [table-cell "Country"] [table-cell "Region"] [table-cell "AOC"]
-      [table-cell "Classification"] [table-cell "Vineyard"]
-      [table-cell "Allowed Designations"] [table-cell "Actions"]]]
+     [table-row [table-cell "Country"] [table-cell "Region"]
+      [table-cell "Appellation"] [table-cell "Classification"]
+      [table-cell "Vineyard"] [table-cell "Allowed Designations"]
+      [table-cell "Actions"]]]
     [table-body
      (if (empty? classifications)
        [table-row

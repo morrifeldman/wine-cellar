@@ -78,9 +78,10 @@
        :region {:type ["string" "null"]
                 :description (str "Region or sub-region within the country. "
                                   null-note)}
-       :aoc {:type ["string" "null"]
-             :description (str "Appellation / controlled designation text. "
-                               null-note)}
+       :appellation {:type ["string" "null"]
+                     :description (str
+                                   "Appellation / controlled designation text. "
+                                   null-note)}
        :vineyard {:type ["string" "null"]
                   :description (str "Specific vineyard name if mentioned. "
                                     null-note)}
@@ -108,8 +109,8 @@
                             :description
                             (str "Alcohol percentage as a number (e.g. 12.5). "
                                  null-note)}}
-      :required [:producer :name :vintage :country :region :aoc :vineyard
-                 :classification :style :designation :bottle_format
+      :required [:producer :name :vintage :country :region :appellation
+                 :vineyard :classification :style :designation :bottle_format
                  :alcohol_percentage]
       :additionalProperties false}}))
 

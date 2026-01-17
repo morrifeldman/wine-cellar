@@ -108,10 +108,10 @@
          (response/response regions))
        (catch Exception e (server-error e))))
 
-(defn get-aocs-by-region
+(defn get-appellations-by-region
   [{{{:keys [country region]} :path} :parameters}]
-  (try (let [aocs (db-api/get-aocs-by-region country region)]
-         (response/response aocs))
+  (try (let [appellations (db-api/get-appellations-by-region country region)]
+         (response/response appellations))
        (catch Exception e (server-error e))))
 
 (defn get-wines-for-list
@@ -138,7 +138,7 @@
                  :body)]
     (try (let [classification {:country (:country wine)
                                :region (:region wine)
-                               :aoc (:aoc wine)
+                               :appellation (:appellation wine)
                                :classification (:classification wine)
                                :designations (when (:designation wine)
                                                [(:designation wine)])}]

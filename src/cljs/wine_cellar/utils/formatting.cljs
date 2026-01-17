@@ -37,11 +37,11 @@
        distinct
        sort))
 
-(defn aocs-for-region
+(defn appellations-for-region
   [classifications country region]
   (->> classifications
        (filter #(and (= country (:country %)) (= region (:region %))))
-       (map :aoc)
+       (map :appellation)
        (remove nil?)
        distinct
        sort))
@@ -55,22 +55,23 @@
        distinct
        sort))
 
-(defn classifications-for-aoc
-  [classifications country region aoc]
+(defn classifications-for-appellation
+  [classifications country region appellation]
   (->> classifications
-       (filter
-        #(and (= country (:country %)) (= region (:region %)) (= aoc (:aoc %))))
+       (filter #(and (= country (:country %))
+                     (= region (:region %))
+                     (= appellation (:appellation %))))
        (map :classification)
        (remove nil?)
        distinct
        sort))
 
 (defn designations-for-classification
-  [classifications country region aoc classification]
+  [classifications country region appellation classification]
   (or (->> classifications
            (filter #(and (= country (:country %))
                          (= region (:region %))
-                         (= aoc (:aoc %))
+                         (= appellation (:appellation %))
                          (= classification (:classification %))))
            first
            :designations)
