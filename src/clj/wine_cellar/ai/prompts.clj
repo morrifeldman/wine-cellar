@@ -334,11 +334,11 @@
      "- region: The wine region within the country\n"
      "- aoc: The appellation or controlled designation of origin (if applicable)\n"
      "- vineyard: The specific vineyard name (if mentioned)\n"
-     "- classification: Any classification or quality designation\n"
+     "- classification: The rank or quality tier of the specific site or estate (e.g., Grand Cru, Premier Cru, Grosse Lage). Distinct from designation, which describes process/aging.\n"
      "- style: The wine style. Must be one of: "
      style-options
      "\n"
-     "- designation: The wine designation (only if applicable). Must be one of: "
+     "- designation: Terms describing the winemaking process, aging, or ripeness (e.g., Riserva, Crianza, Spätlese). Distinct from classification, which describes the rank of the place. Must be one of: "
      designation-options
      "\n"
      "- bottle_format: The bottle size/format. Must be one of: " format-options
