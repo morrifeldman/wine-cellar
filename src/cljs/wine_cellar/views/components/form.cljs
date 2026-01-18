@@ -19,6 +19,7 @@
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.autocomplete :refer [autocomplete]]
     [reagent-mui.material.circular-progress :refer [circular-progress]]
+    [reagent-mui.material.tooltip :as mui-tooltip]
     [wine-cellar.utils.mui :refer [safe-js-props]]))
 
 ;; Form container components
@@ -240,7 +241,7 @@
   "A dropdown select field with autocomplete"
   [{:keys [label value options required on-change multiple disabled free-solo
            helper-text on-blur is-option-equal-to-value sx clear-on-blur
-           on-input-change input-value]
+           on-input-change input-value tooltip]
     :or {multiple false
          disabled false
          free-solo false
@@ -266,20 +267,27 @@
                                      :else (str option)))
            :render-input
            (fn [props]
-             (r/as-element
-              [mui-text-field/text-field
-               (merge (safe-js-props props)
-                      {:label label
-                       :variant "outlined"
-                       :size "small"
-                       :required (boolean (if multiple
-                                            ;; workaround for bug
-                                            ;; https://github.com/mui/material-ui/issues/21663
-                                            ;; but only if the field is
-                                            ;; actually required
-                                            (and required (= (count value) 0))
-                                            required))
-                       :helperText helper-text})]))
+             (let [text-field-el [mui-text-field/text-field
+                                  (merge (safe-js-props props)
+                                         {:label label
+                                          :variant "outlined"
+                                          :size "small"
+                                          :required (boolean
+                                                     (if multiple
+                                                       ;; workaround for bug
+                                                       ;; https://github.com/mui/material-ui/issues/21663
+                                                       ;; but only if the
+                                                       ;; field is actually
+                                                       ;; required
+                                                       (and required
+                                                            (= (count value) 0))
+                                                       required))
+                                          :helperText helper-text})]]
+               (r/as-element (if tooltip
+                               [mui-tooltip/tooltip
+                                {:title tooltip :arrow true :placement "top"}
+                                [box {:sx {:width "100%"}} text-field-el]]
+                               text-field-el))))
            :on-change (fn [_event new-value _reason]
                         (when on-change (on-change new-value)))
            :clear-on-blur clear-on-blur
@@ -315,7 +323,7 @@
   "A smart select field that updates app-state on change"
   [app-state path &
    {:keys [label options disabled on-change required free-solo helper-text
-           on-blur]
+           on-blur tooltip]
     :or {required false disabled false free-solo false}}]
   (let [derived-label (format-label (last path))
         field-label (or label derived-label)
@@ -330,6 +338,7 @@
       :options options
       :free-solo free-solo
       :helper-text helper-text
+      :tooltip tooltip
       :on-blur on-blur
       :on-change on-change-fn}]))
 

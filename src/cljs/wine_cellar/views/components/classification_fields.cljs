@@ -5,7 +5,8 @@
              [unique-countries regions-for-country appellations-for-region
               vineyards-for-region classifications-for-appellation
               designations-for-classification]]
-            [wine-cellar.views.components.form :as form]))
+            [wine-cellar.views.components.form :as form]
+            [wine-cellar.common :as common]))
 
 (defn classification-fields
   "Shared component for classification fields with cascading dropdowns.
@@ -56,6 +57,7 @@
                             (update-field! :designation nil))))}]
       [form/select-field
        {:label "Region"
+        :tooltip (:region common/field-descriptions)
         :required (get required? :region true)
         :free-solo true
         :disabled (empty? country)
@@ -71,6 +73,7 @@
                             (update-field! :designation nil))))}]
       [form/select-field
        {:label "Appellation"
+        :tooltip (:appellation common/field-descriptions)
         :required (get required? :appellation false)
         :free-solo true
         :disabled (or (empty? country) (empty? region))
@@ -85,6 +88,7 @@
      [form/form-row
       [form/select-field
        {:label "Classification"
+        :tooltip (:classification common/field-descriptions)
         :required (get required? :classification false)
         :free-solo true
         :disabled (or (empty? country) (empty? region))
@@ -100,6 +104,7 @@
                           (update-field! :designation nil)))}]
       [form/select-field
        {:label "Vineyard"
+        :tooltip (:vineyard common/field-descriptions)
         :required (get required? :vineyard false)
         :free-solo true
         :disabled (or (empty? country) (empty? region))
@@ -109,6 +114,7 @@
       (when include-designation?
         [form/select-field
          {:label "Designation"
+          :tooltip (:designation common/field-descriptions)
           :required (get required? :designation false)
           :free-solo true
           :disabled (or (empty? country) (empty? region))

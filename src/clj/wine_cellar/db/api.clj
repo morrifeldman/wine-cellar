@@ -67,8 +67,8 @@
          (String. (.encode (Base64/getEncoder) bytes) "UTF-8"))))
 
 (defn wine->db-wine
-  [{:keys [style designation label_image label_thumbnail back_label_image
-           purchase_date metadata]
+  [{:keys [style label_image label_thumbnail back_label_image purchase_date
+           metadata]
     :as wine}]
   (cond-> wine
     purchase_date (update :purchase_date ->sql-date)

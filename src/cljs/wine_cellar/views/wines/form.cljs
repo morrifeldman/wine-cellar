@@ -256,31 +256,33 @@
       [smart-select-field app-state [:new-wine :country] :required true
        :free-solo true :options (unique-countries classifications)]
       [smart-select-field app-state [:new-wine :region] :required true
-       :free-solo true :disabled (empty? (:country new-wine)) :options
+       :free-solo true :disabled (empty? (:country new-wine)) :tooltip
+       (:region common/field-descriptions) :options
        (regions-for-country classifications (:country new-wine))]
       [smart-select-field app-state [:new-wine :appellation] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
-       :label "Appellation" :options
+       :label "Appellation" :tooltip (:appellation common/field-descriptions)
+       :options
        (appellations-for-region classifications
                                 (:country new-wine)
                                 (:region new-wine))]]
      [form-row
       [smart-select-field app-state [:new-wine :vineyard] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
-       :options
+       :tooltip (:vineyard common/field-descriptions) :options
        (vineyards-for-region classifications
                              (:country new-wine)
                              (:region new-wine)) :label "Vineyard"]
       [smart-select-field app-state [:new-wine :classification] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
-       :options
+       :tooltip (:classification common/field-descriptions) :options
        (classifications-for-appellation classifications
                                         (:country new-wine)
                                         (:region new-wine)
                                         (:appellation new-wine))]
       [smart-select-field app-state [:new-wine :designation] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
-       :options
+       :tooltip (:designation common/field-descriptions) :options
        (designations-for-classification classifications
                                         (:country new-wine)
                                         (:region new-wine)

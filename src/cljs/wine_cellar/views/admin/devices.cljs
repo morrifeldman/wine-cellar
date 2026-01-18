@@ -20,8 +20,8 @@
     [chip {:label status-str :color color :variant "outlined"}]))
 
 (defn device-row
-  [{:keys [device_id status last_seen token_expires_at firmware_version]
-    :as device} app-state]
+  [{:keys [device_id status last_seen token_expires_at firmware_version]}
+   app-state]
   (let [claim (r/atom "")]
     (fn []
       [paper {:sx {:p 2 :mb 1}}

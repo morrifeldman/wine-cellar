@@ -19,6 +19,7 @@
             [reagent-mui.icons.cancel :refer [cancel]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [reagent-mui.material.tooltip :as mui-tooltip]
             [wine-cellar.utils.formatting :as formatting]
             [wine-cellar.api :as api]
             [wine-cellar.utils.mui :refer [safe-js-props]]))
@@ -283,7 +284,7 @@
 
 (defn editable-autocomplete-field
   "Autocomplete implementation of editable-field"
-  [{:keys [options option-label free-solo multiple] :as props}]
+  [{:keys [options option-label free-solo multiple tooltip] :as props}]
   [editable-field-wrapper
    (assoc props
           :render-input-fn
@@ -300,13 +301,19 @@
                                           (string? option) option
                                           :else (str option))))
               :renderInput (fn [params]
-                             (r/as-element [text-field
-                                            (merge (safe-js-props params)
-                                                   {:variant "outlined"
-                                                    :size "small"
-                                                    :error (boolean error)
-                                                    :helperText error
-                                                    :autoFocus true})]))
+                             (let [text-field-el [text-field
+                                                  (merge (safe-js-props params)
+                                                         {:variant "outlined"
+                                                          :size "small"
+                                                          :error (boolean error)
+                                                          :helperText error
+                                                          :autoFocus true})]]
+                               (r/as-element
+                                (if tooltip
+                                  [mui-tooltip/tooltip
+                                   {:title tooltip :arrow true :placement "top"}
+                                   [box {:sx {:width "100%"}} text-field-el]]
+                                  text-field-el))))
               :onChange (fn [_event new-value] (on-change new-value))
               :on-input-change (when free-solo
                                  (fn [_event new-value reason]

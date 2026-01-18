@@ -109,6 +109,17 @@
     "Riserva" "Gran Selezione" ; Chianti
     "Reserve"})
 
+(def field-descriptions
+  {:region
+   "The broader wine region within the country (e.g., Bordeaux, Tuscany, California)."
+   :appellation
+   "The specific named place (e.g., \"Pauillac\", \"Napa Valley\")."
+   :classification
+   "The rank or quality tier of the specific site or estate (e.g., Grand Cru, Premier Cru)."
+   :designation
+   "Terms describing the winemaking process, aging, or ripeness (e.g., Riserva, Crianza, Spätlese)."
+   :vineyard "The specific vineyard name (e.g., To Kalon, Les Clos, Cannubi)."})
+
 (def bottle-formats
   ["Standard (750ml)" "Half Bottle (375ml)" "Magnum (1.5L)" "Split (187.5ml)"
    "Jeroboam (3L)" "Double Magnum (3L)" "Imperial (6L)" "Salmanazar (9L)"

@@ -331,6 +331,7 @@
   [app-state wine]
   [editable-autocomplete-field
    {:value (:designation wine)
+    :tooltip (:designation common/field-descriptions)
     :options (vec (sort common/wine-designations))
     :free-solo false
     :on-save (fn [new-value]
@@ -357,6 +358,7 @@
   [editable-classification-field
    {:value (:region wine)
     :field-type :region
+    :tooltip (:region common/field-descriptions)
     :app-state app-state
     :wine wine
     :classifications (:classifications @app-state)
@@ -370,6 +372,7 @@
   [editable-classification-field
    {:value (:appellation wine)
     :field-type :appellation
+    :tooltip (:appellation common/field-descriptions)
     :app-state app-state
     :wine wine
     :classifications (:classifications @app-state)
@@ -382,6 +385,7 @@
   [editable-classification-field
    {:value (:vineyard wine)
     :field-type :vineyard
+    :tooltip (:vineyard common/field-descriptions)
     :app-state app-state
     :wine wine
     :classifications (:classifications @app-state)
@@ -395,6 +399,7 @@
   [editable-classification-field
    {:value (:classification wine)
     :field-type :classification
+    :tooltip (:classification common/field-descriptions)
     :app-state app-state
     :wine wine
     :classifications (:classifications @app-state)
