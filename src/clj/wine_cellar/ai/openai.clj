@@ -4,6 +4,7 @@
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
             [org.httpkit.client :as http]
+            [wine-cellar.common :as common]
             [wine-cellar.config-utils :as config-utils]))
 
 (def responses-url "https://api.openai.com/v1/responses")

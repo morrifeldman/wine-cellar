@@ -24,21 +24,6 @@
     [[:constraint :wine_classifications_natural_key] :unique-nulls-not-distinct
      [:composite :country :region :appellation :classification :vineyard]]]})
 
-(def classifications-migrate-levels-to-designations
-  {:raw
-   ["DO $$ BEGIN "
-    "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wine_classifications' AND column_name = 'levels') THEN "
-    "ALTER TABLE wine_classifications RENAME COLUMN levels TO designations; "
-    "ALTER TABLE wine_classifications ALTER COLUMN designations TYPE varchar[] USING designations::text[]; "
-    "END IF; END $$;"]})
-
-(def classifications-migrate-aoc-to-appellation
-  {:raw
-   ["DO $$ BEGIN "
-    "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wine_classifications' AND column_name = 'aoc') THEN "
-    "ALTER TABLE wine_classifications RENAME COLUMN aoc TO appellation; "
-    "END IF; END $$;"]})
-
 #_(sql/format classifications-table-schema)
 
 (def wines-table-schema
@@ -50,9 +35,9 @@
     [:appellation_tier :varchar] [:classification :varchar] [:vineyard :varchar]
     [:designation :varchar] [:name :varchar] [:vintage :integer :null]
     [:style :wine_style] [:location :varchar] [:closure_type :varchar]
-    [:purveyor :varchar] [:quantity :integer [:not nil] [:default 0]]
-    [:original_quantity :integer] [:price :decimal [10 2]]
-    [:purchase_date :date] [:drink_from_year :integer]
+    [:bottle_format :varchar [:default "Standard (750ml)"]] [:purveyor :varchar]
+    [:quantity :integer [:not nil] [:default 0]] [:original_quantity :integer]
+    [:price :decimal [10 2]] [:purchase_date :date] [:drink_from_year :integer]
     [:drink_until_year :integer] [:alcohol_percentage :decimal [4 2]]
     [:disgorgement_year :integer] [:dosage :decimal [6 2]]
     [:tasting_window_commentary :text] [:verified :boolean [:default false]]
@@ -65,49 +50,7 @@
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]]})
 
-(def wines-migrate-level-to-designation
-  {:raw
-   ["DO $$ BEGIN "
-    "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wines' AND column_name = 'level') THEN "
-    "ALTER TABLE wines RENAME COLUMN level TO designation; "
-    "ALTER TABLE wines ALTER COLUMN designation TYPE varchar USING designation::text; "
-    "END IF; END $$;"]})
-
-(def wines-migrate-aoc-to-appellation
-  {:raw
-   ["DO $$ BEGIN "
-    "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wines' AND column_name = 'aoc') THEN "
-    "ALTER TABLE wines RENAME COLUMN aoc TO appellation; " "END IF; END $$;"]})
-
-(def wines-add-appellation-tier-column
-  {:raw
-   ["DO $$ BEGIN "
-    "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wines' AND column_name = 'appellation_tier') THEN "
-    "ALTER TABLE wines ADD COLUMN appellation_tier varchar; "
-    "END IF; END $$;"]})
-
-(def drop-wine-level-type
-  {:raw ["DO $$ BEGIN "
-         "IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'wine_level') THEN "
-         "DROP TYPE wine_level; " "END IF; END $$;"]})
-
 #_(sql/format wines-table-schema)
-
-(def wines-add-closure-type-column
-  {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS closure_type varchar"]})
-
-(def wines-add-dosage-column
-  {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS dosage decimal(6,2)"]})
-
-(def wines-add-bottle-format-column
-  {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS bottle_format varchar"]})
-
-(def wines-add-metadata-column
-  {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS metadata JSONB"]})
-
-(def wines-set-default-bottle-format
-  {:raw
-   ["UPDATE wines SET bottle_format = 'Standard (750ml)' WHERE bottle_format IS NULL"]})
 
 (def tasting-notes-table-schema
   {:create-table [:tasting_notes :if-not-exists]
@@ -122,9 +65,6 @@
      :cascade]]})
 #_(sql/format tasting-notes-table-schema)
 
-(def tasting-notes-alter-notes-nullable
-  {:raw ["ALTER TABLE tasting_notes ALTER COLUMN notes DROP NOT NULL"]})
-
 (def ai-conversations-table-schema
   {:create-table [:ai_conversations :if-not-exists]
    :with-columns [[:id :integer :generated :by-default :as :identity
@@ -138,15 +78,6 @@
                   [:updated_at :timestamp [:default [:now]]]
                   [:last_message_at :timestamp [:default [:now]]]]})
 #_(sql/format ai-conversations-table-schema)
-
-(def ai-conversations-add-pinned-column
-  {:raw
-   ["ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS pinned boolean DEFAULT false"]})
-
-(def ai-conversations-add-provider-column
-  {:raw
-   ["ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS provider varchar"]})
-
 
 (def ai-conversation-messages-table-schema
   {:create-table [:ai_conversation_messages :if-not-exists]
@@ -233,10 +164,6 @@
     [:created_at :timestamp [:default [:now]]] [:notes :text]
     [[:foreign-key :wine_id] :references [:wines :id] :on-delete :cascade]]})
 
-(def inventory-history-add-original-quantity-column
-  {:raw
-   ["ALTER TABLE inventory_history ADD COLUMN IF NOT EXISTS original_quantity integer"]})
-
 (def cellar-reports-table-schema
   {:create-table [:cellar_reports :if-not-exists]
    :with-columns [[:id :integer :generated :by-default :as :identity
@@ -259,10 +186,6 @@
     [:battery_mv :integer] [:leak_detected :boolean [:default false]]
     [:notes :text] [:measured_at :timestamptz [:default [:now]]]
     [:created_at :timestamp [:default [:now]]]]})
-
-(def cellar-conditions-add-illuminance-column
-  {:raw
-   ["ALTER TABLE cellar_conditions ADD COLUMN IF NOT EXISTS illuminance_lux double precision"]})
 
 (def devices-table-schema
   {:create-table [:devices :if-not-exists]
