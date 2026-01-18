@@ -47,11 +47,12 @@
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:producer :varchar] [:country :varchar [:not nil]]
     [:region :varchar [:not nil]] [:appellation :varchar]
-    [:classification :varchar] [:vineyard :varchar] [:designation :varchar]
-    [:name :varchar] [:vintage :integer :null] [:style :wine_style]
-    [:location :varchar] [:closure_type :varchar] [:purveyor :varchar]
-    [:quantity :integer [:not nil] [:default 0]] [:original_quantity :integer]
-    [:price :decimal [10 2]] [:purchase_date :date] [:drink_from_year :integer]
+    [:appellation_tier :varchar] [:classification :varchar] [:vineyard :varchar]
+    [:designation :varchar] [:name :varchar] [:vintage :integer :null]
+    [:style :wine_style] [:location :varchar] [:closure_type :varchar]
+    [:purveyor :varchar] [:quantity :integer [:not nil] [:default 0]]
+    [:original_quantity :integer] [:price :decimal [10 2]]
+    [:purchase_date :date] [:drink_from_year :integer]
     [:drink_until_year :integer] [:alcohol_percentage :decimal [4 2]]
     [:disgorgement_year :integer] [:dosage :decimal [6 2]]
     [:tasting_window_commentary :text] [:verified :boolean [:default false]]
@@ -77,6 +78,13 @@
    ["DO $$ BEGIN "
     "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wines' AND column_name = 'aoc') THEN "
     "ALTER TABLE wines RENAME COLUMN aoc TO appellation; " "END IF; END $$;"]})
+
+(def wines-add-appellation-tier-column
+  {:raw
+   ["DO $$ BEGIN "
+    "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wines' AND column_name = 'appellation_tier') THEN "
+    "ALTER TABLE wines ADD COLUMN appellation_tier varchar; "
+    "END IF; END $$;"]})
 
 (def drop-wine-level-type
   {:raw ["DO $$ BEGIN "

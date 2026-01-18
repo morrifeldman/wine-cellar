@@ -324,6 +324,7 @@
   []
   (let [style-options (str/join ", " (sort common/wine-styles))
         designation-options (str/join ", " (sort common/wine-designations))
+        tier-options (str/join ", " (sort common/appellation-tiers))
         format-options (str/join ", " common/bottle-formats)]
     (str
      "You are a wine expert tasked with extracting information from wine label images. "
@@ -337,6 +338,11 @@
      "\n"
      "- appellation: "
      (:appellation common/field-descriptions)
+     "\n"
+     "- appellation_tier: "
+     (:appellation_tier common/field-descriptions)
+     " Must be one of: "
+     tier-options
      "\n"
      "- vineyard: "
      (:vineyard common/field-descriptions)

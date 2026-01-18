@@ -114,11 +114,33 @@
    "The broader wine region within the country (e.g., Bordeaux, Tuscany, California)."
    :appellation
    "The specific named place (e.g., \"Pauillac\", \"Napa Valley\")."
+   :appellation_tier
+   "The regulatory status or quality level of the appellation (e.g., AOC, DOCG, AVA, IGT)."
    :classification
    "The rank or quality tier of the specific site or estate (e.g., Grand Cru, Premier Cru)."
    :designation
    "Terms describing the winemaking process, aging, or ripeness (e.g., Riserva, Crianza, Spätlese)."
    :vineyard "The specific vineyard name (e.g., To Kalon, Les Clos, Cannubi)."})
+
+
+
+(def appellation-tiers
+  #{;; France
+    "AOC" "AOP" "IGP" "Vin de France"
+    ;; Italy
+    "DOCG" "DOC" "IGT" "Vino da Tavola"
+    ;; Spain
+    "DOCa" "DO" "Vino de Pago" "Vino de la Tierra"
+    ;; USA
+    "AVA"
+    ;; Germany / Austria
+    "Prädikatswein" "Qualitätswein" "Landwein" "DAC"
+    ;; Portugal
+    "DOP" "IG"
+    ;; General EU
+    "PDO" "PGI"})
+
+
 
 (def bottle-formats
   ["Standard (750ml)" "Half Bottle (375ml)" "Magnum (1.5L)" "Split (187.5ml)"

@@ -54,6 +54,7 @@
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/wines-migrate-level-to-designation)
    (sql-execute-helper tx schema/wines-migrate-aoc-to-appellation)
+   (sql-execute-helper tx schema/wines-add-appellation-tier-column)
    (sql-execute-helper tx schema/drop-wine-level-type)
    (sql-execute-helper tx schema/wines-add-closure-type-column)
    (sql-execute-helper tx schema/wines-add-dosage-column)

@@ -138,12 +138,21 @@
     :name {:type "STRING"}
     :vintage {:type "INTEGER"}
     :country {:type "STRING"}
-    :region {:type "STRING"}
-    :appellation {:type "STRING"}
-    :vineyard {:type "STRING"}
-    :classification {:type "STRING"}
+    :region {:type "STRING" :description (:region common/field-descriptions)}
+    :appellation {:type "STRING"
+                  :description (:appellation common/field-descriptions)}
+    :appellation_tier {:type "STRING"
+                       :enum (vec (sort common/appellation-tiers))
+                       :description (:appellation_tier
+                                     common/field-descriptions)}
+    :vineyard {:type "STRING"
+               :description (:vineyard common/field-descriptions)}
+    :classification {:type "STRING"
+                     :description (:classification common/field-descriptions)}
     :style {:type "STRING" :enum (vec (sort common/wine-styles))}
-    :designation {:type "STRING" :enum (vec (sort common/wine-designations))}
+    :designation {:type "STRING"
+                  :enum (vec (sort common/wine-designations))
+                  :description (:designation common/field-descriptions)}
     :bottle_format {:type "STRING" :enum (vec common/bottle-formats)}
     :alcohol_percentage {:type "NUMBER"}}})
 

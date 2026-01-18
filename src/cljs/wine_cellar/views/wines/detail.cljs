@@ -380,6 +380,19 @@
                (api/update-wine app-state (:id wine) {:appellation new-value}))
     :empty-text "Add Appellation"}])
 
+(defn editable-appellation-tier
+  [app-state wine]
+  [editable-autocomplete-field
+   {:value (:appellation_tier wine)
+    :free-solo true
+    :tooltip (:appellation_tier common/field-descriptions)
+    :options (sort common/appellation-tiers)
+    :on-save
+    (fn [new-value]
+      (api/update-wine app-state (:id wine) {:appellation_tier new-value}))
+    :empty-text "Add Tier"
+    :compact? true}])
+
 (defn editable-vineyard
   [app-state wine]
   [editable-classification-field
@@ -508,17 +521,22 @@
     [grid {:item true :xs 12 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Wine Name"]
      [editable-name app-state wine]]]
-   ;; Country + Region + Appellation
+   ;; Country + Region
    [grid {:container true :spacing 1 :sx {:mt 2}}
-    [grid {:item true :xs 4 :sm 4}
+    [grid {:item true :xs 6 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Country"]
      [editable-country app-state wine]]
-    [grid {:item true :xs 4 :sm 4}
+    [grid {:item true :xs 6 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Region"]
-     [editable-region app-state wine]]
-    [grid {:item true :xs 4 :sm 4}
+     [editable-region app-state wine]]]
+   ;; Appellation + Appellation Tier
+   [grid {:container true :spacing 1 :sx {:mt 1}}
+    [grid {:item true :xs 6 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Appellation"]
-     [editable-appellation app-state wine]]]])
+     [editable-appellation app-state wine]]
+    [grid {:item true :xs 6 :sm 6}
+     [typography {:variant "body2" :color "text.secondary"} "Appellation Tier"]
+     [editable-appellation-tier app-state wine]]]])
 
 (defn image-zoom-modal
   [app-state image-data image-title]

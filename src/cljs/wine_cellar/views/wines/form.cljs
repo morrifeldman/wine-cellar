@@ -258,14 +258,20 @@
       [smart-select-field app-state [:new-wine :region] :required true
        :free-solo true :disabled (empty? (:country new-wine)) :tooltip
        (:region common/field-descriptions) :options
-       (regions-for-country classifications (:country new-wine))]
+       (regions-for-country classifications (:country new-wine))]]
+     [form-row
       [smart-select-field app-state [:new-wine :appellation] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
        :label "Appellation" :tooltip (:appellation common/field-descriptions)
        :options
        (appellations-for-region classifications
                                 (:country new-wine)
-                                (:region new-wine))]]
+                                (:region new-wine))]
+      [smart-select-field app-state [:new-wine :appellation_tier] :free-solo
+       true :disabled
+       (or (empty? (:country new-wine)) (empty? (:region new-wine))) :label
+       "Appellation Tier" :tooltip (:appellation_tier common/field-descriptions)
+       :options (sort common/appellation-tiers)]]
      [form-row
       [smart-select-field app-state [:new-wine :vineyard] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))

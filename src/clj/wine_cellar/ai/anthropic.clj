@@ -76,31 +76,32 @@
                  :description (str "Country of origin printed on the label. "
                                    null-note)}
        :region {:type ["string" "null"]
-                :description (str "Region or sub-region within the country. "
-                                  null-note)}
+                :description
+                (str (:region common/field-descriptions) " " null-note)}
        :appellation {:type ["string" "null"]
-                     :description (str
-                                   "Appellation / controlled designation text. "
-                                   null-note)}
+                     :description (str (:appellation common/field-descriptions)
+                                       " "
+                                       null-note)}
+       :appellation_tier
+       {:type ["string" "null"]
+        :enum (conj (vec (sort common/appellation-tiers)) nil)
+        :description
+        (str (:appellation_tier common/field-descriptions) " " null-note)}
        :vineyard {:type ["string" "null"]
-                  :description (str "Specific vineyard name if mentioned. "
-                                    null-note)}
-       :classification {:type ["string" "null"]
-                        :description
-                        (str "Quality classification or other designation. "
-                             null-note)}
+                  :description
+                  (str (:vineyard common/field-descriptions) " " null-note)}
+       :classification
+       {:type ["string" "null"]
+        :description
+        (str (:classification common/field-descriptions) " " null-note)}
        :style {:type ["string" "null"]
                :description (str "Wine style wording; align with: "
                                  style-options
                                  ". " null-note)}
-       :designation
-       {:type ["string" "null"]
-        :description
-        (str
-         "Production tier or quality/aging designation (e.g. "
-         designation-options
-         "), often indicating longer maturation or specially selected lots. "
-         null-note)}
+       :designation {:type ["string" "null"]
+                     :description (str (:designation common/field-descriptions)
+                                       " Must be one of: " designation-options
+                                       ". " null-note)}
        :bottle_format {:type ["string" "null"]
                        :description (str "Bottle format/size. Must be one of: "
                                          format-options
@@ -110,8 +111,8 @@
                             (str "Alcohol percentage as a number (e.g. 12.5). "
                                  null-note)}}
       :required [:producer :name :vintage :country :region :appellation
-                 :vineyard :classification :style :designation :bottle_format
-                 :alcohol_percentage]
+                 :appellation_tier :vineyard :classification :style :designation
+                 :bottle_format :alcohol_percentage]
       :additionalProperties false}}))
 
 (defn- build-request-body

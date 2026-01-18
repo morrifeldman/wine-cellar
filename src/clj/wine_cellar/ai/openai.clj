@@ -70,21 +70,31 @@
 (defn- label-analysis-schema
   []
   {:type "object"
-   :properties {:producer {:type ["string" "null"]}
-                :name {:type ["string" "null"]}
-                :vintage {:type ["integer" "null"]}
-                :country {:type ["string" "null"]}
-                :region {:type ["string" "null"]}
-                :appellation {:type ["string" "null"]}
-                :vineyard {:type ["string" "null"]}
-                :classification {:type ["string" "null"]}
-                :style {:type ["string" "null"]}
-                :designation {:type ["string" "null"]}
-                :bottle_format {:type ["string" "null"]}
-                :alcohol_percentage {:type ["number" "null"]}}
-   :required [:producer :name :vintage :country :region :appellation :vineyard
-              :classification :style :designation :bottle_format
-              :alcohol_percentage]
+   :properties
+   {:producer {:type ["string" "null"]}
+    :name {:type ["string" "null"]}
+    :vintage {:type ["integer" "null"]}
+    :country {:type ["string" "null"]}
+    :region {:type ["string" "null"]
+             :description (:region common/field-descriptions)}
+    :appellation {:type ["string" "null"]
+                  :description (:appellation common/field-descriptions)}
+    :appellation_tier {:type ["string" "null"]
+                       :enum (conj (vec (sort common/appellation-tiers)) nil)
+                       :description (:appellation_tier
+                                     common/field-descriptions)}
+    :vineyard {:type ["string" "null"]
+               :description (:vineyard common/field-descriptions)}
+    :classification {:type ["string" "null"]
+                     :description (:classification common/field-descriptions)}
+    :style {:type ["string" "null"]}
+    :designation {:type ["string" "null"]
+                  :description (:designation common/field-descriptions)}
+    :bottle_format {:type ["string" "null"]}
+    :alcohol_percentage {:type ["number" "null"]}}
+   :required [:producer :name :vintage :country :region :appellation
+              :appellation_tier :vineyard :classification :style :designation
+              :bottle_format :alcohol_percentage]
    :additionalProperties false})
 
 (defn- build-request
