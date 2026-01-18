@@ -12,6 +12,7 @@
             [reagent-mui.material.card-content :refer [card-content]]
             [reagent-mui.material.card-media :refer [card-media]]
             [reagent-mui.material.grid :refer [grid]]
+            ["react-markdown" :default ReactMarkdown]
             [wine-cellar.api :as api]))
 
 (defn- highlight-wine-card
@@ -44,6 +45,40 @@
       :show-selected-wines? true
       :show-report? false)
     (js/console.warn "No IDs to select")))
+
+(def markdown-components
+  {:h1 (fn [props]
+         (r/as-element [typography
+                        {:variant "h4"
+                         :gutterBottom true
+                         :color "secondary.main"
+                         :sx {:mt 2 :mb 1}} (.. props -children)]))
+   :h2 (fn [props]
+         (r/as-element [typography
+                        {:variant "h5"
+                         :gutterBottom true
+                         :color "secondary.main"
+                         :sx {:mt 2 :mb 1}} (.. props -children)]))
+   :h3 (fn [props]
+         (r/as-element [typography
+                        {:variant "h6" :gutterBottom true :sx {:mt 2 :mb 1}}
+                        (.. props -children)]))
+   :p (fn [props]
+        (r/as-element [typography
+                       {:variant "body1" :paragraph true :sx {:lineHeight 1.7}}
+                       (.. props -children)]))
+   :li (fn [props]
+         (r/as-element [typography
+                        {:component "li" :variant "body1" :sx {:ml 2}}
+                        (.. props -children)]))
+   :strong (fn [props]
+             (r/as-element [typography
+                            {:component "span"
+                             :sx {:fontWeight "bold" :color "secondary.light"}}
+                            (.. props -children)]))
+   :em (fn [props]
+         (r/as-element [typography {:component "span" :sx {:fontStyle "italic"}}
+                        (.. props -children)]))})
 
 (defn report-modal
   [app-state]
@@ -128,11 +163,7 @@
                       :mb 4
                       :borderRadius 2
                       :border "1px solid rgba(255,255,255,0.1)"}}
-                [typography
-                 {:variant "body1"
-                  :sx
-                  {:whiteSpace "pre-wrap" :fontStyle "italic" :lineHeight 1.6}}
-                 commentary]]
+                [:> ReactMarkdown {:components markdown-components} commentary]]
                ;; Stats Grid
                [grid {:container true :spacing 2 :sx {:mb 4}}
                 [grid {:item true :xs 6 :sm 4}

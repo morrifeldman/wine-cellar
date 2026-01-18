@@ -48,6 +48,7 @@
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/create-wine-style-type)
    (sql-execute-helper tx schema/ensure-red-sparkling-style)
+   (sql-execute-helper tx schema/ensure-appellation-tier-column)
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/tasting-notes-table-schema)

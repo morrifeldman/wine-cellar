@@ -13,6 +13,13 @@
   {:raw
    ["ALTER TYPE wine_style ADD VALUE IF NOT EXISTS 'Red Sparkling' AFTER 'Rosé Sparkling'"]})
 
+(def ensure-appellation-tier-column
+  {:raw
+   ["DO $$ BEGIN "
+    "IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='wines' AND COLUMN_NAME='appellation_tier') THEN "
+    "ALTER TABLE wines ADD COLUMN appellation_tier VARCHAR; "
+    "END IF; END $$;"]})
+
 ;; Table schemas
 (def classifications-table-schema
   {:create-table [:wine_classifications :if-not-exists]

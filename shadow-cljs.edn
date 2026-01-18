@@ -13,12 +13,12 @@
                 :output-dir "public/js"
                 :asset-path "/js"
                 :modules {:main {:init-fn wine-cellar.core/init}}
-                :compiler-options {:output-feature-set :es6}
+                :compiler-options {:output-feature-set :es2018}
                 :build-hooks [(portal.shadow.remote/hook)]
                 :devtools {:preloads [portal.shadow.preload]}
                 :dev {:js-options {:anon-fn-naming-policy :unmapped}
                       :compiler-options
-                      {:output-feature-set :es6
+                      {:output-feature-set :es2018
                        :closure-defines
                        {"process.env.NODE_ENV" "development"
                         "goog.DEBUG" true}}}}}}
