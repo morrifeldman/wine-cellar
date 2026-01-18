@@ -50,13 +50,6 @@
     [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]]})
 
-(def wines-add-appellation-tier-column
-  {:raw
-   ["DO $$ BEGIN "
-    "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'wines' AND column_name = 'appellation_tier') THEN "
-    "ALTER TABLE wines ADD COLUMN appellation_tier varchar; "
-    "END IF; END $$;"]})
-
 #_(sql/format wines-table-schema)
 
 (def tasting-notes-table-schema

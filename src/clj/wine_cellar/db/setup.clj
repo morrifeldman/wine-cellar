@@ -50,7 +50,6 @@
    (sql-execute-helper tx schema/ensure-red-sparkling-style)
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
-   (sql-execute-helper tx schema/wines-add-appellation-tier-column)
    (sql-execute-helper tx schema/tasting-notes-table-schema)
    (sql-execute-helper tx schema/ai-conversations-table-schema)
    (sql-execute-helper tx schema/ai-conversation-messages-table-schema)
