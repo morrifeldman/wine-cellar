@@ -77,6 +77,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── screenshots
 │   │   ├── assistant.png
 │   │   └── overview.png
+│   ├── taxonomy-guidelines.md
 │   ├── testing-strategy.md
 │   ├── varieties-implementation.md
 │   ├── wset_l3_wines_sat_en_jun-2016.pdf
@@ -245,7 +246,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-50 directories, 151 files
+50 directories, 152 files
 ```
 
 ## Development Commands

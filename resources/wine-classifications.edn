@@ -222,27 +222,28 @@
  ;  :levels ["Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese" "Eiswein"]}
  ;
  ;; United States
- {:country "United States" :region "California" :aoc "Napa Valley" :classification "AVA"}
- {:country "United States" :region "California" :aoc "Sonoma County" :classification "AVA"}
- {:country "United States" :region "California" :aoc "Russian River Valley" :classification "AVA"}
- {:country "United States" :region "Oregon" :aoc "Willamette Valley" :classification "AVA"}
- {:country "United States" :region "Washington" :aoc "Columbia Valley" :classification "AVA"}
+ {:country "United States" :region "California" :aoc "Napa Valley"}
+ {:country "United States" :region "California" :aoc "Sonoma County"}
+ {:country "United States" :region "California" :aoc "Russian River Valley"}
+ {:country "United States" :region "California" :aoc "Knights Valley"}
+ {:country "United States" :region "Oregon" :aoc "Willamette Valley"}
+ {:country "United States" :region "Washington" :aoc "Columbia Valley"}
 
  ;; Australia
- {:country "Australia" :region "South Australia" :aoc "Barossa Valley" :classification "GI"}
- {:country "Australia" :region "South Australia" :aoc "McLaren Vale" :classification "GI"}
- {:country "Australia" :region "Western Australia" :aoc "Margaret River" :classification "GI"}
- {:country "Australia" :region "Victoria" :aoc "Yarra Valley" :classification "GI"}
+ {:country "Australia" :region "South Australia" :aoc "Barossa Valley"}
+ {:country "Australia" :region "South Australia" :aoc "McLaren Vale"}
+ {:country "Australia" :region "Western Australia" :aoc "Margaret River"}
+ {:country "Australia" :region "Victoria" :aoc "Yarra Valley"}
 
  ;; Portugal
- {:country "Portugal" :region "Douro" :aoc "Porto" :classification "DOC"}
- {:country "Portugal" :region "Douro" :aoc "Douro" :classification "DOC"}
- {:country "Portugal" :region "Alentejo" :aoc "Alentejo" :classification "DOC"}
+ {:country "Portugal" :region "Douro" :aoc "Porto"}
+ {:country "Portugal" :region "Douro" :aoc "Douro"}
+ {:country "Portugal" :region "Alentejo"}
 
  ;; Argentina
- {:country "Argentina" :region "Mendoza" :aoc "Mendoza" :classification "DOC"}
- {:country "Argentina" :region "Mendoza" :aoc "Uco Valley" :classification "GI"}
+ {:country "Argentina" :region "Mendoza" :aoc "Mendoza"}
+ {:country "Argentina" :region "Mendoza" :aoc "Uco Valley"}
 
  ;; Chile
- {:country "Chile" :region "Central Valley" :aoc "Maipo Valley" :classification "DO"}
- {:country "Chile" :region "Central Valley" :aoc "Colchagua Valley" :classification "DO"}]
+ {:country "Chile" :region "Central Valley" :aoc "Maipo Valley"}
+ {:country "Chile" :region "Central Valley" :aoc "Colchagua Valley"}]

@@ -337,6 +337,24 @@
                (let [remaining (- (count (distinct (map :region regions))) 10)]
                  (if (pos? remaining) (str " (+" remaining " more)") "")))))))))
 
+(def taxonomy-summary
+  "TAXONOMY GUIDELINES:
+1. Region (Major Wine Area):
+   - Old World: Use traditional regions (Bordeaux, Tuscany, Catalonia, Rioja).
+   - California: Use specific areas \"Napa Valley\", \"Sonoma County\", \"Paso Robles\", \"Central Coast\" (NOT \"California\").
+   - Oregon/Washington: Use specific areas \"Willamette Valley\", \"Columbia Valley\".
+2. Appellation (Specific Legal Place):
+   - The specific AOC/AVA (e.g., Pauillac, Oakville, Russian River Valley).
+   - REDUNDANCY RULE: If a wine has no sub-appellation, repeat the Region name (e.g., Region: \"Napa Valley\", Appellation: \"Napa Valley\").
+3. Appellation Tier (Regulatory Acronym):
+   - Use the acronym: AOC, DOCG, AVA, DOQ, etc.
+4. Classification (Quality/Site Rank):
+   - Use only for quality ranks: \"Grand Cru\", \"Premier Cru\", \"Vi de Vila\".
+   - Do NOT put regulatory tiers (AVA, DOC) here.
+5. Vineyard (Specific Site):
+   - Named vineyards only (e.g., \"To Kalon\").
+   - For Spanish \"Vi de Vila\", put the Village Name here (e.g., \"Gratallops\").")
+
 (defn label-analysis-system-prompt
   ([] (label-analysis-system-prompt nil))
   ([classifications]
@@ -349,6 +367,8 @@
      (str
       "You are a wine expert tasked with extracting information from wine label images. "
       "Analyze the provided wine label images and extract the following information in JSON format:\n\n"
+      taxonomy-summary
+      "\n\n"
       "- producer: The wine producer/winery name\n"
       "- name: The specific name of the wine (if different from producer)\n"
       "- vintage: The year the wine was produced (numeric, or null for non-vintage)\n"
