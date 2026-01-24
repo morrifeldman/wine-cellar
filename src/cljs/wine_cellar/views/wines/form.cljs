@@ -271,7 +271,11 @@
        true :disabled
        (or (empty? (:country new-wine)) (empty? (:region new-wine))) :label
        "Appellation Tier" :tooltip (:appellation_tier common/field-descriptions)
-       :options (sort common/appellation-tiers)]]
+       :options (sort common/appellation-tiers) :get-option-label
+       (fn [option]
+         (if-let [full-name (get common/appellation-tier-names option)]
+           (str option " - " full-name)
+           (str option)))]]
      [form-row
       [smart-select-field app-state [:new-wine :vineyard] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))

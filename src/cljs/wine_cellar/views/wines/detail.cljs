@@ -387,6 +387,11 @@
     :free-solo true
     :tooltip (:appellation_tier common/field-descriptions)
     :options (sort common/appellation-tiers)
+    :option-label (fn [option]
+                    (if-let [full-name (get common/appellation-tier-names
+                                            option)]
+                      (str option " - " full-name)
+                      (str option)))
     :on-save
     (fn [new-value]
       (api/update-wine app-state (:id wine) {:appellation_tier new-value}))

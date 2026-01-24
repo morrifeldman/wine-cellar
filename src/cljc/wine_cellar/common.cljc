@@ -140,6 +140,28 @@
     ;; General EU
     "PDO" "PGI"})
 
+(def appellation-tier-names
+  {"AOC" "Appellation d'Origine Contrôlée"
+   "AOP" "Appellation d'Origine Protégée"
+   "IGP" "Indication Géographique Protégée"
+   "DOCG" "Denominazione di Origine Controllata e Garantita"
+   "DOC" "Denominazione di Origine Controllata"
+   "IGT" "Indicazione Geografica Tipica"
+   "DOCa" "Denominación de Origen Calificada"
+   "DO" "Denominación de Origen"
+   "DOQ" "Denominació d'Origen Qualificada"
+   "AVA" "American Viticultural Area"
+   "DAC" "Districtus Austriae Controllatus"
+   "DOP" "Denominação de Origem Protegida"
+   "IG" "Indicação Geográfica"
+   "PDO" "Protected Designation of Origin"
+   "PGI" "Protected Geographical Indication"})
+
+(defn get-appellation-tier-name
+  "Get the full name for an appellation tier acronym."
+  [tier]
+  (get appellation-tier-names tier tier))
+
 
 
 (def bottle-formats

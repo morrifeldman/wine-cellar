@@ -241,7 +241,7 @@
   "A dropdown select field with autocomplete"
   [{:keys [label value options required on-change multiple disabled free-solo
            helper-text on-blur is-option-equal-to-value sx clear-on-blur
-           on-input-change input-value tooltip]
+           on-input-change input-value tooltip get-option-label]
     :or {multiple false
          disabled false
          free-solo false
@@ -260,11 +260,13 @@
            :size "small"
            :sx (merge sx {"& .MuiSelect-icon" {:color "text.secondary"}})
            :value (cond-> value multiple (or []))
-           :get-option-label (fn [option]
-                               (cond (nil? option) ""
-                                     (string? option) option
-                                     (object? option) (or (.-label option) "")
-                                     :else (str option)))
+           :get-option-label (or get-option-label
+                                 (fn [option]
+                                   (cond (nil? option) ""
+                                         (string? option) option
+                                         (object? option) (or (.-label option)
+                                                              "")
+                                         :else (str option))))
            :render-input
            (fn [props]
              (let [text-field-el [mui-text-field/text-field
@@ -323,7 +325,7 @@
   "A smart select field that updates app-state on change"
   [app-state path &
    {:keys [label options disabled on-change required free-solo helper-text
-           on-blur tooltip]
+           on-blur tooltip get-option-label]
     :or {required false disabled false free-solo false}}]
   (let [derived-label (format-label (last path))
         field-label (or label derived-label)
@@ -340,6 +342,7 @@
       :helper-text helper-text
       :tooltip tooltip
       :on-blur on-blur
+      :get-option-label get-option-label
       :on-change on-change-fn}]))
 
 ;; Other form components
