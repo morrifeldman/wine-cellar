@@ -326,13 +326,16 @@
   (when (seq classifications)
     (let [grouped (group-by :country classifications)]
       (str "\n\nReference Wine Classifications:\n"
-           (str/join "\n"
-                     (for [[country regions] grouped]
-                       (str "- " country ": "
-                            (str/join ", "
-                                      (take 10 (distinct (map :region regions))))
-                            (let [remaining (- (count (distinct (map :region regions))) 10)]
-                              (if (pos? remaining) (str " (+" remaining " more)") "")))))))))
+           (str/join
+            "\n"
+            (for [[country regions] grouped]
+              (str
+               "- "
+               country
+               ": "
+               (str/join ", " (take 10 (distinct (map :region regions))))
+               (let [remaining (- (count (distinct (map :region regions))) 10)]
+                 (if (pos? remaining) (str " (+" remaining " more)") "")))))))))
 
 (defn label-analysis-system-prompt
   ([] (label-analysis-system-prompt nil))
@@ -341,7 +344,8 @@
          designation-options (str/join ", " (sort common/wine-designations))
          tier-options (str/join ", " (sort common/appellation-tiers))
          format-options (str/join ", " common/bottle-formats)
-         classifications-context (format-classifications-context classifications)]
+         classifications-context (format-classifications-context
+                                  classifications)]
      (str
       "You are a wine expert tasked with extracting information from wine label images. "
       "Analyze the provided wine label images and extract the following information in JSON format:\n\n"
@@ -374,15 +378,18 @@
       " Must be one of: "
       designation-options
       "\n"
-      "- bottle_format: The bottle size/format. Must be one of: " format-options
-      "\n" "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"
+      "- bottle_format: The bottle size/format. Must be one of: "
+      format-options
+      "\n"
+      "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"
       (when classifications-context
-        (str "Use the following known wine regions/classifications as a reference guide to improve accuracy, "
-             "but trust the label text above all:\n" classifications-context "\n\n"))
+        (str
+         "Use the following known wine regions/classifications as a reference guide to improve accuracy, "
+         "but trust the label text above all:\n"
+         classifications-context
+         "\n\n"))
       "Return ONLY a valid parseable JSON object with these fields. If you cannot determine a value, use null for that field. "
       "Do not nest the result in a markdown code block. Do not include any explanatory text outside the JSON object."))))
-
-(defn label-analysis-user-content
 
 (defn label-analysis-user-content
   [front-image back-image]

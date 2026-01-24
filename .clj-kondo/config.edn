@@ -1,2 +1,5 @@
 {:config-paths ["http-kit/http-kit" "mount" "reagent" "metosin" "com.github.seancorfield" "rewrite-clj"]
- :lint-as {reagent-mui.util/react-component clojure.core/fn}}
+ :lint-as {reagent-mui.util/react-component clojure.core/fn}
+ :linters {:unresolved-var {:exclude [org.httpkit.client/post
+                                      org.httpkit.client/get
+                                      org.httpkit.client/request]}}}

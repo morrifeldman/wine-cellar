@@ -165,6 +165,7 @@ This is a full-stack wine cellar tracking application built with:
 │   │       ├── db
 │   │       │   ├── api.clj
 │   │       │   ├── connection.clj
+│   │       │   ├── migrations.clj
 │   │       │   ├── schema.clj
 │   │       │   └── setup.clj
 │   │       ├── dev
@@ -244,7 +245,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-50 directories, 150 files
+50 directories, 151 files
 ```
 
 ## Development Commands

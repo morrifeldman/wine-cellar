@@ -5,6 +5,7 @@
             [next.jdbc :as jdbc]
             [wine-cellar.db.api :as db-api]
             [wine-cellar.db.connection :refer [db-opts ds]]
+            [wine-cellar.db.migrations :as migrations]
             [wine-cellar.db.schema :as schema]))
 
 ;; Classification seeding
@@ -47,7 +48,6 @@
   ([tx]
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/create-wine-style-type)
-   (sql-execute-helper tx schema/ensure-red-sparkling-style)
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/tasting-notes-table-schema)

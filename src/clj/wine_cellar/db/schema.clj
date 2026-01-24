@@ -9,10 +9,6 @@
     "CREATE TYPE wine_style AS ENUM " [:inline (vec common/wine-styles)]
     "; END IF; END $$;"]})
 
-(def ensure-red-sparkling-style
-  {:raw
-   ["ALTER TYPE wine_style ADD VALUE IF NOT EXISTS 'Red Sparkling' AFTER 'Rosé Sparkling'"]})
-
 ;; Table schemas
 (def classifications-table-schema
   {:create-table [:wine_classifications :if-not-exists]
