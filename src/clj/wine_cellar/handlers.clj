@@ -336,8 +336,11 @@
   [{{{:keys [label_image back_label_image provider]} :body} :parameters}]
   (try (if (nil? label_image)
          {:status 400 :body {:error "Label image is required"}}
-         (let [result
-               (ai/analyze-wine-label provider label_image back_label_image)]
+         (let [classifications (db-api/get-classifications)
+               result (ai/analyze-wine-label provider
+                                             label_image
+                                             back_label_image
+                                             classifications)]
            (response/response result)))
        (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
        (catch Exception e (server-error e))))

@@ -54,8 +54,11 @@
       :gemini (gemini/generate-wine-summary prompt-data))))
 
 (defn analyze-wine-label
-  [provider front-image back-image]
-  (let [prompt (prompts/label-analysis-prompt front-image back-image)]
+  [provider front-image back-image & [classifications]]
+  (let [system-prompt (prompts/label-analysis-system-prompt classifications)
+        user-content (prompts/label-analysis-user-content front-image
+                                                          back-image)
+        prompt {:system system-prompt :user-content user-content}]
     (case provider
       :openai (openai/analyze-wine-label prompt)
       :anthropic (anthropic/analyze-wine-label prompt)

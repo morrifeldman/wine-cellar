@@ -208,7 +208,9 @@
  ;  :levels ["Crianza" "Reserva" "Gran Reserva"]}
  ; {:country "Spain" :region "Ribera del Duero" :aoc "Ribera del Duero" :classification "DO"
  ;  :levels ["Crianza" "Reserva" "Gran Reserva"]}
- {:country "Spain" :region "Priorat" :aoc "Priorat" :classification "DOCa"}
+ {:country "Spain" :region "Catalonia" :aoc "Priorat" :classification "DOQ"}
+ {:country "Spain" :region "Catalonia" :aoc "Montsant" :classification "DO"}
+ {:country "Spain" :region "Catalonia" :aoc "Penedès" :classification "DO"}
  {:country "Spain" :region "Rías Baixas" :aoc "Rías Baixas" :classification "DO"}
 
  ;; Germany

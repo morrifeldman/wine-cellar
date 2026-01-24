@@ -320,48 +320,69 @@
     {:type "image"
      :source {:type "base64" :media_type (infer-media-type image) :data data}}))
 
+(defn- format-classifications-context
+  "Format the wine classifications for the prompt context."
+  [classifications]
+  (when (seq classifications)
+    (let [grouped (group-by :country classifications)]
+      (str "\n\nReference Wine Classifications:\n"
+           (str/join "\n"
+                     (for [[country regions] grouped]
+                       (str "- " country ": "
+                            (str/join ", "
+                                      (take 10 (distinct (map :region regions))))
+                            (let [remaining (- (count (distinct (map :region regions))) 10)]
+                              (if (pos? remaining) (str " (+" remaining " more)") "")))))))))
+
 (defn label-analysis-system-prompt
-  []
-  (let [style-options (str/join ", " (sort common/wine-styles))
-        designation-options (str/join ", " (sort common/wine-designations))
-        tier-options (str/join ", " (sort common/appellation-tiers))
-        format-options (str/join ", " common/bottle-formats)]
-    (str
-     "You are a wine expert tasked with extracting information from wine label images. "
-     "Analyze the provided wine label images and extract the following information in JSON format:\n\n"
-     "- producer: The wine producer/winery name\n"
-     "- name: The specific name of the wine (if different from producer)\n"
-     "- vintage: The year the wine was produced (numeric, or null for non-vintage)\n"
-     "- country: The country of origin\n"
-     "- region: "
-     (:region common/field-descriptions)
-     "\n"
-     "- appellation: "
-     (:appellation common/field-descriptions)
-     "\n"
-     "- appellation_tier: "
-     (:appellation_tier common/field-descriptions)
-     " Must be one of: "
-     tier-options
-     "\n"
-     "- vineyard: "
-     (:vineyard common/field-descriptions)
-     "\n"
-     "- classification: "
-     (:classification common/field-descriptions)
-     "\n"
-     "- style: The wine style. Must be one of: "
-     style-options
-     "\n"
-     "- designation: "
-     (:designation common/field-descriptions)
-     " Must be one of: "
-     designation-options
-     "\n"
-     "- bottle_format: The bottle size/format. Must be one of: " format-options
-     "\n" "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"
-     "Return ONLY a valid parseable JSON object with these fields. If you cannot determine a value, use null for that field. "
-     "Do not nest the result in a markdown code block. Do not include any explanatory text outside the JSON object.")))
+  ([] (label-analysis-system-prompt nil))
+  ([classifications]
+   (let [style-options (str/join ", " (sort common/wine-styles))
+         designation-options (str/join ", " (sort common/wine-designations))
+         tier-options (str/join ", " (sort common/appellation-tiers))
+         format-options (str/join ", " common/bottle-formats)
+         classifications-context (format-classifications-context classifications)]
+     (str
+      "You are a wine expert tasked with extracting information from wine label images. "
+      "Analyze the provided wine label images and extract the following information in JSON format:\n\n"
+      "- producer: The wine producer/winery name\n"
+      "- name: The specific name of the wine (if different from producer)\n"
+      "- vintage: The year the wine was produced (numeric, or null for non-vintage)\n"
+      "- country: The country of origin\n"
+      "- region: "
+      (:region common/field-descriptions)
+      "\n"
+      "- appellation: "
+      (:appellation common/field-descriptions)
+      "\n"
+      "- appellation_tier: "
+      (:appellation_tier common/field-descriptions)
+      " Must be one of: "
+      tier-options
+      "\n"
+      "- vineyard: "
+      (:vineyard common/field-descriptions)
+      "\n"
+      "- classification: "
+      (:classification common/field-descriptions)
+      "\n"
+      "- style: The wine style. Must be one of: "
+      style-options
+      "\n"
+      "- designation: "
+      (:designation common/field-descriptions)
+      " Must be one of: "
+      designation-options
+      "\n"
+      "- bottle_format: The bottle size/format. Must be one of: " format-options
+      "\n" "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"
+      (when classifications-context
+        (str "Use the following known wine regions/classifications as a reference guide to improve accuracy, "
+             "but trust the label text above all:\n" classifications-context "\n\n"))
+      "Return ONLY a valid parseable JSON object with these fields. If you cannot determine a value, use null for that field. "
+      "Do not nest the result in a markdown code block. Do not include any explanatory text outside the JSON object."))))
+
+(defn label-analysis-user-content
 
 (defn label-analysis-user-content
   [front-image back-image]
