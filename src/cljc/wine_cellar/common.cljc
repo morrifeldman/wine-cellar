@@ -130,7 +130,7 @@
     ;; Italy
     "DOCG" "DOC" "IGT" "Vino da Tavola"
     ;; Spain
-    "DOCa" "DO" "Vino de Pago" "Vino de la Tierra"
+    "DOCa" "DO" "Vino de Pago" "Vino de la Tierra" "DOQ"
     ;; USA
     "AVA"
     ;; Germany / Austria
