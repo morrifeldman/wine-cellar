@@ -453,6 +453,7 @@
    "3. Basic serving recommendations\n\n"
    "Write in a conversational, informative tone. Keep it concise and practical. "
    "Focus on the most important information for enjoyment and pairing decisions. "
+   "Use Fahrenheit for serving temperatures. "
    "The current year is " (current-year)
    ". "
    "Return only the summary text without any formatting or structure markers."))
