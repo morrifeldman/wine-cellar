@@ -8,7 +8,7 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.checkbox :refer [checkbox]]
-            [reagent-mui.icons.local-bar :refer [local-bar]]
+            [reagent-mui.icons.wine-bar :refer [wine-bar]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
             [wine-cellar.utils.vintage :refer
@@ -20,16 +20,24 @@
 ;; Utility functions
 (defn get-rating-color
   [rating]
-  (cond (>= rating 90) "rating.high"
-        (>= rating 80) "rating.medium"
-        :else "rating.low"))
+  (cond (>= rating 95) "#FFD54F" ;; Gold
+        (>= rating 90) "#E8C3C8" ;; Primary Light (Pinkish)
+        (>= rating 85) "#B0BEC5" ;; Blue Grey
+        :else "#9E9E9E")) ;; Grey
+
+(defn- dot-join
+  "Joins a sequence of strings with a dot separator, filtering out nils/empties."
+  [items]
+  (->> items
+       (remove str/blank?)
+       (str/join " • ")))
 
 (defn wine-thumbnail
   [_app-state wine]
   [box
    {:sx {:mr 2
-         :width 120
-         :height 120
+         :width 100
+         :height 100
          :display "flex"
          :alignItems "center"
          :justifyContent "center"
@@ -75,150 +83,122 @@
   [box {:sx {:display "flex" :mb 0}} [wine-thumbnail app-state wine]
    [wine-basic-info wine]])
 
-(defn wine-region-info
+(defn wine-geography-info
   [wine]
-  [grid {:item true :xs 12}
-   [box {:sx {:display "flex" :alignItems "center" :mb 0.3}} ;; Reduced
-                                                             ;; margin
-    [typography
-     {:variant "body2" :color "text.secondary" :sx {:mr 1 :minWidth "60px"}}
-     "Region:"]
-    [typography {:variant "body2"}
-     (str (:region wine)
-          (when (:appellation wine) (str " • " (:appellation wine))))]]])
+  (let [{:keys [style region appellation appellation_tier]} wine
+        ;; Deduplicate: if appellation is the same as region, don't show
+        ;; both
+        display-appellation (when-not (= region appellation) appellation)
+        ;; Combine appellation and tier if both exist
+        app-with-tier (if (and display-appellation appellation_tier)
+                        (str display-appellation " " appellation_tier)
+                        (or display-appellation appellation_tier))
+        line-text (dot-join [style region app-with-tier])]
+    (when-not (str/blank? line-text)
+      [grid {:item true :xs 12}
+       [typography {:variant "body2" :sx {:mb 0.3}} line-text]])))
 
-(defn wine-style-info
+(defn wine-classification-line
   [wine]
-  [grid {:item true :xs 6}
-   [box {:sx {:display "flex" :alignItems "center"}}
-    [typography
-     {:variant "body2" :color "text.secondary" :sx {:mr 1 :minWidth "60px"}}
-     "Style:"] [typography {:variant "body2"} (or (:style wine) "-")]]])
+  (let [{:keys [classification designation]} wine
+        line-text (dot-join [classification designation])]
+    (when-not (str/blank? line-text)
+      [grid {:item true :xs 12}
+       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.3}}
+        line-text]])))
 
-(defn wine-classification-info
+(defn wine-specs-line
   [wine]
-  [grid {:item true :xs 6}
-   [box {:sx {:display "flex" :alignItems "center"}}
-    [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}} "Class:"]
-    [typography
-     {:variant "body2"
-      :sx {:whiteSpace "nowrap" :overflow "hidden" :textOverflow "ellipsis"}}
-     (or (:classification wine) "-")]]])
-
-(defn wine-location-info
-  [wine]
-  [grid {:item true :xs 6}
-   [box {:sx {:display "flex" :alignItems "center"}}
-    [typography
-     {:variant "body2" :color "text.secondary" :sx {:mr 1 :minWidth "60px"}}
-     "Location:"] [typography {:variant "body2"} (or (:location wine) "-")]]])
-
-(defn wine-price-info
-  [wine]
-  [grid {:item true :xs 6}
-   [box {:sx {:display "flex" :alignItems "center"}}
-    [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}} "Price:"]
-    [typography {:variant "body2"}
-     (if-let [price (:price wine)]
-       (gstring/format "$%.2f" price)
-       "-")]]])
-
-(defn wine-alcohol-info
-  [wine]
-  [grid {:item true :xs 6}
-   [box {:sx {:display "flex" :alignItems "center"}}
-    [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}} "ABV:"]
-    [typography {:variant "body2"}
-     (if-let [abv (:alcohol_percentage wine)]
-       (str abv "%")
-       "-")]]])
-
-(defn wine-dosage-info
-  [wine]
-  [grid {:item true :xs 6}
-   [box {:sx {:display "flex" :alignItems "center"}}
-    [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
-     "Dosage:"]
-    [typography {:variant "body2"}
-     (if-let [dosage (:dosage wine)]
-       (str (js/Math.round dosage) " g/L")
-       "-")]]])
+  (let [location (:location wine)
+        price (when-let [p (:price wine)]
+                (gstring/format "$%.0f" (js/Number p)))
+        abv (when-let [a (:alcohol_percentage wine)] (str a "%"))
+        dosage (when-let [d (:dosage wine)]
+                 (str (js/Math.round (js/Number d)) " g/L"))
+        line-text (dot-join [location price abv dosage])]
+    (when-not (str/blank? line-text)
+      [grid {:item true :xs 12}
+       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.3}}
+        line-text]])))
 
 (defn wine-varieties-info
   [wine]
-  [grid {:item true :xs 12}
-   [box {:sx {:display "flex" :alignItems "center" :mb 0.3}}
-    [typography
-     {:variant "body2" :color "text.secondary" :sx {:mr 1 :minWidth "60px"}}
-     "Varieties:"]
-    [typography {:variant "body2"}
-     (if-let [varieties (:varieties wine)]
-       (if (seq varieties)
-         (->> varieties
-              (map (fn [v]
-                     (if (:percentage v)
-                       (str (:name v) " " (:percentage v) "%")
-                       (:name v))))
-              (str/join ", "))
-         "-")
-       "-")]]])
+  (when-let [varieties (seq (:varieties wine))]
+    [grid {:item true :xs 12}
+     [box
+      {:sx {:display "grid"
+            :gridTemplateColumns "auto auto"
+            :justifyContent "start"
+            :columnGap 1
+            :rowGap 0.3
+            :mb 0.3}}
+      (let [sorted-varieties (sort-by #(or (:percentage %) 0) > varieties)]
+        (for [[idx v] (map-indexed vector sorted-varieties)]
+          ^{:key (str (:name v) idx)}
+          [:<>
+           [typography
+            {:variant "body2" :color "text.secondary" :sx {:lineHeight 1.2}}
+            (:name v)]
+           (when (:percentage v)
+             [typography
+              {:variant "body2"
+               :sx {:fontWeight "bold"
+                    :color "#ffffff"
+                    :lineHeight 1.2
+                    :textAlign "right"}}
+              (str (js/Math.round (:percentage v)) "%")])]))]]))
 
 (defn wine-details-grid
   [wine]
   [grid {:container true :spacing 0.5} ;; Reduced spacing
-   [wine-region-info wine] [wine-style-info wine]
-   [wine-classification-info wine] [wine-location-info wine]
-   [wine-price-info wine] [wine-alcohol-info wine] [wine-dosage-info wine]
-   [wine-varieties-info wine]])
+   [wine-geography-info wine] [wine-classification-line wine]
+   [wine-specs-line wine] [wine-varieties-info wine]])
+
+(defn internal-rating-badge
+  [rating]
+  [box
+   {:sx {:display "flex"
+         :alignItems "center"
+         :px 1
+         :py 0.3
+         :borderRadius 1
+         :border "1px solid"
+         :bgcolor "rgba(25,118,210,0.08)"
+         :borderColor "rgba(25,118,210,0.2)"}}
+   [typography
+    {:sx {:color (get-rating-color rating) :fontWeight "bold" :mr 0.5}}
+    (str rating)]
+   [typography
+    {:variant "caption" :sx {:color "text.secondary" :fontSize "0.7rem"}}
+    "(Internal)"]])
+
+(defn external-rating-badge
+  [rating]
+  [box
+   {:sx {:display "flex"
+         :alignItems "center"
+         :px 1
+         :py 0.3
+         :borderRadius 1
+         :border "1px solid"
+         :bgcolor "rgba(0,0,0,0.04)"
+         :borderColor "rgba(0,0,0,0.12)"}}
+   [typography
+    {:sx {:color (get-rating-color rating) :fontWeight "bold" :mr 0.5}}
+    (str rating)]
+   [typography
+    {:variant "caption" :sx {:color "text.secondary" :fontSize "0.7rem"}}
+    "(External)"]])
 
 (defn wine-rating-display
   [wine]
-  [box {:sx {:display "flex" :alignItems "center"}}
-   (let [internal-rating (:latest_internal_rating wine)
-         external-rating (:average_external_rating wine)]
-     (if (or internal-rating external-rating)
-       [box {:sx {:display "flex" :alignItems "center"}}
-        [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}}
-         "Rating:"]
-        [box {:sx {:display "flex" :alignItems "center" :gap 0.5}}
-         ;; Internal rating
-         (when internal-rating
-           [box
-            {:sx {:display "flex"
-                  :alignItems "center"
-                  :px 1
-                  :py 0.3
-                  :borderRadius 1
-                  :border "1px solid"
-                  :bgcolor "rgba(25,118,210,0.08)"
-                  :borderColor "rgba(25,118,210,0.2)"}}
-            [typography
-             {:sx {:color (get-rating-color internal-rating)
-                   :fontWeight "bold"
-                   :mr 0.5}} (str internal-rating)]
-            [typography
-             {:variant "caption"
-              :sx {:color "text.secondary" :fontSize "0.7rem"}} "(Internal)"]])
-         ;; External rating (average)
-         (when external-rating
-           [box
-            {:sx {:display "flex"
-                  :alignItems "center"
-                  :px 1
-                  :py 0.3
-                  :borderRadius 1
-                  :border "1px solid"
-                  :bgcolor "rgba(0,0,0,0.04)"
-                  :borderColor "rgba(0,0,0,0.12)"}}
-            [typography
-             {:sx {:color (get-rating-color external-rating)
-                   :fontWeight "bold"
-                   :mr 0.5}} (str external-rating)]
-            [typography
-             {:variant "caption"
-              :sx {:color "text.secondary" :fontSize "0.7rem"}}
-             "(External)"]])]]
-       [typography {:variant "body2" :color "text.secondary"} "No Rating"]))])
+  (let [internal-rating (:latest_internal_rating wine)
+        external-rating (:average_external_rating wine)]
+    (when (or internal-rating external-rating)
+      [box {:sx {:display "flex" :alignItems "center"}}
+       [box {:sx {:display "flex" :alignItems "center" :gap 0.5}}
+        (when internal-rating [internal-rating-badge internal-rating])
+        (when external-rating [external-rating-badge external-rating])]])))
 
 (defn wine-tasting-window
   [status drink-from-year drink-until-year]
@@ -228,7 +208,6 @@
           :fontWeight "medium"
           :display "flex"
           :alignItems "center"}}
-    [typography {:variant "body2" :color "text.secondary" :sx {:mr 1}} "Drink:"]
     [box {:sx {:display "flex"}}
      (when drink-from-year
        [typography {:variant "body2" :sx {:lineHeight 1.2}}
@@ -270,10 +249,9 @@
                        (str quantity "/" original-quantity)
                        (str quantity))]
     [box {:sx {:display "flex" :alignItems "center" :gap 1}}
-     [typography {:variant "body2" :color "text.secondary"} "Quantity:"]
      [quantity-control app-state (:id wine) quantity display-text
       original-quantity
-      {:mode :card :minus-icon [local-bar {:fontSize "small"}]}]]))
+      {:mode :card :minus-icon [wine-bar {:fontSize "small"}]}]]))
 
 (defn wine-controls
   [app-state wine status drink-from-year drink-until-year]
@@ -348,7 +326,8 @@
      ;; Wine header with thumbnail and basic info
      [wine-header app-state wine]
      ;; Wine details
-     [box {:sx {:mb 0}} ;; Removed margin completely
+     [box {:sx {:mb 0 :mt -1.5}} ;; Added negative margin to pull up
+                                 ;; details
       [wine-details-grid wine]
       ;; Bottom section with rating
       [wine-bottom-info wine]

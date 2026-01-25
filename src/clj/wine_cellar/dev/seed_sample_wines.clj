@@ -13,8 +13,11 @@
            :name "Châteauneuf-du-Pape"
            :vintage 2020
            :country "France"
-           :region "Rhône Valley"
+           :region "Rhône"
+           :appellation "Châteauneuf-du-Pape"
+           :appellation_tier "AOC"
            :style "Red"
+           :alcohol_percentage 15.0M
            :closure_type "Natural cork"
            :price 95.00M
            :quantity 6
@@ -33,6 +36,11 @@
     [{:tasting_date "2024-03-18"
       :rating 97
       :notes "Silky red fruit, dried herbs and a long mineral finish."}
+     {:tasting_date "2023-12-01"
+      :rating 95
+      :is_external true
+      :source "Wine Spectator"
+      :notes "Powerful and refined."}
      {:tasting_date "2025-07-18"
       :rating 96
       :notes
@@ -78,9 +86,12 @@
    {:wine {:producer "Ridge"
            :name "Monte Bello"
            :vintage 2015
-           :country "USA"
+           :country "United States"
            :region "Santa Cruz Mountains"
+           :appellation "Santa Cruz Mountains"
+           :appellation_tier "AVA"
            :style "Red"
+           :alcohol_percentage 13.5M
            :closure_type "Colmated cork"
            :price 285.00M
            :quantity 2
@@ -99,13 +110,21 @@
     :tasting-notes
     [{:tasting_date "2024-02-11"
       :rating 96
-      :notes "Classic mountain cab; dense blackberry, cedar and violets."}]}
+      :notes "Classic mountain cab; dense blackberry, cedar and violets."}
+     {:tasting_date "2023-11-15"
+      :rating 98
+      :is_external true
+      :source "Robert Parker"
+      :notes "A monumental achievement."}]}
    {:wine {:producer "Cloudy Bay"
            :name "Sauvignon Blanc"
            :vintage 2023
            :country "New Zealand"
            :region "Marlborough"
+           :appellation "Marlborough"
+           :appellation_tier "GI"
            :style "White"
+           :alcohol_percentage 13.0M
            :closure_type "Screw cap"
            :price 34.00M
            :quantity 5
@@ -164,7 +183,10 @@
            :vintage nil
            :country "France"
            :region "Champagne"
+           :appellation "Champagne"
+           :appellation_tier "AOC"
            :style "Rosé Sparkling"
+           :alcohol_percentage 12.0M
            :closure_type "Crown cap"
            :price 80.00M
            :quantity 3
@@ -173,7 +195,7 @@
            :drink_from_year 2022
            :drink_until_year 2028
            :disgorgement_year 2021
-           :dosage 8M
+           :dosage 8
            :location "B2"
            :purveyor "Envoyer"
            :tasting_window_commentary
@@ -190,7 +212,11 @@
            :vintage nil
            :country "France"
            :region "Champagne"
+           :appellation "Champagne"
+           :appellation_tier "AOC"
+           :designation "Cuvée"
            :style "Sparkling"
+           :alcohol_percentage 12.5M
            :closure_type "Natural cork"
            :price 78.00M
            :quantity 4
@@ -201,7 +227,7 @@
            :location "B3"
            :purveyor "Flatiron"
            :disgorgement_year 2023
-           :dosage 2M
+           :dosage 2
            :tasting_window_commentary
            "Disgorged May 2023; tense citrus, chalk and toasted brioche."}
     :varieties [{:name "Chardonnay" :percentage 57.0M}
@@ -217,7 +243,10 @@
            :vintage 2019
            :country "Australia"
            :region "South Australia"
+           :appellation "South Australia"
+           :appellation_tier "GI"
            :style "Red"
+           :alcohol_percentage 14.5M
            :closure_type "Synthetic cork (extruded)"
            :price 65.00M
            :quantity 8
@@ -240,7 +269,10 @@
            :vintage 2018
            :country "Chile"
            :region "Colchagua Valley"
+           :appellation "Colchagua Valley"
+           :appellation_tier "DO"
            :style "Red"
+           :alcohol_percentage 15.0M
            :closure_type "Micro-agglomerated cork"
            :price 130.00M
            :quantity 4
@@ -265,7 +297,13 @@
            :vintage 2021
            :country "Germany"
            :region "Mosel"
+           :appellation "Mosel"
+           :appellation_tier "Prädikatswein"
+           :classification "Grosse Lage"
+           :designation "Kabinett"
+           :vineyard "Ürziger Würzgarten"
            :style "White"
+           :alcohol_percentage 8.5M
            :closure_type "Synthetic cork (molded)"
            :price 22.00M
            :quantity 12
@@ -286,8 +324,11 @@
            :name "Vintage Port"
            :vintage 1994
            :country "Portugal"
-           :region "Douro Valley"
+           :region "Douro"
+           :appellation "Porto"
+           :appellation_tier "DOC"
            :style "Fortified"
+           :alcohol_percentage 20.0M
            :closure_type "T-top"
            :price 180.00M
            :quantity 1
@@ -310,8 +351,12 @@
            :name "Sauternes"
            :vintage 2001
            :country "France"
-           :region "Sauternes"
+           :region "Bordeaux"
+           :appellation "Sauternes"
+           :appellation_tier "AOC"
+           :classification "Premier Cru Supérieur"
            :style "Dessert"
+           :alcohol_percentage 13.5M
            :closure_type "Natural cork"
            :price 350.00M
            :quantity 1
@@ -330,11 +375,16 @@
                      :notes
                      "Layers of apricot, honey, saffron and endless finish."}]}
    {:wine {:producer "Castello di Ama"
-           :name "Chianti Classico Gran Selezione San Lorenzo"
+           :name "San Lorenzo"
            :vintage 2020
            :country "Italy"
            :region "Tuscany"
+           :appellation "Chianti Classico"
+           :appellation_tier "DOCG"
+           :designation "Gran Selezione"
+           :vineyard "San Lorenzo"
            :style "Red"
+           :alcohol_percentage 13.5M
            :closure_type "Agglomerated cork"
            :price 55.00M
            :quantity 9
@@ -357,8 +407,11 @@
            :name "Blanc"
            :vintage 2022
            :country "France"
-           :region "Ventoux"
+           :region "Rhône"
+           :appellation "Ventoux"
+           :appellation_tier "AOC"
            :style "White"
+           :alcohol_percentage 12.5M
            :closure_type "Zork"
            :price 12.00M
            :quantity 15
@@ -381,9 +434,12 @@
    {:wine {:producer "Dominus Estate"
            :name "Proprietary Red"
            :vintage 2021
-           :country "USA"
+           :country "United States"
            :region "Napa Valley"
+           :appellation "Napa Valley"
+           :appellation_tier "AVA"
            :style "Red"
+           :alcohol_percentage 14.5M
            :closure_type "Natural cork"
            :price 320.00M
            :quantity 6
@@ -409,7 +465,9 @@
      :vintage 1998
      :country "Lebanon"
      :region "Bekaa Valley"
+     :appellation "Bekaa Valley"
      :style "Red"
+     :alcohol_percentage 14.0M
      :closure_type "Other/Unknown"
      :price 75.00M
      :quantity 2
@@ -431,11 +489,17 @@
       "Leather, dried cherry and soy; elegant but fading—enjoy before it slips."}]}
    {:wine
     {:producer "Weingut Keller"
-     :name "Kirchspiel Riesling Grosses Gewächs"
+     :name "Kirchspiel Riesling GG"
      :vintage 2022
      :country "Germany"
      :region "Rheinhessen"
+     :appellation "Rheinhessen"
+     :appellation_tier "Qualitätswein"
+     :classification "Grosse Lage"
+     :designation "Grosses Gewächs"
+     :vineyard "Kirchspiel"
      :style "White"
+     :alcohol_percentage 13.0M
      :closure_type "Glass stopper"
      :price 120.00M
      :quantity 6
@@ -456,9 +520,12 @@
    {:wine {:producer "Scar of the Sea"
            :name "Chardonnay"
            :vintage 2022
-           :country "USA"
-           :region "Santa Maria Valley"
+           :country "United States"
+           :region "Central Coast"
+           :appellation "Santa Maria Valley"
+           :appellation_tier "AVA"
            :style "White"
+           :alcohol_percentage 12.5M
            :closure_type "Technical cork"
            :price nil
            :quantity 7
@@ -477,7 +544,10 @@
            :vintage 2020
            :country "Italy"
            :region "Lombardy"
+           :appellation "Rosso di Valtellina"
+           :appellation_tier "DOC"
            :style "Red"
+           :alcohol_percentage 13.0M
            :closure_type "Natural cork"
            :price 32.00M
            :quantity 10
@@ -496,8 +566,11 @@
            :name "By.Ott Rosé"
            :vintage 2023
            :country "France"
-           :region "Côtes de Provence"
+           :region "Provence"
+           :appellation "Côtes de Provence"
+           :appellation_tier "AOC"
            :style "Rosé"
+           :alcohol_percentage 12.5M
            :closure_type "Technical cork"
            :price 28.00M
            :quantity 9
@@ -522,7 +595,10 @@
            :vintage 2022
            :country "Italy"
            :region "Emilia-Romagna"
+           :appellation "Lambrusco di Sorbara"
+           :appellation_tier "DOC"
            :style "Red Sparkling"
+           :alcohol_percentage 11.0M
            :closure_type "Crown cap"
            :price 26.00M
            :quantity 8
@@ -532,7 +608,7 @@
            :drink_until_year 2027
            :location "H4"
            :purveyor "Chambers Street"
-           :dosage 15M
+           :dosage 15
            :tasting_window_commentary
            "Dry, frothy Lambrusco with dark berry fruit and savory herbs."}
     :varieties [{:name "Lambrusco di Sorbara" :percentage 60.0M}
@@ -601,13 +677,14 @@
                                 :where [:and [:= :wine_id wine-id]
                                         [:= :source seed-note-source]]})
                    db-opts)
-    (doseq [{:keys [tasting_date rating notes]} tasting-notes]
+    (doseq [{:keys [tasting_date rating notes is_external source]}
+            tasting-notes]
       (db/create-tasting-note {:wine_id wine-id
                                :tasting_date tasting_date
                                :rating rating
                                :notes notes
-                               :is_external false
-                               :source seed-note-source}))
+                               :is_external (boolean is_external)
+                               :source (or source seed-note-source)}))
     wine-id))
 
 (defn seed!
@@ -620,15 +697,14 @@
                                           :where [:in :id ids]
                                           :order-by [[:producer :asc]]})
                              db-opts)]
-    (println "Seeded" (count ids) "wines:")
     (doseq [row wines]
       (println " •"
                (:producer row)
                (str (:name row) (when-let [v (:vintage row)] (str " " v)) ":")
                (str (:quantity row) "/" (:original_quantity row) " bottles")))
-    (println)
-    (println
-     "Run stats via summary.cljc -> collection-stats / condensed-summary to explore the data.")))
+    (println "Seeded" (count ids) "wines:")))
+
+#_(seed!)
 
 (defn -main
   [& _]

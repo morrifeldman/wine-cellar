@@ -378,9 +378,9 @@
   [:id :producer :country :region :appellation :appellation_tier :classification
    :vineyard :designation :name :vintage :style :closure_type :bottle_format
    :location :purveyor :quantity :original_quantity :price :drink_from_year
-   :drink_until_year :alcohol_percentage :disgorgement_year :label_thumbnail
-   :created_at :updated_at :verified :purchase_date :latest_internal_rating
-   :average_external_rating :varieties :metadata])
+   :drink_until_year :alcohol_percentage :disgorgement_year :dosage
+   :label_thumbnail :created_at :updated_at :verified :purchase_date
+   :latest_internal_rating :average_external_rating :varieties :metadata])
 
 (defn get-wines-for-list
   []

@@ -105,24 +105,26 @@
       (get style-metadata default-style-key))))
 
 (def wine-designations
-  #{"Joven" "Crianza" "Reserva" "Gran Reserva" ; Rioja
-    "Riserva" "Gran Selezione" ; Chianti
-    "Reserve"})
+  #{"Joven" "Crianza" "Reserva" "Gran Reserva" "Roble" ; Spain
+    "Riserva" "Gran Selezione" "Classico" "Superiore" ; Italy
+    "Reserve" "Estate" "Single Vineyard" ; USA/New World
+    "Vieilles Vignes" "Cuvée" "Prestige" ; France
+    "Kabinett" "Spätlese" "Auslese" "Beerenauslese" "Trockenbeerenauslese"
+    "Eiswein" "Grosses Gewächs" ; Germany
+    "Smaragd" "Federspiel" "Steinfeder" ; Austria (Wachau)
+   })
 
 (def field-descriptions
   {:region
-   "The broader wine region within the country (e.g., Bordeaux, Tuscany, California)."
+   "The major wine area. For Old World: Bordeaux, Tuscany, Rioja. For US: Napa Valley, Sonoma County, Willamette Valley (NOT 'California' unless generic)."
    :appellation
-   "The specific named place (e.g., \"Pauillac\", \"Napa Valley\")."
-   :appellation_tier
-   "The regulatory status or quality level of the appellation (e.g., AOC, DOCG, AVA, IGT)."
+   "The specific legal place name (AOC/AVA). If no sub-appellation exists, repeat the Region."
+   :appellation_tier "The regulatory status acronym (e.g., AOC, DOCG, AVA, GI)."
    :classification
-   "The rank or quality tier of the specific site or estate (e.g., Grand Cru, Premier Cru)."
+   "The quality rank of the site/estate (e.g., Grand Cru, Premier Cru). NOT for regulatory tiers."
    :designation
-   "Terms describing the winemaking process, aging, or ripeness (e.g., Riserva, Crianza, Spätlese)."
-   :vineyard "The specific vineyard name (e.g., To Kalon, Les Clos, Cannubi)."})
-
-
+   "Terms describing aging, ripeness, or style (e.g., Riserva, Crianza, Spätlese)."
+   :vineyard "The specific vineyard name (e.g., To Kalon, Les Clos)."})
 
 (def appellation-tiers
   #{;; France
@@ -137,6 +139,8 @@
     "Prädikatswein" "Qualitätswein" "Landwein" "DAC"
     ;; Portugal
     "DOP" "IG"
+    ;; New World
+    "GI" "VQA" "WO"
     ;; General EU
     "PDO" "PGI"})
 
@@ -154,6 +158,9 @@
    "DAC" "Districtus Austriae Controllatus"
    "DOP" "Denominação de Origem Protegida"
    "IG" "Indicação Geográfica"
+   "GI" "Geographical Indication"
+   "VQA" "Vintners Quality Alliance"
+   "WO" "Wine of Origin"
    "PDO" "Protected Designation of Origin"
    "PGI" "Protected Geographical Indication"})
 
