@@ -11,6 +11,7 @@
 *   **AI:** Anthropic Claude API.
 *   **Infrastructure:** Docker, Fly.io.
 
+
 ## Key Directories
 *   `src/clj/wine_cellar`: Backend source code (API, DB, Auth).
 *   `src/cljs/wine_cellar`: Frontend source code (Views, State, Components).
