@@ -139,6 +139,7 @@
     (try (let [classification {:country (:country wine)
                                :region (:region wine)
                                :appellation (:appellation wine)
+                               :appellation_tier (:appellation_tier wine)
                                :classification (:classification wine)
                                :designations (when (:designation wine)
                                                [(:designation wine)])}]

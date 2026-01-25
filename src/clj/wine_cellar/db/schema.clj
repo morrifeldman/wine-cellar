@@ -15,10 +15,12 @@
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:country :varchar [:not nil]] [:region :varchar [:not nil]]
-    [:appellation :varchar] [:classification :varchar] [:vineyard :varchar]
+    [:appellation :varchar] [:appellation_tier :varchar]
+    [:classification :varchar] [:vineyard :varchar]
     [:designations :varchar :array] [:created_at :timestamp [:default [:now]]]
     [[:constraint :wine_classifications_natural_key] :unique-nulls-not-distinct
-     [:composite :country :region :appellation :classification :vineyard]]]})
+     [:composite :country :region :appellation :appellation_tier :classification
+      :vineyard]]]})
 
 #_(sql/format classifications-table-schema)
 

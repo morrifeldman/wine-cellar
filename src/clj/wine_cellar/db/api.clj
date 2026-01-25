@@ -526,15 +526,17 @@
   ([tx classification]
    (let [existing-query {:select :*
                          :from :wine_classifications
-                         :where [:and [:= :country (:country classification)]
-                                 [:= :region (:region classification)]
-                                 [:= [:coalesce :appellation ""]
-                                  [:coalesce (:appellation classification) ""]]
-                                 [:= [:coalesce :classification ""]
-                                  [:coalesce (:classification classification)
-                                   ""]]
-                                 [:= [:coalesce :vineyard ""]
-                                  [:coalesce (:vineyard classification) ""]]]}
+                         :where
+                         [:and [:= :country (:country classification)]
+                          [:= :region (:region classification)]
+                          [:= [:coalesce :appellation ""]
+                           [:coalesce (:appellation classification) ""]]
+                          [:= [:coalesce :appellation_tier ""]
+                           [:coalesce (:appellation_tier classification) ""]]
+                          [:= [:coalesce :classification ""]
+                           [:coalesce (:classification classification) ""]]
+                          [:= [:coalesce :vineyard ""]
+                           [:coalesce (:vineyard classification) ""]]]}
          existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
      (if existing
        ;; Update existing classification - merge designations

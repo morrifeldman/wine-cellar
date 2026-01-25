@@ -1,5 +1,6 @@
 (ns wine-cellar.db.connection
-  (:require [mount.core :refer [defstate]]
+  (:require [clojure.string :as str]
+            [mount.core :refer [defstate]]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [jsonista.core :as json]
@@ -30,12 +31,37 @@
 
 (defn get-db-config
   []
-  (if-let [jdbc-url (System/getenv "DATABASE_URL")]
-    {:jdbcUrl jdbc-url}
+  (cond
+    ;; Case 1: Explicit DB_PASSWORD env var (safest for complex chars)
+    (System/getenv "DB_PASSWORD")
     {:dbtype "postgresql"
-     :dbname "wine_cellar"
-     :user "wine_cellar"
-     :password (config-utils/get-password-from-pass "wine-cellar/db")}))
+     :dbname (or (System/getenv "DB_NAME") "wine_cellar")
+     :host (or (System/getenv "DB_HOST") "localhost")
+     :port (if-let [p (System/getenv "DB_PORT")]
+             (Integer/parseInt p)
+             5432)
+     :user (or (System/getenv "DB_USER") "postgres")
+     :password (System/getenv "DB_PASSWORD")}
+    ;; Case 2: DATABASE_URL parsing
+    (System/getenv "DATABASE_URL")
+    (let [url (System/getenv "DATABASE_URL")]
+      (if (str/starts-with? url "postgres://")
+        (let [uri (java.net.URI. url)
+              userInfo (.getUserInfo uri)
+              [user password]
+              (if userInfo (str/split userInfo #":" 2) [nil nil])]
+          {:dbtype "postgresql"
+           :dbname (subs (.getPath uri) 1)
+           :host (.getHost uri)
+           :port (if (= -1 (.getPort uri)) 5432 (.getPort uri))
+           :user user
+           :password password})
+        {:jdbcUrl url}))
+    ;; Case 3: Local dev defaults
+    :else {:dbtype "postgresql"
+           :dbname "wine_cellar"
+           :user "wine_cellar"
+           :password (config-utils/get-password-from-pass "wine-cellar/db")}))
 
 (defstate ds :start (jdbc/get-datasource (get-db-config)))
 
