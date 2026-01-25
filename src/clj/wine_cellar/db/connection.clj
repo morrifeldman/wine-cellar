@@ -49,13 +49,19 @@
         (let [uri (java.net.URI. url)
               userInfo (.getUserInfo uri)
               [user password]
-              (if userInfo (str/split userInfo #":" 2) [nil nil])]
-          {:dbtype "postgresql"
-           :dbname (subs (.getPath uri) 1)
-           :host (.getHost uri)
-           :port (if (= -1 (.getPort uri)) 5432 (.getPort uri))
-           :user user
-           :password password})
+              (if userInfo (str/split userInfo #":" 2) [nil nil])
+              query-params (when-let [q (.getQuery uri)]
+                             (into {}
+                                   (for [pair (str/split q #"&")]
+                                     (let [[k v] (str/split pair #"=" 2)]
+                                       [(keyword k) v]))))]
+          (merge {:dbtype "postgresql"
+                  :dbname (subs (.getPath uri) 1)
+                  :host (.getHost uri)
+                  :port (if (= -1 (.getPort uri)) 5432 (.getPort uri))
+                  :user user
+                  :password password}
+                 query-params))
         {:jdbcUrl url}))
     ;; Case 3: Local dev defaults
     :else {:dbtype "postgresql"
