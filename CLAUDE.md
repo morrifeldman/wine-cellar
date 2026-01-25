@@ -143,6 +143,7 @@ This is a full-stack wine cellar tracking application built with:
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
 │   ├── pre-commit
+│   ├── repl_client.clj
 │   ├── setup-git-hooks.sh
 │   ├── update-version.sh
 │   └── wine_cellar
@@ -247,7 +248,7 @@ This is a full-stack wine cellar tracking application built with:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-51 directories, 152 files
+51 directories, 153 files
 ```
 
 ## Development Commands
