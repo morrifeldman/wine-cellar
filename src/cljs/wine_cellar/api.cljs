@@ -284,19 +284,20 @@
 
 ;; Wine endpoints
 (defn fetch-wines
-  [app-state]
-  (swap! app-state assoc :loading? true)
-  (js/console.log "Fetching wines...")
-  (go (let [result (<! (GET "/api/wines/list" "Failed to fetch wines"))]
-        (if (:success result)
-          (do (js/console.log "Success! Wines count:" (count (:data result)))
-              (swap! app-state assoc
-                :wines (:data result)
-                :loading? false
-                :error nil))
-          (do
-            (js/console.log "Error fetching wines:" (:error result))
-            (swap! app-state assoc :error (:error result) :loading? false))))))
+  ([app-state] (fetch-wines app-state {}))
+  ([app-state {:keys [background?]}]
+   (when-not background? (swap! app-state assoc :loading? true))
+   (js/console.log "Fetching wines...")
+   (go
+    (let [result (<! (GET "/api/wines/list" "Failed to fetch wines"))]
+      (if (:success result)
+        (do (js/console.log "Success! Wines count:" (count (:data result)))
+            (swap! app-state assoc
+              :wines (:data result)
+              :loading? false
+              :error nil))
+        (do (js/console.log "Error fetching wines:" (:error result))
+            (swap! app-state assoc :error (:error result) :loading? false)))))))
 
 (defn fetch-wine-details
   [app-state wine-id & {:keys [include-images] :or {include-images true}}]
@@ -1282,6 +1283,9 @@
 (defn load-wine-detail-page
   "Load all data needed for the wine detail page"
   [app-state wine-id]
+  (when-not (:saved-list-scroll-pos @app-state)
+    (swap! app-state assoc :saved-list-scroll-pos (.-scrollY js/window)))
+  (.scrollTo js/window 0 0)
   (swap! app-state assoc :selected-wine-id wine-id)
   (swap! app-state assoc :new-tasting-note {})
   (fetch-tasting-notes app-state wine-id)
@@ -1292,11 +1296,11 @@
 
 (defn exit-wine-detail-page
   "Clean up state when leaving wine detail page"
-  [app-state]
-  ;; Clear wine detail specific state
-  (swap! app-state dissoc
-    :selected-wine-id :tasting-notes
-    :editing-note-id :window-suggestion
-    :new-tasting-note :wine-varieties)
-  ;; Refresh wine list to get updated ratings from database
-  (fetch-wines app-state))
+  ([app-state] (exit-wine-detail-page app-state {}))
+  ([app-state _opts]
+   (swap! app-state dissoc
+     :selected-wine-id :tasting-notes
+     :editing-note-id :window-suggestion
+     :new-tasting-note :wine-varieties)
+   ;; Refresh wine list to get updated ratings from database
+   (fetch-wines app-state {:background? true})))
