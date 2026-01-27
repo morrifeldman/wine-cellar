@@ -4,6 +4,7 @@
             [cljs.core.async :refer [go <!]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.text-field :refer [text-field]]
+            [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.icons.edit :refer [edit]]
             [reagent-mui.icons.save :refer [save]]
@@ -53,10 +54,11 @@
      ;; View Mode
      [box
       {:display "flex"
-       :alignItems "center"
+       :alignItems "flex-start"
        :justifyContent "space-between"
        :width "100%"}
-      [typography {:variant "body2" :sx {:flex 1 :mr 1}} (str value)]
+      [typography {:variant "body2" :sx {:flex 1 :mr 1 :whiteSpace "pre-wrap"}}
+       (str value)]
       [box {:display "flex" :gap 0.5}
        [icon-button
         {:sx {:color "primary.main"}
@@ -99,58 +101,78 @@
             ;; Sort metadata by key for consistent display
             sorted-entries (sort-by (comp str key) metadata)]
         [box {:sx {:mt 2}}
-         [typography {:variant "subtitle2" :sx {:mb 1}}
+         [typography
+          {:variant "subtitle2"
+           :sx {:mb 2 :color "primary.main" :fontWeight "bold"}}
           "Technical Data & Notes"]
          ;; Existing Entries
          (when (seq sorted-entries)
-           [box {:sx {:mb 2}}
+           [box {:sx {:mb 3}}
             (for [[k v] sorted-entries]
               ^{:key (str k)}
-              [grid
-               {:container true :spacing 2 :sx {:mb 1 :alignItems "center"}}
-               [grid {:item true :xs 4}
-                [typography
-                 {:variant "body2"
-                  :sx {:fontWeight "bold" :color "text.secondary"}}
-                 (common/humanize-key k)]]
-               [grid {:item true :xs 8}
-                [inline-editor
-                 {:value v
-                  :on-save #(handle-save k %)
-                  :on-delete #(handle-delete k)}]]])])
+              [box
+               {:sx
+                {:mb 2 :pb 1 :borderBottom "1px solid rgba(255,255,255,0.05)"}}
+               [typography
+                {:variant "caption"
+                 :sx {:fontWeight "bold"
+                      :color "text.secondary"
+                      :textTransform "uppercase"
+                      :display "block"
+                      :mb 0.5
+                      :letterSpacing "0.05em"}} (common/humanize-key k)]
+               [inline-editor
+                {:value v
+                 :on-save #(handle-save k %)
+                 :on-delete #(handle-delete k)}]])])
          ;; Add New Entry
-         [grid {:container true :spacing 2 :sx {:alignItems "flex-start"}}
-          [grid {:item true :xs 4}
-           [autocomplete
-            {:free-solo true
-             :options @suggested-options
-             :value @new-key-input
-             :on-input-change (fn [_ v] (reset! new-key-input v))
-             :render-input (fn [params]
-                             (r/as-element [text-field
-                                            (merge (safe-js-props params)
-                                                   {:label "Field"
-                                                    :variant "outlined"
-                                                    :size "small"})]))}]]
-          [grid {:item true :xs 6}
-           [text-field
-            {:full-width true
-             :label "Value"
-             :variant "outlined"
-             :size "small"
-             :multiline true
-             :maxRows 4
-             :value @new-value
-             :on-change #(reset! new-value (.. % -target -value))
-             :on-key-down (fn [e]
-                            (when (and (= (.-key e) "Enter")
-                                       (not (.-shiftKey e)))
-                              (.preventDefault e)
-                              (handle-add)))}]]
-          [grid {:item true :xs 2}
-           [button
-            {:variant "contained"
-             :color "primary"
-             :size "medium"
-             :disabled (or (str/blank? @new-key-input) (str/blank? @new-value))
-             :on-click handle-add} "Add"]]]]))))
+         [paper
+          {:elevation 0
+           :sx {:p 2
+                :bgcolor "rgba(255,255,255,0.02)"
+                :borderRadius 2
+                :border "1px dashed rgba(255,255,255,0.1)"}}
+          [typography
+           {:variant "caption"
+            :sx {:display "block"
+                 :mb 1.5
+                 :fontWeight "bold"
+                 :color "text.secondary"}} "ADD NEW FIELD"]
+          [grid {:container true :spacing 2 :sx {:alignItems "flex-start"}}
+           [grid {:item true :xs 12 :sm 4}
+            [autocomplete
+             {:free-solo true
+              :options @suggested-options
+              :value @new-key-input
+              :on-input-change (fn [_ v] (reset! new-key-input v))
+              :render-input (fn [params]
+                              (r/as-element [text-field
+                                             (merge (safe-js-props params)
+                                                    {:label "Field Name"
+                                                     :variant "outlined"
+                                                     :placeholder
+                                                     "e.g. Soil Type"
+                                                     :size "small"})]))}]]
+           [grid {:item true :xs 12 :sm 6}
+            [text-field
+             {:full-width true
+              :label "Value"
+              :variant "outlined"
+              :size "small"
+              :multiline true
+              :maxRows 8
+              :value @new-value
+              :on-change #(reset! new-value (.. % -target -value))
+              :on-key-down (fn [e]
+                             (when (and (= (.-key e) "Enter")
+                                        (not (.-shiftKey e)))
+                               (.preventDefault e)
+                               (handle-add)))}]]
+           [grid {:item true :xs 12 :sm 2}
+            [button
+             {:full-width true
+              :variant "contained"
+              :color "primary"
+              :size "medium"
+              :disabled (or (str/blank? @new-key-input) (str/blank? @new-value))
+              :on-click handle-add} "Add"]]]]]))))

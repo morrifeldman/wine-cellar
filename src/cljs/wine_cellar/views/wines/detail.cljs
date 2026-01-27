@@ -9,7 +9,6 @@
     [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
     [reagent-mui.icons.delete :refer [delete]]
     [reagent-mui.icons.edit :refer [edit]]
-    [reagent-mui.icons.check :refer [check]]
     [reagent-mui.icons.close :refer [close]]
     [reagent-mui.icons.add-shopping-cart :refer [add-shopping-cart]]
     [reagent-mui.material.box :refer [box]]
@@ -704,28 +703,39 @@
 (defn restock-dialog
   [app-state wine-id open? on-close]
   (r/with-let
-   [quantity (r/atom "6")]
+   [quantity (r/atom "6") notes (r/atom "")]
    [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
     [dialog-title "Restock Wine"]
     [dialog-content
-     [box {:sx {:pt 2}}
+     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
       [text-field
        {:value @quantity
         :type "number"
         :label "Number of bottles"
         :fullWidth true
         :autoFocus true
-        :onChange (fn [e] (reset! quantity (.. e -target -value)))}]]]
+        :onChange (fn [e] (reset! quantity (.. e -target -value)))}]
+      [text-field
+       {:value @notes
+        :label "Notes (optional)"
+        :placeholder "e.g. Purchased from Vivino"
+        :fullWidth true
+        :multiline true
+        :rows 3
+        :onChange (fn [e] (reset! notes (.. e -target -value)))}]]]
     [dialog-actions [button {:onClick on-close} "Cancel"]
      [button
       {:variant "contained"
        :onClick (fn []
                   (let [amount (js/parseInt @quantity 10)]
                     (when (and (not (js/isNaN amount)) (pos? amount))
-                      (api/adjust-wine-quantity app-state
-                                                wine-id
-                                                amount
-                                                {:reason "restock"})
+                      (api/adjust-wine-quantity
+                       app-state
+                       wine-id
+                       amount
+                       {:reason "restock"
+                        :notes (when-not (str/blank? @notes) @notes)})
+                      (reset! notes "")
                       (on-close))))} "Restock"]]]))
 
 (defn wine-compact-details-section
@@ -949,16 +959,8 @@
         (api/update-wine app-state (:id wine) {:metadata new-metadata}))}]]])
 
 (defn history-date-cell
-  [record edit-mode local-state]
-  [table-cell
-   (if edit-mode
-     [text-field
-      {:type "date"
-       :value (:occurred_at @local-state)
-       :onChange #(swap! local-state assoc :occurred_at (.. % -target -value))
-       :size "small"
-       :variant "standard"}]
-     (format-date-iso (:occurred_at record)))])
+  [record]
+  [table-cell (format-date-iso (:occurred_at record))])
 
 (defn history-change-cell
   [record]
@@ -973,29 +975,12 @@
   (into {} (for [[k v] common/inventory-reasons] [v k])))
 
 (defn history-reason-cell
-  [record edit-mode local-state]
+  [record]
   (let [reason-key (:reason record)
         display-label (get common/inventory-reasons
                            (str/lower-case (or reason-key ""))
                            reason-key)]
-    [table-cell
-     (if edit-mode
-       [autocomplete
-        {:freeSolo true
-         :options (sort (vals common/inventory-reasons))
-         :value (or (:reason-display @local-state) display-label)
-         :sx {:minWidth 130}
-         :onInputChange
-         (fn [_ new-display _]
-           (let [k (get history-reason-display->key new-display new-display)]
-             (swap! local-state assoc :reason k :reason-display new-display)))
-         :renderInput (fn [params]
-                        (let [props (gobj/clone params)]
-                          (gobj/set props "variant" "standard")
-                          (gobj/set props "size" "small")
-                          (gobj/set props "fullWidth" true)
-                          (r/create-element TextField props)))}]
-       display-label)]))
+    [table-cell display-label]))
 
 (defn history-balance-cell
   [record]
@@ -1013,82 +998,102 @@
             " / " oq))
      (str (:previous_quantity record) " → " (:new_quantity record)))])
 
-(defn history-notes-cell
-  [record edit-mode local-state]
-  [table-cell
-   (if edit-mode
-     [text-field
-      {:value (:notes @local-state)
-       :onChange #(swap! local-state assoc :notes (.. % -target -value))
-       :size "small"
-       :variant "standard"
-       :fullWidth true}]
-     (:notes record))])
+(defn history-notes-cell [record] [table-cell (:notes record)])
+
+(defn history-edit-dialog
+  [app-state wine-id record open? on-close]
+  (r/with-let
+   [local-state (r/atom nil)]
+   (when @open?
+     (when (nil? @local-state)
+       (let [reason-key (:reason record)
+             display-label (get common/inventory-reasons
+                                (str/lower-case (or reason-key ""))
+                                reason-key)]
+         (reset! local-state {:occurred_at (format-date-iso (:occurred_at
+                                                             record))
+                              :reason reason-key
+                              :reason-display display-label
+                              :notes (:notes record)})))
+     [dialog {:open @open? :onClose on-close :maxWidth "sm" :fullWidth true}
+      [dialog-title "Edit History Record"]
+      [dialog-content
+       [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
+        [text-field
+         {:type "date"
+          :label "Date"
+          :value (:occurred_at @local-state)
+          :onChange
+          #(swap! local-state assoc :occurred_at (.. % -target -value))
+          :fullWidth true}]
+        [autocomplete
+         {:freeSolo true
+          :options (sort (vals common/inventory-reasons))
+          :value (:reason-display @local-state)
+          :onInputChange
+          (fn [_ new-display _]
+            (let [k (get history-reason-display->key new-display new-display)]
+              (swap! local-state assoc :reason k :reason-display new-display)))
+          :renderInput (fn [params]
+                         (let [props (gobj/clone params)]
+                           (gobj/set props "label" "Reason")
+                           (gobj/set props "variant" "outlined")
+                           (gobj/set props "fullWidth" true)
+                           (r/create-element TextField props)))}]
+        [text-field
+         {:label "Notes"
+          :value (:notes @local-state)
+          :onChange #(swap! local-state assoc :notes (.. % -target -value))
+          :multiline true
+          :rows 4
+          :fullWidth true
+          :variant "outlined"}]]]
+      [dialog-actions [button {:onClick on-close} "Cancel"]
+       [button
+        {:variant "contained"
+         :onClick (fn []
+                    (api/update-inventory-history app-state
+                                                  wine-id
+                                                  (:id record)
+                                                  @local-state)
+                    (on-close))} "Save Changes"]]])))
 
 (defn history-actions-cell
-  [app-state wine-id record editing? local-state]
-  (let [edit-mode @editing?]
-    [table-cell
-     {:align "right"
-      :padding "none"
-      :sx {:minWidth 100
-           :position "sticky"
-           :right 0
-           :bgcolor "background.paper"
-           :zIndex 1
-           :borderLeft "1px solid rgba(0,0,0,0.08)"}}
-     (if edit-mode
-       [:<>
-        [icon-button
-         {:size "small"
-          :sx {:color "primary.main"}
-          :onClick (fn []
-                     (api/update-inventory-history app-state
-                                                   wine-id
-                                                   (:id record)
-                                                   @local-state)
-                     (reset! editing? false))} [check {:fontSize "small"}]]
-        [icon-button
-         {:size "small"
-          :sx {:color "#ff8a80"}
-          :onClick #(reset! editing? false)} [close {:fontSize "small"}]]]
-       [:<>
-        [icon-button
-         {:size "small"
-          :sx {:color "primary.main"}
-          :onClick (fn []
-                     (let [reason-key (:reason record)
-                           display-label (get common/inventory-reasons
-                                              (str/lower-case (or reason-key
-                                                                  ""))
-                                              reason-key)]
-                       (reset! local-state {:occurred_at (format-date-iso
-                                                          (:occurred_at record))
-                                            :reason reason-key
-                                            :reason-display display-label
-                                            :notes (:notes record)})
-                       (reset! editing? true)))} [edit {:fontSize "small"}]]
-        [icon-button
-         {:size "small"
-          :sx {:color "#ff8a80"}
-          :onClick
-          (fn []
-            (when (js/confirm
-                   "Delete this history record? Quantity will NOT change.")
-              (api/delete-inventory-history app-state wine-id (:id record))))}
-         [delete {:fontSize "small"}]]])]))
+  [app-state wine-id record on-edit]
+  [table-cell
+   {:align "right"
+    :padding "none"
+    :sx {:minWidth 100
+         :position "sticky"
+         :right 0
+         :bgcolor "background.paper"
+         :zIndex 1
+         :borderLeft "1px solid rgba(0,0,0,0.08)"}}
+   [:<>
+    [icon-button {:size "small" :sx {:color "primary.main"} :onClick on-edit}
+     [edit {:fontSize "small"}]]
+    [icon-button
+     {:size "small"
+      :sx {:color "#ff8a80"}
+      :onClick
+      (fn []
+        (when (js/confirm
+               "Delete this history record? Quantity will NOT change.")
+          (api/delete-inventory-history app-state wine-id (:id record))))}
+     [delete {:fontSize "small"}]]]])
 
 (defn inventory-history-row
   [app-state wine-id record]
-  (r/with-let [editing? (r/atom false) local-state (r/atom nil)]
-              (let [edit-mode @editing?]
-                [table-row [history-date-cell record edit-mode local-state]
-                 [history-change-cell record]
-                 [history-reason-cell record edit-mode local-state]
-                 [history-balance-cell record]
-                 [history-notes-cell record edit-mode local-state]
-                 [history-actions-cell app-state wine-id record editing?
-                  local-state]])))
+  (r/with-let [edit-open? (r/atom false)]
+              [:<>
+               (when @edit-open?
+                 [history-edit-dialog app-state wine-id record edit-open?
+                  #(reset! edit-open? false)])
+               [table-row [history-date-cell record]
+                [history-change-cell record] [history-reason-cell record]
+                [history-balance-cell record] [history-notes-cell record]
+                [history-actions-cell app-state wine-id record
+                 #(reset! edit-open? true)]]]))
 
 (defn inventory-history-section
   [app-state wine]
