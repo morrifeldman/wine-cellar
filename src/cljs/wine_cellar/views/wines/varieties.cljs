@@ -203,6 +203,7 @@
              [icon-button
               {:edge "end"
                :aria-label "edit"
+               :sx {:color "primary.main"}
                :on-click #(swap! app-state assoc
                             :editing-wine-variety-id (:variety_id variety)
                             :editing-wine-variety variety
@@ -210,6 +211,7 @@
              [icon-button
               {:edge "end"
                :aria-label "delete"
+               :sx {:color "#ff8a80"}
                :on-click #(swap! app-state assoc
                             :deleting-wine-variety-id
                             (:variety_id variety))} [delete]]]]])])

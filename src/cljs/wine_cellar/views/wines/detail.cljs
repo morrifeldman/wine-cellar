@@ -1041,7 +1041,7 @@
        [:<>
         [icon-button
          {:size "small"
-          :color "primary"
+          :sx {:color "primary.main"}
           :onClick (fn []
                      (api/update-inventory-history app-state
                                                    wine-id
@@ -1049,12 +1049,13 @@
                                                    @local-state)
                      (reset! editing? false))} [check {:fontSize "small"}]]
         [icon-button
-         {:size "small" :color "error" :onClick #(reset! editing? false)}
-         [close {:fontSize "small"}]]]
+         {:size "small"
+          :sx {:color "#ff8a80"}
+          :onClick #(reset! editing? false)} [close {:fontSize "small"}]]]
        [:<>
         [icon-button
          {:size "small"
-          :color "primary"
+          :sx {:color "primary.main"}
           :onClick (fn []
                      (let [reason-key (:reason record)
                            display-label (get common/inventory-reasons
@@ -1069,7 +1070,7 @@
                        (reset! editing? true)))} [edit {:fontSize "small"}]]
         [icon-button
          {:size "small"
-          :color "error"
+          :sx {:color "#ff8a80"}
           :onClick
           (fn []
             (when (js/confirm

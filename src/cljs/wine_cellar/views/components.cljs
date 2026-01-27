@@ -261,8 +261,9 @@
       [typography {:variant "body1"}
        (if (or (nil? value) (str/blank? value)) empty-text value)]
       [icon-button
-       {:color "primary" :size "small" :onClick #(reset! editing true)}
-       [edit]]])))
+       {:sx {:color "primary.main"}
+        :size "small"
+        :onClick #(reset! editing true)} [edit]]])))
 
   ;; Specific field implementations
 (defn editable-text-field

@@ -59,11 +59,11 @@
       [typography {:variant "body2" :sx {:flex 1 :mr 1}} (str value)]
       [box {:display "flex" :gap 0.5}
        [icon-button
-        {:color "primary" :size "small" :on-click #(reset! editing? true)}
-        [edit]]
-       [icon-button {:color "error" :size "small" :on-click on-delete}
+        {:sx {:color "primary.main"}
+         :size "small"
+         :on-click #(reset! editing? true)} [edit]]
+       [icon-button {:sx {:color "#ff8a80"} :size "small" :on-click on-delete}
         [delete]]]])))
-
 (defn technical-data-editor
   "Component to edit arbitrary metadata fields.
                Props:
