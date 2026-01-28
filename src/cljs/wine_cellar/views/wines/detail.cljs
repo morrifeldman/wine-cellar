@@ -527,18 +527,18 @@
      [editable-name app-state wine]]]
    ;; Country + Region
    [grid {:container true :spacing 1 :sx {:mt 2}}
-    [grid {:item true :xs 6 :sm 6}
+    [grid {:item true :xs 12 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Country"]
      [editable-country app-state wine]]
-    [grid {:item true :xs 6 :sm 6}
+    [grid {:item true :xs 12 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Region"]
      [editable-region app-state wine]]]
    ;; Appellation + Appellation Tier
    [grid {:container true :spacing 1 :sx {:mt 1}}
-    [grid {:item true :xs 6 :sm 6}
+    [grid {:item true :xs 12 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Appellation"]
      [editable-appellation app-state wine]]
-    [grid {:item true :xs 6 :sm 6}
+    [grid {:item true :xs 12 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Appellation Tier"]
      [editable-appellation-tier app-state wine]]]])
 
