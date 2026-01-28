@@ -220,18 +220,32 @@
              db-conversation->conversation))))
 
 (defn list-conversations-for-user
-  "Return conversations for the given user ordered by recent activity."
-  [user-email]
-  (->> (jdbc/execute! ds
-                      (sql/format {:select :*
-                                   :from :ai_conversations
-                                   :where [:= :user_email user-email]
-                                   :order-by [[:pinned :desc]
-                                              [:last_message_at :desc]
-                                              [:created_at :desc]]})
-                      db-opts)
-       (map db-conversation->conversation)
-       vec))
+  "Return conversations for the given user ordered by recent activity.
+   Optionally filter by search text matching title or message content."
+  ([user-email] (list-conversations-for-user user-email nil))
+  ([user-email search-text]
+   (let [base-query {:select [:c.*]
+                     :from [[:ai_conversations :c]]
+                     :where [:= :c.user_email user-email]
+                     :order-by [[:c.pinned :desc] [:c.last_message_at :desc]
+                                [:c.created_at :desc]]}
+         query (if (str/blank? search-text)
+                 base-query
+                 (let [pattern (str "%" search-text "%")]
+                   (-> base-query
+                       (dissoc :select)
+                       (assoc :select-distinct [:c.*])
+                       (assoc :left-join
+                              [[:ai_conversation_messages :m]
+                               [:= :c.id :m.conversation_id]])
+                       (assoc :where
+                              [:and [:= :c.user_email user-email]
+                               [:or [:ilike :c.title pattern]
+                                [:ilike :m.content pattern]]]))))
+         sql-vec (sql/format query)]
+     (->> (jdbc/execute! ds sql-vec db-opts)
+          (map db-conversation->conversation)
+          vec))))
 
 (defn get-conversation
   [conversation-id]

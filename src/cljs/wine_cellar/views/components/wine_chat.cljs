@@ -397,43 +397,68 @@
    {:keys [open? conversations loading? active-id deleting-id renaming-id
            pinning-id scroll-ref scroll-requested? on-delete on-rename on-pin
            on-select]}]
-  (if open?
-    (let [items (conversations->items app-state
-                                      messages
-                                      {:active-id active-id
-                                       :deleting-id deleting-id
-                                       :renaming-id renaming-id
-                                       :pinning-id pinning-id
-                                       :on-delete on-delete
-                                       :on-rename on-rename
-                                       :on-pin on-pin
-                                       :on-select on-select}
-                                      conversations)
-          status (cond loading? :loading
-                       (empty? conversations) :empty
-                       :else :items)
-          content (conversation-content status items)]
-      [grid {:item true :xs 12 :md 4}
-       [box
-        {:sx {:border "1px solid"
-              :border-color "divider"
-              :border-radius 1
-              :overflow "hidden"
-              :background-color "background.default"}}
-        [typography
-         {:variant "subtitle2"
-          :sx {:px 2 :py 1 :border-bottom "1px solid" :border-color "divider"}}
-         "Conversations"]
+  (r/with-let
+   [search-text (r/atom "") timeout-id (r/atom nil) handle-search
+    (fn [val]
+      (reset! search-text val)
+      (when @timeout-id (js/clearTimeout @timeout-id))
+      (reset! timeout-id (js/setTimeout #(api/load-conversations! app-state
+                                                                  {:search-text
+                                                                   val})
+                                        300)))]
+   (if open?
+     (let [items (conversations->items app-state
+                                       messages
+                                       {:active-id active-id
+                                        :deleting-id deleting-id
+                                        :renaming-id renaming-id
+                                        :pinning-id pinning-id
+                                        :on-delete on-delete
+                                        :on-rename on-rename
+                                        :on-pin on-pin
+                                        :on-select on-select}
+                                       conversations)
+           status (cond loading? :loading
+                        (empty? conversations) :empty
+                        :else :items)
+           content (conversation-content status items)]
+       [grid {:item true :xs 12 :md 4}
         [box
-         {:sx {:max-height "320px" :overflow "auto"}
-          :ref (fn [el]
-                 (when scroll-ref (reset! scroll-ref el))
-                 (when (and scroll-requested? @scroll-requested? el)
-                   (.scrollTo el 0 0)
-                   (reset! scroll-requested? false)))} content]]])
-    (do (when scroll-requested? (reset! scroll-requested? false))
-        (when scroll-ref (reset! scroll-ref nil))
-        nil)))
+         {:sx {:border "1px solid"
+               :border-color "divider"
+               :border-radius 1
+               :overflow "hidden"
+               :background-color "background.default"}}
+         [typography
+          {:variant "subtitle2"
+           :sx {:px 2 :py 1 :border-bottom "1px solid" :border-color "divider"}}
+          "Conversations"]
+         [box {:sx {:p 1 :border-bottom "1px solid" :border-color "divider"}}
+          [mui-text-field/text-field
+           {:fullWidth true
+            :size "small"
+            :placeholder "Search..."
+            :variant "outlined"
+            :value @search-text
+            :onChange (fn [e] (handle-search (.. e -target -value)))
+            :InputProps {:endAdornment
+                         (when (seq @search-text)
+                           (r/as-element
+                            [icon-button
+                             {:size "small"
+                              :onClick #(handle-search "")
+                              :sx {:p 0.5 :mr -0.5 :color "text.secondary"}}
+                             [close {:fontSize "small"}]]))}}]]
+         [box
+          {:sx {:max-height "320px" :overflow "auto"}
+           :ref (fn [el]
+                  (when scroll-ref (reset! scroll-ref el))
+                  (when (and scroll-requested? @scroll-requested? el)
+                    (.scrollTo el 0 0)
+                    (reset! scroll-requested? false)))} content]]])
+     (do (when scroll-requested? (reset! scroll-requested? false))
+         (when scroll-ref (reset! scroll-ref nil))
+         nil))))
 
 (defn- render-text-with-links
   [text app-state is-user]

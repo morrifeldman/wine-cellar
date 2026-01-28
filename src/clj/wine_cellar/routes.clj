@@ -156,6 +156,7 @@
          #(<= % 500)))
 (s/def ::cellar-condition-query (s/keys :opt-un [::device_id ::limit]))
 (s/def ::query string?)
+(s/def ::search-text (s/nilable string?))
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
@@ -313,6 +314,7 @@
             :handler handlers/chat-with-ai}}]
    ["/conversations"
     {:get {:summary "List AI conversations for the authenticated user"
+           :parameters {:query (s/keys :opt-un [::search-text])}
            :responses {200 {:body vector?} 500 {:body map?}}
            :handler handlers/list-conversations}
      :post {:summary "Create a new AI conversation"

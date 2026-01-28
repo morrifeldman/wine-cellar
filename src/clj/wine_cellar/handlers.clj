@@ -432,13 +432,10 @@
 
 (defn list-conversations
   [request]
-  (try (let [email (ensure-user-email request)]
-         (response/response (db-api/list-conversations-for-user email)))
-       (catch Exception e
-         (if-let [status (:status (ex-data e))]
-           {:status status :body {:error (.getMessage e)}}
-           (server-error e)))))
-
+  (try (let [email (ensure-user-email request)
+             search-text (get-in request [:parameters :query :search-text])]
+         (response/response (db-api/list-conversations-for-user email
+                                                                search-text)))
 (defn create-conversation
   [request]
   (try (let [email (ensure-user-email request)

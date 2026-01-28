@@ -704,17 +704,19 @@
   "Fetch conversations for the authenticated user and store them in app state."
   ([app-state] (load-conversations! app-state {}))
   ([app-state opts]
-   (let [{:keys [force?] :or {force? false}} opts
+   (let [{:keys [force? search-text] :or {force? false}} opts
          chat-state (:chat @app-state)
          loading? (:conversation-loading? chat-state)
-         loaded? (:conversations-loaded? chat-state)]
-     (when (and (not loading?) (or force? (not loaded?)))
+         loaded? (:conversations-loaded? chat-state)
+         query (encode-query-params
+                (cond-> {} search-text (assoc :search-text search-text)))]
+     (when (and (not loading?) (or force? (not loaded?) search-text))
        (swap! app-state (fn [state]
                           (-> state
                               (assoc-in [:chat :conversation-loading?] true)
                               (assoc-in [:chat :conversations-loaded?] false))))
        (go
-        (let [result (<! (GET "/api/conversations"
+        (let [result (<! (GET (str "/api/conversations" query)
                               "Failed to load conversations"))]
           (if (:success result)
             (let [conversations (vec (:data result))
