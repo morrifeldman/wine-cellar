@@ -1301,6 +1301,7 @@
    (swap! app-state dissoc
      :selected-wine-id :tasting-notes
      :editing-note-id :window-suggestion
-     :new-tasting-note :wine-varieties)
+     :new-tasting-note :wine-varieties
+     :zoomed-image :inventory-history)
    ;; Refresh wine list to get updated ratings from database
    (fetch-wines app-state {:background? true})))
