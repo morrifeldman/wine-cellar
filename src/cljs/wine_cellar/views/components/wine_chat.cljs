@@ -392,6 +392,25 @@
             "No conversations yet"]
     (into [:<>] items)))
 
+(defn- conversation-search-bar
+  [search-text handle-search]
+  [box {:sx {:p 1 :border-bottom "1px solid" :border-color "divider"}}
+   [mui-text-field/text-field
+    {:fullWidth true
+     :size "small"
+     :placeholder "Search..."
+     :variant "outlined"
+     :value @search-text
+     :onChange (fn [e] (handle-search (.. e -target -value)))
+     :InputProps {:endAdornment (when (seq @search-text)
+                                  (r/as-element
+                                   [icon-button
+                                    {:size "small"
+                                     :onClick #(handle-search "")
+                                     :sx
+                                     {:p 0.5 :mr -0.5 :color "text.secondary"}}
+                                    [close {:fontSize "small"}]]))}}]])
+
 (defn- conversation-sidebar
   [app-state messages
    {:keys [open? conversations loading? active-id deleting-id renaming-id
@@ -432,23 +451,7 @@
          [typography
           {:variant "subtitle2"
            :sx {:px 2 :py 1 :border-bottom "1px solid" :border-color "divider"}}
-          "Conversations"]
-         [box {:sx {:p 1 :border-bottom "1px solid" :border-color "divider"}}
-          [mui-text-field/text-field
-           {:fullWidth true
-            :size "small"
-            :placeholder "Search..."
-            :variant "outlined"
-            :value @search-text
-            :onChange (fn [e] (handle-search (.. e -target -value)))
-            :InputProps {:endAdornment
-                         (when (seq @search-text)
-                           (r/as-element
-                            [icon-button
-                             {:size "small"
-                              :onClick #(handle-search "")
-                              :sx {:p 0.5 :mr -0.5 :color "text.secondary"}}
-                             [close {:fontSize "small"}]]))}}]]
+          "Conversations"] [conversation-search-bar search-text handle-search]
          [box
           {:sx {:max-height "320px" :overflow "auto"}
            :ref (fn [el]
@@ -545,6 +548,97 @@
         :on-click #(on-edit id text)}
        [edit {:sx {:font-size edit-icon-size}}]])]])
 
+(defn- attached-image-preview
+  [image on-remove]
+  [box
+   {:sx
+    {:mb 1 :p 1 :border "1px solid" :border-color "divider" :border-radius 1}}
+   [box
+    {:sx {:display "flex"
+          :justify-content "space-between"
+          :align-items "center"
+          :mb 1}}
+    [typography {:variant "caption" :color "text.secondary"} "Attached image:"]
+    [icon-button
+     {:size "small" :on-click on-remove :sx {:color "secondary.main"}}
+     [close {:sx {:font-size "0.8rem"}}]]]
+   [box
+    {:component "img"
+     :src image
+     :sx {:max-width "100%"
+          :max-height "150px"
+          :object-fit "contain"
+          :border-radius 1}}]])
+
+(defn- chat-input-actions
+  [disabled? on-send message-ref app-state on-image-capture on-cancel-request
+   attached-image]
+  [box
+   {:sx {:display "flex"
+         :justify-content "flex-end"
+         :align-items "center"
+         :gap 1
+         :flex-wrap "wrap"}}
+   (let [is-mobile? (and js/navigator.maxTouchPoints
+                         (> js/navigator.maxTouchPoints 0))
+         trigger-upload #(when-let [input (js/document.getElementById
+                                           "photo-picker-input")]
+                           (.click input))]
+     [:<>
+      [:input
+       {:type "file"
+        :accept "image/*"
+        :style {:display "none"}
+        :id "photo-picker-input"
+        :on-change #(when-let [file (-> %
+                                        .-target
+                                        .-files
+                                        (aget 0))]
+                      (handle-clipboard-image file attached-image))}]
+      (when is-mobile?
+        [button
+         {:variant "outlined"
+          :size "small"
+          :disabled @disabled?
+          :startIcon (r/as-element [camera-alt {:size 14}])
+          :on-click #(on-image-capture nil)
+          :sx {:minWidth "90px"}} "Camera"])
+      [button
+       {:variant "outlined"
+        :size "small"
+        :disabled @disabled?
+        :startIcon (r/as-element [photo-library {:size 14}])
+        :on-click trigger-upload
+        :sx {:minWidth (if is-mobile? "90px" "100px")}}
+       (if is-mobile? "Photos" "Upload")]
+      (when @disabled?
+        [button
+         {:variant "outlined"
+          :color "error"
+          :size "small"
+          :on-click on-cancel-request
+          :sx {:minWidth "60px"}} "Stop"])
+      [button
+       {:variant "contained"
+        :disabled @disabled?
+        :sx {:minWidth "60px" :px 1}
+        :startIcon (if @disabled?
+                     (r/as-element [circular-progress
+                                    {:size 14 :sx {:color "secondary.light"}}])
+                     (r/as-element [send {:size 14}]))
+        :on-click
+        #(when @message-ref
+           (let [message-text (.-value @message-ref)]
+             (when (or (seq (str message-text)) @attached-image)
+               (on-send message-text)
+               (set! (.-value @message-ref) "")
+               (swap! app-state update :chat dissoc :draft-message))))}
+       [box
+        {:sx {:color (if @disabled? "text.disabled" "inherit")
+              :fontWeight (if @disabled? "600" "normal")
+              :fontSize (if @disabled? "0.8rem" "0.9rem")}}
+        (if @disabled? "Sending..." "Send")]]])])
+
 (defn chat-input
   "Chat input field with send button and camera button - uncontrolled for performance"
   [message-ref on-send disabled? reset-key app-state on-image-capture
@@ -561,31 +655,7 @@
      {:key reset-key
       :sx {:display "flex" :flex-direction "column" :gap 1 :mt 2}
       :ref #(reset! container-ref %)}
-     (when has-image?
-       [box
-        {:sx {:mb 1
-              :p 1
-              :border "1px solid"
-              :border-color "divider"
-              :border-radius 1}}
-        [box
-         {:sx {:display "flex"
-               :justify-content "space-between"
-               :align-items "center"
-               :mb 1}}
-         [typography {:variant "caption" :color "text.secondary"}
-          "Attached image:"]
-         [icon-button
-          {:size "small"
-           :on-click on-image-remove
-           :sx {:color "secondary.main"}} [close {:sx {:font-size "0.8rem"}}]]]
-        [box
-         {:component "img"
-          :src has-image?
-          :sx {:max-width "100%"
-               :max-height "150px"
-               :object-fit "contain"
-               :border-radius 1}}]])
+     (when has-image? [attached-image-preview has-image? on-image-remove])
      [mui-text-field/text-field
       {:multiline true
        :rows 5
@@ -611,72 +681,8 @@
        :on-change
        #(swap! app-state assoc-in [:chat :draft-message] (.. % -target -value))
        :on-paste #(handle-paste-event % attached-image)}]
-     [box
-      {:sx {:display "flex"
-            :justify-content "flex-end"
-            :align-items "center"
-            :gap 1
-            :flex-wrap "wrap"}}
-      (let [is-mobile? (and js/navigator.maxTouchPoints
-                            (> js/navigator.maxTouchPoints 0))
-            trigger-upload #(when-let [input (js/document.getElementById
-                                              "photo-picker-input")]
-                              (.click input))]
-        [:<>
-         [:input
-          {:type "file"
-           :accept "image/*"
-           :style {:display "none"}
-           :id "photo-picker-input"
-           :on-change #(when-let [file (-> %
-                                           .-target
-                                           .-files
-                                           (aget 0))]
-                         (handle-clipboard-image file attached-image))}]
-         (when is-mobile?
-           [button
-            {:variant "outlined"
-             :size "small"
-             :disabled @disabled?
-             :startIcon (r/as-element [camera-alt {:size 14}])
-             :on-click #(on-image-capture nil)
-             :sx {:minWidth "90px"}} "Camera"])
-         [button
-          {:variant "outlined"
-           :size "small"
-           :disabled @disabled?
-           :startIcon (r/as-element [photo-library {:size 14}])
-           :on-click trigger-upload
-           :sx {:minWidth (if is-mobile? "90px" "100px")}}
-          (if is-mobile? "Photos" "Upload")]
-         (when @disabled?
-           [button
-            {:variant "outlined"
-             :color "error"
-             :size "small"
-             :on-click on-cancel-request
-             :sx {:minWidth "60px"}} "Stop"])
-         [button
-          {:variant "contained"
-           :disabled @disabled?
-           :sx {:minWidth "60px" :px 1}
-           :startIcon (if @disabled?
-                        (r/as-element [circular-progress
-                                       {:size 14
-                                        :sx {:color "secondary.light"}}])
-                        (r/as-element [send {:size 14}]))
-           :on-click
-           #(when @message-ref
-              (let [message-text (.-value @message-ref)]
-                (when (or (seq (str message-text)) has-image?)
-                  (on-send message-text)
-                  (set! (.-value @message-ref) "")
-                  (swap! app-state update :chat dissoc :draft-message))))}
-          [box
-           {:sx {:color (if @disabled? "text.disabled" "inherit")
-                 :fontWeight (if @disabled? "600" "normal")
-                 :fontSize (if @disabled? "0.8rem" "0.9rem")}}
-           (if @disabled? "Sending..." "Send")]]])]]))
+     [chat-input-actions disabled? on-send message-ref app-state
+      on-image-capture on-cancel-request attached-image]]))
 
 (defn chat-messages
   "Scrollable container for chat messages"
@@ -1138,6 +1144,49 @@
     :PaperProps {:sx {:py 2 :px 2}}} (chat-dialog-header header-props)
    (chat-dialog-content content-props)])
 
+(defn- context-indicator-button
+  [context-mode indicator-props change-context-mode!]
+  (let [{:keys [color label sx]} indicator-props
+        context-cycle [:summary :selection :selection+filters]
+        cycle-context-mode!
+        (fn []
+          (let [indexed (map-indexed vector context-cycle)
+                idx (or (some (fn [[i mode]] (when (= mode context-mode) i))
+                              indexed)
+                        0)
+                next-mode (nth context-cycle
+                               (mod (inc idx) (count context-cycle)))]
+            (change-context-mode! next-mode)))
+        toggle-style {:backgroundColor "rgba(255,255,255,0.08)"
+                      :borderRadius 1
+                      :px 1
+                      :py 0.25
+                      :border "1px solid rgba(255,255,255,0.2)"
+                      :color "rgba(255,255,255,0.8)"
+                      :textTransform "uppercase"
+                      :fontSize "0.65rem"
+                      :fontWeight 600
+                      :lineHeight 1.1
+                      :letterSpacing "0.05em"
+                      :minWidth 0
+                      "&:hover" {:backgroundColor "rgba(255,255,255,0.12)"}}]
+    [box {:sx {:display "flex" :flexDirection "column" :gap 0.5}}
+     [button
+      {:variant "outlined"
+       :size "small"
+       :onClick cycle-context-mode!
+       :sx toggle-style}
+      [:span
+       {:style {:display "inline-flex"
+                :flexDirection "column"
+                :alignItems "center"
+                :gap "0.1rem"}} "Toggle"
+       [:span {:style {:display "block"}} "Context"]]]
+     [typography
+      {:variant "caption"
+       :sx (merge {:color color :fontSize "0.7rem" :lineHeight 1.2} sx)}
+      label]]))
+
 (defn chat-dialog
   "Main chat dialog component"
   [app-state]
@@ -1227,50 +1276,8 @@
                                            (:chat @app-state))]
                 (sync-conversation-context! app-state
                                             (context-wines app-state))))
-            context-indicator
-            (let [{:keys [color label sx]} indicator-props
-                  indicator-label label
-                  context-cycle [:summary :selection :selection+filters]
-                  cycle-context-mode!
-                  (fn []
-                    (let [indexed (map-indexed vector context-cycle)
-                          idx (or (some (fn [[i mode]]
-                                          (when (= mode context-mode) i))
-                                        indexed)
-                                  0)
-                          next-mode (nth context-cycle
-                                         (mod (inc idx) (count context-cycle)))]
-                      (change-context-mode! next-mode)))
-                  toggle-style {:backgroundColor "rgba(255,255,255,0.08)"
-                                :borderRadius 1
-                                :px 1
-                                :py 0.25
-                                :border "1px solid rgba(255,255,255,0.2)"
-                                :color "rgba(255,255,255,0.8)"
-                                :textTransform "uppercase"
-                                :fontSize "0.65rem"
-                                :fontWeight 600
-                                :lineHeight 1.1
-                                :letterSpacing "0.05em"
-                                :minWidth 0
-                                "&:hover" {:backgroundColor
-                                           "rgba(255,255,255,0.12)"}}]
-              [box {:sx {:display "flex" :flexDirection "column" :gap 0.5}}
-               [button
-                {:variant "outlined"
-                 :size "small"
-                 :onClick cycle-context-mode!
-                 :sx toggle-style}
-                [:span
-                 {:style {:display "inline-flex"
-                          :flexDirection "column"
-                          :alignItems "center"
-                          :gap "0.1rem"}} "Toggle"
-                 [:span {:style {:display "block"}} "Context"]]]
-               [typography
-                {:variant "caption"
-                 :sx (merge {:color color :fontSize "0.7rem" :lineHeight 1.2}
-                            sx)} indicator-label]])
+            context-indicator [context-indicator-button context-mode
+                               indicator-props change-context-mode!]
             filter-count-info {:visible visible-count :total total-count}
             filter-panel (when filters-active?
                            (wine-filters/compact-filter-bar app-state
