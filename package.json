@@ -12,6 +12,7 @@
     "recharts": "2.15.3"
   },
   "devDependencies": {
+    "playwright": "^1.58.0",
     "shadow-cljs": "^2.28.21"
   }
 }

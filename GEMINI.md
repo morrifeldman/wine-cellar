@@ -13,6 +13,11 @@
 - **Migrations:** I propose ad-hoc Clojure scripts (in `scripts/wine_cellar/scripts/`) for data tasks rather than manual DB manipulations.
 - **Testing:** I ask you to test features before proposing any finalization; I do not assume they work.
 
+### UI Verification & Testing
+- **Playwright:** Use `dev/ui_check.js` for E2E verification.
+- **Auth Injection:** To bypass Google OAuth in headless tests, I generate a JWT via the backend REPL (`auth/create-jwt-token`) and inject it as an `auth-token` cookie in the Playwright browser context.
+- **Frontend REPL:** Use for "White Box" state introspection. I can query `@wine-cellar.core/app-state` instantly when a browser runtime is connected to Shadow-CLJS.
+
 ### UI/UX Preferences
 - **Taxonomy:** `Classification` = Terroir/Site (Grand Cru). `Designation` = Style/Aging (Riserva).
 - **Cards:** Minimalist, label-free, dot-separated metadata.
