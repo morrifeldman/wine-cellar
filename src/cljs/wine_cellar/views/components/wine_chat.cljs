@@ -6,6 +6,7 @@
             [reagent-mui.material.dialog-title :refer [dialog-title]]
             [reagent-mui.material.dialog-content :refer [dialog-content]]
             [reagent-mui.material.text-field :as mui-text-field]
+            [reagent-mui.material.input-adornment :refer [input-adornment]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
@@ -22,6 +23,8 @@
             [reagent-mui.icons.send :refer [send]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [reagent-mui.icons.photo-library :refer [photo-library]]
+            [reagent-mui.icons.arrow-upward :refer [arrow-upward]]
+            [reagent-mui.icons.arrow-downward :refer [arrow-downward]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [wine-cellar.views.components.image-upload :refer [camera-capture]]
             [wine-cellar.views.components.ai-provider-toggle :as ai-toggle]
@@ -400,23 +403,71 @@
     (into [:<>] items)))
 
 (defn- conversation-search-bar
-  [search-text handle-search]
-  [box {:sx {:p 1 :border-bottom "1px solid" :border-color "divider"}}
-   [mui-text-field/text-field
-    {:fullWidth true
-     :size "small"
-     :placeholder "Search..."
-     :variant "outlined"
-     :value @search-text
-     :onChange (fn [e] (handle-search (.. e -target -value)))
-     :InputProps {:endAdornment (when (seq @search-text)
-                                  (r/as-element
-                                   [icon-button
-                                    {:size "small"
-                                     :onClick #(handle-search "")
-                                     :sx
-                                     {:p 0.5 :mr -0.5 :color "text.secondary"}}
-                                    [close {:fontSize "small"}]]))}}]])
+  [app-state search-text handle-search]
+  (let [chat-state (:chat @app-state)
+        term (:local-search-term chat-state)
+        matches (:search-matches chat-state [])
+        current-idx (:current-match-index chat-state 0)
+        total (count matches)
+        search-val search-text
+        active? (and (seq term) (= term search-val) (pos? total))]
+    [box
+     {:sx {:p 1
+           :border-bottom "1px solid"
+           :border-color "divider"
+           :display "flex"
+           :align-items "center"
+           :gap 0.5}}
+     [mui-text-field/text-field
+      {:fullWidth true
+       :size "small"
+       :placeholder "Search..."
+       :variant "outlined"
+       :value search-val
+       :onChange (fn [e] (handle-search (.. e -target -value)))
+       :InputProps {:endAdornment
+                    (when (seq search-val)
+                      (r/as-element
+                       [input-adornment {:position "end"}
+                        [icon-button
+                         {:size "small"
+                          :onClick #(handle-search "")
+                          :sx {:p 0.5 :mr -0.5 :color "text.secondary"}}
+                         [close {:fontSize "small"}]]]))}}]
+     (when active?
+       [:<>
+        [typography
+         {:variant "caption"
+          :aria-label "search match counter"
+          :sx {:color "text.secondary"
+               :whiteSpace "nowrap"
+               :minWidth "40px"
+               :textAlign "center"}} (str (inc current-idx) " / " total)]
+        [box {:sx {:display "flex" :flexDirection "column"}}
+         [icon-button
+          {:size "small"
+           :aria-label "previous match"
+           :on-click (fn [e]
+                       (let [next-idx (if (<= current-idx 0)
+                                        (dec total)
+                                        (dec current-idx))]
+                         (swap! app-state assoc-in
+                           [:chat :current-match-index]
+                           next-idx)))
+           :sx {:p 0 :color "text.secondary"}}
+          [arrow-upward {:fontSize "1rem"}]]
+         [icon-button
+          {:size "small"
+           :aria-label "next match"
+           :on-click (fn [e]
+                       (let [next-idx (if (>= current-idx (dec total))
+                                        0
+                                        (inc current-idx))]
+                         (swap! app-state assoc-in
+                           [:chat :current-match-index]
+                           next-idx)))
+           :sx {:p 0 :color "text.secondary"}}
+          [arrow-downward {:fontSize "1rem"}]]]])]))
 
 (defn- conversation-sidebar
   [app-state messages
@@ -449,7 +500,8 @@
         [typography
          {:variant "subtitle2"
           :sx {:px 2 :py 1 :border-bottom "1px solid" :border-color "divider"}}
-         "Conversations"] [conversation-search-bar search-text handle-search]
+         "Conversations"]
+        [conversation-search-bar app-state search-text handle-search]
         [box
          {:sx {:max-height "320px" :overflow "auto"}
           :ref (fn [el]
@@ -461,90 +513,183 @@
         (when scroll-ref (reset! scroll-ref nil))
         nil)))
 
-(defn- render-text-with-links
-  [text app-state is-user]
-  (let [pattern #"\[([^\]]+)\]\(wine:(\d+)\)"]
+(defn- escape-regex
+  [s]
+  (when s (string/replace s (re-pattern "[-/\\\\^$*+?.()|[\\]{}]") "\\\\$&")))
+
+(defn- calculate-matches
+  "Find all occurrences of term in messages. Returns vector of {:message-id :match-idx}."
+  [messages term]
+  (if (or (empty? messages) (string/blank? term))
+    []
+    (let [escaped (escape-regex term)
+          regex (js/RegExp. escaped "gi")]
+      (->> messages
+           (mapcat (fn [msg]
+                     (let [text (or (:text msg) "")
+                           msg-id (:id msg)
+                           matches (vec (.matchAll text regex))]
+                       (map-indexed (fn [idx _]
+                                      {:message-id msg-id :match-idx idx})
+                                    matches))))
+           vec))))
+
+(defn- highlight-text
+  [text search-term is-user global-offset current-match-idx]
+  (if (or (string/blank? text) (string/blank? search-term))
+    text
+    (let [escaped (escape-regex search-term)
+          regex (js/RegExp. escaped "gi")
+          matches (vec (.match text regex))]
+      (if (empty? matches)
+        text
+        (let [parts (string/split text regex)]
+          (into
+           [:<>]
+           (map-indexed
+            (fn [idx part]
+              (if (< idx (count matches))
+                (let [is-active? (= (+ global-offset idx) current-match-idx)]
+                  [:<> part
+                   [box
+                    {:component "span"
+                     :sx {:backgroundColor (if is-active?
+                                             "warning.main"
+                                             (if is-user
+                                               "rgba(255,255,255,0.3)"
+                                               "warning.light"))
+                          :color
+                          (if is-active? "white" (if is-user "inherit" "black"))
+                          :fontWeight (if is-active? 700 "normal")
+                          :borderRadius "2px"
+                          :boxShadow
+                          (if is-active? "0 0 4px rgba(0,0,0,0.5)" "none")
+                          :px "2px"}} (nth matches idx)]])
+                part))
+            parts)))))))
+
+(defn- render-rich-text
+  [text app-state is-user search-term global-offset current-match-idx]
+  (let [link-pattern #"\[([^\]]+)\]\(wine:(\d+)\)"]
     (if (string/blank? text)
       ""
-      (let [matches (re-seq pattern text)]
-        (if (empty? matches)
-          text
-          (let [;; Use a non-capturing regex for splitting to avoid
-                ;; capturing group issues in JS
-                split-regex (js/RegExp. "\\[[^\\]]+\\]\\(wine:\\d+\\)" "g")
-                parts (string/split text split-regex)]
+      (let [link-matches (re-seq link-pattern text)]
+        (if (empty? link-matches)
+          (highlight-text text
+                          search-term
+                          is-user
+                          global-offset
+                          current-match-idx)
+          (let [split-regex (js/RegExp. "\\[[^\\]]+\\]\\(wine:\\d+\\)" "g")
+                parts (string/split text split-regex)
+                ;; We need to track how many search matches we found in the
+                ;; plain text parts to keep the global-offset accurate.
+                ;; This is complex because highlight-text handles its own
+                ;; internal mapping. For now, we assume search-term doesn't
+                ;; overlap with link structure.
+               ]
             (into
              [:<>]
-             (map-indexed
-              (fn [idx part]
-                (if (< idx (count matches))
-                  (let [[_ link-text wine-id] (nth matches idx)]
-                    [:<> part
-                     [typography
-                      {:component "span"
-                       :variant "body2"
-                       :sx {:color
-                            (if is-user "secondary.light" "primary.light")
-                            :textDecoration "underline"
-                            :cursor "pointer"
-                            :fontWeight 600
-                            :whiteSpace "nowrap"
-                            :lineHeight "inherit"
-                            :&:hover
-                            {:color (if is-user "common.white" "primary.main")}}
-                       :on-click (fn [e]
-                                   (.preventDefault e)
-                                   (.stopPropagation e)
-                                   (swap! app-state
-                                     (fn [state]
-                                       (-> state
-                                           (assoc :selected-wine-id
-                                                  (js/parseInt wine-id))
-                                           (assoc-in [:chat :open?] false)))))}
-                      link-text]])
-                  part))
-              parts))))))))
+             (first
+              (reduce
+               (fn [[elements offset] [idx part]]
+                 (let [escaped-term (escape-regex search-term)
+                       match-count
+                       (if (seq search-term)
+                         (count (vec (.match part
+                                             (js/RegExp. escaped-term "gi"))))
+                         0)
+                       highlighted-part (highlight-text part
+                                                        search-term
+                                                        is-user
+                                                        offset
+                                                        current-match-idx)
+                       new-elements
+                       (if (< idx (count link-matches))
+                         (let [[_ link-text wine-id] (nth link-matches idx)]
+                           (conj elements
+                                 [:<> highlighted-part
+                                  [typography
+                                   {:component "span"
+                                    :variant "body2"
+                                    :sx {:color (if is-user
+                                                  "secondary.light"
+                                                  "primary.light")
+                                         :textDecoration "underline"
+                                         :cursor "pointer"
+                                         :fontWeight 600
+                                         :whiteSpace "nowrap"
+                                         :lineHeight "inherit"
+                                         :&:hover {:color (if is-user
+                                                            "common.white"
+                                                            "primary.main")}}
+                                    :on-click (fn [e]
+                                                (.preventDefault e)
+                                                (.stopPropagation e)
+                                                (swap! app-state
+                                                  (fn [state]
+                                                    (-> state
+                                                        (assoc :selected-wine-id
+                                                               (js/parseInt
+                                                                wine-id))
+                                                        (assoc-in [:chat :open?]
+                                                                  false)))))}
+                                   link-text]]))
+                         (conj elements highlighted-part))]
+                   [new-elements (+ offset match-count)]))
+               [[] global-offset]
+               (map-indexed vector parts))))))))))
 
 (defn message-bubble
   "Renders a single chat message bubble"
-  [{:keys [text is-user timestamp id]} on-edit app-state & [ref-callback]]
-  [box
-   {:ref ref-callback
-    :sx {:display "flex"
-         :justify-content (if is-user "flex-end" "flex-start")
-         :mb 1}}
-   [paper
-    {:elevation 2
-     :sx {:p 2
-          :max-width "80%"
-          :background-color (if is-user "primary.main" "container.main")
-          :color (if is-user "background.default" "text.primary")
-          :word-wrap "break-word"
-          :white-space "pre-wrap"
-          :border-radius 2
-          :position "relative"}}
-    [typography
-     {:variant "body2"
-      :sx {:color "inherit"
-           :white-space "pre-wrap"
-           :word-wrap "break-word"
-           :line-height 1.6}} (render-text-with-links text app-state is-user)]
-    (when timestamp
+  [{:keys [text is-user timestamp id]} on-edit app-state global-offset &
+   [ref-callback]]
+  (let [chat-state (:chat @app-state)
+        search-term (:local-search-term chat-state)
+        current-match-idx (:current-match-index chat-state 0)]
+    [box
+     {:ref ref-callback
+      :sx {:display "flex"
+           :justify-content (if is-user "flex-end" "flex-start")
+           :mb 1}}
+     [paper
+      {:elevation 2
+       :sx {:p 2
+            :max-width "80%"
+            :background-color (if is-user "primary.main" "container.main")
+            :color (if is-user "background.default" "text.primary")
+            :word-wrap "break-word"
+            :white-space "pre-wrap"
+            :border-radius 2
+            :position "relative"}}
       [typography
-       {:variant "caption"
-        :sx {:display "block" :mt 0.5 :opacity 0.7 :font-size "0.7em"}}
-       (.toLocaleTimeString (js/Date. timestamp))])
-    (when (and is-user on-edit)
-      [icon-button
-       {:size "small"
-        :sx {:position "absolute"
-             :bottom edit-button-spacing
-             :right edit-button-spacing
-             :color "inherit"
-             :opacity 0.7
-             :&:hover {:opacity 1}}
-        :on-click #(on-edit id text)}
-       [edit {:sx {:font-size edit-icon-size}}]])]])
+       {:variant "body2"
+        :sx {:color "inherit"
+             :white-space "pre-wrap"
+             :word-wrap "break-word"
+             :line-height 1.6}}
+       (render-rich-text text
+                         app-state
+                         is-user
+                         search-term
+                         global-offset
+                         current-match-idx)]
+      (when timestamp
+        [typography
+         {:variant "caption"
+          :sx {:display "block" :mt 0.5 :opacity 0.7 :font-size "0.7em"}}
+         (.toLocaleTimeString (js/Date. timestamp))])
+      (when (and is-user on-edit)
+        [icon-button
+         {:size "small"
+          :sx {:position "absolute"
+               :bottom edit-button-spacing
+               :right edit-button-spacing
+               :color "inherit"
+               :opacity 0.7
+               :&:hover {:opacity 1}}
+          :on-click #(on-edit id text)}
+         [edit {:sx {:font-size edit-icon-size}}]])]]))
 
 (defn- attached-image-preview
   [image on-remove]
@@ -687,7 +832,7 @@
   [messages on-edit auto-scroll? scroll-container-ref app-state
    saved-scroll-pos]
   (let [scroll-ref (r/atom nil)
-        last-ai-message-ref (r/atom nil)
+        message-refs (atom {}) ;; Map of id -> node
         messages-atom messages
         edit-handler on-edit
         should-scroll? auto-scroll?
@@ -695,6 +840,27 @@
     (r/create-class
      {:component-did-update
       (fn [_]
+        (let [chat-state (:chat @app-state)
+              current-match-idx (:current-match-index chat-state)
+              matches (:search-matches chat-state)]
+          ;; Handle scrolling to active match
+          (when (and current-match-idx (seq matches))
+            (let [match (nth matches current-match-idx nil)
+                  msg-id (:message-id match)
+                  node (get @message-refs msg-id)
+                  container @scroll-ref]
+              (when (and node container)
+                (let [node-rect (.getBoundingClientRect node)
+                      container-rect (.getBoundingClientRect container)
+                      relative-top (- (.-top node-rect) (.-top container-rect))
+                      current-scroll (.-scrollTop container)
+                      center-offset (- (/ (.-height container-rect) 2)
+                                       (/ (.-height node-rect) 2))
+                      target-scroll (- (+ current-scroll relative-top)
+                                       center-offset)]
+                  (.scrollTo container
+                             #js {:top target-scroll :behavior "smooth"}))))))
+        ;; Handle auto-scroll to bottom
         (when (and should-scroll? @should-scroll? @scroll-ref)
           (let [el @scroll-ref] (set! (.-scrollTop el) (.-scrollHeight el)))
           (reset! should-scroll? false)))
@@ -702,34 +868,54 @@
       (fn [] (when scroll-container-ref (reset! scroll-container-ref nil)))
       :reagent-render
       (fn []
-        (when should-scroll? @should-scroll?)
-        [box
-         {:ref #(do (reset! scroll-ref %)
-                    (when scroll-container-ref (reset! scroll-container-ref %)))
-          :on-scroll (fn [e]
-                       (when (and saved-pos-atom
-                                  (get-in @app-state [:chat :open?]))
-                         (reset! saved-pos-atom (.. e -target -scrollTop))))
-          :sx {:height "360px"
-               :overflow-y "auto"
-               :p 2
-               :background-color "background.default"
-               :border "1px solid"
-               :border-color "divider"
-               :border-radius 1}}
-         (let [current-messages @messages-atom]
+        (let [current-messages @messages-atom
+              chat-state (:chat @app-state)
+              search-term (:local-search-term chat-state)
+              ;; Calculate prefix match counts for highlighting
+              prefix-match-counts
+              (if (seq search-term)
+                (let [escaped (escape-regex search-term)
+                      regex (js/RegExp. escaped "gi")]
+                  (first (reduce (fn [[acc total] msg]
+                                   [(conj acc total)
+                                    (+ total
+                                       (count (vec (.match (or (:text msg) "")
+                                                           regex))))])
+                                 [[] 0]
+                                 current-messages)))
+                (repeat (count current-messages) 0))]
+          (when should-scroll? @should-scroll?)
+          [box
+           {:ref #(do (reset! scroll-ref %)
+                      (when scroll-container-ref
+                        (reset! scroll-container-ref %)))
+            :on-scroll (fn [e]
+                         (when (and saved-pos-atom
+                                    (get-in @app-state [:chat :open?]))
+                           (reset! saved-pos-atom (.. e -target -scrollTop))))
+            :sx {:height "360px"
+                 :overflow-y "auto"
+                 :p 2
+                 :background-color "background.default"
+                 :border "1px solid"
+                 :border-color "divider"
+                 :border-radius 1}}
            (if (empty? current-messages)
              [typography
               {:variant "body2"
                :sx {:text-align "center" :color "text.secondary" :mt 2}}
               "Start a conversation about your wine cellar..."]
-             (doall (for [message current-messages]
-                      (let [is-last-message? (= message
-                                                (last current-messages))]
-                        ^{:key (:id message)}
+             (doall (for [[idx message] (map-indexed vector current-messages)]
+                      (let [is-last-message? (= message (last current-messages))
+                            msg-id (:id message)
+                            global-offset (nth prefix-match-counts idx)]
+                        ^{:key msg-id}
                         [message-bubble message edit-handler app-state
-                         (when is-last-message?
-                           #(reset! last-ai-message-ref %))])))))])})))
+                         global-offset
+                         (fn [node]
+                           (if node
+                             (swap! message-refs assoc msg-id node)
+                             (swap! message-refs dissoc msg-id)))]))))]))})))
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with conversation history and optional image.
@@ -1202,13 +1388,12 @@
         messages-scroll-ref (r/atom nil)
         saved-scroll-pos (r/atom nil)
         cancel-fn-atom (r/atom nil)
-        search-text (r/atom "")
         timeout-id (r/atom nil)
-        handle-search (fn [val]
-                        (reset! search-text val)
-                        (when @timeout-id (js/clearTimeout @timeout-id))
-                        (reset! timeout-id (js/setTimeout
-                                            #(api/load-conversations!
+        handle-search
+        (fn [val]
+          (swap! app-state assoc-in [:chat :sidebar-search-text] val)
+          (when @timeout-id (js/clearTimeout @timeout-id))
+          (reset! timeout-id (js/setTimeout #(api/load-conversations!
                                               app-state
                                               {:search-text val})
                                             300)))
@@ -1251,6 +1436,7 @@
     (fn [app-state]
       (let [state @app-state
             chat-state (:chat state)
+            search-text (:sidebar-search-text chat-state "")
             is-open (:open? chat-state false)
             sidebar-open? (:sidebar-open? chat-state)
             conversation-loading? (:conversation-loading? chat-state)
@@ -1311,13 +1497,14 @@
                 (swap! app-state update-in [:chat :sidebar-open?] not)))
             select-conversation!
             (fn [{:keys [id] :as conversation}]
-              (let [already-active? (= id active-id)]
+              (let [already-active? (= id active-id)
+                    current-search (:sidebar-search-text (:chat @app-state))]
                 (reset! auto-scroll? false)
                 (reset! saved-scroll-pos nil)
-                (when (seq @search-text)
+                (when (seq current-search)
                   (swap! app-state assoc-in
                     [:chat :local-search-term]
-                    @search-text))
+                    current-search))
                 (open-conversation! app-state messages conversation false)
                 (when (and already-active? sidebar-open?) (toggle-sidebar!))))
             sidebar (conversation-sidebar
@@ -1373,6 +1560,15 @@
                            :main-column main-column}]
         (when (not= @messages conversation-messages)
           (reset! messages conversation-messages))
+        ;; Automatically update search matches when messages or term change
+        (let [term (get-in state [:chat :local-search-term])
+              current-matches (get-in state [:chat :search-matches])]
+          (when (and (seq term) @messages)
+            (let [new-matches (calculate-matches @messages term)]
+              (when (not= new-matches current-matches)
+                (swap! app-state assoc-in [:chat :search-matches] new-matches)
+                (when (empty? current-matches)
+                  (swap! app-state assoc-in [:chat :current-match-index] 0))))))
         (when (and is-open
                    active-id
                    (not messages-loading?)
