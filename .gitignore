@@ -51,3 +51,7 @@ untracked/
 fly.toml
 device.jwt
 embedded/esp32-sentinel/main/config.h
+
+# Local Tools & Test Artifacts
+scripts/ui_check.js
+search_failure.png

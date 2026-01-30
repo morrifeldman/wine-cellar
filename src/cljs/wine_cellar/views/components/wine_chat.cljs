@@ -330,7 +330,7 @@
 (defn- conversation-row
   [app-state messages
    {:keys [active-id deleting-id renaming-id pinning-id on-delete on-rename
-           on-pin on-select]} {:keys [id] :as conversation}]
+           on-pin on-select]} {:keys [id match_count] :as conversation}]
   (let [active? (= id active-id)
         deleting? (= id deleting-id)
         renaming? (= id renaming-id)
@@ -365,11 +365,18 @@
             :align-items "center"
             :justify-content "space-between"
             :gap 1}}
-      [typography
-       {:variant "body2"
-        :sx {:fontWeight (if active? "600" "500")
-             :color (if active? "inherit" "text.primary")}}
-       (conversation-label conversation)]
+      [box {:sx {:display "flex" :flex-direction "column" :overflow "hidden"}}
+       [typography
+        {:variant "body2"
+         :noWrap true
+         :sx {:fontWeight (if active? "600" "500")
+              :color (if active? "inherit" "text.primary")}}
+        (conversation-label conversation)]
+       (when (and match_count (pos? match_count))
+         [typography
+          {:variant "caption"
+           :sx {:color "warning.main" :fontSize "0.7rem" :fontWeight 600}}
+          (str match_count " matches")])]
       (conversation-action-buttons conversation
                                    {:on-pin on-pin
                                     :on-rename on-rename
@@ -415,53 +422,44 @@
   [app-state messages
    {:keys [open? conversations loading? active-id deleting-id renaming-id
            pinning-id scroll-ref scroll-requested? on-delete on-rename on-pin
-           on-select]}]
-  (r/with-let
-   [search-text (r/atom "") timeout-id (r/atom nil) handle-search
-    (fn [val]
-      (reset! search-text val)
-      (when @timeout-id (js/clearTimeout @timeout-id))
-      (reset! timeout-id (js/setTimeout #(api/load-conversations! app-state
-                                                                  {:search-text
-                                                                   val})
-                                        300)))]
-   (if open?
-     (let [items (conversations->items app-state
-                                       messages
-                                       {:active-id active-id
-                                        :deleting-id deleting-id
-                                        :renaming-id renaming-id
-                                        :pinning-id pinning-id
-                                        :on-delete on-delete
-                                        :on-rename on-rename
-                                        :on-pin on-pin
-                                        :on-select on-select}
-                                       conversations)
-           status (cond loading? :loading
-                        (empty? conversations) :empty
-                        :else :items)
-           content (conversation-content status items)]
-       [grid {:item true :xs 12 :md 4}
+           on-select search-text handle-search]}]
+  (if open?
+    (let [items (conversations->items app-state
+                                      messages
+                                      {:active-id active-id
+                                       :deleting-id deleting-id
+                                       :renaming-id renaming-id
+                                       :pinning-id pinning-id
+                                       :on-delete on-delete
+                                       :on-rename on-rename
+                                       :on-pin on-pin
+                                       :on-select on-select}
+                                      conversations)
+          status (cond loading? :loading
+                       (empty? conversations) :empty
+                       :else :items)
+          content (conversation-content status items)]
+      [grid {:item true :xs 12 :md 4}
+       [box
+        {:sx {:border "1px solid"
+              :border-color "divider"
+              :border-radius 1
+              :overflow "hidden"
+              :background-color "background.default"}}
+        [typography
+         {:variant "subtitle2"
+          :sx {:px 2 :py 1 :border-bottom "1px solid" :border-color "divider"}}
+         "Conversations"] [conversation-search-bar search-text handle-search]
         [box
-         {:sx {:border "1px solid"
-               :border-color "divider"
-               :border-radius 1
-               :overflow "hidden"
-               :background-color "background.default"}}
-         [typography
-          {:variant "subtitle2"
-           :sx {:px 2 :py 1 :border-bottom "1px solid" :border-color "divider"}}
-          "Conversations"] [conversation-search-bar search-text handle-search]
-         [box
-          {:sx {:max-height "320px" :overflow "auto"}
-           :ref (fn [el]
-                  (when scroll-ref (reset! scroll-ref el))
-                  (when (and scroll-requested? @scroll-requested? el)
-                    (.scrollTo el 0 0)
-                    (reset! scroll-requested? false)))} content]]])
-     (do (when scroll-requested? (reset! scroll-requested? false))
-         (when scroll-ref (reset! scroll-ref nil))
-         nil))))
+         {:sx {:max-height "320px" :overflow "auto"}
+          :ref (fn [el]
+                 (when scroll-ref (reset! scroll-ref el))
+                 (when (and scroll-requested? @scroll-requested? el)
+                   (.scrollTo el 0 0)
+                   (reset! scroll-requested? false)))} content]]])
+    (do (when scroll-requested? (reset! scroll-requested? false))
+        (when scroll-ref (reset! scroll-ref nil))
+        nil)))
 
 (defn- render-text-with-links
   [text app-state is-user]
@@ -1204,6 +1202,16 @@
         messages-scroll-ref (r/atom nil)
         saved-scroll-pos (r/atom nil)
         cancel-fn-atom (r/atom nil)
+        search-text (r/atom "")
+        timeout-id (r/atom nil)
+        handle-search (fn [val]
+                        (reset! search-text val)
+                        (when @timeout-id (js/clearTimeout @timeout-id))
+                        (reset! timeout-id (js/setTimeout
+                                            #(api/load-conversations!
+                                              app-state
+                                              {:search-text val})
+                                            300)))
         edit-state (use-edit-state app-state messages)
         {:keys [editing-message-id handle-edit handle-cancel handle-commit
                 is-editing?]}
@@ -1306,6 +1314,10 @@
               (let [already-active? (= id active-id)]
                 (reset! auto-scroll? false)
                 (reset! saved-scroll-pos nil)
+                (when (seq @search-text)
+                  (swap! app-state assoc-in
+                    [:chat :local-search-term]
+                    @search-text))
                 (open-conversation! app-state messages conversation false)
                 (when (and already-active? sidebar-open?) (toggle-sidebar!))))
             sidebar (conversation-sidebar
@@ -1324,7 +1336,9 @@
                                                                      %)
                       :on-rename #(rename-conversation-with-prompt! app-state %)
                       :on-pin #(toggle-pin! app-state %)
-                      :on-select select-conversation!})
+                      :on-select select-conversation!
+                      :search-text search-text
+                      :handle-search handle-search})
             main-column (chat-main-column
                          {:sidebar-open? sidebar-open?
                           :show-camera? show-camera?

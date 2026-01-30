@@ -49,6 +49,7 @@
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/create-wine-style-type)
    (sql-execute-helper tx migrations/ensure-classifications-appellation-tier)
+   (sql-execute-helper tx migrations/ensure-messages-fts-index)
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/tasting-notes-table-schema)

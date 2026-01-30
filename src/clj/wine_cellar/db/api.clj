@@ -229,19 +229,21 @@
                      :where [:= :c.user_email user-email]
                      :order-by [[:c.pinned :desc] [:c.last_message_at :desc]
                                 [:c.created_at :desc]]}
-         query (if (str/blank? search-text)
-                 base-query
-                 (let [pattern (str "%" search-text "%")]
-                   (-> base-query
-                       (dissoc :select)
-                       (assoc :select-distinct [:c.*])
-                       (assoc :left-join
-                              [[:ai_conversation_messages :m]
-                               [:= :c.id :m.conversation_id]])
-                       (assoc :where
-                              [:and [:= :c.user_email user-email]
-                               [:or [:ilike :c.title pattern]
-                                [:ilike :m.content pattern]]]))))
+         query
+         (if (str/blank? search-text)
+           base-query
+           (let [ts-query [:websearch_to_tsquery [:cast "english" :regconfig]
+                           search-text]
+                 pattern (str "%" search-text "%")]
+             {:select [[[:count :m.id] :match_count] :c.*]
+              :from [[:ai_conversations :c]]
+              :left-join [[:ai_conversation_messages :m]
+                          [:and [:= :c.id :m.conversation_id]
+                           [:raw ["m.fts_content @@ " ts-query]]]]
+              :where [:= :c.user_email user-email]
+              :group-by [:c.id]
+              :having [:or [:ilike :c.title pattern] [:> [:count :m.id] 0]]
+              :order-by [[:match_count :desc] [:c.last_message_at :desc]]}))
          sql-vec (sql/format query)]
      (->> (jdbc/execute! ds sql-vec db-opts)
           (map db-conversation->conversation)
