@@ -31,7 +31,7 @@
     [reagent-mui.icons.bar-chart :refer [bar-chart]]
     [reagent-mui.icons.thermostat :refer [thermostat]]
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
-    [wine-cellar.views.components.wine-chat :refer [wine-chat]]
+    [wine-cellar.views.chat.core :refer [wine-chat]]
     [wine-cellar.portal-debug :as pd]
     [wine-cellar.version :as version]
     [wine-cellar.utils.filters]))
