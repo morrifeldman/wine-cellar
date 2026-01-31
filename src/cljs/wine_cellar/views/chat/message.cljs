@@ -51,7 +51,8 @@
 
 (defn- render-rich-text
   [text app-state is-user search-term global-offset current-match-idx]
-  (let [link-pattern #".."] ; Regex literal, no escaping issues.
+  (let [link-pattern #"\[([^\]]+)\]\(wine:(\d+)\)"] ; Regex literal, no
+                                                    ; escaping issues.
     (if (string/blank? text)
       "" ; Empty string literal.
       (let [link-matches (re-seq link-pattern text)]
@@ -61,7 +62,8 @@
                           is-user
                           global-offset
                           current-match-idx)
-          (let [split-regex (js/RegExp. "..") ; Regex literal.
+          (let [split-regex (js/RegExp. "\\[[^\\]]+\\]\\(wine:\\d+\\)") ; Regex
+                                                                        ; literal.
                 parts (string/split text split-regex)
                 ;; We need to track how many search matches we found in the
                 ;; plain text parts to keep the global-offset accurate.

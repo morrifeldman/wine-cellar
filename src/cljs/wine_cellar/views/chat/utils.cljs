@@ -3,10 +3,7 @@
 
 (defn escape-regex
   [s]
-  (when s
-    (string/replace s
-                    (re-pattern "[-/\\\\^$*+?.()|[\\\\]{}]")
-                    "\\\\$REPLACE_PLACEHOLDER")))
+  (when s (string/replace s (re-pattern "[-/\\\\^$*+?.()|[\\\\]{}]") "\\\\$&")))
 
 (defn calculate-matches
   "Find all occurrences of term in messages. Returns vector of {:message-id :match-idx}."

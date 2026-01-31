@@ -135,13 +135,7 @@
         total (count matches)
         search-val search-text
         active? (and (seq term) (= term search-val) (pos? total))]
-    [box
-     {:sx {:p 1
-           :border-bottom "1px solid"
-           :border-color "divider"
-           :display "flex"
-           :align-items "center"
-           :gap 0.5}}
+    [box {:sx {:p 1 :border-bottom "1px solid" :border-color "divider"}}
      [mui-text-field/text-field
       {:fullWidth true
        :size "small"
@@ -149,49 +143,54 @@
        :variant "outlined"
        :value search-val
        :onChange (fn [e] (handle-search (.. e -target -value)))
-       :InputProps {:endAdornment
-                    (when (seq search-val)
-                      (r/as-element
-                       [input-adornment {:position "end"}
-                        [icon-button
-                         {:size "small"
-                          :onClick #(handle-search "")
-                          :sx {:p 0.5 :mr -0.5 :color "text.secondary"}}
-                         [close {:fontSize "small"}]]]))}}]
-     (when active?
-       [:<>
-        [typography
-         {:variant "caption"
-          :aria-label "search match counter"
-          :sx {:color "text.secondary"
-               :whiteSpace "nowrap"
-               :minWidth "40px"
-               :textAlign "center"}} (str (inc current-idx) " / " total)]
-        [box {:sx {:display "flex" :flexDirection "column"}}
-         [icon-button
-          {:size "small"
-           :aria-label "previous match"
-           :on-click (fn [e]
-                       (let [next-idx (if (<= current-idx 0)
-                                        (dec total)
-                                        (dec current-idx))]
-                         (swap! app-state assoc-in
-                           [:chat :current-match-index]
-                           next-idx)))
-           :sx {:p 0 :color "text.secondary"}}
-          [arrow-upward {:fontSize "1rem"}]]
-         [icon-button
-          {:size "small"
-           :aria-label "next match"
-           :on-click (fn [e]
-                       (let [next-idx (if (>= current-idx (dec total))
-                                        0
-                                        (inc current-idx))]
-                         (swap! app-state assoc-in
-                           [:chat :current-match-index]
-                           next-idx)))
-           :sx {:p 0 :color "text.secondary"}}
-          [arrow-downward {:fontSize "1rem"}]]]])]))
+       :InputProps
+       {:endAdornment
+        (when (or (seq search-val) active?)
+          (r/as-element
+           [input-adornment {:position "end"}
+            [box {:sx {:display "flex" :alignItems "center" :gap 0.5}}
+             (when active?
+               [:<>
+                [typography
+                 {:variant "caption"
+                  :aria-label "search match counter"
+                  :sx {:color "text.secondary"
+                       :whiteSpace "nowrap"
+                       :mx 0.5
+                       :minWidth "30px"
+                       :textAlign "center"}}
+                 (str (inc current-idx) " / " total)]
+                [box {:sx {:display "flex" :flexDirection "column"}}
+                 [icon-button
+                  {:size "small"
+                   :aria-label "previous match"
+                   :on-click (fn [e]
+                               (let [next-idx (if (<= current-idx 0)
+                                                (dec total)
+                                                (dec current-idx))]
+                                 (swap! app-state assoc-in
+                                   [:chat :current-match-index]
+                                   next-idx)))
+                   :sx {:p 0 :color "text.secondary"}}
+                  [arrow-upward {:fontSize "1rem"}]]
+                 [icon-button
+                  {:size "small"
+                   :aria-label "next match"
+                   :on-click (fn [e]
+                               (let [next-idx (if (>= current-idx (dec total))
+                                                0
+                                                (inc current-idx))]
+                                 (swap! app-state assoc-in
+                                   [:chat :current-match-index]
+                                   next-idx)))
+                   :sx {:p 0 :color "text.secondary"}}
+                  [arrow-downward {:fontSize "1rem"}]]]])
+             (when (seq search-val)
+               [icon-button
+                {:size "small"
+                 :onClick #(handle-search "")
+                 :sx {:p 0.5 :color "text.secondary"}}
+                [close {:fontSize "small"}]])]]))}}]]))
 
 (defn conversation-sidebar
   [app-state messages
