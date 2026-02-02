@@ -234,8 +234,16 @@
            base-query
            (let [ts-query [:websearch_to_tsquery [:cast "english" :regconfig]
                            search-text]
-                 pattern (str "%" search-text "%")]
-             {:select [[[:count :m.id] :match_count] :c.*]
+                 pattern (str "%" search-text "%")
+                 escaped (-> search-text
+                             (java.util.regex.Pattern/quote)
+                             (str/replace "'" "''"))
+                 ;; Count total occurrences using regexp_matches
+                 occurrence-sql
+                 (str "(SELECT COUNT(*) FROM ai_conversation_messages m2, "
+                      "LATERAL regexp_matches(m2.content, '" escaped
+                      "', 'gi') matches " "WHERE m2.conversation_id = c.id)")]
+             {:select [[[:coalesce [:raw occurrence-sql] 0] :match_count] :c.*]
               :from [[:ai_conversations :c]]
               :left-join [[:ai_conversation_messages :m]
                           [:and [:= :c.id :m.conversation_id]

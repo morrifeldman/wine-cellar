@@ -59,7 +59,13 @@
   (let [active? (= id active-id)
         deleting? (= id deleting-id)
         renaming? (= id renaming-id)
-        pinning? (= id pinning-id)]
+        pinning? (= id pinning-id)
+        ;; For active conversation, use client-side match count for
+        ;; consistency with navigation counter
+        chat-state (:chat @app-state)
+        display-match-count (if (and active? (seq (:search-matches chat-state)))
+                              (count (:search-matches chat-state))
+                              match_count)]
     [box
      {:on-click #(if on-select
                    (on-select conversation)
@@ -100,11 +106,13 @@
          :sx {:fontWeight (if active? "600" "500")
               :color (if active? "inherit" "text.primary")}}
         (conversation-label conversation)]
-       (when (and match_count (pos? match_count))
+       (when (and display-match-count (pos? display-match-count))
          [typography
           {:variant "caption"
            :sx {:color "warning.main" :fontSize "0.7rem" :fontWeight 600}}
-          (str match_count " matches")])]
+          (str display-match-count
+               " match"
+               (when (not= 1 display-match-count) "es"))])]
       (conversation-action-buttons conversation
                                    {:on-pin on-pin
                                     :on-rename on-rename
