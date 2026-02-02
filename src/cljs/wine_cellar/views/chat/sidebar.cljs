@@ -14,7 +14,8 @@
             [reagent-mui.icons.star-border :refer [star-border]]
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.arrow-upward :refer [arrow-upward]]
-            [reagent-mui.icons.arrow-downward :refer [arrow-downward]]))
+            [reagent-mui.icons.arrow-downward :refer [arrow-downward]]
+            [wine-cellar.views.chat.utils :as chat-utils]))
 
 (defn- conversation-label
   [{:keys [title id last_message_at]}]
@@ -164,25 +165,31 @@
                  [icon-button
                   {:size "small"
                    :aria-label "previous match"
-                   :on-click (fn [e]
+                   :on-click (fn [_]
                                (let [next-idx (if (<= current-idx 0)
                                                 (dec total)
                                                 (dec current-idx))]
                                  (swap! app-state assoc-in
                                    [:chat :current-match-index]
-                                   next-idx)))
+                                   next-idx)
+                                 (chat-utils/set-scroll-intent!
+                                  app-state
+                                  {:type :search-match})))
                    :sx {:p 0 :color "text.secondary"}}
                   [arrow-upward {:fontSize "1rem"}]]
                  [icon-button
                   {:size "small"
                    :aria-label "next match"
-                   :on-click (fn [e]
+                   :on-click (fn [_]
                                (let [next-idx (if (>= current-idx (dec total))
                                                 0
                                                 (inc current-idx))]
                                  (swap! app-state assoc-in
                                    [:chat :current-match-index]
-                                   next-idx)))
+                                   next-idx)
+                                 (chat-utils/set-scroll-intent!
+                                  app-state
+                                  {:type :search-match})))
                    :sx {:p 0 :color "text.secondary"}}
                   [arrow-downward {:fontSize "1rem"}]]]])
              (when (seq search-val)

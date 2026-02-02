@@ -87,8 +87,7 @@
 
 (defn handle-send-message
   "Handle sending a message to the AI assistant with optional image"
-  [app-state message-text messages is-sending? cancel-fn-atom auto-scroll? &
-   [image]]
+  [app-state message-text messages is-sending? cancel-fn-atom & [image]]
   (when (and (not @is-sending?) (or (seq message-text) image))
     (reset! is-sending? true)
     (let [state @app-state
@@ -100,7 +99,7 @@
           wines (chat-context/context-wines app-state)]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
-      (when auto-scroll? (reset! auto-scroll? true))
+      (chat-utils/set-scroll-intent! app-state {:type :bottom})
       (persist-conversation-message!
        app-state
        wines
@@ -126,7 +125,7 @@
                                  :timestamp (.getTime (js/Date.))}]
                  (swap! messages conj ai-message)
                  (swap! app-state assoc-in [:chat :messages] @messages)
-                 (when auto-scroll? (reset! auto-scroll? true))
+                 (chat-utils/set-scroll-intent! app-state {:type :bottom})
                  (persist-conversation-message!
                   app-state
                   wines
@@ -142,14 +141,14 @@
         (reset! cancel-fn-atom cancel-fn)))))
 
 (defn commit-local-edit!
-  [app-state messages editing-message-id message-ref auto-scroll?
-   on-edit-complete is-sending? new-history]
+  [app-state messages editing-message-id message-ref on-edit-complete
+   is-sending? new-history]
   (reset! messages new-history)
   (swap! app-state assoc-in [:chat :messages] new-history)
   (reset! editing-message-id nil)
   (when @message-ref (set! (.-value @message-ref) ""))
   (swap! app-state update :chat dissoc :draft-message)
-  (when auto-scroll? (reset! auto-scroll? true))
+  (chat-utils/set-scroll-intent! app-state {:type :bottom})
   (when on-edit-complete (on-edit-complete))
   (reset! is-sending? true))
 
@@ -178,8 +177,7 @@
     (chat-context/sync-conversation-context! app-state wines conversation-id)))
 
 (defn enqueue-ai-followup!
-  [app-state messages message-text wines include? auto-scroll? is-sending?
-   cancel-fn-atom]
+  [app-state messages message-text wines include? is-sending? cancel-fn-atom]
   (let [history @messages
         cancel-fn (send-chat-message
                    app-state
@@ -195,7 +193,7 @@
                                        :timestamp (.getTime (js/Date.))}]
                        (swap! messages conj ai-message)
                        (swap! app-state assoc-in [:chat :messages] @messages)
-                       (when auto-scroll? (reset! auto-scroll? true))
+                       (chat-utils/set-scroll-intent! app-state {:type :bottom})
                        (persist-conversation-message!
                         app-state
                         wines
@@ -212,7 +210,7 @@
 
 (defn handle-edit-send
   [app-state editing-message-id message-ref messages is-sending? cancel-fn-atom
-   auto-scroll? on-edit-complete]
+   on-edit-complete]
   (when @message-ref
     (let [message-text (.-value @message-ref)]
       (if-let [message-idx (chat-utils/find-message-index @messages
@@ -231,7 +229,6 @@
                               messages
                               editing-message-id
                               message-ref
-                              auto-scroll?
                               on-edit-complete
                               is-sending?
                               new-history)
@@ -240,7 +237,6 @@
                                                  message-text
                                                  wines
                                                  include?
-                                                 auto-scroll?
                                                  is-sending?
                                                  cancel-fn-atom)
                 handle-update-success

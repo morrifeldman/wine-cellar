@@ -7,7 +7,8 @@
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.icons.edit :refer [edit]]
             [reagent-mui.icons.close :refer [close]]
-            [wine-cellar.views.chat.utils :refer [escape-regex]]))
+            [wine-cellar.views.chat.utils :as chat-utils :refer
+             [escape-regex execute-scroll-intent!]]))
 
 (def ^:private edit-icon-size "0.8rem")
 (def ^:private edit-button-spacing 4)
@@ -133,16 +134,14 @@
 
 (defn message-bubble
   "Renders a single chat message bubble"
-  [{:keys [text is-user timestamp id]} on-edit app-state global-offset &
-   [ref-callback]]
+  [{:keys [text is-user timestamp id]} on-edit app-state global-offset]
   (let [chat-state (:chat @app-state)
         search-term (:local-search-term chat-state)
         current-match-idx (:current-match-index chat-state 0)]
-    [box ; Vector literal.
-     {:ref ref-callback
-      :sx {:display "flex"
+    [box
+     {:sx {:display "flex"
            :justify-content (if is-user "flex-end" "flex-start")
-           :mb 1}} ; Map literal.
+           :mb 1}}
      [paper ; Vector literal.
       {:elevation 2
        :sx {:p 2
@@ -211,98 +210,54 @@
           :border-radius 1}}]]) ; Map literal.
 
 (defn list-view
-  "Scrollable container for chat messages"
-  [messages on-edit auto-scroll? scroll-container-ref app-state
-   saved-scroll-pos]
+  "Scrollable container for chat messages. Scroll behavior is controlled
+   declaratively via [:chat :scroll-intent] in app-state."
+  [messages on-edit app-state]
   (let [scroll-ref (r/atom nil)
-        message-refs (atom {}) ;; Map of id -> node
         messages-atom messages
-        edit-handler on-edit
-        should-scroll? auto-scroll?
-        saved-pos-atom saved-scroll-pos]
+        edit-handler on-edit]
     (r/create-class
-     {:component-did-update
-      (fn [_]
-        (let [chat-state (:chat @app-state)
-              current-match-idx (:current-match-index chat-state)
-              matches (:search-matches chat-state)]
-          ;; Handle scrolling to active match element by id
-          (when (and current-match-idx (seq matches))
-            (let [active-el (.getElementById js/document "active-search-match")
-                  container @scroll-ref]
-              (when (and active-el container)
-                (let [el-rect (.getBoundingClientRect active-el)
-                      container-rect (.getBoundingClientRect container)
-                      relative-top (- (.-top el-rect) (.-top container-rect))
-                      current-scroll (.-scrollTop container)
-                      center-offset (- (/ (.-height container-rect) 2)
-                                       (/ (.-height el-rect) 2))
-                      target-scroll (- (+ current-scroll relative-top)
-                                       center-offset)]
-                  (.scrollTo container
-                             #js {:top target-scroll :behavior "smooth"}))))))
-        ;; Handle auto-scroll to bottom
-        (when (and should-scroll? @should-scroll? @scroll-ref)
-          (let [el @scroll-ref] (set! (.-scrollTop el) (.-scrollHeight el)))
-          (reset! should-scroll? false)))
-      :component-will-unmount
-      (fn [] (when scroll-container-ref (reset! scroll-container-ref nil))) ; Function
-                                                                            ; definition.
+     {:component-did-update (fn [_]
+                              (execute-scroll-intent! app-state @scroll-ref))
       :reagent-render
-      (fn [] ; Function definition.
+      (fn []
         (let [current-messages @messages-atom
               chat-state (:chat @app-state)
               search-term (:local-search-term chat-state)
-              ;; Calculate prefix match counts for highlighting
               prefix-match-counts
               (if (seq search-term)
                 (let [escaped (escape-regex search-term)
-                      regex (js/RegExp. escaped "gi")] ; Regex literal.
-                  (first (reduce (fn [[acc total] msg] ; Function
-                                                       ; definition.
+                      regex (js/RegExp. escaped "gi")]
+                  (first (reduce (fn [[acc total] msg]
                                    [(conj acc total)
                                     (+ total
-                                       (count (vec (.match (or (:text msg) "") ; String
-                                                                               ; literal.
-                                                           regex))))]) ; Regex
-                                                                       ; literal.
-                                 [[] 0] ; Vector literal.
-                                 current-messages))) ; Vector literal.
-                (repeat (count current-messages) 0))] ; Vector literal.
-          (when should-scroll? @should-scroll?) ; This is a boolean check,
-                                                ; not a string.
-          [box ; Vector literal.
-           {:ref #(do (reset! scroll-ref %) ; Function literal.
-                      (when scroll-container-ref
-                        (reset! scroll-container-ref %))) ; Function literal.
-            :on-scroll (fn [e] ; Function literal.
-                         (when (and saved-pos-atom
-                                    (get-in @app-state [:chat :open?])) ; Keyword
-                                                                        ; literal.
-                           (reset! saved-pos-atom (.. e -target -scrollTop)))) ; Function
-                                                                               ; literal.
+                                       (count (vec (.match (or (:text msg) "")
+                                                           regex))))])
+                                 [[] 0]
+                                 current-messages)))
+                (repeat (count current-messages) 0))]
+          [box
+           {:ref #(reset! scroll-ref %)
+            :on-scroll (fn [e]
+                         (when (get-in @app-state [:chat :open?])
+                           (swap! app-state assoc-in
+                             [:chat :saved-scroll-pos]
+                             (.. e -target -scrollTop))))
             :sx {:height "360px"
                  :overflow-y "auto"
                  :p 2
                  :background-color "background.default"
                  :border "1px solid"
                  :border-color "divider"
-                 :border-radius 1}} ; Map literal.
+                 :border-radius 1}}
            (if (empty? current-messages)
-             [typography ; Vector literal.
+             [typography
               {:variant "body2"
-               :sx {:text-align "center" :color "text.secondary" :mt 2}} ; Map
-                                                                         ; literal.
-              "Start a conversation about your wine cellar..."] ; String
-                                                                ; literal.
-             (doall (for [[idx message] (map-indexed vector current-messages)] ; Vector
-                                                                               ; literal.
+               :sx {:text-align "center" :color "text.secondary" :mt 2}}
+              "Start a conversation about your wine cellar..."]
+             (doall (for [[idx message] (map-indexed vector current-messages)]
                       (let [msg-id (:id message)
                             global-offset (nth prefix-match-counts idx)]
                         ^{:key msg-id}
                         [message-bubble message edit-handler app-state
-                         global-offset
-                         (fn [node] ; Function literal.
-                           (if node
-                             (swap! message-refs assoc msg-id node)
-                             (swap! message-refs dissoc msg-id)))]))))]))})))
+                         global-offset]))))]))})))

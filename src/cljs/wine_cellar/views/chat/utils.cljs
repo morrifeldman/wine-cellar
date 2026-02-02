@@ -90,3 +90,53 @@
   (->> messages
        (keep-indexed (fn [idx message] (when (= (:id message) message-id) idx)))
        first))
+
+;; Scroll intent management
+;; Intent types: :bottom, :search-match, :position, nil
+
+(defn set-scroll-intent!
+  "Set a scroll intent in app-state. Intent is a map like:
+   {:type :bottom}
+   {:type :search-match}
+   {:type :position :top 123}"
+  [app-state intent]
+  (swap! app-state assoc-in [:chat :scroll-intent] intent))
+
+(defn clear-scroll-intent!
+  [app-state]
+  (swap! app-state assoc-in [:chat :scroll-intent] nil))
+
+(defn scroll-to-bottom!
+  [container]
+  (when container (set! (.-scrollTop container) (.-scrollHeight container))))
+
+(defn scroll-to-element!
+  [element-id container]
+  (when-let [el (.getElementById js/document element-id)]
+    (when container
+      (let [el-rect (.getBoundingClientRect el)
+            container-rect (.getBoundingClientRect container)
+            relative-top (- (.-top el-rect) (.-top container-rect))
+            current-scroll (.-scrollTop container)
+            center-offset (- (/ (.-height container-rect) 2)
+                             (/ (.-height el-rect) 2))
+            target-scroll (- (+ current-scroll relative-top) center-offset)]
+        (.scrollTo container #js {:top target-scroll :behavior "smooth"})))))
+
+(defn scroll-to-position!
+  [container top]
+  (when (and container top)
+    (.scrollTo container #js {:top top :behavior "auto"})))
+
+(defn execute-scroll-intent!
+  "Execute the current scroll intent and clear it. Returns true if scroll was executed."
+  [app-state container]
+  (let [intent (get-in @app-state [:chat :scroll-intent])]
+    (when intent
+      (case (:type intent)
+        :bottom (scroll-to-bottom! container)
+        :search-match (scroll-to-element! "active-search-match" container)
+        :position (scroll-to-position! container (:top intent))
+        nil)
+      (clear-scroll-intent! app-state)
+      true)))

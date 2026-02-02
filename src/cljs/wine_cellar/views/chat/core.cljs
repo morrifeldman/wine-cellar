@@ -86,8 +86,7 @@
   [{:keys [sidebar-open? show-camera? handle-camera-capture handle-camera-cancel
            messages message-edit-handler handle-send is-sending? app-state
            handle-image-capture pending-image handle-image-remove message-ref
-           is-editing? handle-cancel filter-panel auto-scroll?
-           messages-scroll-ref on-cancel-request saved-scroll-pos]}]
+           is-editing? handle-cancel filter-panel on-cancel-request]}]
   (let
     [components
      (->
@@ -95,8 +94,7 @@
        (cond-> filter-panel (conj filter-panel))
        (cond-> @show-camera? (conj [camera-capture handle-camera-capture
                                     handle-camera-cancel]))
-       (conj [chat-message/list-view messages message-edit-handler auto-scroll?
-              messages-scroll-ref app-state saved-scroll-pos])
+       (conj [chat-message/list-view messages message-edit-handler app-state])
        (cond->
          (is-editing?)
          (conj
@@ -147,9 +145,6 @@
         dialog-opened (r/atom false)
         sidebar-scroll-ref (r/atom nil)
         sidebar-scroll-requested? (r/atom false)
-        auto-scroll? (r/atom true)
-        messages-scroll-ref (r/atom nil)
-        saved-scroll-pos (r/atom nil)
         cancel-fn-atom (r/atom nil)
         timeout-id (r/atom nil)
         handle-search
@@ -165,7 +160,7 @@
                 is-editing?]}
         edit-state
         handle-send (fn [message-text]
-                      (reset! auto-scroll? true)
+                      (chat-utils/set-scroll-intent! app-state {:type :bottom})
                       (if (is-editing?)
                         (chat-actions/handle-edit-send app-state
                                                        editing-message-id
@@ -173,14 +168,12 @@
                                                        messages
                                                        is-sending?
                                                        cancel-fn-atom
-                                                       auto-scroll?
                                                        handle-commit)
                         (do (chat-actions/handle-send-message app-state
                                                               message-text
                                                               messages
                                                               is-sending?
                                                               cancel-fn-atom
-                                                              auto-scroll?
                                                               @pending-image)
                             (reset! pending-image nil))))
         handle-cancel-request (fn []
@@ -250,26 +243,20 @@
                        #(when-let [el @dialog-content-ref]
                           (.scrollTo el #js {:top 0 :behavior "smooth"}))
                        50))
-                  (do (reset! sidebar-scroll-requested? false)
-                      (reset! auto-scroll? true)
-                      (js/setTimeout #(when-let [el @messages-scroll-ref]
-                                        (.scrollTo el
-                                                   #js {:top (.-scrollHeight el)
-                                                        :behavior "smooth"}))
-                                     60)))
+                  (chat-utils/set-scroll-intent! app-state {:type :bottom}))
                 (reset! sidebar-scroll-ref nil)
-                (when opening? (reset! auto-scroll? false))
                 (swap! app-state update-in [:chat :sidebar-open?] not)))
             select-conversation!
             (fn [{:keys [id] :as conversation}]
               (let [already-active? (= id active-id)
                     current-search (:sidebar-search-text (:chat @app-state))]
-                (reset! auto-scroll? false)
-                (reset! saved-scroll-pos nil)
+                (swap! app-state assoc-in [:chat :saved-scroll-pos] nil)
                 (when (seq current-search)
                   (swap! app-state assoc-in
                     [:chat :local-search-term]
-                    current-search))
+                    current-search)
+                  (chat-utils/set-scroll-intent! app-state
+                                                 {:type :search-match}))
                 (chat-actions/open-conversation! app-state
                                                  messages
                                                  conversation
@@ -313,10 +300,7 @@
                           :is-editing? is-editing?
                           :handle-cancel handle-cancel
                           :filter-panel filter-panel
-                          :auto-scroll? auto-scroll?
-                          :messages-scroll-ref messages-scroll-ref
-                          :on-cancel-request handle-cancel-request
-                          :saved-scroll-pos saved-scroll-pos})
+                          :on-cancel-request handle-cancel-request})
             header-props {:app-state app-state
                           :messages messages
                           :message-ref message-ref
@@ -346,22 +330,19 @@
           (api/fetch-conversation-messages! app-state active-id))
         (when (and is-open (not @dialog-opened) @dialog-content-ref)
           (reset! dialog-opened true)
-          (reset! auto-scroll? (nil? @saved-scroll-pos))
-          (js/setTimeout #(do (when @dialog-content-ref
-                                (.scrollTo @dialog-content-ref
-                                           #js {:top (.-scrollHeight
-                                                      @dialog-content-ref)
-                                                :behavior "smooth"}))
-                              (when-let [el @messages-scroll-ref]
-                                (if-let [top @saved-scroll-pos]
-                                  (.scrollTo el #js {:top top :behavior "auto"})
-                                  (.scrollTo el
-                                             #js {:top (.-scrollHeight el)
-                                                  :behavior "smooth"}))))
-                         200))
-        (when (not is-open)
-          (reset! dialog-opened false)
-          (reset! auto-scroll? true))
+          (let [saved-pos (get-in @app-state [:chat :saved-scroll-pos])]
+            (js/setTimeout #(do (when @dialog-content-ref
+                                  (.scrollTo @dialog-content-ref
+                                             #js {:top (.-scrollHeight
+                                                        @dialog-content-ref)
+                                                  :behavior "smooth"}))
+                                (chat-utils/set-scroll-intent!
+                                 app-state
+                                 (if saved-pos
+                                   {:type :position :top saved-pos}
+                                   {:type :bottom})))
+                           200)))
+        (when (not is-open) (reset! dialog-opened false))
         (chat-dialog-shell {:app-state app-state
                             :is-open is-open
                             :header-props header-props
