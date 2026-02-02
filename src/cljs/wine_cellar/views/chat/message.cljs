@@ -29,23 +29,26 @@
             (fn [idx part] ; This is a function definition, not a string.
               (if (< idx (count matches))
                 (let [is-active? (= (+ global-offset idx) current-match-idx)]
-                  [:<> part ; This is a vector literal.
-                   [box ; This is a vector literal.
-                    {:component "span" ; This is a map literal, keys and
-                                       ; values are strings.
-                     :sx {:backgroundColor (if is-active?
-                                             "warning.main"
-                                             (if is-user
-                                               "rgba(255,255,255,0.3)"
-                                               "warning.light"))
-                          :color
-                          (if is-active? "white" (if is-user "inherit" "black"))
-                          :fontWeight (if is-active? 700 "normal")
-                          :borderRadius "2px"
-                          :boxShadow
-                          (if is-active? "0 0 4px rgba(0,0,0,0.5)" "none")
-                          :px "2px"}} (nth matches idx)]]) ; This is a vector
-                                                           ; literal.
+                  [:<> part
+                   [box
+                    (cond-> {:component "span"
+                             :sx {:backgroundColor (if is-active?
+                                                     "warning.main"
+                                                     (if is-user
+                                                       "rgba(255,255,255,0.3)"
+                                                       "warning.light"))
+                                  :color (if is-active?
+                                           "white"
+                                           (if is-user "inherit" "black"))
+                                  :fontWeight (if is-active? 700 "normal")
+                                  :borderRadius "2px"
+                                  :boxShadow (if is-active?
+                                               "0 0 4px rgba(0,0,0,0.5)"
+                                               "none")
+                                  :px "2px"}}
+                      is-active? (assoc :id "active-search-match"))
+                    (nth matches idx)]])
+                ; literal.
                 part)) ; This is a string.
             parts)))))))
 
@@ -219,23 +222,21 @@
         saved-pos-atom saved-scroll-pos]
     (r/create-class
      {:component-did-update
-      (fn [_] ; Function definition.
+      (fn [_]
         (let [chat-state (:chat @app-state)
               current-match-idx (:current-match-index chat-state)
               matches (:search-matches chat-state)]
-          ;; Handle scrolling to active match
+          ;; Handle scrolling to active match element by id
           (when (and current-match-idx (seq matches))
-            (let [match (nth matches current-match-idx nil)
-                  msg-id (:message-id match)
-                  node (get @message-refs msg-id)
+            (let [active-el (.getElementById js/document "active-search-match")
                   container @scroll-ref]
-              (when (and node container)
-                (let [node-rect (.getBoundingClientRect node)
+              (when (and active-el container)
+                (let [el-rect (.getBoundingClientRect active-el)
                       container-rect (.getBoundingClientRect container)
-                      relative-top (- (.-top node-rect) (.-top container-rect))
+                      relative-top (- (.-top el-rect) (.-top container-rect))
                       current-scroll (.-scrollTop container)
                       center-offset (- (/ (.-height container-rect) 2)
-                                       (/ (.-height node-rect) 2))
+                                       (/ (.-height el-rect) 2))
                       target-scroll (- (+ current-scroll relative-top)
                                        center-offset)]
                   (.scrollTo container
