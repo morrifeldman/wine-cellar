@@ -71,7 +71,7 @@
                    (on-select conversation)
                    ;; Fallback if no select handler, though logic should be
                    ;; in action
-                   (println
+                   (js/console.warn
                     "Warning: No on-select handler for conversation row"))
       :sx
       (let

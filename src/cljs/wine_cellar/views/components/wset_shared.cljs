@@ -182,7 +182,6 @@
                    :on-blur #(let [input-value (-> %
                                                    .-target
                                                    .-value)]
-                               (println input-value)
                                ;; Register any new option that was typed in
                                ;; the input field
                                (register-new-options [input-value]))

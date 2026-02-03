@@ -47,7 +47,7 @@
 
 (defn exchange-code-for-token
   [code request]
-  (tap> ["exchange-code-for-token" code])
+  (tap> ["exchange-code-for-token" "REDACTED-CODE"])
   (let [oauth-client (create-oauth-client request)]
     (when oauth-client
       (try (let [request-params {:form-params
@@ -57,35 +57,38 @@
                                   :redirect_uri (:redirect-uri oauth-client)
                                   :grant_type "authorization_code"}
                                  :as :text}
-                 _ (tap> ["token-request" request-params])
+                 _ (tap> ["token-request" "sending..."])
                  {:keys [status body error]}
                  @(http/post (:token-uri oauth-client) request-params)]
-             (tap> ["token-response" {:status status :error error :body body}])
+             (tap> ["token-response"
+                    {:status status
+                     :error error
+                     :body (if (= status 200) "REDACTED-BODY" body)}])
              (if (or error (not= status 200))
-               (do (println "Error exchanging code for token:"
-                            (or error (str "HTTP " status)))
+               (do (tap> ["Error exchanging code for token:"
+                          (or error (str "HTTP " status))])
                    nil)
                (json/read-value body json/keyword-keys-object-mapper)))
            (catch Exception e
-             (println "Exception exchanging code for token:" (.getMessage e))
+             (tap> ["Exception exchanging code for token:" (.getMessage e)])
              (tap> ["token-exception" (.getMessage e)])
              nil)))))
 
 (defn get-user-info
   [access-token]
-  (tap> ["get-user-info" access-token])
+  (tap> ["get-user-info" "REDACTED-TOKEN"])
   (try (let [{:keys [status body error]}
              @(http/get "https://www.googleapis.com/oauth2/v3/userinfo"
                         {:headers {"Authorization" (str "Bearer " access-token)}
                          :as :text})]
          (tap> ["user-info-response" {:status status :error error}])
          (if (or error (not= status 200))
-           (do (println "Error getting user info:"
-                        (or error (str "HTTP " status)))
+           (do (tap> ["Error getting user info:"
+                      (or error (str "HTTP " status))])
                nil)
            (json/read-value body json/keyword-keys-object-mapper)))
        (catch Exception e
-         (println "Exception getting user info:" (.getMessage e))
+         (tap> ["Exception getting user info:" (.getMessage e)])
          (tap> ["user-info-exception" (.getMessage e)])
          nil)))
 
@@ -104,11 +107,11 @@
   [code request]
   (if-let [token-response (exchange-code-for-token code request)]
     (let [access-token (:access_token token-response)
-          _ (tap> ["access-token-received" access-token])
+          _ (tap> ["access-token-received" "REDACTED"])
           user-info (get-user-info access-token)
           _ (tap> ["user-info-received" user-info])
           jwt-token (create-jwt-token user-info)
-          _ (tap> ["jwt-token" jwt-token])
+          _ (tap> ["jwt-token" "REDACTED"])
           frontend-url (config-utils/frontend-url request)]
       (-> (response/redirect frontend-url)
           (assoc-in [:cookies "auth-token"]
@@ -131,7 +134,7 @@
         error (get-in request [:query-params "error"])]
     ;; Check for error from Google
     (if error
-      (do (println "OAuth error from Google:" error)
+      (do (tap> ["OAuth error from Google:" error])
           (tap> ["oauth-error" error])
           (response/bad-request (str "Authentication error: " error)))
       ;; Verify state to prevent CSRF

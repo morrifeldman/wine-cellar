@@ -32,16 +32,16 @@
   "Seeds classifications only if none exist in the database"
   []
   (when-not (classifications-exist?)
-    (println "No wine classifications found. Seeding from file...")
+    (tap> "No wine classifications found. Seeding from file...")
     (seed-classifications!)
-    (println "Wine classifications seeded successfully.")))
+    (tap> "Wine classifications seeded successfully.")))
 
 ;; Database setup and teardown
 (defn- sql-execute-helper
   [tx sql-map]
   (let [sql (sql/format sql-map)]
-    (println "Compiled SQL:" sql)
-    (println "DB Response:" (jdbc/execute-one! tx sql db-opts))))
+    (tap> ["Compiled SQL:" sql])
+    (tap> ["DB Response:" (jdbc/execute-one! tx sql db-opts)])))
 
 (defn- ensure-tables
   ([] (jdbc/with-transaction [tx ds] (ensure-tables tx)))
