@@ -37,8 +37,10 @@
   (let [guessed-varieties (get wset-data :guessed_varieties [])
         guessed-country (get wset-data :guessed_country)
         guessed-region (get wset-data :guessed_region)
-        guessed-vintage (get wset-data :guessed_vintage_range)
+        guessed-vintage-range (get wset-data :guessed_vintage_range)
+        guessed-vintage (get wset-data :guessed_vintage)
         guessed-producer (get wset-data :guessed_producer)
+        display-vintage (or guessed-vintage guessed-vintage-range)
         actual-varieties (mapv :name (:varieties wine))
         actual-country (:wine_country wine)
         actual-region (:wine_region wine)
@@ -51,12 +53,18 @@
         region-match? (and guessed-region
                            (str/includes? (str/lower-case (or actual-region ""))
                                           (str/lower-case guessed-region)))
-        vintage-in-range? (when (and guessed-vintage actual-vintage)
-                            (let [parts (str/split guessed-vintage #"-")
-                                  start (js/parseInt (first parts))
-                                  end (js/parseInt (second parts))]
-                              (and (>= actual-vintage start)
-                                   (<= actual-vintage end))))]
+        vintage-match?
+        (cond (and guessed-vintage actual-vintage)
+              (= (js/parseInt guessed-vintage) actual-vintage)
+              (and guessed-vintage-range actual-vintage)
+              (let [parts (str/split guessed-vintage-range #"-")
+                    start (js/parseInt (first parts))
+                    end (js/parseInt (second parts))]
+                (if (and (not (js/isNaN start)) (not (js/isNaN end)))
+                  (and (>= actual-vintage start) (<= actual-vintage end))
+                  ;; Fallback for single year in range field
+                  (= (js/parseInt guessed-vintage-range) actual-vintage)))
+              :else false)]
     [paper {:variant "outlined" :sx {:p 2 :mt 2 :bgcolor "background.paper"}}
      [typography {:variant "subtitle2" :sx {:mb 1}} "Your Guesses vs Actual"]
      [box
@@ -77,8 +85,8 @@
      [guess-comparison-row "Country" guessed-country actual-country
       country-match?]
      [guess-comparison-row "Region" guessed-region actual-region region-match?]
-     [guess-comparison-row "Vintage" guessed-vintage
-      (when actual-vintage (str actual-vintage)) vintage-in-range?]
+     [guess-comparison-row "Vintage" display-vintage
+      (when actual-vintage (str actual-vintage)) vintage-match?]
      [guess-comparison-row "Producer" guessed-producer actual-producer
       (and guessed-producer
            actual-producer

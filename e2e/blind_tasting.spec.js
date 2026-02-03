@@ -63,6 +63,22 @@ test('Blind Tasting Flow with WSET Display', async ({ page, context }) => {
   // WSET Conclusions - Quality: OUTSTANDING
   await page.getByRole('dialog').getByText('OUTSTANDING', { exact: true }).click();
   
+  // Guessed Country - Autocomplete
+  // Type 'Fra' and wait for suggestion 'France' if available, or just verify free solo accepts it.
+  // Note: Test environment might not have seeded classifications, so free solo is safer unless we seed.
+  // Assuming free solo works even without suggestions.
+  await page.getByLabel('Guessed Country').fill('France');
+  // If suggestions appear, we could click one, but free solo accepts the text.
+  // Let's try to click the body to blur and set the value if needed
+  await page.getByRole('dialog').click();
+
+  // Guessed Region - Autocomplete
+  await page.getByLabel('Guessed Region').fill('Bordeaux');
+  await page.getByRole('dialog').click();
+
+  // Guessed Vintage - Number Field
+  await page.getByLabel('Guessed Vintage').fill('2019');
+
   // Save
   await page.getByRole('button', { name: 'Save Blind Tasting' }).click();
 

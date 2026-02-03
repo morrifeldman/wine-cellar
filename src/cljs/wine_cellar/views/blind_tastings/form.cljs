@@ -27,80 +27,122 @@
 
 (defn- guesses-section
   [app-state]
-  (let [form-data (get-in @app-state [:blind-tastings :form :wset_data] {})
-        varieties (or (:grape-varieties @app-state) [])
-        variety-names (mapv :name varieties)]
-    [box {:sx {:mt 3}} [typography {:variant "h6" :sx {:mb 2}} "Your Guesses"]
-     [typography {:variant "body2" :color "text.secondary" :sx {:mb 2}}
-      "Record your guesses before revealing the wine. These will be compared when you link this tasting to a wine."]
-     [grid {:container true :spacing 2}
-      [grid {:item true :xs 12}
-       [autocomplete
-        {:multiple true
-         :freeSolo true
-         :options (clj->js variety-names)
-         :value (clj->js (or (:guessed_varieties form-data) []))
-         :onChange (fn [_ v]
-                     (swap! app-state assoc-in
-                       [:blind-tastings :form :wset_data :guessed_varieties]
-                       (js->clj v)))
-         :renderTags (fn [value getTagProps]
-                       (r/as-element
-                        [:<>
-                         (map-indexed
-                          (fn [idx v]
-                            (let [props (js->clj (getTagProps #js {:index idx})
-                                                 :keywordize-keys
-                                                 true)]
-                              [chip (merge {:label v :size "small"} props)]))
-                          (js->clj value))]))
-         :renderInput (fn [params]
-                        (r/as-element
-                         [mui-text-field/text-field
-                          (merge (safe-js-props params)
-                                 {:label "Guessed Varieties"
-                                  :variant "outlined"
-                                  :size "small"
-                                  :fullWidth true
-                                  :helperText
-                                  "Type variety names, press Enter"})]))}]]
-      [grid {:item true :xs 12 :sm 6}
-       [mui-text-field/text-field
-        {:label "Guessed Country"
-         :fullWidth true
-         :size "small"
-         :value (or (:guessed_country form-data) "")
-         :onChange #(swap! app-state assoc-in
-                      [:blind-tastings :form :wset_data :guessed_country]
-                      (.. % -target -value))}]]
-      [grid {:item true :xs 12 :sm 6}
-       [mui-text-field/text-field
-        {:label "Guessed Region"
-         :fullWidth true
-         :size "small"
-         :value (or (:guessed_region form-data) "")
-         :onChange #(swap! app-state assoc-in
-                      [:blind-tastings :form :wset_data :guessed_region]
-                      (.. % -target -value))}]]
-      [grid {:item true :xs 12 :sm 6}
-       [mui-text-field/text-field
-        {:label "Guessed Vintage Range"
-         :fullWidth true
-         :size "small"
-         :placeholder "e.g. 2018-2020 or 3-5 years old"
-         :value (or (:guessed_vintage_range form-data) "")
-         :onChange #(swap! app-state assoc-in
-                      [:blind-tastings :form :wset_data :guessed_vintage_range]
-                      (.. % -target -value))}]]
-      [grid {:item true :xs 12 :sm 6}
-       [mui-text-field/text-field
-        {:label "Guessed Producer (optional)"
-         :fullWidth true
-         :size "small"
-         :value (or (:guessed_producer form-data) "")
-         :onChange #(swap! app-state assoc-in
-                      [:blind-tastings :form :wset_data :guessed_producer]
-                      (.. % -target -value))}]]]]))
+  (let [classifications (r/cursor app-state [:classifications])
+        varieties (r/cursor app-state [:grape-varieties])
+        country-options (r/reaction (->> @classifications
+                                         (map :country)
+                                         (remove nil?)
+                                         distinct
+                                         sort
+                                         clj->js))
+        variety-options (r/reaction (->> @varieties
+                                         (map :name)
+                                         sort
+                                         clj->js))]
+    (fn [app-state]
+      (let [form-data (get-in @app-state [:blind-tastings :form :wset_data] {})
+            selected-country (:guessed_country form-data)
+            region-options (->> @classifications
+                                (filter #(or (empty? selected-country)
+                                             (= (:country %) selected-country)))
+                                (map :region)
+                                (remove nil?)
+                                distinct
+                                sort
+                                clj->js)]
+        [box {:sx {:mt 3}}
+         [typography {:variant "h6" :sx {:mb 2}} "Your Guesses"]
+         [typography {:variant "body2" :color "text.secondary" :sx {:mb 2}}
+          "Record your guesses before revealing the wine. These will be compared when you link this tasting to a wine."]
+         [grid {:container true :spacing 2}
+          [grid {:item true :xs 12}
+           [autocomplete
+            {:multiple true
+             :freeSolo true
+             :options @variety-options
+             :value (clj->js (or (:guessed_varieties form-data) []))
+             :onChange (fn [_ v]
+                         (swap! app-state assoc-in
+                           [:blind-tastings :form :wset_data :guessed_varieties]
+                           (js->clj v)))
+             :renderTags
+             (fn [value getTagProps]
+               (r/as-element
+                [:<>
+                 (map-indexed
+                  (fn [idx v]
+                    (let [props (js->clj (getTagProps #js {:index idx})
+                                         :keywordize-keys
+                                         true)]
+                      [chip (merge {:label v :size "small"} props)]))
+                  (js->clj value))]))
+             :renderInput (fn [params]
+                            (r/as-element
+                             [mui-text-field/text-field
+                              (merge (safe-js-props params)
+                                     {:label "Guessed Varieties"
+                                      :variant "outlined"
+                                      :size "small"
+                                      :fullWidth true
+                                      :helperText
+                                      "Type variety names, press Enter"})]))}]]
+          [grid {:item true :xs 12 :sm 6}
+           [autocomplete
+            {:freeSolo true
+             :options @country-options
+             :value (or (:guessed_country form-data) "")
+             :onInputChange (fn [_ new-value _]
+                              (swap! app-state assoc-in
+                                [:blind-tastings :form :wset_data
+                                 :guessed_country]
+                                new-value))
+             :renderInput (fn [params]
+                            (r/as-element [mui-text-field/text-field
+                                           (merge (safe-js-props params)
+                                                  {:label "Guessed Country"
+                                                   :variant "outlined"
+                                                   :size "small"
+                                                   :fullWidth true})]))}]]
+          [grid {:item true :xs 12 :sm 6}
+           [autocomplete
+            {:freeSolo true
+             :options region-options
+             :value (or (:guessed_region form-data) "")
+             :onInputChange (fn [_ new-value _]
+                              (swap! app-state assoc-in
+                                [:blind-tastings :form :wset_data
+                                 :guessed_region]
+                                new-value))
+             :renderInput (fn [params]
+                            (r/as-element [mui-text-field/text-field
+                                           (merge (safe-js-props params)
+                                                  {:label "Guessed Region"
+                                                   :variant "outlined"
+                                                   :size "small"
+                                                   :fullWidth true})]))}]]
+          [grid {:item true :xs 12 :sm 6}
+           [number-field
+            {:label "Guessed Vintage"
+             :fullWidth true
+             :placeholder "YYYY"
+             :min 1900
+             :max 2100
+             :value (or (:guessed_vintage form-data) "")
+             :on-change (fn [val]
+                          (let [parsed (js/parseInt val)]
+                            (swap! app-state assoc-in
+                              [:blind-tastings :form :wset_data
+                               :guessed_vintage]
+                              (if (js/isNaN parsed) nil parsed))))}]]
+          [grid {:item true :xs 12 :sm 6}
+           [mui-text-field/text-field
+            {:label "Guessed Producer (optional)"
+             :fullWidth true
+             :size "small"
+             :value (or (:guessed_producer form-data) "")
+             :onChange #(swap! app-state assoc-in
+                          [:blind-tastings :form :wset_data :guessed_producer]
+                          (.. % -target -value))}]]]]))))
 
 (defn blind-tasting-form-dialog
   [app-state]
