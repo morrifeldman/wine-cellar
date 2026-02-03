@@ -152,19 +152,24 @@
           selected-provider (or provider :gemini)]
       (if (not should-generate?)
         (do (println "Returning existing report from database") existing)
-        (let [_ (println
-                 (cond force? "Forcing regeneration..."
-                       stale?
-                       "Existing report is stale (missing IDs). Regenerating..."
-                       :else "No existing report found. Generating...")
-                 "with provider:"
-                 selected-provider)
-              data (generate-report-data tx)
-              _ (println "Generated data keys:" (keys data))
-              data-json (json/write-value-as-string data)
-              ai-response (ai/generate-report-commentary selected-provider
-                                                         data-json)
-              highlight-id (get-in data [:highlight_wine_id :id])]
+        (let
+          [_ (println
+              (cond force? "Forcing regeneration..."
+                    stale?
+                    "Existing report is stale (missing IDs). Regenerating..."
+                    :else "No existing report found. Generating...")
+              "with provider:"
+              selected-provider)
+           data (generate-report-data tx)
+           _ (println "Generated data keys:" (keys data))
+           data-json (json/write-value-as-string data)
+           ai-response
+           (try
+             (ai/generate-report-commentary selected-provider data-json)
+             (catch Exception e
+               (println "AI Report Generation Failed:" (.getMessage e))
+               "The sommelier is currently unavailable to provide commentary, but your cellar statistics have been updated."))
+           highlight-id (get-in data [:highlight-wine :id])]
           (save-report! tx report-date data-json ai-response highlight-id)
           (jdbc/execute-one! tx
                              (sql/format {:select [:*]

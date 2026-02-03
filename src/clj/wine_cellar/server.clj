@@ -8,7 +8,8 @@
             [wine-cellar.auth.config :as auth-config]
             [wine-cellar.config-utils :refer [backend-port production?]]
             [wine-cellar.db.setup :as db-setup]
-            [wine-cellar.routes :refer [app]]))
+            [wine-cellar.routes :refer [app]]
+            [wine-cellar.scheduler]))
 
 (defn start-server!
   [port]
