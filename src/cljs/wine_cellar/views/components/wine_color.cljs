@@ -183,14 +183,13 @@
       (let [color-column
             [box
              {:sx {:display "flex"
-                   :width "40%"
+                   :flex 1
+                   :maxWidth "200px"
                    :flexDirection "column"
-                   :alignItems "flex-end"
+                   :alignItems "center"
                    :gap 1}}
              [typography
-              {:variant "body2"
-               :sx
-               {:width "100%" :alignSelf "flex-end" :textAlign "right" :pr 6}}
+              {:variant "body2" :sx {:width "100%" :textAlign "center"}}
               "Color"]
              [slider
               {:orientation "vertical"
@@ -199,7 +198,7 @@
                :max (dec (count available-colors))
                :step 1
                :marks color-marks
-               :sx {:height 150 :alignSelf "flex-end"}
+               :sx {:height 150}
                :slotProps {:markLabel mark-label-slot}
                :onChange (fn [_ value]
                            (let [new-color (nth available-colors value)]
@@ -211,15 +210,14 @@
              {:sx {:display "flex"
                    :flexDirection "column"
                    :alignItems "center"
-                   :width "40%"
+                   :flex 1
                    :maxWidth "200px"}}
              [box
               {:sx {:display "flex"
                     :flexDirection "column"
                     :alignItems "center"
                     :gap 0
-                    :width "75%"
-                    :maxWidth "320px"
+                    :width "100%"
                     :backgroundColor "white"
                     :padding 2
                     :borderRadius 2
@@ -251,7 +249,7 @@
          [box
           {:sx {:display "flex"
                 :alignItems "flex-start"
-                :gap 0
+                :gap 4
                 :px 0
                 :justifyContent "center"
                 :width "100%"}} color-column glass-column]]))))

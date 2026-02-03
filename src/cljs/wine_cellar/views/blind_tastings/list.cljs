@@ -13,35 +13,8 @@
             [reagent-mui.icons.check-circle :refer [check-circle]]
             [reagent-mui.icons.visibility :refer [visibility]]
             [wine-cellar.api :as api]
-            [wine-cellar.utils.formatting :refer [format-date]]))
-
-(defn- wset-summary
-  [wset-data]
-  (let [appearance (get wset-data :appearance {})
-        nose (get wset-data :nose {})
-        conclusions (get wset-data :conclusions {})]
-    [box {:sx {:display "flex" :gap 1 :flexWrap "wrap" :mt 1}}
-     (when-let [colour (:colour appearance)]
-       [chip {:label (name colour) :size "small" :variant "outlined"}])
-     (when-let [intensity (:intensity appearance)]
-       [chip
-        {:label (str "Intensity: " (name intensity))
-         :size "small"
-         :variant "outlined"}])
-     (when-let [condition (:condition nose)]
-       [chip {:label (name condition) :size "small" :variant "outlined"}])
-     (when-let [quality (:quality conclusions)]
-       [chip
-        {:label (str "Quality: " (name quality))
-         :size "small"
-         :color (case quality
-                  :outstanding "success"
-                  :very-good "success"
-                  :good "primary"
-                  :acceptable "warning"
-                  :poor "error"
-                  "default")
-         :variant "outlined"}])]))
+            [wine-cellar.utils.formatting :refer [format-date]]
+            [wine-cellar.views.components.wset-shared :refer [wset-display]]))
 
 (defn- guess-comparison-row
   [label guessed actual match?]
@@ -137,7 +110,7 @@
           (str (:wine_producer note)
                (when (:wine_name note) (str " " (:wine_name note)))
                (when (:wine_vintage note) (str " " (:wine_vintage note))))])
-       (when wset-data [wset-summary wset-data])
+       (when wset-data [wset-display wset-data])
        (when (:rating note)
          [typography {:variant "body2" :sx {:mt 1}}
           (str "Rating: " (:rating note) "/100")])]

@@ -13,8 +13,10 @@
             [reagent-mui.material.autocomplete :refer [autocomplete]]
             [reagent-mui.material.chip :refer [chip]]
             [wine-cellar.api :as api]
+            [wine-cellar.common :refer [wine-styles style->info]]
             [wine-cellar.utils.mui :refer [safe-js-props]]
-            [wine-cellar.views.components.form :refer [date-field number-field]]
+            [wine-cellar.views.components.form :refer
+             [date-field number-field select-field]]
             [wine-cellar.views.components.wset-appearance :refer
              [wset-appearance-section]]
             [wine-cellar.views.components.wset-nose :refer [wset-nose-section]]
@@ -110,9 +112,8 @@
          submitting? (:submitting? blind-state)
          form-data (or (:form blind-state) {})
          wset-data (or (:wset_data form-data) {})
-         style-info {:wset-style :red-wine
-                     :default-color :garnet
-                     :default-intensity :medium}
+         selected-style (get wset-data :wset_wine_style "Red")
+         style-info (style->info selected-style)
          close! #(swap! app-state update
                    :blind-tastings
                    (fn [s]
@@ -169,6 +170,15 @@
                          (js/parseInt %))}]]] [divider {:sx {:my 3}}]
        [typography {:variant "h6" :sx {:mb 2}} "WSET Tasting Notes"]
        [grid {:container true :spacing 2}
+        [grid {:item true :xs 12}
+         [select-field
+          {:label "Wine Style (for Palate/Color)"
+           :value selected-style
+           :options (sort wine-styles)
+           :required true
+           :on-change #(swap! app-state assoc-in
+                         [:blind-tastings :form :wset_data :wset_wine_style]
+                         %)}]]
         [grid {:item true :xs 12}
          [wset-appearance-section
           {:appearance (get wset-data :appearance {})
