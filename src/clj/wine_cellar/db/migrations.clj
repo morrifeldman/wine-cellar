@@ -20,6 +20,9 @@
     "CREATE INDEX IF NOT EXISTS idx_messages_fts_content ON ai_conversation_messages USING GIN (fts_content); "
     "END IF; END $$;"]})
 
-;; Example:
-;; (def ensure-some-column
-;;   {:raw ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS some_col VARCHAR"]})
+(def ensure-blind-tasting-columns
+  {:raw
+   ["DO $$ BEGIN "
+    "ALTER TABLE tasting_notes ALTER COLUMN wine_id DROP NOT NULL; "
+    "EXCEPTION WHEN others THEN NULL; " "END $$; "
+    "ALTER TABLE tasting_notes ADD COLUMN IF NOT EXISTS is_blind BOOLEAN DEFAULT false;"]})

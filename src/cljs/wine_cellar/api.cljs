@@ -422,6 +422,62 @@
           (js/console.error "Failed to fetch tasting note sources:"
                             (:error result))))))
 
+;; Blind Tasting endpoints
+(defn fetch-blind-tastings
+  [app-state]
+  (swap! app-state assoc-in [:blind-tastings :loading?] true)
+  (go (let [result (<! (GET "/api/blind-tastings"
+                            "Failed to fetch blind tastings"))]
+        (if (:success result)
+          (swap! app-state update
+            :blind-tastings
+            (fn [state]
+              (-> state
+                  (assoc :list (:data result))
+                  (assoc :loading? false)
+                  (dissoc :error))))
+          (swap! app-state update
+            :blind-tastings
+            (fn [state]
+              (assoc state :loading? false :error (:error result))))))))
+
+(defn create-blind-tasting
+  [app-state note]
+  (swap! app-state assoc-in [:blind-tastings :submitting?] true)
+  (go
+   (let [result (<! (POST "/api/blind-tastings"
+                          note
+                          "Failed to create blind tasting"))]
+     (swap! app-state assoc-in [:blind-tastings :submitting?] false)
+     (if (:success result)
+       (do (swap! app-state update
+             :blind-tastings
+             (fn [state]
+               (-> state
+                   (assoc :form {})
+                   (assoc :show-form? false)
+                   (dissoc :error))))
+           (fetch-blind-tastings app-state))
+       (swap! app-state assoc-in [:blind-tastings :error] (:error result))))))
+
+(defn link-blind-tasting
+  [app-state note-id wine-id]
+  (swap! app-state assoc-in [:blind-tastings :linking-note-id] note-id)
+  (go
+   (let [result (<! (PUT (str "/api/blind-tastings/" note-id "/link")
+                         {:wine_id wine-id}
+                         "Failed to link blind tasting"))]
+     (swap! app-state assoc-in [:blind-tastings :linking-note-id] nil)
+     (if (:success result)
+       (do (swap! app-state update
+             :blind-tastings
+             (fn [state]
+               (-> state
+                   (assoc :show-link-dialog? false)
+                   (dissoc :error))))
+           (fetch-blind-tastings app-state))
+       (swap! app-state assoc-in [:blind-tastings :error] (:error result))))))
+
 (defn fetch-inventory-history
   [app-state wine-id]
   (go (let [result (<! (GET (str "/api/wines/by-id/" wine-id "/history")

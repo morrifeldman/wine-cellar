@@ -692,6 +692,44 @@
                       db-opts)
        (map :source)))
 
+;; Blind Tasting Operations
+(defn get-blind-tastings
+  "Returns all blind tasting notes (both linked and unlinked)"
+  []
+  (jdbc/execute! ds
+                 (sql/format
+                  {:select [:tn.* [:w.producer :wine_producer]
+                            [:w.name :wine_name] [:w.vintage :wine_vintage]
+                            [:w.country :wine_country] [:w.region :wine_region]]
+                   :from [[:tasting_notes :tn]]
+                   :left-join [[:wines :w] [:= :tn.wine_id :w.id]]
+                   :where [:or [:= :tn.wine_id nil] [:= :tn.is_blind true]]
+                   :order-by [[:tn.created_at :desc]]})
+                 db-opts))
+
+(defn create-blind-tasting
+  "Create a blind tasting note (no wine_id)"
+  [note]
+  (jdbc/execute-one! ds
+                     (sql/format {:insert-into :tasting_notes
+                                  :values [(-> note
+                                               (dissoc :wine_id)
+                                               tasting-note->db-tasting-note
+                                               (assoc :updated_at [:now]))]
+                                  :returning :*})
+                     db-opts))
+
+(defn link-blind-tasting
+  "Link a blind tasting note to a wine and mark it as blind"
+  [note-id wine-id]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:update :tasting_notes
+                       :set {:wine_id wine-id :is_blind true :updated_at [:now]}
+                       :where [:and [:= :id note-id] [:= :wine_id nil]]
+                       :returning :*})
+                     db-opts))
+
 ;; Grape Varieties Operations
 (defn create-grape-variety
   [name]

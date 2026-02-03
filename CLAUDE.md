@@ -1,34 +1,4 @@
-# CLAUDE.md
-
-For architecture, project structure, build commands, and technical reference, see **[AGENTS.md](AGENTS.md)**.
-
-## Working Style Preferences
-
-- **Incremental Development**: Suggest only one change at a time so changes can be tested before moving on
-- **Pair Programming**: Be collaborative and don't get too far ahead with suggestions
-- **Declarative Approach**: Minimize duplication and create reusable abstractions when sensible
-- **Minimal Comments**: Code comments are generally not needed
-- **Double Check Parentheses**: Keep function size short and ensure parentheses match in Clojure code
-- **Minimal Summaries**: Provide only brief summaries of changes or none at all
-- **Code Suggestions**: If code replacement tools encounter errors, suggest changes in chat instead
-- **Small Edits**: For single character additions (like missing parentheses), suggest the fix in chat rather than using Edit tool
-- **Json Processing**: Recommend using jsonista for json processing
-- **Verification**: Run `clj -M:clj-kondo --lint src/<FILE CHANGED>` after each change
-
-## Live REPL Access
-
-Interact with the running application via Babashka:
-- **Backend**: `bb scripts/repl_client.clj "(expr)"`
-- **Frontend**: `REPL_PORT_FILE=.shadow-cljs/nrepl.port REPL_CLJS_BUILD=app bb scripts/repl_client.clj "(cljs-expr)"`
-- **Restart Backend**: `bb scripts/repl_client.clj "(do (require 'clojure.tools.namespace.repl) (clojure.tools.namespace.repl/refresh))"`
-
-## Current Priorities
-
-1. Implement AI-driven wine pairing features
-2. Enable contextual AI conversations about wine selection
-3. Improve the editor with pretty-print or Portal-like features
-4. Use app-state :view state more broadly throughout the application
-5. UI/UX improvements
+See [AGENTS.md](AGENTS.md)
 
 ```
 .
@@ -41,6 +11,7 @@ Interact with the running application via Babashka:
 │   ├── assets
 │   │   ├── klimt-back.jpg
 │   │   └── klimt-front.jpg
+│   ├── ui_check.js
 │   ├── user.clj
 │   ├── vivino_process.clj
 │   └── wine_cellar
@@ -192,6 +163,10 @@ Interact with the running application via Babashka:
 │               ├── admin
 │               │   ├── devices.cljs
 │               │   └── sql.cljs
+│               ├── blind_tastings
+│               │   ├── form.cljs
+│               │   ├── link_dialog.cljs
+│               │   └── list.cljs
 │               ├── cellar_conditions.cljs
 │               ├── chat
 │               │   ├── actions.cljs
@@ -245,6 +220,6 @@ Interact with the running application via Babashka:
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-52 directories, 161 files
+53 directories, 165 files
 ```
 

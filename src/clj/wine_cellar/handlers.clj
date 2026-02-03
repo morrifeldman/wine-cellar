@@ -249,6 +249,38 @@
          (response/response sources))
        (catch Exception e (server-error e))))
 
+;; Blind Tasting Handlers
+(defn get-blind-tastings
+  [_]
+  (try (let [blind-tastings (db-api/get-blind-tastings)]
+         (response/response blind-tastings))
+       (catch Exception e (server-error e))))
+
+(defn create-blind-tasting
+  [{{{:keys [notes rating tasting_date wset_data]} :body} :parameters}]
+  (try (let [note {:notes notes
+                   :rating rating
+                   :tasting_date tasting_date
+                   :wset_data wset_data}
+             created (db-api/create-blind-tasting note)]
+         {:status 201 :body created})
+       (catch org.postgresql.util.PSQLException e
+         {:status 400
+          :body {:error "Invalid blind tasting data" :details (.getMessage e)}})
+       (catch Exception e (server-error e))))
+
+(defn link-blind-tasting
+  [{{{:keys [id]} :path {:keys [wine_id]} :body} :parameters}]
+  (try (cond (nil? wine_id) {:status 400 :body {:error "wine_id is required"}}
+             (not (db-api/wine-exists? wine_id))
+             {:status 404 :body {:error "Wine not found"}}
+             :else (if-let [updated (db-api/link-blind-tasting id wine_id)]
+                     (response/response updated)
+                     {:status 404
+                      :body {:error
+                             "Blind tasting not found or already linked"}}))
+       (catch Exception e (server-error e))))
+
 ;; Grape Varieties Handlers
 (defn get-grape-varieties
   [_]

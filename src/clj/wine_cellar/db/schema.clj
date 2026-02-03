@@ -54,10 +54,11 @@
   {:create-table [:tasting_notes :if-not-exists]
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
-    [:wine_id :integer [:not nil]] [:tasting_date :date] [:notes :text]
+    [:wine_id :integer] [:tasting_date :date] [:notes :text]
     [:rating :integer [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
     [:is_external :boolean [:default false]] [:source :varchar]
-    [:wset_data :jsonb] [:created_at :timestamp [:default [:now]]]
+    [:is_blind :boolean [:default false]] [:wset_data :jsonb]
+    [:created_at :timestamp [:default [:now]]]
     [:updated_at :timestamp [:default [:now]]]
     [[:foreign-key :wine_id] :references [:entity :wines] [:nest :id] :on-delete
      :cascade]]})
@@ -113,15 +114,16 @@
       :from [[:wine_grape_varieties :wgv]]
       :join [[:grape_varieties :gv] [:= :wgv.variety_id :gv.id]]
       :where [:= :wgv.wine_id :w.id]} :varieties]
-    [{:select
-      [[[:coalesce
-         [:json_agg
-          [:inline
-           [:json_build_object [:inline "id"] :tn.id [:inline "notes"] :tn.notes
-            [:inline "rating"] :tn.rating [:inline "tasting_date"]
-            :tn.tasting_date [:inline "is_external"] :tn.is_external
-            [:inline "source"] :tn.source [:inline "wset_data"] :tn.wset_data]
-           [:raw "ORDER BY"] :tn.tasting_date [:raw "DESC"]]] [:inline "[]"]]]]
+    [{:select [[[:coalesce
+                 [:json_agg
+                  [:inline
+                   [:json_build_object [:inline "id"] :tn.id [:inline "notes"]
+                    :tn.notes [:inline "rating"] :tn.rating
+                    [:inline "tasting_date"] :tn.tasting_date
+                    [:inline "is_external"] :tn.is_external [:inline "source"]
+                    :tn.source [:inline "wset_data"] :tn.wset_data
+                    [:inline "is_blind"] :tn.is_blind] [:raw "ORDER BY"]
+                   :tn.tasting_date [:raw "DESC"]]] [:inline "[]"]]]]
       :from [[:tasting_notes :tn]]
       :where [:= :tn.wine_id :w.id]} :tasting_notes]]
    :from [[:wines :w]]})

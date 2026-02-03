@@ -90,6 +90,7 @@
 (s/def ::include_images boolean?)
 (s/def ::back_label_image (s/nilable string?))
 (s/def ::variety_id int?)
+(s/def ::wine_id int?)
 (s/def ::variety_name string?)
 (s/def ::percentage (s/nilable (s/and number? #(<= 0 % 100))))
 (s/def ::wine_variety (s/keys :req-un [::variety_id] :opt-un [::percentage]))
@@ -360,6 +361,21 @@
     {:get {:summary "Get unique tasting note sources for suggestions"
            :responses {200 {:body ::tasting-sources} 500 {:body map?}}
            :handler handlers/get-tasting-note-sources}}]
+   ["/blind-tastings"
+    {:get {:summary "Get all blind tasting notes (linked and unlinked)"
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/get-blind-tastings}
+     :post {:summary "Create a blind tasting note (no wine attached)"
+            :parameters {:body tasting-note-schema}
+            :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
+            :handler handlers/create-blind-tasting}}]
+   ["/blind-tastings/:id/link"
+    {:parameters {:path {:id int?}}
+     :put {:summary "Link a blind tasting note to a wine"
+           :parameters {:body (s/keys :req-un [::wine_id])}
+           :responses
+           {200 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
+           :handler handlers/link-blind-tasting}}]
    ["/admin"
     ["/model-info"
      {:get {:summary "Get current AI model configuration"

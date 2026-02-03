@@ -12,6 +12,10 @@
     [wine-cellar.views.grape-varieties.list :refer [grape-varieties-page]]
     [wine-cellar.views.classifications.list :refer [classifications-page]]
     [wine-cellar.views.cellar-conditions :refer [cellar-conditions-panel]]
+    [wine-cellar.views.blind-tastings.list :refer [blind-tastings-page]]
+    [wine-cellar.views.blind-tastings.form :refer [blind-tasting-form-dialog]]
+    [wine-cellar.views.blind-tastings.link-dialog :refer
+     [link-blind-tasting-dialog]]
     [wine-cellar.views.reports.core :refer [report-modal]]
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.paper :refer [paper]]
@@ -30,6 +34,7 @@
     [reagent-mui.icons.insights :refer [insights]]
     [reagent-mui.icons.bar-chart :refer [bar-chart]]
     [reagent-mui.icons.thermostat :refer [thermostat]]
+    [reagent-mui.icons.visibility-off :refer [visibility-off]]
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.views.chat.core :refer [wine-chat]]
     [wine-cellar.portal-debug :as pd]
@@ -283,7 +288,13 @@
                       (reset! anchor-el nil)
                       (swap! app-state assoc :view :cellar-conditions))}
          [list-item-icon [thermostat {:fontSize "small" :color "primary"}]]
-         "Cellar Env"] [divider]
+         "Cellar Env"]
+        [menu-item
+         {:on-click (fn []
+                      (reset! anchor-el nil)
+                      (swap! app-state assoc :view :blind-tastings))}
+         [list-item-icon [visibility-off {:fontSize "small" :color "primary"}]]
+         "Blind Tastings"] [divider]
         [typography
          {:variant "caption"
           :sx {:px 2
@@ -346,7 +357,13 @@
        {:variant "outlined"
         :color "primary"
         :onClick #(swap! app-state assoc :view :cellar-conditions)}
-       "Cellar Env"] [admin-menu app-state]])])
+       "Cellar Env"]
+      [button
+       {:variant "outlined"
+        :color "primary"
+        :startIcon (r/as-element [visibility-off])
+        :onClick #(swap! app-state assoc :view :blind-tastings)} "Blind"]
+      [admin-menu app-state]])])
 
 (defn main-app
   [app-state]
@@ -461,6 +478,16 @@
                :color "primary"
                :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
             [sql-page]]
+           (= (:view state) :blind-tastings)
+           [:div
+            [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
+             [button
+              {:variant "outlined"
+               :color "primary"
+               :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
+            [blind-tastings-page app-state]
+            [blind-tasting-form-dialog app-state]
+            [link-blind-tasting-dialog app-state]]
            ;; Wine views
            (:selected-wine-id state) [:div [wine-details-section app-state]]
            (:show-wine-form? state) [:div [top-controls app-state]

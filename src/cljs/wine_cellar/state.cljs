@@ -50,7 +50,15 @@
                        :bucket "1d"
                        :range :all
                        :device-id nil
-                       :error nil}})
+                       :error nil}
+   :blind-tastings {:list []
+                    :loading? false
+                    :error nil
+                    :form {}
+                    :show-form? false
+                    :show-link-dialog? false
+                    :linking-note-id nil
+                    :submitting? false}})
 
 (def ^:private context-modes #{:summary :selection :selection+filters})
 
