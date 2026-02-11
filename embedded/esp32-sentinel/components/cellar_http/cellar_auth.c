@@ -295,7 +295,7 @@ static esp_err_t claim_and_poll(void) {
     esp_err_t err = http_post_json(CELLAR_API_BASE "/device-claim", claim_body, resp, sizeof(resp), &status);
     if (err != ESP_OK || (status != 200 && status != 202)) return err;
 
-    for (int attempt = 0; attempt < 60; ++attempt) { // Poll for 3 minutes (60 * 3s)
+    for (int attempt = 0; attempt < 10; ++attempt) { // Poll for 30s (10 * 3s)
         vTaskDelay(pdMS_TO_TICKS(3000));
         memset(resp, 0, sizeof(resp));
         err = http_post_json(CELLAR_API_BASE "/device-claim/poll", claim_body, resp, sizeof(resp), &status);

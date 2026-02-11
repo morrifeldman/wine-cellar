@@ -5,16 +5,13 @@
 #include "driver/i2c_master.h"
 #include "esp_err.h"
 
-#pragma once
-
-#include <stdbool.h>
-
-#include "driver/i2c_master.h"
-#include "esp_err.h"
+#define CELLAR_DISPLAY_MAX_TEMPS 6
+#define CELLAR_DISPLAY_LABEL_LEN 8
 
 typedef struct {
-    float temp_primary;      // e.g. DS18B20
-    float temp_secondary;    // e.g. BMP280/BME280
+    float temps[CELLAR_DISPLAY_MAX_TEMPS];
+    char  temp_labels[CELLAR_DISPLAY_MAX_TEMPS][CELLAR_DISPLAY_LABEL_LEN];
+    int   temp_count;
     float lux_primary;       // e.g. OPT3001
     float lux_secondary;     // e.g. VEML7700
     float pressure_hpa;

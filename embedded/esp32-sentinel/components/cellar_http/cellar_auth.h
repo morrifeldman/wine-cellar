@@ -17,5 +17,6 @@ const char *cellar_auth_claim_code(void);
 const char *cellar_auth_device_id(void);
 
 void cellar_auth_clear(void);
+void cellar_auth_clear_claim_code(void);
 
 void cellar_auth_log_status(void);

@@ -37,8 +37,7 @@ static bool s_display_ok = false;
 static uint8_t s_framebuffer[OLED_WIDTH * OLED_HEIGHT / 8] = {0};
 
 static cellar_display_status_t s_status = {
-    .temp_primary = NAN,
-    .temp_secondary = NAN,
+    .temp_count = 0,
     .lux_primary = NAN,
     .lux_secondary = NAN,
     .pressure_hpa = NAN,
@@ -261,29 +260,24 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
     clear_framebuffer();
 
     char line_temp[32];
+    char line_label[32];
     char line_ip[32];
     char line_mid[32]; // Pressure or Humidity
     char line_lux[32];
     char line_post[32];
     char line_status[32] = {0};
 
-    // Page mapping:
-    // 0: Primary + Pressure
-    // 1: Primary + Humidity
-    // 2: Secondary + Pressure
-    // 3: Secondary + Humidity
+    // Page mapping: each temperature sensor gets 2 pages (pressure, humidity)
+    // e.g. 3 sensors => pages 0-5:
+    //   0: temp[0] + Pressure    1: temp[0] + Humidity
+    //   2: temp[1] + Pressure    3: temp[1] + Humidity
+    //   4: temp[2] + Pressure    5: temp[2] + Humidity
 
-    bool use_secondary = (page >= 2);
+    int temp_idx = (status->temp_count > 0) ? (page / 2) % status->temp_count : 0;
     bool show_humidity = (page % 2 != 0);
 
-    // Determine which sensor values to show
-    float display_temp_c = status->temp_primary;
+    float display_temp_c = (temp_idx < status->temp_count) ? status->temps[temp_idx] : NAN;
     float display_lux = status->lux_primary;
-    
-    if (use_secondary) {
-        if (!isnan(status->temp_secondary)) display_temp_c = status->temp_secondary;
-        if (!isnan(status->lux_secondary)) display_lux = status->lux_secondary;
-    }
 
     float display_temp = display_temp_c;
     char temp_unit = 'C';
@@ -293,9 +287,16 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
 #endif
 
     if (!isnan(display_temp)) {
-        snprintf(line_temp, sizeof(line_temp), "%0.1f ^%c%s", display_temp, temp_unit, use_secondary ? "*" : "");
+        snprintf(line_temp, sizeof(line_temp), "%0.1f ^%c", display_temp, temp_unit);
     } else {
         line_temp[0] = '\0';
+    }
+
+    // Sensor label (shown as small text below temperature)
+    if (temp_idx < status->temp_count && status->temp_labels[temp_idx][0]) {
+        snprintf(line_label, sizeof(line_label), "%s", status->temp_labels[temp_idx]);
+    } else {
+        line_label[0] = '\0';
     }
 
     // Middle line: Pressure or Humidity
@@ -319,7 +320,7 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
     }
 
     if (!isnan(display_lux)) {
-        snprintf(line_lux, sizeof(line_lux), "%0.0f lx%s", display_lux, use_secondary ? "*" : "");
+        snprintf(line_lux, sizeof(line_lux), "%0.0f lx", display_lux);
     } else {
         line_lux[0] = '\0';
     }
@@ -339,10 +340,19 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
         draw_text_line(6, line_ip, false);
         draw_text_line(7, line_post, false);
     } else {
+        // Row 0-1 (pages 0-1): Temperature (2x scale = 14px)
         draw_text_scaled(0, 0, line_temp, 2, false);
-        draw_text_scaled(0, 16, line_mid, 2, false);
-        draw_text_scaled(0, 32, line_lux, 2, false);
+        // Row 2: Sensor label (1x scale, right after temp)
+        if (line_label[0]) {
+            draw_text_line(2, line_label, false);
+        }
+        // Row 3-4 (pages 3-4): Pressure or Humidity (2x scale)
+        draw_text_scaled(0, 24, line_mid, 2, false);
+        // Row 5: Lux (1x)
+        draw_text_line(5, line_lux, false);
+        // Row 6: IP
         draw_text_line(6, line_ip, false);
+        // Row 7: POST status
         draw_text_line(7, line_post, false);
     }
     flush_display();
@@ -358,9 +368,9 @@ static void display_task(void *pvParameters) {
             xSemaphoreGive(s_mutex);
         }
 
-        // Check if we have secondary data to toggle
-        bool has_secondary = !isnan(local_status.temp_secondary) || !isnan(local_status.lux_secondary);
-        int max_pages = has_secondary ? 4 : 2;
+        // Each temperature gets 2 pages (pressure + humidity alternation)
+        int num_temps = local_status.temp_count > 0 ? local_status.temp_count : 1;
+        int max_pages = num_temps * 2;
 
         render_status_page(&local_status, page);
         page = (page + 1) % max_pages;

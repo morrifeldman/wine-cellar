@@ -95,6 +95,7 @@ static bool s_veml7700_ready = false;
 
 #define DS18B20_MAX_DEVICES 4
 static ds18b20_device_handle_t s_ds18b20_devices[DS18B20_MAX_DEVICES];
+static uint64_t s_ds18b20_addrs[DS18B20_MAX_DEVICES];
 static int s_ds18b20_count = 0;
 
 static char s_ip_str[16] = "0.0.0.0";
@@ -306,8 +307,7 @@ static esp_err_t post_cellar_condition(void) {
         snprintf(claim_line, sizeof(claim_line), "%s", claim);
         
         cellar_display_status_t waiting = {0};
-        waiting.temp_primary = NAN;
-        waiting.temp_secondary = NAN;
+        waiting.temp_count = 0;
         waiting.lux_primary = NAN;
         waiting.lux_secondary = NAN;
         waiting.pressure_hpa = NAN;
@@ -316,7 +316,7 @@ static esp_err_t post_cellar_condition(void) {
         waiting.post_err = ESP_FAIL;
         snprintf(waiting.ip_address, sizeof(waiting.ip_address), "%s", s_ip_str);
         snprintf(waiting.status_line, sizeof(waiting.status_line), "%s", claim_line);
-        
+
         cellar_display_update(&waiting);
         return ESP_FAIL;
     }
@@ -405,21 +405,6 @@ static esp_err_t post_cellar_condition(void) {
         }
     }
 
-    // Determine Primary/Secondary values for Display
-    float temp_primary = NAN;
-    float temp_secondary = NAN;
-
-    // Prefer DS18B20 sensors: first as primary, second as secondary
-    if (ds_temp_count >= 2) {
-        temp_primary = ds_temps[0];
-        temp_secondary = ds_temps[1];
-    } else if (ds_temp_count == 1) {
-        temp_primary = ds_temps[0];
-        if (!isnan(temp_bme)) temp_secondary = temp_bme;
-    } else {
-        temp_primary = temp_bme;
-    }
-
     // Prefer OPT3001 as primary
     float lux_primary = NAN;
     float lux_secondary = NAN;
@@ -435,9 +420,32 @@ static esp_err_t post_cellar_condition(void) {
         reported_pressure = pressure;
     }
 
-    // Prepare HTTP Payload (Use primaries)
+    // Build ROM-keyed temperatures JSON: {"28AABB...":12.50,"bme280":11.80}
+    char temps_json[256] = {0};
+    int tj_written = 0;
+    bool has_any_temp = false;
+    tj_written += snprintf(temps_json + tj_written, sizeof(temps_json) - tj_written, "{");
+    for (int i = 0; i < ds_temp_count; i++) {
+        if (has_any_temp) {
+            tj_written += snprintf(temps_json + tj_written, sizeof(temps_json) - tj_written, ",");
+        }
+        tj_written += snprintf(temps_json + tj_written, sizeof(temps_json) - tj_written,
+                               "\"%012llX\":%.2f", (unsigned long long)s_ds18b20_addrs[i], ds_temps[i]);
+        has_any_temp = true;
+    }
+    if (!isnan(temp_bme)) {
+        if (has_any_temp) {
+            tj_written += snprintf(temps_json + tj_written, sizeof(temps_json) - tj_written, ",");
+        }
+        tj_written += snprintf(temps_json + tj_written, sizeof(temps_json) - tj_written,
+                               "\"bme280\":%.2f", temp_bme);
+        has_any_temp = true;
+    }
+    tj_written += snprintf(temps_json + tj_written, sizeof(temps_json) - tj_written, "}");
+
+    // Prepare HTTP Payload
     cellar_measurement_t measurement = {
-        .temperature_c = temp_primary,
+        .temperatures_json = has_any_temp ? temps_json : NULL,
         .pressure_hpa = reported_pressure,
         .humidity_pct = humidity,
         .illuminance_lux = lux_primary,
@@ -448,10 +456,21 @@ static esp_err_t post_cellar_condition(void) {
     cellar_http_result_t http_result;
     esp_err_t err = cellar_http_post(&measurement, &http_result);
 
-    // Update Display
+    // Update Display – populate all temperature sensors
     cellar_display_status_t display_status = {0};
-    display_status.temp_primary = temp_primary;
-    display_status.temp_secondary = temp_secondary;
+    display_status.temp_count = 0;
+    for (int i = 0; i < ds_temp_count && display_status.temp_count < CELLAR_DISPLAY_MAX_TEMPS; i++) {
+        display_status.temps[display_status.temp_count] = ds_temps[i];
+        snprintf(display_status.temp_labels[display_status.temp_count],
+                 CELLAR_DISPLAY_LABEL_LEN, "DS%d", i + 1);
+        display_status.temp_count++;
+    }
+    if (!isnan(temp_bme) && display_status.temp_count < CELLAR_DISPLAY_MAX_TEMPS) {
+        display_status.temps[display_status.temp_count] = temp_bme;
+        snprintf(display_status.temp_labels[display_status.temp_count],
+                 CELLAR_DISPLAY_LABEL_LEN, "BME280");
+        display_status.temp_count++;
+    }
     display_status.lux_primary = lux_primary;
     display_status.lux_secondary = lux_secondary;
     display_status.pressure_hpa = reported_pressure;
@@ -483,8 +502,7 @@ void app_main(void) {
     snprintf(claim_line, sizeof(claim_line), "%s", claim);
     
     cellar_display_status_t waiting = {0};
-    waiting.temp_primary = NAN;
-    waiting.temp_secondary = NAN;
+    waiting.temp_count = 0;
     waiting.lux_primary = NAN;
     waiting.lux_secondary = NAN;
     waiting.pressure_hpa = NAN;
@@ -577,6 +595,7 @@ void app_main(void) {
                     if (ds18b20_new_device_from_enumeration(&next_onewire_device, &ds_cfg, &dev) == ESP_OK) {
                         ds18b20_set_resolution(dev, DS18B20_RESOLUTION_12B);
                         s_ds18b20_devices[s_ds18b20_count] = dev;
+                        s_ds18b20_addrs[s_ds18b20_count] = next_onewire_device.address;
                         s_ds18b20_count++;
                         ESP_LOGI(TAG, "DS18B20[%d] init success (addr: %016llX)",
                                  s_ds18b20_count - 1, next_onewire_device.address);

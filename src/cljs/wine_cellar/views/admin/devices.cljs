@@ -7,6 +7,7 @@
             [reagent-mui.material.text-field :refer [text-field]]
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.stack :refer [stack]]
+            [reagent-mui.material.divider :refer [divider]]
             [wine-cellar.api :as api]))
 
 (defn status-chip
@@ -19,11 +20,47 @@
                 "default")]
     [chip {:label status-str :color color :variant "outlined"}]))
 
+(defn- sensor-config-editor
+  "Inline editor for sensor labels. Shows discovered addresses from sensor_config
+  and allows assigning labels."
+  [device_id sensor_config app-state]
+  (let [local-config (r/atom (or sensor_config {}))]
+    (fn [device_id sensor_config _app-state]
+      (let [addrs (sort (map name (keys @local-config)))]
+        (when (seq addrs)
+          [box {:sx {:mt 1}} [divider {:sx {:my 1}}]
+           [typography {:variant "caption" :sx {:color "text.secondary"}}
+            "Sensor labels"]
+           (for [addr addrs]
+             ^{:key addr}
+             [stack
+              {:direction "row" :spacing 1 :alignItems "center" :sx {:mt 0.5}}
+              [typography
+               {:variant "body2" :sx {:fontFamily "monospace" :minWidth 120}}
+               addr]
+              [text-field
+               {:label "Label"
+                :size "small"
+                :value (or (get-in @local-config [(keyword addr) :label]) "")
+                :on-change #(swap! local-config assoc-in
+                              [(keyword addr) :label]
+                              (.. % -target -value))
+                :sx {:minWidth 160}}]])
+           [button
+            {:variant "outlined"
+             :size "small"
+             :sx {:mt 1}
+             :on-click #(api/update-device-sensor-config app-state
+                                                         device_id
+                                                         @local-config)}
+            "Save labels"]])))))
+
 (defn device-row
-  [{:keys [device_id status last_seen token_expires_at firmware_version]}
-   app-state]
+  [{:keys [device_id status last_seen token_expires_at firmware_version
+           sensor_config]} app-state]
   (let [claim (r/atom "")]
-    (fn []
+    (fn [{:keys [device_id status last_seen token_expires_at firmware_version
+                 sensor_config]} _app-state]
       [paper {:sx {:p 2 :mb 1}}
        [stack
         {:direction "row" :spacing 2 :alignItems "center" :flexWrap "wrap"}
@@ -67,7 +104,8 @@
           :size "small"
           :color "error"
           :on-click #(when (js/confirm (str "Delete device " device_id "?"))
-                       (api/delete-device app-state device_id))} "Delete"]]])))
+                       (api/delete-device app-state device_id))} "Delete"]]
+       [sensor-config-editor device_id sensor_config app-state]])))
 
 (defn devices-page
   [app-state]

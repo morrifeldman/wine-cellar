@@ -198,6 +198,16 @@
               (fetch-devices app-state))
           (swap! app-state assoc :devices/approve-error (:error result))))))
 
+(defn update-device-sensor-config
+  [app-state device-id sensor-config]
+  (go (let [result (<! (PUT
+                        (str "/api/admin/devices/" device-id "/sensor-config")
+                        sensor-config
+                        "Failed to update sensor config"))]
+        (if (:success result)
+          (fetch-devices app-state)
+          (swap! app-state assoc :devices/approve-error (:error result))))))
+
 ;; Classification endpoints
 
 (defn fetch-classifications

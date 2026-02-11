@@ -128,8 +128,11 @@
     back_label_image (update :back_label_image bytes->base64)))
 
 (defn cellar-condition->db-row
-  [{:keys [measured_at] :as condition}]
-  (cond-> condition measured_at (update :measured_at ->sql-timestamp)))
+  [{:keys [measured_at temperatures] :as condition}]
+  (cond-> condition
+    measured_at (update :measured_at ->sql-timestamp)
+    temperatures (update :temperatures
+                         #(sql-cast :jsonb (json/write-value-as-string %)))))
 
 (defn db-cellar-condition->condition
   [{:keys [measured_at created_at] :as row}]
@@ -143,10 +146,12 @@
           Timestamp/from))
 
 (defn device->db-device
-  [{:keys [capabilities token_expires_at last_seen] :as device}]
+  [{:keys [capabilities sensor_config token_expires_at last_seen] :as device}]
   (cond-> device
     capabilities (update :capabilities
                          #(sql-cast :jsonb (json/write-value-as-string %)))
+    sensor_config (update :sensor_config
+                          #(sql-cast :jsonb (json/write-value-as-string %)))
     (instance? Instant token_expires_at) (update :token_expires_at
                                                  instant->sql-timestamp)
     (instance? Instant last_seen) (update :last_seen instant->sql-timestamp)))
@@ -874,44 +879,80 @@
 (defn cellar-condition-series
   "Return aggregated cellar readings bucketed by the requested interval. Results
   always include :device_id and :bucket_start (ISO string). Metrics include
-  avg/min/max per bucket for available numeric fields."
+  avg/min/max per bucket for available numeric fields.
+  Temperature aggregation: computes per-sensor averages via jsonb_each_text and
+  returns avg_temperatures as a JSONB map {sensor_key: avg_value}."
   [{:keys [device_id from to bucket]}]
-  (let [bucket-seconds (get bucket->seconds bucket 3600)
-        bucket-expr
-        [:raw
-         (format "to_timestamp(floor(extract(epoch from measured_at)/%d)*%d)"
-                 bucket-seconds
-                 bucket-seconds)]
-        conditions (cond-> []
-                     device_id (conj [:= :device_id device_id])
-                     from (conj [:>= :measured_at (->sql-timestamp from)])
-                     to (conj [:<= :measured_at (->sql-timestamp to)]))
-        where-clause (when (seq conditions) (into [:and] conditions))
-        query (cond-> {:select [[:device_id :device_id]
-                                [bucket-expr :bucket_start]
-                                [[:avg :temperature_c] :avg_temperature_c]
-                                [[:min :temperature_c] :min_temperature_c]
-                                [[:max :temperature_c] :max_temperature_c]
-                                [[:avg :humidity_pct] :avg_humidity_pct]
-                                [[:min :humidity_pct] :min_humidity_pct]
-                                [[:max :humidity_pct] :max_humidity_pct]
-                                [[:avg :pressure_hpa] :avg_pressure_hpa]
-                                [[:min :pressure_hpa] :min_pressure_hpa]
-                                [[:max :pressure_hpa] :max_pressure_hpa]
-                                [[:avg :illuminance_lux] :avg_illuminance_lux]
-                                [[:min :illuminance_lux] :min_illuminance_lux]
-                                [[:max :illuminance_lux] :max_illuminance_lux]
-                                [[:avg :co2_ppm] :avg_co2_ppm]
-                                [[:min :co2_ppm] :min_co2_ppm]
-                                [[:max :co2_ppm] :max_co2_ppm]
-                                [[:avg :battery_mv] :avg_battery_mv]
-                                [[:min :battery_mv] :min_battery_mv]
-                                [[:max :battery_mv] :max_battery_mv]]
-                       :from :cellar_conditions
-                       :group-by [:device_id bucket-expr]
-                       :order-by [[:bucket_start :asc] [:device_id :asc]]}
-                where-clause (assoc :where where-clause))
-        rows (jdbc/execute! ds (sql/format query) db-opts)]
+  (let
+    [bucket-seconds (get bucket->seconds bucket 3600)
+     bucket-expr (format
+                  "to_timestamp(floor(extract(epoch from measured_at)/%d)*%d)"
+                  bucket-seconds
+                  bucket-seconds)
+     conditions (cond-> ["1=1"]
+                  device_id (conj (format "device_id = '%s'"
+                                          (str/replace device_id "'" "''")))
+                  from (conj (format "measured_at >= '%s'" from))
+                  to (conj (format "measured_at <= '%s'" to)))
+     where-clause (str/join " AND " conditions)
+     sql-str
+     (str
+      "WITH buckets AS ("
+      "  SELECT device_id, "
+      bucket-expr
+      " AS bucket_start,"
+      "    AVG(humidity_pct) AS avg_humidity_pct,"
+      "    MIN(humidity_pct) AS min_humidity_pct,"
+      "    MAX(humidity_pct) AS max_humidity_pct,"
+      "    AVG(pressure_hpa) AS avg_pressure_hpa,"
+      "    MIN(pressure_hpa) AS min_pressure_hpa,"
+      "    MAX(pressure_hpa) AS max_pressure_hpa,"
+      "    AVG(illuminance_lux) AS avg_illuminance_lux,"
+      "    MIN(illuminance_lux) AS min_illuminance_lux,"
+      "    MAX(illuminance_lux) AS max_illuminance_lux,"
+      "    AVG(co2_ppm) AS avg_co2_ppm,"
+      "    MIN(co2_ppm) AS min_co2_ppm,"
+      "    MAX(co2_ppm) AS max_co2_ppm,"
+      "    AVG(battery_mv) AS avg_battery_mv,"
+      "    MIN(battery_mv) AS min_battery_mv,"
+      "    MAX(battery_mv) AS max_battery_mv"
+      "  FROM cellar_conditions"
+      "  WHERE "
+      where-clause
+      "  GROUP BY device_id, "
+      bucket-expr
+      "), temp_agg AS ("
+      "  SELECT device_id, "
+      bucket-expr
+      " AS bucket_start,"
+      "    sensor_key,"
+      "    AVG(sensor_val::float) AS avg_val,"
+      "    MIN(sensor_val::float) AS min_val,"
+      "    MAX(sensor_val::float) AS max_val"
+      "  FROM cellar_conditions,"
+      "    LATERAL jsonb_each_text(temperatures) AS t(sensor_key, sensor_val)"
+      "  WHERE "
+      where-clause
+      "  GROUP BY device_id, "
+      bucket-expr
+      ", sensor_key"
+      "), temp_json AS (" "  SELECT device_id, bucket_start,"
+      "    jsonb_object_agg(sensor_key, round(avg_val::numeric, 2)) AS avg_temperatures,"
+      "    jsonb_object_agg(sensor_key, round(min_val::numeric, 2)) AS min_temperatures,"
+      "    jsonb_object_agg(sensor_key, round(max_val::numeric, 2)) AS max_temperatures"
+      "  FROM temp_agg"
+      "  GROUP BY device_id, bucket_start" ")"
+      " SELECT b.device_id, b.bucket_start,"
+      "   t.avg_temperatures, t.min_temperatures, t.max_temperatures,"
+      "   b.avg_humidity_pct, b.min_humidity_pct, b.max_humidity_pct,"
+      "   b.avg_pressure_hpa, b.min_pressure_hpa, b.max_pressure_hpa,"
+      "   b.avg_illuminance_lux, b.min_illuminance_lux, b.max_illuminance_lux,"
+      "   b.avg_co2_ppm, b.min_co2_ppm, b.max_co2_ppm,"
+      "   b.avg_battery_mv, b.min_battery_mv, b.max_battery_mv"
+      " FROM buckets b"
+      " LEFT JOIN temp_json t ON b.device_id = t.device_id AND b.bucket_start = t.bucket_start"
+      " ORDER BY b.bucket_start ASC, b.device_id ASC")
+     rows (jdbc/execute! ds [sql-str] db-opts)]
     (->> rows
          (map (fn [row]
                 (cond-> row

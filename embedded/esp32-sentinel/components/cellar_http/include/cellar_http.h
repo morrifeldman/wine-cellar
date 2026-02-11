@@ -12,7 +12,7 @@ typedef struct {
 } resp_accum_t;
 
 typedef struct {
-    float temperature_c;
+    const char *temperatures_json;  // pre-formatted JSON object e.g. {"ADDR":12.5}
     float pressure_hpa;
     float humidity_pct;
     float illuminance_lux;

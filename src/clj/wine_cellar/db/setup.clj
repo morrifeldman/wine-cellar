@@ -51,6 +51,8 @@
    (sql-execute-helper tx migrations/ensure-classifications-appellation-tier)
    (sql-execute-helper tx migrations/ensure-messages-fts-index)
    (sql-execute-helper tx migrations/ensure-blind-tasting-columns)
+   (sql-execute-helper tx migrations/ensure-devices-sensor-config)
+   (sql-execute-helper tx migrations/migrate-temperature-to-temperatures)
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/tasting-notes-table-schema)

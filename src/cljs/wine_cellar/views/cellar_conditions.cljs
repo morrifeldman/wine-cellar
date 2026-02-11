@@ -75,21 +75,41 @@
   [lux]
   (if (some? lux) (str (.toFixed (js/Number lux) 0) " lx") "– lx"))
 
+(defn- abbreviate-rom
+  "Abbreviate a ROM address to last 4 hex chars for display."
+  [addr]
+  (let [s (str addr)] (if (> (count s) 4) (subs s (- (count s) 4)) s)))
+
+(defn- sensor-label
+  "Look up a human label for a sensor address from device sensor_config,
+  falling back to abbreviated ROM address."
+  [sensor-config addr]
+  (or (get-in sensor-config [(keyword addr) :label])
+      (get-in sensor-config [addr :label])
+      (abbreviate-rom addr)))
+
+(defn- temp-row
+  "Render a single temperature sensor reading."
+  [label celsius]
+  (let [c (js/Number celsius)
+        f (fahrenheit c)]
+    [typography {:variant "body1" :key label}
+     (str label ": " (.toFixed c 1) " °C / " (.toFixed f 1) " °F")]))
+
 (defn- latest-card
-  [{:keys [device_id measured_at temperature_c humidity_pct pressure_hpa
-           illuminance_lux battery_mv leak_detected]}]
+  [{:keys [device_id measured_at temperatures humidity_pct pressure_hpa
+           illuminance_lux battery_mv leak_detected]} sensor-config]
   [paper {:elevation 2 :sx {:p 2 :flex 1 :minWidth 240}}
    [stack {:spacing 0.5}
     [typography {:variant "subtitle2" :sx {:color "text.secondary"}}
      (or device_id "(unknown device)")]
-    (let [f (when temperature_c (fahrenheit temperature_c))]
-      [typography {:variant "h6"}
-       (if temperature_c
-         (str (.toFixed (js/Number temperature_c) 1)
-              " °C / "
-              (.toFixed (js/Number f) 1)
-              " °F")
-         "–")])
+    (if (and temperatures (seq temperatures))
+      (let [entries (sort-by first temperatures)]
+        [:<>
+         (for [[addr celsius] entries]
+           ^{:key (str addr)}
+           [temp-row (sensor-label sensor-config (name addr)) celsius])])
+      [typography {:variant "h6"} "–"])
     [typography {:variant "body2" :sx {:color "text.secondary"}}
      (str "Humidity "
           (or humidity_pct "–")
@@ -251,25 +271,87 @@
     "Refresh"] (when loading? [circular-progress {:size 22}])])
 
 (defn- latest-grid
-  [latest]
+  [latest device-sensor-configs]
   [box
    {:sx {:display "grid"
          :gridTemplateColumns "repeat(auto-fill, minmax(260px, 1fr))"
          :gap 2}}
    (for [reading latest]
      ^{:key (str (:device_id reading) (:measured_at reading))}
-     [latest-card reading])])
+     [latest-card reading (get device-sensor-configs (:device_id reading))])])
+
+(defn- collect-sensor-keys
+  "Gather all distinct sensor keys from avg_temperatures across all series rows."
+  [series]
+  (->> series
+       (mapcat #(keys (:avg_temperatures %)))
+       (map name)
+       distinct
+       sort
+       vec))
+
+(defn- temp-chart
+  "Temperature chart with one line per sensor address (across all devices)."
+  [{:keys [series sensor-config]}]
+  (let [sensor-keys (collect-sensor-keys series)
+        palette ["#8be9fd" "#ff79c6" "#f1fa8c" "#50fa7b" "#ffb86c" "#bd93f9"
+                 "#ff5555" "#9aedfe"]
+        ;; Flatten avg_temperatures into top-level keys like "temp_ADDR"
+        chart-data
+        (->> series
+             (map (fn [row]
+                    (let [temps (:avg_temperatures row)]
+                      (reduce (fn [r sk]
+                                (let [v (get temps (keyword sk))]
+                                  (if (some? v)
+                                    (assoc r (str "temp_" sk) (fahrenheit v))
+                                    r)))
+                              (select-keys row [:bucket_start :device_id])
+                              sensor-keys))))
+             vec)]
+    [:> ResponsiveContainer {:width "100%" :height 280}
+     [:> LineChart
+      {:data chart-data :margin (clj->js {:top 10 :right 30 :bottom 0 :left 0})}
+      [:> CartesianGrid
+       {:strokeDasharray "3 3" :stroke "rgba(255,255,255,0.12)"}]
+      [:> XAxis
+       {:dataKey "bucket_start"
+        :tick {:fill "#f4f0eb"}
+        :axisLine {:stroke "#f4f0eb"}
+        :tickFormatter (fn [value]
+                         (let [d (js/Date. value)]
+                           (.toLocaleDateString d
+                                                "en-US"
+                                                #js {:month "short"
+                                                     :day "numeric"})))}]
+      [:> YAxis
+       {:tick {:fill "#f4f0eb"}
+        :axisLine {:stroke "#f4f0eb"}
+        :tickFormatter (fn [v] (str (.toFixed (js/Number v) 1) "°F"))}]
+      [:> Tooltip
+       {:contentStyle #js {:backgroundColor "#2b0e16"
+                           :border "1px solid #f4f0eb"}
+        :labelStyle #js {:color "#f4f0eb"}
+        :itemStyle #js {:color "#f4f0eb"}
+        :labelFormatter (fn [value] (or (format-bucket-ts value) value))}]
+      [:> Legend {:wrapperStyle #js {:color "#f4f0eb"}}]
+      (for [[idx sk] (map-indexed vector sensor-keys)]
+        ^{:key sk}
+        [:> Line
+         {:type "monotone"
+          :dataKey (str "temp_" sk)
+          :name (sensor-label sensor-config sk)
+          :stroke (nth palette (mod idx (count palette)))
+          :dot false
+          :connectNulls true
+          :isAnimationActive false}])]]))
 
 (defn- charts-panel
-  [series]
+  [series sensor-config]
   [paper {:elevation 3 :sx {:p 2}}
    [stack {:direction "column" :spacing 2}
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Temperature (°F)"]
-    [chart
-     {:data series
-      :metric :avg_temperature_c
-      :unit "°F"
-      :convert (fn [v] (fahrenheit v))}]
+    [temp-chart {:series series :sensor-config sensor-config}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Humidity"]
     [chart {:data series :metric :avg_humidity_pct :unit "%"}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Pressure (inHg)"]
@@ -288,17 +370,34 @@
   [paper {:elevation 1 :sx {:p 2 :color "text.secondary"}}
    "No cellar readings yet. Post data from your ESP32 sentinel to see charts here."])
 
+(defn- device-sensor-configs
+  "Build a map of device_id -> sensor_config from the devices list."
+  [devices-list]
+  (into {}
+        (for [{:keys [device_id sensor_config]} devices-list
+              :when sensor_config]
+          [device_id sensor_config])))
+
+(defn- merged-sensor-config
+  "Merge all device sensor_configs into a single lookup map for chart labels."
+  [devices-list]
+  (reduce merge {} (map :sensor_config (filter :sensor_config devices-list))))
+
 (defn cellar-conditions-panel
   [app-state]
   (let [state (:cellar-conditions @app-state)
         latest (:latest state)
         series (sort-by :bucket_start (:series state))
         devices (device-options latest)
+        devices-list (or (:devices/list @app-state) [])
+        dev-sensor-cfgs (device-sensor-configs devices-list)
+        all-sensor-cfg (merged-sensor-config devices-list)
         loading? (or (:loading-latest? state) (:loading-series? state))]
-    (r/with-let [_ (load-cellar-data! app-state)]
-                [box {:sx {:display "flex" :flexDirection "column" :gap 2}}
-                 [filters-row app-state state devices loading?]
-                 (when (seq latest) [latest-grid latest])
-                 (when (seq series) [charts-panel series])
-                 (when (and (empty? latest) (empty? series) (not loading?))
-                   [empty-state])])))
+    (r/with-let
+     [_ (do (load-cellar-data! app-state) (api/fetch-devices app-state))]
+     [box {:sx {:display "flex" :flexDirection "column" :gap 2}}
+      [filters-row app-state state devices loading?]
+      (when (seq latest) [latest-grid latest dev-sensor-cfgs])
+      (when (seq series) [charts-panel series all-sensor-cfg])
+      (when (and (empty? latest) (empty? series) (not loading?))
+        [empty-state])])))

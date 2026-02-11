@@ -21,7 +21,7 @@
    :body {:error "Internal server error" :details (.getMessage e)}})
 
 (def cellar-measurement-keys
-  [:temperature_c :humidity_pct :pressure_hpa :illuminance_lux :co2_ppm
+  [:temperatures :humidity_pct :pressure_hpa :illuminance_lux :co2_ppm
    :battery_mv :leak_detected])
 
 (defn- measurement-present?
@@ -753,7 +753,7 @@
   (try (if-let [device (db-api/get-device device_id)]
          (let [matches? (= (:claim_code_hash device)
                            (devices/hash-string claim_code))]
-           (cond (not matches?) {:status 401
+           (cond (not matches?) {:status 422
                                  :body {:error "Invalid claim code"}}
                  (= "blocked" (:status device))
                  {:status 403 :body {:error "Device is blocked"}}
@@ -783,10 +783,33 @@
 (defn delete-device
   [{{{:keys [device_id]} :path} :parameters}]
   (try (let [deleted (db-api/delete-device! device_id)]
-         (if (pos? (:update-count deleted 0))
+         (if (pos? (:next.jdbc/update-count deleted 0))
            {:status 204 :body nil}
            (response/not-found {:error "Device not found"})))
        (catch Exception e (server-error e))))
+
+(defn update-device-sensor-config
+  [{{{:keys [device_id]} :path body :body} :parameters}]
+  (try (if-let [updated (db-api/update-device! device_id {:sensor_config body})]
+         (response/response (devices/public-device-view updated))
+         (response/not-found {:error "Device not found"}))
+       (catch Exception e (server-error e))))
+
+(defn- merge-sensor-config!
+  "Auto-populate sensor_config on the device with any new sensor addresses
+  discovered in the temperatures payload. Existing labels are preserved."
+  [device-id temperatures]
+  (when (and device-id (map? temperatures) (seq temperatures))
+    (try (let [device (db-api/get-device device-id)
+               existing (or (:sensor_config device) {})
+               new-keys (remove #(contains? existing (keyword %))
+                                (keys temperatures))
+               merged (reduce (fn [cfg k] (assoc cfg (keyword k) {}))
+                              existing
+                              new-keys)]
+           (when (seq new-keys)
+             (db-api/update-device! device-id {:sensor_config merged})))
+         (catch Exception _ nil))))
 
 (defn ingest-cellar-condition
   [request]
@@ -819,6 +842,8 @@
                 (let [record (db-api/create-cellar-condition!
                               (cond-> payload
                                 recorded-by (assoc :recorded_by recorded-by)))]
+                  (merge-sensor-config! (:device_id payload)
+                                        (:temperatures payload))
                   {:status 201 :body record})))
             (catch Exception e (server-error e))))))
 

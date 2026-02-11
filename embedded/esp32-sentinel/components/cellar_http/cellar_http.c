@@ -51,7 +51,7 @@ esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_
     }
 
     const char *device_id = measurement->device_id ? measurement->device_id : DEVICE_ID;
-    char payload[320];
+    char payload[512];
     int written = snprintf(payload, sizeof(payload), "{\"device_id\":\"%s\"", device_id);
 
     if (measurement->timestamp_iso8601 && measurement->timestamp_iso8601[0] != '\0') {
@@ -63,9 +63,9 @@ esp_err_t cellar_http_post(const cellar_measurement_t *measurement, cellar_http_
 
     bool has_measurement = false;
 
-    if (!isnan(measurement->temperature_c)) {
+    if (measurement->temperatures_json && measurement->temperatures_json[0] != '\0') {
         has_measurement = true;
-        written += snprintf(payload + written, sizeof(payload) - written, ",\"temperature_c\":%.2f", measurement->temperature_c);
+        written += snprintf(payload + written, sizeof(payload) - written, ",\"temperatures\":%s", measurement->temperatures_json);
     }
     if (!isnan(measurement->pressure_hpa)) {
         has_measurement = true;

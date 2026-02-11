@@ -124,7 +124,7 @@
 (s/def ::enabled? boolean?)
 (s/def ::device_id (s/and string? (complement str/blank?)))
 (s/def ::measured_at (s/nilable string?))
-(s/def ::temperature_c (s/nilable number?))
+(s/def ::temperatures (s/nilable map?))
 (s/def ::humidity_pct (s/nilable number?))
 (s/def ::pressure_hpa (s/nilable number?))
 (s/def ::illuminance_lux (s/nilable number?))
@@ -142,9 +142,10 @@
 (s/def ::capabilities (s/nilable map?))
 (s/def ::series-query (s/keys :opt-un [::device_id ::bucket ::from ::to]))
 (s/def ::metadata (s/nilable map?))
+(s/def ::sensor_config (s/nilable map?))
 (s/def ::cellar-condition
   (s/keys :req-un [::device_id]
-          :opt-un [::measured_at ::temperature_c ::humidity_pct ::pressure_hpa
+          :opt-un [::measured_at ::temperatures ::humidity_pct ::pressure_hpa
                    ::illuminance_lux ::co2_ppm ::battery_mv ::leak_detected
                    ::notes]))
 (s/def ::device-claim
@@ -428,6 +429,12 @@
       :delete {:summary "Admin: Delete a device"
                :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
                :handler handlers/delete-device}}]
+    ["/devices/:device_id/sensor-config"
+     {:parameters {:path {:device_id ::device_id}}
+      :put {:summary "Admin: Update sensor labels for a device"
+            :parameters {:body ::sensor_config}
+            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+            :handler handlers/update-device-sensor-config}}]
     ["/start-drinking-window-job"
      {:post {:summary "Start async job to regenerate drinking windows"
              :parameters {:body (s/keys :req-un [::wine-ids ::provider])}

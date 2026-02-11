@@ -26,3 +26,14 @@
     "ALTER TABLE tasting_notes ALTER COLUMN wine_id DROP NOT NULL; "
     "EXCEPTION WHEN others THEN NULL; " "END $$; "
     "ALTER TABLE tasting_notes ADD COLUMN IF NOT EXISTS is_blind BOOLEAN DEFAULT false;"]})
+
+(def ensure-devices-sensor-config
+  {:raw ["ALTER TABLE devices ADD COLUMN IF NOT EXISTS sensor_config JSONB"]})
+
+(def migrate-temperature-to-temperatures
+  {:raw
+   ["DO $$ BEGIN "
+    "IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='cellar_conditions' AND COLUMN_NAME='temperature_c') THEN "
+    "ALTER TABLE cellar_conditions ADD COLUMN IF NOT EXISTS temperatures JSONB; "
+    "ALTER TABLE cellar_conditions DROP COLUMN temperature_c; "
+    "END IF; END $$;"]})
