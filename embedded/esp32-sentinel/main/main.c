@@ -462,7 +462,8 @@ static esp_err_t post_cellar_condition(void) {
     for (int i = 0; i < ds_temp_count && display_status.temp_count < CELLAR_DISPLAY_MAX_TEMPS; i++) {
         display_status.temps[display_status.temp_count] = ds_temps[i];
         snprintf(display_status.temp_labels[display_status.temp_count],
-                 CELLAR_DISPLAY_LABEL_LEN, "DS%d", i + 1);
+                 CELLAR_DISPLAY_LABEL_LEN, "%012llX",
+                 (unsigned long long)s_ds18b20_addrs[i]);
         display_status.temp_count++;
     }
     if (!isnan(temp_bme) && display_status.temp_count < CELLAR_DISPLAY_MAX_TEMPS) {
@@ -484,6 +485,7 @@ static esp_err_t post_cellar_condition(void) {
     if (http_result.status_code == 401 || http_result.status_code == 403) {
         ESP_LOGW(TAG, "Auth rejected (status %d), clearing tokens to force re-claim", http_result.status_code);
         cellar_auth_clear();
+        return ESP_ERR_NOT_ALLOWED;  // Signal auth failure to main loop
     }
 
     return err;
@@ -634,9 +636,14 @@ void app_main(void) {
 
     while (true) {
         esp_err_t err = post_cellar_condition();
-        if (err != ESP_OK) {
-            ESP_LOGW(TAG, "Telemetry send failed, will retry after delay");
+        if (err == ESP_ERR_NOT_ALLOWED) {
+            ESP_LOGW(TAG, "Auth rejected, retrying claim immediately");
+            vTaskDelay(pdMS_TO_TICKS(2000));  // Brief pause before re-claim
+        } else {
+            if (err != ESP_OK) {
+                ESP_LOGW(TAG, "Telemetry send failed, will retry after delay");
+            }
+            vTaskDelay(pdMS_TO_TICKS(POST_INTERVAL_MS));
         }
-        vTaskDelay(pdMS_TO_TICKS(POST_INTERVAL_MS));
     }
 }
