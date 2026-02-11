@@ -13,6 +13,9 @@
 #define I2C_SCL 22
 #define I2C_FREQ_HZ 100000
 
+// 1-Wire bus (DS18B20 temperature sensors)
+#define ONEWIRE_BUS_GPIO 4
+
 // BME280 pressure/temperature/humidity sensor
 #define BME280_ADDRESS 0x76 // 0x76 or 0x77
 
@@ -32,6 +35,12 @@
 // #define DISPLAY_PRESSURE_INHG 1
 
 // #define CELLAR_API_USE_HTTPS 0
+
+// Optional: how often to post telemetry (milliseconds, default 30s)
+// #define POST_INTERVAL_MS (30 * 1000)
+
+// Optional: clear the stored claim code on boot (useful during development)
+// #define RESET_CLAIM_CODE 1
 
 /* Optional: pin your TLS cert for HTTPS endpoints
 static const char CELLAR_API_CERT_PEM[] = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n";

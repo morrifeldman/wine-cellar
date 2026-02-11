@@ -71,7 +71,9 @@
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
 #define WIFI_MAXIMUM_RETRY 5
+#ifndef POST_INTERVAL_MS
 #define POST_INTERVAL_MS (30 * 1000)
+#endif
 
 static const char *TAG = "sentinel";
 static EventGroupHandle_t s_wifi_event_group;
@@ -91,8 +93,9 @@ static bool s_opt3001_ready = false;
 static veml7700_handle_t s_veml7700;
 static bool s_veml7700_ready = false;
 
-static ds18b20_device_handle_t s_ds18b20_device = NULL;
-static bool s_ds18b20_ready = false;
+#define DS18B20_MAX_DEVICES 4
+static ds18b20_device_handle_t s_ds18b20_devices[DS18B20_MAX_DEVICES];
+static int s_ds18b20_count = 0;
 
 static char s_ip_str[16] = "0.0.0.0";
 static bool s_time_synced = false;
@@ -319,7 +322,6 @@ static esp_err_t post_cellar_condition(void) {
     }
 
     float temp_bme = NAN;
-    float temp_ds = NAN;
     float pressure = NAN;
     float humidity = NAN;
     float lux_opt = NAN;
@@ -356,21 +358,28 @@ static esp_err_t post_cellar_condition(void) {
         }
     }
 
-    // DS18B20 Reading
-    if (s_ds18b20_ready) {
-        esp_err_t ds_err = ds18b20_trigger_temperature_conversion(s_ds18b20_device);
-        if (ds_err == ESP_OK) {
-            vTaskDelay(pdMS_TO_TICKS(800)); // 12-bit conversion time
-            float t = 0.0f;
-            ds_err = ds18b20_get_temperature(s_ds18b20_device, &t);
-            if (ds_err == ESP_OK) {
-                ESP_LOGI(TAG, "DS18B20: T=%.2fC", t);
-                temp_ds = t;
-            } else {
-                ESP_LOGE(TAG, "DS18B20 read failed: %s", esp_err_to_name(ds_err));
+    // DS18B20 Readings (multiple sensors)
+    float ds_temps[DS18B20_MAX_DEVICES];
+    int ds_temp_count = 0;
+    if (s_ds18b20_count > 0) {
+        // Trigger conversion on all devices
+        for (int i = 0; i < s_ds18b20_count; i++) {
+            esp_err_t ds_err = ds18b20_trigger_temperature_conversion(s_ds18b20_devices[i]);
+            if (ds_err != ESP_OK) {
+                ESP_LOGE(TAG, "DS18B20[%d] trigger failed: %s", i, esp_err_to_name(ds_err));
             }
-        } else {
-             ESP_LOGE(TAG, "DS18B20 trigger failed: %s", esp_err_to_name(ds_err));
+        }
+        vTaskDelay(pdMS_TO_TICKS(800)); // 12-bit conversion time
+        // Read temperatures
+        for (int i = 0; i < s_ds18b20_count; i++) {
+            float t = 0.0f;
+            esp_err_t ds_err = ds18b20_get_temperature(s_ds18b20_devices[i], &t);
+            if (ds_err == ESP_OK) {
+                ESP_LOGI(TAG, "DS18B20[%d]: T=%.2fC", i, t);
+                ds_temps[ds_temp_count++] = t;
+            } else {
+                ESP_LOGE(TAG, "DS18B20[%d] read failed: %s", i, esp_err_to_name(ds_err));
+            }
         }
     }
 
@@ -399,10 +408,13 @@ static esp_err_t post_cellar_condition(void) {
     // Determine Primary/Secondary values for Display
     float temp_primary = NAN;
     float temp_secondary = NAN;
-    
-    // Prefer DS18B20 as primary
-    if (!isnan(temp_ds)) {
-        temp_primary = temp_ds;
+
+    // Prefer DS18B20 sensors: first as primary, second as secondary
+    if (ds_temp_count >= 2) {
+        temp_primary = ds_temps[0];
+        temp_secondary = ds_temps[1];
+    } else if (ds_temp_count == 1) {
+        temp_primary = ds_temps[0];
         if (!isnan(temp_bme)) temp_secondary = temp_bme;
     } else {
         temp_primary = temp_bme;
@@ -549,27 +561,38 @@ void app_main(void) {
     onewire_bus_rmt_config_t rmt_config = {
         .max_rx_bytes = 10,
     };
-    
-    // Create 1-Wire bus
+
+    // Create 1-Wire bus and enumerate all DS18B20 devices
     if (onewire_new_bus_rmt(&bus_config, &rmt_config, &ow_bus) == ESP_OK) {
         onewire_device_iter_handle_t iter = NULL;
         onewire_device_t next_onewire_device;
         if (onewire_new_device_iter(ow_bus, &iter) == ESP_OK) {
             ESP_LOGI(TAG, "Scanning 1-Wire bus on GPIO %d...", ONEWIRE_BUS_GPIO);
-            if (onewire_device_iter_get_next(iter, &next_onewire_device) == ESP_OK) {
-                // Found a device, try to init as DS18B20
-                ds18b20_config_t ds_cfg = {}; 
-                if (ds18b20_new_device_from_enumeration(&next_onewire_device, &ds_cfg, &s_ds18b20_device) == ESP_OK) {
-                     ESP_LOGI(TAG, "Found DS18B20, init success");
-                     s_ds18b20_ready = true;
-                     ds18b20_set_resolution(s_ds18b20_device, DS18B20_RESOLUTION_12B);
-                } else {
-                     ESP_LOGE(TAG, "Found 1-Wire device but failed to init DS18B20 driver");
+            esp_err_t search_result;
+            do {
+                search_result = onewire_device_iter_get_next(iter, &next_onewire_device);
+                if (search_result == ESP_OK) {
+                    ds18b20_config_t ds_cfg = {};
+                    ds18b20_device_handle_t dev = NULL;
+                    if (ds18b20_new_device_from_enumeration(&next_onewire_device, &ds_cfg, &dev) == ESP_OK) {
+                        ds18b20_set_resolution(dev, DS18B20_RESOLUTION_12B);
+                        s_ds18b20_devices[s_ds18b20_count] = dev;
+                        s_ds18b20_count++;
+                        ESP_LOGI(TAG, "DS18B20[%d] init success (addr: %016llX)",
+                                 s_ds18b20_count - 1, next_onewire_device.address);
+                    } else {
+                        ESP_LOGW(TAG, "1-Wire device at %016llX is not a DS18B20",
+                                 next_onewire_device.address);
+                    }
                 }
-            } else {
-                ESP_LOGW(TAG, "No 1-Wire devices found");
-            }
+            } while (search_result == ESP_OK && s_ds18b20_count < DS18B20_MAX_DEVICES);
             onewire_del_device_iter(iter);
+
+            if (s_ds18b20_count == 0) {
+                ESP_LOGW(TAG, "No DS18B20 devices found on 1-Wire bus");
+            } else {
+                ESP_LOGI(TAG, "Found %d DS18B20 device(s)", s_ds18b20_count);
+            }
         }
     } else {
         ESP_LOGE(TAG, "Failed to create 1-Wire bus RMT");
