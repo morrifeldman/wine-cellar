@@ -931,7 +931,7 @@
       "    MAX(sensor_val::float) AS max_val"
       "  FROM cellar_conditions,"
       "    LATERAL jsonb_each_text(temperatures) AS t(sensor_key, sensor_val)"
-      "  WHERE "
+      "  WHERE temperatures IS NOT NULL AND "
       where-clause
       "  GROUP BY device_id, "
       bucket-expr
