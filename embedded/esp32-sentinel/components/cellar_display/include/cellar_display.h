@@ -6,7 +6,7 @@
 #include "esp_err.h"
 
 #define CELLAR_DISPLAY_MAX_TEMPS 6
-#define CELLAR_DISPLAY_LABEL_LEN 16
+#define CELLAR_DISPLAY_LABEL_LEN 17
 
 typedef struct {
     float temps[CELLAR_DISPLAY_MAX_TEMPS];
