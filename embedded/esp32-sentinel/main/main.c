@@ -299,7 +299,7 @@ static bool format_iso8601_now(char *out, size_t out_len) {
     return written > 0 && written < out_len;
 }
 
-static esp_err_t post_cellar_condition(void) {
+static esp_err_t post_sensor_reading(void) {
     if (cellar_auth_ensure_access_token() != ESP_OK) {
         ESP_LOGW(TAG, "No valid access token; skipping post");
         static char claim_line[32];
@@ -635,7 +635,7 @@ void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     while (true) {
-        esp_err_t err = post_cellar_condition();
+        esp_err_t err = post_sensor_reading();
         if (err == ESP_ERR_NOT_ALLOWED) {
             ESP_LOGW(TAG, "Auth rejected, retrying claim immediately");
             vTaskDelay(pdMS_TO_TICKS(2000));  // Brief pause before re-claim

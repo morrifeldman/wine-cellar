@@ -33,7 +33,10 @@
 (def migrate-temperature-to-temperatures
   {:raw
    ["DO $$ BEGIN "
-    "IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='cellar_conditions' AND COLUMN_NAME='temperature_c') THEN "
-    "ALTER TABLE cellar_conditions ADD COLUMN IF NOT EXISTS temperatures JSONB; "
-    "ALTER TABLE cellar_conditions DROP COLUMN temperature_c; "
+    "IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='sensor_readings' AND COLUMN_NAME='temperature_c') THEN "
+    "ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS temperatures JSONB; "
+    "ALTER TABLE sensor_readings DROP COLUMN temperature_c; "
     "END IF; END $$;"]})
+
+(def rename-cellar-conditions-to-sensor-readings
+  {:raw ["ALTER TABLE IF EXISTS cellar_conditions RENAME TO sensor_readings"]})

@@ -17,7 +17,7 @@
 #error "CELLAR_API_BASE must be defined in config.h (e.g. http://host:3000/api)"
 #endif
 
-static const char *POST_URL = CELLAR_API_BASE "/cellar-conditions";
+static const char *POST_URL = CELLAR_API_BASE "/sensor-readings";
 
 static const char *TAG = "cellar_http";
 

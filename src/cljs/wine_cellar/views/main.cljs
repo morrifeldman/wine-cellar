@@ -11,7 +11,7 @@
     [wine-cellar.views.wines.detail :refer [wine-details-section]]
     [wine-cellar.views.grape-varieties.list :refer [grape-varieties-page]]
     [wine-cellar.views.classifications.list :refer [classifications-page]]
-    [wine-cellar.views.cellar-conditions :refer [cellar-conditions-panel]]
+    [wine-cellar.views.sensor-readings :refer [sensor-readings-panel]]
     [wine-cellar.views.blind-tastings.list :refer [blind-tastings-page]]
     [wine-cellar.views.blind-tastings.form :refer [blind-tasting-form-dialog]]
     [wine-cellar.views.blind-tastings.link-dialog :refer
@@ -286,9 +286,9 @@
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
-                      (swap! app-state assoc :view :cellar-conditions))}
+                      (swap! app-state assoc :view :sensor-readings))}
          [list-item-icon [thermostat {:fontSize "small" :color "primary"}]]
-         "Cellar Env"]
+         "Sensors"]
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
@@ -356,8 +356,7 @@
       [button
        {:variant "outlined"
         :color "primary"
-        :onClick #(swap! app-state assoc :view :cellar-conditions)}
-       "Cellar Env"]
+        :onClick #(swap! app-state assoc :view :sensor-readings)} "Sensors"]
       [button
        {:variant "outlined"
         :color "primary"
@@ -451,15 +450,15 @@
               :color "primary"
               :on-click #(swap! app-state dissoc :view)
               :sx {:mt 2}} "Back to Wine List"]]
-           (= (:view state) :cellar-conditions)
+           (= (:view state) :sensor-readings)
            [:div
             [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-             [typography {:variant "h5"} "Cellar Environment"]
+             [typography {:variant "h5"} "Sensors"]
              [button
               {:variant "outlined"
                :color "primary"
                :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
-            [cellar-conditions-panel app-state]]
+            [sensor-readings-panel app-state]]
            (= (:view state) :devices)
            [:div
             [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}

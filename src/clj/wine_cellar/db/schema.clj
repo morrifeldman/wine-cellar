@@ -177,8 +177,8 @@
                   [[:foreign-key :highlight_wine_id] :references [:wines :id]
                    :on-delete :set-null]]})
 
-(def cellar-conditions-table-schema
-  {:create-table [:cellar_conditions :if-not-exists]
+(def sensor-readings-table-schema
+  {:create-table [:sensor_readings :if-not-exists]
    :with-columns
    [[:id :bigserial :primary-key] [:device_id :varchar [:not nil]]
     [:recorded_by :varchar] [:temperatures :jsonb]

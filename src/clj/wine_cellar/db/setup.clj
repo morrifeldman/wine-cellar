@@ -52,6 +52,8 @@
    (sql-execute-helper tx migrations/ensure-messages-fts-index)
    (sql-execute-helper tx migrations/ensure-blind-tasting-columns)
    (sql-execute-helper tx migrations/ensure-devices-sensor-config)
+   (sql-execute-helper tx
+                       migrations/rename-cellar-conditions-to-sensor-readings)
    (sql-execute-helper tx migrations/migrate-temperature-to-temperatures)
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
@@ -62,7 +64,7 @@
    (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
    (sql-execute-helper tx schema/inventory-history-table-schema)
    (sql-execute-helper tx schema/cellar-reports-table-schema)
-   (sql-execute-helper tx schema/cellar-conditions-table-schema)
+   (sql-execute-helper tx schema/sensor-readings-table-schema)
    (sql-execute-helper tx schema/devices-table-schema)
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
@@ -87,8 +89,7 @@
                        {:raw ["DROP TABLE IF EXISTS ai_conversations CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS tasting_notes CASCADE"]})
    (sql-execute-helper tx
-                       {:raw
-                        ["DROP TABLE IF EXISTS cellar_conditions CASCADE"]})
+                       {:raw ["DROP TABLE IF EXISTS sensor_readings CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS devices CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS wines CASCADE"]})
    (sql-execute-helper tx

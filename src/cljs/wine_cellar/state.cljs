@@ -43,14 +43,14 @@
           :context-mode :summary
           :include-visible-wines? false
           :error nil}
-   :cellar-conditions {:latest []
-                       :series []
-                       :loading-latest? false
-                       :loading-series? false
-                       :bucket "1d"
-                       :range :all
-                       :device-id nil
-                       :error nil}
+   :sensor-readings {:latest []
+                     :series []
+                     :loading-latest? false
+                     :loading-series? false
+                     :bucket "1d"
+                     :range :all
+                     :device-id nil
+                     :error nil}
    :blind-tastings {:list []
                     :loading? false
                     :error nil

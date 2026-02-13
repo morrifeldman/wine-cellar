@@ -127,14 +127,14 @@
     label_thumbnail (update :label_thumbnail bytes->base64)
     back_label_image (update :back_label_image bytes->base64)))
 
-(defn cellar-condition->db-row
+(defn sensor-reading->db-row
   [{:keys [measured_at temperatures] :as condition}]
   (cond-> condition
     measured_at (update :measured_at ->sql-timestamp)
     temperatures (update :temperatures
                          #(sql-cast :jsonb (json/write-value-as-string %)))))
 
-(defn db-cellar-condition->condition
+(defn db-sensor-reading->reading
   [{:keys [measured_at created_at] :as row}]
   (-> row
       (cond-> measured_at (update :measured_at timestamp->iso-string))
@@ -815,59 +815,59 @@
                                   db-opts)]
     (:next.jdbc/update-count result)))
 
-;; Cellar condition helpers
+;; Sensor reading helpers
 
-(defn create-cellar-condition!
-  ([condition] (create-cellar-condition! ds condition))
-  ([tx-or-ds condition]
+(defn create-sensor-reading!
+  ([reading] (create-sensor-reading! ds reading))
+  ([tx-or-ds reading]
    (some-> (jdbc/execute-one! tx-or-ds
-                              (sql/format {:insert-into :cellar_conditions
-                                           :values [(cellar-condition->db-row
-                                                     condition)]
+                              (sql/format {:insert-into :sensor_readings
+                                           :values [(sensor-reading->db-row
+                                                     reading)]
                                            :returning :*})
                               db-opts)
-           db-cellar-condition->condition)))
+           db-sensor-reading->reading)))
 
-(defn list-cellar-conditions
-  ([] (list-cellar-conditions {}))
+(defn list-sensor-readings
+  ([] (list-sensor-readings {}))
   ([{:keys [device_id limit]}]
    (let [limit (min (or limit 100) 500)
          query (cond-> {:select :*
-                        :from :cellar_conditions
+                        :from :sensor_readings
                         :order-by [[:measured_at :desc]]
                         :limit limit}
                  device_id (assoc :where [:= :device_id device_id]))]
      (->> (jdbc/execute! ds (sql/format query) db-opts)
-          (map db-cellar-condition->condition)
+          (map db-sensor-reading->reading)
           vec))))
 
-(defn latest-cellar-condition
+(defn latest-sensor-reading
   [device-id]
   (some-> (jdbc/execute-one! ds
                              (sql/format {:select :*
-                                          :from :cellar_conditions
+                                          :from :sensor_readings
                                           :where [:= :device_id device-id]
                                           :order-by [[:measured_at :desc]]
                                           :limit 1})
                              db-opts)
-          db-cellar-condition->condition))
+          db-sensor-reading->reading))
 
-(defn latest-cellar-conditions
+(defn latest-sensor-readings
   "Return the most recent reading per device, or for a specific device when
   device-id is provided. Results are ordered by device_id ASC."
-  ([] (latest-cellar-conditions nil))
+  ([] (latest-sensor-readings nil))
   ([device-id]
    (let
      [sql-params
       (if device-id
         (sql/format {:select :*
-                     :from :cellar_conditions
+                     :from :sensor_readings
                      :where [:= :device_id device-id]
                      :order-by [[:measured_at :desc]]
                      :limit 1})
-        ["SELECT DISTINCT ON (device_id) * FROM cellar_conditions WHERE device_id IS NOT NULL ORDER BY device_id ASC, measured_at DESC"])]
+        ["SELECT DISTINCT ON (device_id) * FROM sensor_readings WHERE device_id IS NOT NULL ORDER BY device_id ASC, measured_at DESC"])]
      (->> (jdbc/execute! ds sql-params db-opts)
-          (map db-cellar-condition->condition)
+          (map db-sensor-reading->reading)
           vec))))
 
 (def ^:private bucket->seconds
@@ -876,8 +876,8 @@
    "6h" 21600 ;; 6 hours
    "1d" 86400}) ;; 1 day
 
-(defn cellar-condition-series
-  "Return aggregated cellar readings bucketed by the requested interval. Results
+(defn sensor-reading-series
+  "Return aggregated sensor readings bucketed by the requested interval. Results
   always include :device_id and :bucket_start (ISO string). Metrics include
   avg/min/max per bucket for available numeric fields.
   Temperature aggregation: computes per-sensor averages via jsonb_each_text and
@@ -916,7 +916,7 @@
       "    AVG(battery_mv) AS avg_battery_mv,"
       "    MIN(battery_mv) AS min_battery_mv,"
       "    MAX(battery_mv) AS max_battery_mv"
-      "  FROM cellar_conditions"
+      "  FROM sensor_readings"
       "  WHERE "
       where-clause
       "  GROUP BY device_id, "
@@ -929,7 +929,7 @@
       "    AVG(sensor_val::float) AS avg_val,"
       "    MIN(sensor_val::float) AS min_val,"
       "    MAX(sensor_val::float) AS max_val"
-      "  FROM cellar_conditions,"
+      "  FROM sensor_readings,"
       "    LATERAL jsonb_each_text(temperatures) AS t(sensor_key, sensor_val)"
       "  WHERE temperatures IS NOT NULL AND "
       where-clause

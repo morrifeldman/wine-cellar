@@ -811,7 +811,7 @@
              (db-api/update-device! device-id {:sensor_config merged})))
          (catch Exception _ nil))))
 
-(defn ingest-cellar-condition
+(defn ingest-sensor-reading
   [request]
   (let [payload (get-in request [:parameters :body])
         token-device-id (device-id-from-token request)
@@ -839,7 +839,7 @@
                                   (get-in request [:user :sub]))]
               (if device-status
                 device-status
-                (let [record (db-api/create-cellar-condition!
+                (let [record (db-api/create-sensor-reading!
                               (cond-> payload
                                 recorded-by (assoc :recorded_by recorded-by)))]
                   (merge-sensor-config! (:device_id payload)
@@ -847,28 +847,28 @@
                   {:status 201 :body record})))
             (catch Exception e (server-error e))))))
 
-(defn list-cellar-conditions
+(defn list-sensor-readings
   [request]
   (let [{:keys [device_id limit]} (or (get-in request [:parameters :query]) {})
         limit (or limit 100)]
     (try (-> {:device_id device_id :limit limit}
-             (db-api/list-cellar-conditions)
+             (db-api/list-sensor-readings)
              response/response)
          (catch Exception e (server-error e)))))
 
-(defn latest-cellar-conditions
+(defn latest-sensor-readings
   [request]
   (let [{:keys [device_id]} (or (get-in request [:parameters :query]) {})]
-    (try (-> (db-api/latest-cellar-conditions device_id)
+    (try (-> (db-api/latest-sensor-readings device_id)
              response/response)
          (catch Exception e (server-error e)))))
 
-(defn cellar-condition-series
+(defn sensor-reading-series
   [request]
   (let [{:keys [device_id bucket from to]}
         (or (get-in request [:parameters :query]) {})]
     (try (-> {:device_id device_id :bucket bucket :from from :to to}
-             (db-api/cellar-condition-series)
+             (db-api/sensor-reading-series)
              response/response)
          (catch Exception e (server-error e)))))
 

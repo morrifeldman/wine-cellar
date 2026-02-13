@@ -1,4 +1,4 @@
-(ns wine-cellar.views.cellar-conditions
+(ns wine-cellar.views.sensor-readings
   (:require [reagent.core :as r]
             [wine-cellar.api :as api]
             [wine-cellar.utils.formatting :refer [format-date]]
@@ -37,14 +37,14 @@
       (.setDate d (- (.getDate d) days))
       (.toISOString d))))
 
-(defn- load-cellar-data!
+(defn- load-sensor-data!
   [app-state]
-  (let [{:keys [device-id bucket range]} (:cellar-conditions @app-state)
+  (let [{:keys [device-id bucket range]} (:sensor-readings @app-state)
         from (let [days (:days (some #(when (= (:value %) range) %)
                                      range-options))]
                (iso-days-ago days))]
-    (api/fetch-latest-cellar-conditions app-state {:device-id device-id})
-    (api/fetch-cellar-series
+    (api/fetch-latest-sensor-readings app-state {:device-id device-id})
+    (api/fetch-sensor-series
      app-state
      {:device-id device-id :bucket bucket :from from :to (now-iso)})))
 
@@ -222,9 +222,9 @@
      :label "Bucket size"
      :onChange (fn [e]
                  (swap! app-state assoc-in
-                   [:cellar-conditions :bucket]
+                   [:sensor-readings :bucket]
                    (.. e -target -value))
-                 (load-cellar-data! app-state))}
+                 (load-sensor-data! app-state))}
     (for [{:keys [value label]} bucket-options]
       ^{:key value} [menu-item {:value value} label])]])
 
@@ -240,9 +240,9 @@
      :label "Range"
      :onChange (fn [e]
                  (swap! app-state assoc-in
-                   [:cellar-conditions :range]
+                   [:sensor-readings :range]
                    (keyword (.. e -target -value)))
-                 (load-cellar-data! app-state))}
+                 (load-sensor-data! app-state))}
     (for [{:keys [value label]} range-options]
       ^{:key value} [menu-item {:value (name value)} label])]])
 
@@ -257,8 +257,8 @@
      :onChange (fn [e]
                  (let [val (.. e -target -value)
                        v (when (not= val "all") val)]
-                   (swap! app-state assoc-in [:cellar-conditions :device-id] v)
-                   (load-cellar-data! app-state)))}
+                   (swap! app-state assoc-in [:sensor-readings :device-id] v)
+                   (load-sensor-data! app-state)))}
     [menu-item {:value "all"} "All devices"]
     (for [d devices] ^{:key d} [menu-item {:value d} d])]])
 
@@ -267,7 +267,7 @@
   [box {:sx {:display "flex" :gap 2 :alignItems "center"}}
    [bucket-select app-state state] [range-select app-state state]
    [device-select app-state state devices]
-   [button {:variant "outlined" :onClick #(load-cellar-data! app-state)}
+   [button {:variant "outlined" :onClick #(load-sensor-data! app-state)}
     "Refresh"] (when loading? [circular-progress {:size 22}])])
 
 (defn- latest-grid
@@ -368,7 +368,7 @@
 (defn- empty-state
   []
   [paper {:elevation 1 :sx {:p 2 :color "text.secondary"}}
-   "No cellar readings yet. Post data from your ESP32 sentinel to see charts here."])
+   "No sensor readings yet. Post data from your ESP32 sentinel to see charts here."])
 
 (defn- device-sensor-configs
   "Build a map of device_id -> sensor_config from the devices list."
@@ -383,9 +383,9 @@
   [devices-list]
   (reduce merge {} (map :sensor_config (filter :sensor_config devices-list))))
 
-(defn cellar-conditions-panel
+(defn sensor-readings-panel
   [app-state]
-  (let [state (:cellar-conditions @app-state)
+  (let [state (:sensor-readings @app-state)
         latest (:latest state)
         series (sort-by :bucket_start (:series state))
         devices (device-options latest)
@@ -394,7 +394,7 @@
         all-sensor-cfg (merged-sensor-config devices-list)
         loading? (or (:loading-latest? state) (:loading-series? state))]
     (r/with-let
-     [_ (do (load-cellar-data! app-state) (api/fetch-devices app-state))]
+     [_ (do (load-sensor-data! app-state) (api/fetch-devices app-state))]
      [box {:sx {:display "flex" :flexDirection "column" :gap 2}}
       [filters-row app-state state devices loading?]
       (when (seq latest) [latest-grid latest dev-sensor-cfgs])

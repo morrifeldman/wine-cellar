@@ -143,7 +143,7 @@
 (s/def ::series-query (s/keys :opt-un [::device_id ::bucket ::from ::to]))
 (s/def ::metadata (s/nilable map?))
 (s/def ::sensor_config (s/nilable map?))
-(s/def ::cellar-condition
+(s/def ::sensor-reading
   (s/keys :req-un [::device_id]
           :opt-un [::measured_at ::temperatures ::humidity_pct ::pressure_hpa
                    ::illuminance_lux ::co2_ppm ::battery_mv ::leak_detected
@@ -156,7 +156,7 @@
   (s/and int?
          pos?
          #(<= % 500)))
-(s/def ::cellar-condition-query (s/keys :opt-un [::device_id ::limit]))
+(s/def ::sensor-reading-query (s/keys :opt-un [::device_id ::limit]))
 (s/def ::query string?)
 (s/def ::search-text (s/nilable string?))
 
@@ -282,25 +282,25 @@
            :handler handlers/refresh-device-token}}]
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
-   ["/cellar-conditions"
-    {:post {:summary "Record cellar environment reading"
-            :parameters {:body ::cellar-condition}
+   ["/sensor-readings"
+    {:post {:summary "Record sensor reading"
+            :parameters {:body ::sensor-reading}
             :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
-            :handler handlers/ingest-cellar-condition}
-     :get {:summary "List cellar environment readings"
-           :parameters {:query ::cellar-condition-query}
+            :handler handlers/ingest-sensor-reading}
+     :get {:summary "List sensor readings"
+           :parameters {:query ::sensor-reading-query}
            :responses {200 {:body vector?} 500 {:body map?}}
-           :handler handlers/list-cellar-conditions}}]
-   ["/cellar-conditions/latest"
+           :handler handlers/list-sensor-readings}}]
+   ["/sensor-readings/latest"
     {:get {:summary "Most recent reading per device (or for one device)"
            :parameters {:query (s/keys :opt-un [::device_id])}
            :responses {200 {:body vector?} 500 {:body map?}}
-           :handler handlers/latest-cellar-conditions}}]
-   ["/cellar-conditions/series"
-    {:get {:summary "Aggregated cellar readings bucketed over time"
+           :handler handlers/latest-sensor-readings}}]
+   ["/sensor-readings/series"
+    {:get {:summary "Aggregated sensor readings bucketed over time"
            :parameters {:query ::series-query}
            :responses {200 {:body vector?} 500 {:body map?}}
-           :handler handlers/cellar-condition-series}}]
+           :handler handlers/sensor-reading-series}}]
    ["/reports/latest"
     {:get {:summary "Get the latest cellar insight report"
            :responses {200 {:body map?} 500 {:body map?}}

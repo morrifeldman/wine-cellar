@@ -251,44 +251,44 @@
               (swap! app-state dissoc :deleting-classification))
           (swap! app-state assoc :error (:error result))))))
 
-;; Cellar condition endpoints
+;; Sensor reading endpoints
 
-(defn fetch-latest-cellar-conditions
+(defn fetch-latest-sensor-readings
   [app-state {:keys [device-id]}]
-  (swap! app-state assoc-in [:cellar-conditions :loading-latest?] true)
+  (swap! app-state assoc-in [:sensor-readings :loading-latest?] true)
   (go (let [query (encode-query-params {:device_id device-id})
-            result (<! (GET (str "/api/cellar-conditions/latest" query)
-                            "Failed to fetch latest cellar readings"))]
+            result (<! (GET (str "/api/sensor-readings/latest" query)
+                            "Failed to fetch latest sensor readings"))]
         (if (:success result)
           (swap! app-state update
-            :cellar-conditions
+            :sensor-readings
             (fn [state]
               (-> state
                   (assoc :latest (:data result))
                   (assoc :loading-latest? false)
                   (dissoc :error))))
           (swap! app-state update
-            :cellar-conditions
+            :sensor-readings
             (fn [state]
               (assoc state :loading-latest? false :error (:error result))))))))
 
-(defn fetch-cellar-series
+(defn fetch-sensor-series
   [app-state {:keys [device-id bucket from to]}]
-  (swap! app-state assoc-in [:cellar-conditions :loading-series?] true)
+  (swap! app-state assoc-in [:sensor-readings :loading-series?] true)
   (go (let [query (encode-query-params
                    {:device_id device-id :bucket bucket :from from :to to})
-            result (<! (GET (str "/api/cellar-conditions/series" query)
-                            "Failed to fetch cellar series"))]
+            result (<! (GET (str "/api/sensor-readings/series" query)
+                            "Failed to fetch sensor series"))]
         (if (:success result)
           (swap! app-state update
-            :cellar-conditions
+            :sensor-readings
             (fn [state]
               (-> state
                   (assoc :series (:data result))
                   (assoc :loading-series? false)
                   (dissoc :error))))
           (swap! app-state update
-            :cellar-conditions
+            :sensor-readings
             (fn [state]
               (assoc state :loading-series? false :error (:error result))))))))
 

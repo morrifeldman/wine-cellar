@@ -2,11 +2,11 @@
 
 This folder contains the ESP-IDF firmware that will evolve into the cellar environment sensor.
 The current build connects to Wi-Fi, assembles a placeholder JSON payload, and POSTs it to
-`/api/cellar-conditions` with the device JWT so we can exercise the backend before wiring sensors.
+`/api/sensor-readings` with the device JWT so we can exercise the backend before wiring sensors.
 
 ## Configure Wi-Fi + Auth
 1. Copy `main/config.example.h` to `main/config.h` (gitignored).
-2. Fill in your Wi-Fi SSID/PASS, the backend URL (local dev can use `http://<host>:3000/api/cellar-conditions`),
+2. Fill in your Wi-Fi SSID/PASS, the backend URL (local dev can use `http://<host>:3000/api/sensor-readings`),
    the JWT stored in `device.jwt`, and a friendly `DEVICE_ID`.
 3. If you hit an HTTPS endpoint with a private CA, embed the PEM in `CELLAR_API_CERT_PEM` per the comment in the example file.
 4. Current build uses only the BMP085 (pressure + temperature) on I²C pins GPIO21/22. Add a BME280 later to regain humidity using the same pins.
@@ -39,7 +39,7 @@ You should see log lines similar to:
 ```
 I (340) sentinel: Hello from the wine-cellar ESP32 sentinel!
 I (1180) sentinel: Connected to SSID:MyWifi
-I (2230) sentinel: POST http://192.168.1.5:3000/api/cellar-conditions
+I (2230) sentinel: POST http://192.168.1.5:3000/api/sensor-readings
 I (2450) sentinel: POST status=201, content_length=123
 ```
 Press `Ctrl+]` to exit the monitor.
@@ -53,4 +53,4 @@ Press `Ctrl+]` to exit the monitor.
 - Swap the placeholder random generator for real SHT21/BMP085 (or other) sensor readings.
 - Persist Wi-Fi + JWT in NVS so you can rotate credentials without reflashing.
 - Wire up SNTP to send accurate `measured_at` timestamps.
-- See `docs/cellar-conditions.md` for the REST contract and curl examples—the firmware now speaks the same payloads.
+- See `docs/sensor-readings.md` for the REST contract and curl examples—the firmware now speaks the same payloads.
