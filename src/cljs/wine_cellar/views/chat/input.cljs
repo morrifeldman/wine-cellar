@@ -24,9 +24,9 @@
     :message
     "What do you think of today's Last Bubbles offer for my cellar? https://lastbubbles.com/"}
    {:label "First Bottle"
-    :url "https://firstbottlewines.com/products.json"
+    :url "https://firstbottlewines.com/"
     :message
-    "What do you think of today's First Bottle offer for my cellar? https://firstbottlewines.com/products.json"}])
+    "What do you think of today's First Bottle offer for my cellar? https://firstbottlewines.com/"}])
 
 (defn use-edit-state
   [app-state messages]
