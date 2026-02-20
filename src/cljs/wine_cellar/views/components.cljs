@@ -90,12 +90,51 @@
                                             {:reason "correction"}))}
       "Correction"])])
 
+(defn- restock-dialog
+  [app-state wine-id open? on-close]
+  (r/with-let
+   [quantity (r/atom "6") notes (r/atom "")]
+   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
+    [dialog-title "Restock Wine"]
+    [dialog-content
+     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
+      [text-field
+       {:value @quantity
+        :type "number"
+        :label "Number of bottles"
+        :fullWidth true
+        :autoFocus true
+        :onChange (fn [e] (reset! quantity (.. e -target -value)))}]
+      [text-field
+       {:value @notes
+        :label "Notes (optional)"
+        :placeholder "e.g. Purchased from Vivino"
+        :fullWidth true
+        :multiline true
+        :rows 3
+        :onChange (fn [e] (reset! notes (.. e -target -value)))}]]]
+    [dialog-actions [button {:onClick on-close} "Cancel"]
+     [button
+      {:variant "contained"
+       :onClick (fn []
+                  (let [amount (js/parseInt @quantity 10)]
+                    (when (and (not (js/isNaN amount)) (pos? amount))
+                      (api/adjust-wine-quantity
+                       app-state
+                       wine-id
+                       amount
+                       {:reason "restock"
+                        :notes (when-not (str/blank? @notes) @notes)})
+                      (reset! notes "")
+                      (on-close))))} "Restock"]]]))
+
 (defn- plus-menu
-  [app-state wine-id anchor-el]
+  [app-state wine-id anchor-el on-restock]
   [menu
    {:anchorEl @anchor-el
     :open (boolean @anchor-el)
     :onClose #(reset! anchor-el nil)}
+   [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-restock))} "Restock"]
    [menu-item
     {:onClick
      (fn []
@@ -126,7 +165,7 @@
          minus-icon (:minus-icon opts [arrow-drop-down {:fontSize "small"}])]
      (r/with-let
       [anchor-el-add (r/atom nil) anchor-el-sub (r/atom nil) gift-open?
-       (r/atom false)]
+       (r/atom false) restock-open? (r/atom false)]
       [box {:display "flex" :alignItems "center"}
        [box
         {:component "span"
@@ -156,12 +195,16 @@
           :disabled (= quantity 0)
           :onClick (fn [e] (reset! anchor-el-sub (.-currentTarget e)))}
          minus-icon]
-        (when show-plus? [plus-menu app-state wine-id anchor-el-add])
+        (when show-plus?
+          [plus-menu app-state wine-id anchor-el-add
+           #(reset! restock-open? true)])
         [minus-menu app-state wine-id anchor-el-sub minus-options
          #(reset! gift-open? true)]
         (when @gift-open?
-          [gift-dialog app-state wine-id gift-open?
-           #(reset! gift-open? false)])]]))))
+          [gift-dialog app-state wine-id gift-open? #(reset! gift-open? false)])
+        (when @restock-open?
+          [restock-dialog app-state wine-id restock-open?
+           #(reset! restock-open? false)])]]))))
 
 (defn editable-field-wrapper
   "A generic wrapper for making any field editable.

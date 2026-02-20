@@ -10,7 +10,6 @@
     [reagent-mui.icons.delete :refer [delete]]
     [reagent-mui.icons.edit :refer [edit]]
     [reagent-mui.icons.close :refer [close]]
-    [reagent-mui.icons.add-shopping-cart :refer [add-shopping-cart]]
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.button :refer [button]]
     [reagent-mui.material.icon-button :refer [icon-button]]
@@ -700,90 +699,39 @@
       ["Designation" [editable-designation app-state wine]]
       ["Vineyard" [editable-vineyard app-state wine]]]]]])
 
-(defn restock-dialog
-  [app-state wine-id open? on-close]
-  (r/with-let
-   [quantity (r/atom "6") notes (r/atom "")]
-   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
-    [dialog-title "Restock Wine"]
-    [dialog-content
-     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-      [text-field
-       {:value @quantity
-        :type "number"
-        :label "Number of bottles"
-        :fullWidth true
-        :autoFocus true
-        :onChange (fn [e] (reset! quantity (.. e -target -value)))}]
-      [text-field
-       {:value @notes
-        :label "Notes (optional)"
-        :placeholder "e.g. Purchased from Vivino"
-        :fullWidth true
-        :multiline true
-        :rows 3
-        :onChange (fn [e] (reset! notes (.. e -target -value)))}]]]
-    [dialog-actions [button {:onClick on-close} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (let [amount (js/parseInt @quantity 10)]
-                    (when (and (not (js/isNaN amount)) (pos? amount))
-                      (api/adjust-wine-quantity
-                       app-state
-                       wine-id
-                       amount
-                       {:reason "restock"
-                        :notes (when-not (str/blank? @notes) @notes)})
-                      (reset! notes "")
-                      (on-close))))} "Restock"]]]))
-
 (defn wine-compact-details-section
   [app-state wine]
-  (r/with-let
-   [restock-open? (r/atom false)]
-   [:<>
-    (when @restock-open?
-      [restock-dialog app-state (:id wine) restock-open?
-       #(reset! restock-open? false)])
-    ;; Grape Varieties (needs space for multiple varieties)
-    [grid {:item true :xs 12 :md 6}
-     [field-card "Grape Varieties" [wine-varieties-list app-state (:id wine)]]]
-    ;; Wine Characteristics: Style + Closure + Bottle Format + Alcohol %
-    [grid {:item true :xs 12 :md 6}
-     [inline-field-group
-      [["Style" [editable-styles app-state wine]]
-       ["Closure" [editable-closure-type app-state wine]]
-       ["Format" [editable-bottle-format app-state wine]]
-       ["Alcohol %" [editable-alcohol-percentage app-state wine]]]]]
-    ;; Inventory Info: Location + Current Quantity + Original Quantity
-    [grid {:item true :xs 12 :md 6}
-     [inline-field-group
-      [["Location" [editable-location app-state wine]]
-       ["Current Qty"
-        [box {:display "flex" :alignItems "center"}
-         [quantity-control app-state (:id wine) (:quantity wine)
-          (str (:quantity wine)) (:original_quantity wine)]
-         [icon-button
-          {:size "small"
-           :color "primary"
-           :sx {:ml 1}
-           :title "Restock"
-           :onClick #(reset! restock-open? true)}
-          [add-shopping-cart {:fontSize "small"}]]]]
-       ["Original Qty" [editable-original-quantity app-state wine]]]]]
-    ;; Purchase Info: Price + Purchased From + Purchase Date
-    [grid {:item true :xs 12 :md 6}
-     [inline-field-group
-      [["Price" [editable-price app-state wine]]
-       ["Purchased From" [editable-purveyor app-state wine]]
-       ["Purchase Date" [editable-purchase-date app-state wine]]]]]
-    ;; Vintage Info: Vintage + Disgorgement Year
-    [grid {:item true :xs 12 :md 6}
-     [inline-field-group
-      [["Vintage" [editable-vintage app-state wine]]
-       ["Disgorgement Year" [editable-disgorgement-year app-state wine]]
-       ["Dosage (g/L)" [editable-dosage app-state wine]]]]]]))
+  [:<>
+   ;; Grape Varieties (needs space for multiple varieties)
+   [grid {:item true :xs 12 :md 6}
+    [field-card "Grape Varieties" [wine-varieties-list app-state (:id wine)]]]
+   ;; Wine Characteristics: Style + Closure + Bottle Format + Alcohol %
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Style" [editable-styles app-state wine]]
+      ["Closure" [editable-closure-type app-state wine]]
+      ["Format" [editable-bottle-format app-state wine]]
+      ["Alcohol %" [editable-alcohol-percentage app-state wine]]]]]
+   ;; Inventory Info: Location + Current Quantity + Original Quantity
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Location" [editable-location app-state wine]]
+      ["Current Qty"
+       [quantity-control app-state (:id wine) (:quantity wine)
+        (str (:quantity wine)) (:original_quantity wine)]]
+      ["Original Qty" [editable-original-quantity app-state wine]]]]]
+   ;; Purchase Info: Price + Purchased From + Purchase Date
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Price" [editable-price app-state wine]]
+      ["Purchased From" [editable-purveyor app-state wine]]
+      ["Purchase Date" [editable-purchase-date app-state wine]]]]]
+   ;; Vintage Info: Vintage + Disgorgement Year
+   [grid {:item true :xs 12 :md 6}
+    [inline-field-group
+     [["Vintage" [editable-vintage app-state wine]]
+      ["Disgorgement Year" [editable-disgorgement-year app-state wine]]
+      ["Dosage (g/L)" [editable-dosage app-state wine]]]]]])
 
 (defn wine-tasting-window-suggestion-buttons
   [app-state wine]
