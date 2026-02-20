@@ -59,11 +59,10 @@
 
 (defn fetch-shopify-products
   "Attempts to fetch structured product data from a Shopify store's public API.
-   Returns a formatted string on success, or nil on failure.
-   Pass limit=nil to fetch all products (Shopify default: 50)."
-  [origin & [limit]]
-  (try (let [url
-             (str origin "/products.json" (when limit (str "?limit=" limit)))
+   products-url is the full URL to products.json (with any query params).
+   Returns a formatted string on success, or nil on failure."
+  [products-url]
+  (try (let [url products-url
              {:keys [status body error]} @(http/get url
                                                     {:timeout fetch-timeout-ms
                                                      :headers {"User-Agent"
@@ -121,12 +120,13 @@
                            (.getHost uri)
                            (let [port (.getPort uri)]
                              (if (pos? port) (str ":" port) "")))
-               ;; No limit when URL explicitly targets products.json (fetch
-               ;; all)
-               shopify-limit
-               (when-not (str/includes? (.getPath uri) "products.json") 1)]
+               ;; Use URL as-is when it targets products.json, else probe
+               ;; with limit=1
+               products-url (if (str/includes? (.getPath uri) "products.json")
+                              url
+                              (str origin "/products.json?limit=1"))]
            ;; 1. Try Shopify API
-           (if-let [shopify-text (fetch-shopify-products origin shopify-limit)]
+           (if-let [shopify-text (fetch-shopify-products products-url)]
              {:ok shopify-text}
              ;; 2. Fall back to raw HTML
              (let [{:keys [status body error]}

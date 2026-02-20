@@ -16,13 +16,13 @@
 
 (def ^:private preset-deal-sites
   [{:label "Last Bottle"
-    :url "https://lastbottlewines.com/"
+    :url "https://lastbottlewines.com/products.json?limit=1"
     :message
-    "What do you think of today's Last Bottle offer for my cellar? https://lastbottlewines.com/"}
+    "What do you think of today's Last Bottle offer for my cellar? https://lastbottlewines.com/products.json?limit=1"}
    {:label "Last Bubbles"
-    :url "https://lastbubbles.com/"
+    :url "https://lastbubbles.com/products.json?limit=1"
     :message
-    "What do you think of today's Last Bubbles offer for my cellar? https://lastbubbles.com/"}
+    "What do you think of today's Last Bubbles offer for my cellar? https://lastbubbles.com/products.json?limit=1"}
    {:label "First Bottle"
     :url "https://firstbottlewines.com/products.json"
     :message
