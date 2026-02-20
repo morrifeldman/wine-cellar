@@ -61,7 +61,7 @@
   "Attempts to fetch structured product data from a Shopify store's public API.
    Returns a formatted string on success, or nil on failure."
   [origin]
-  (try (let [url (str origin "/products.json?limit=5")
+  (try (let [url (str origin "/products.json?limit=1")
              {:keys [status body error]} @(http/get url
                                                     {:timeout fetch-timeout-ms
                                                      :headers {"User-Agent"
@@ -71,17 +71,15 @@
            (let [data (json/read-value body json/keyword-keys-object-mapper)
                  products (:products data)]
              (when (seq products)
-               (let [lines (map (fn [p]
-                                  (let [variant (first (:variants p))
-                                        price (some-> variant
-                                                      :price)]
-                                    (format-shopify-product {:title (:title p)
-                                                             :vendor (:vendor p)
-                                                             :price price
-                                                             :body_html
-                                                             (:body_html p)
-                                                             :tags (:tags p)})))
-                                products)]
+               (let [p (first products)
+                     lines [(let [variant (first (:variants p))
+                                  price (some-> variant
+                                                :price)]
+                              (format-shopify-product {:title (:title p)
+                                                       :vendor (:vendor p)
+                                                       :price price
+                                                       :body_html (:body_html p)
+                                                       :tags (:tags p)}))]]
                  (str/join "\n" lines))))))
        (catch Exception _ nil)))
 
