@@ -26,7 +26,7 @@
    {:label "First Bottle"
     :url "https://firstbottlewines.com/products.json"
     :message
-    "What do you think of today's First Bottle offer for my cellar? https://firstbottlewines.com/products.json"}])
+    "What do you think of today's First Bottle offers for my cellar? https://firstbottlewines.com/products.json"}])
 
 (defn use-edit-state
   [app-state messages]
