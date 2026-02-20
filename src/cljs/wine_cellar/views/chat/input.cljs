@@ -2,14 +2,27 @@
   (:require [reagent.core :as r]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.menu :refer [menu]]
+            [reagent-mui.material.menu-item :refer [menu-item]]
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.icons.send :refer [send]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [reagent-mui.icons.photo-library :refer [photo-library]]
+            [reagent-mui.icons.bookmarks :refer [bookmarks]]
             [wine-cellar.views.chat.utils :refer
              [handle-clipboard-image handle-paste-event]]
             [wine-cellar.views.chat.message :refer [attached-image-preview]]))
+
+(def ^:private preset-deal-sites
+  [{:label "Last Bottle"
+    :url "https://lastbottlewines.com/"
+    :message
+    "What do you think of today's Last Bottle offer for my cellar? https://lastbottlewines.com/"}
+   {:label "Last Bubbles"
+    :url "https://lastbubbles.com/"
+    :message
+    "What do you think of today's Last Bubbles offer for my cellar? https://lastbubbles.com/"}])
 
 (defn use-edit-state
   [app-state messages]
@@ -54,71 +67,98 @@
 (defn- chat-input-actions
   [disabled? on-send message-ref app-state on-image-capture on-cancel-request
    attached-image]
-  [box
-   {:sx {:display "flex"
-         :justify-content "flex-end"
-         :align-items "center"
-         :gap 1
-         :flex-wrap "wrap"}}
-   (let [is-mobile? (and js/navigator.maxTouchPoints
-                         (> js/navigator.maxTouchPoints 0))
-         trigger-upload #(when-let [input (js/document.getElementById
-                                           "photo-picker-input")]
-                           (.click input))]
-     [:<>
-      [:input
-       {:type "file"
-        :accept "image/*"
-        :style {:display "none"}
-        :id "photo-picker-input"
-        :on-change #(when-let [file (-> %
-                                        .-target
-                                        .-files
-                                        (aget 0))]
-                      (handle-clipboard-image file attached-image))}]
-      (when is-mobile?
-        [button
-         {:variant "outlined"
-          :size "small"
-          :disabled @disabled?
-          :startIcon (r/as-element [camera-alt {:size 14}])
-          :on-click #(on-image-capture nil)
-          :sx {:minWidth "90px"}} "Camera"])
-      [button
-       {:variant "outlined"
-        :size "small"
-        :disabled @disabled?
-        :startIcon (r/as-element [photo-library {:size 14}])
-        :on-click trigger-upload
-        :sx {:minWidth (if is-mobile? "90px" "100px")}}
-       (if is-mobile? "Photos" "Upload")]
-      (when @disabled?
-        [button
-         {:variant "outlined"
-          :color "error"
-          :size "small"
-          :on-click on-cancel-request
-          :sx {:minWidth "60px"}} "Stop"])
-      [button
-       {:variant "contained"
-        :disabled @disabled?
-        :sx {:minWidth "60px" :px 1}
-        :startIcon (if @disabled?
-                     (r/as-element [circular-progress
-                                    {:size 14 :sx {:color "secondary.light"}}])
-                     (r/as-element [send {:size 14}]))
-        :on-click
-        #(when @message-ref
-           (let [message-text (.-value @message-ref)]
-             (when (or (seq (str message-text)) @attached-image)
-               (on-send message-text)
-               (set! (.-value @message-ref) "")
-               (swap! app-state update :chat dissoc :draft-message))))}
-       [box
-        {:sx {:color (if @disabled? "text.disabled" "inherit")
-              :fontWeight (if @disabled? "600" "normal")
-              :fontSize (if @disabled? "0.8rem" "0.9rem")}}
-        (if @disabled? "Sending..." "Send")]]])])
+  (let [presets-anchor (r/atom nil)]
+    (fn [disabled? on-send message-ref app-state on-image-capture
+         on-cancel-request attached-image]
+      [box
+       {:sx {:display "flex"
+             :justify-content "flex-end"
+             :align-items "center"
+             :gap 1
+             :flex-wrap "wrap"}}
+       (let [is-mobile? (and js/navigator.maxTouchPoints
+                             (> js/navigator.maxTouchPoints 0))
+             trigger-upload #(when-let [input (js/document.getElementById
+                                               "photo-picker-input")]
+                               (.click input))]
+         [:<>
+          [:input
+           {:type "file"
+            :accept "image/*"
+            :style {:display "none"}
+            :id "photo-picker-input"
+            :on-change #(when-let [file (-> %
+                                            .-target
+                                            .-files
+                                            (aget 0))]
+                          (handle-clipboard-image file attached-image))}]
+          [button
+           {:variant "outlined"
+            :size "small"
+            :disabled @disabled?
+            :startIcon (r/as-element [bookmarks {:size 14}])
+            :on-click #(reset! presets-anchor (.-currentTarget %))
+            :sx {:minWidth "80px"}} "Deals"]
+          [menu
+           {:anchor-el @presets-anchor
+            :open (some? @presets-anchor)
+            :on-close #(reset! presets-anchor nil)}
+           (for [{:keys [label message]} preset-deal-sites]
+             [menu-item
+              {:key label
+               :on-click
+               (fn []
+                 (reset! presets-anchor nil)
+                 (when @message-ref
+                   (set! (.-value @message-ref) message)
+                   (swap! app-state assoc-in [:chat :draft-message] message)
+                   (let [ev (js/Event. "input" #js {:bubbles true})]
+                     (.dispatchEvent @message-ref ev))
+                   (.focus @message-ref)))} label])]
+          (when is-mobile?
+            [button
+             {:variant "outlined"
+              :size "small"
+              :disabled @disabled?
+              :startIcon (r/as-element [camera-alt {:size 14}])
+              :on-click #(on-image-capture nil)
+              :sx {:minWidth "90px"}} "Camera"])
+          [button
+           {:variant "outlined"
+            :size "small"
+            :disabled @disabled?
+            :startIcon (r/as-element [photo-library {:size 14}])
+            :on-click trigger-upload
+            :sx {:minWidth (if is-mobile? "90px" "100px")}}
+           (if is-mobile? "Photos" "Upload")]
+          (when @disabled?
+            [button
+             {:variant "outlined"
+              :color "error"
+              :size "small"
+              :on-click on-cancel-request
+              :sx {:minWidth "60px"}} "Stop"])
+          [button
+           {:variant "contained"
+            :disabled @disabled?
+            :sx {:minWidth "60px" :px 1}
+            :startIcon (if @disabled?
+                         (r/as-element [circular-progress
+                                        {:size 14
+                                         :sx {:color "secondary.light"}}])
+                         (r/as-element [send {:size 14}]))
+            :on-click
+            #(when @message-ref
+               (let [message-text (.-value @message-ref)]
+                 (when (or (seq (str message-text)) @attached-image)
+                   (on-send message-text)
+                   (set! (.-value @message-ref) "")
+                   (swap! app-state update :chat dissoc :draft-message))))}
+           [box
+            {:sx {:color (if @disabled? "text.disabled" "inherit")
+                  :fontWeight (if @disabled? "600" "normal")
+                  :fontSize (if @disabled? "0.8rem" "0.9rem")}}
+            (if @disabled? "Sending..." "Send")]]])])))
 
 (defn chat-input
   "Chat input field with send button and camera button - uncontrolled for performance"

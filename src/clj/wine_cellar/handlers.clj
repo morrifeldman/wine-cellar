@@ -8,7 +8,8 @@
             [wine-cellar.reports.core :as reports]
             [ring.util.response :as response]
             [wine-cellar.summary :as summary]
-            [wine-cellar.logging :as logging])
+            [wine-cellar.logging :as logging]
+            [wine-cellar.utils.web-fetch :as web-fetch])
   (:import [java.time Instant]))
 
 (defn- no-content [] {:status 204 :headers {} :body nil})
@@ -438,7 +439,11 @@
           include? (if (contains? body :include-visible-wines?)
                      (boolean include-visible-wines?)
                      false)
-          selected-ids (if include? (vec (remove nil? wine-ids)) [])]
+          selected-ids (if include? (vec (remove nil? wine-ids)) [])
+          message (or (some #(when (or (:is-user %) (:is_user %))
+                               (or (:content %) (:text %)))
+                            (reverse conversation-history))
+                      "")]
       (if (and (empty? conversation-history) (empty? image))
         {:status 400 :body {:error "Conversation history or image is required"}}
         (let [enriched-wines (if (seq selected-ids)
@@ -446,8 +451,19 @@
                                [])
               cellar-wines (or (db-api/get-wines-for-list) [])
               condensed (summary/condensed-summary cellar-wines)
-              context {:summary condensed
-                       :selected-wines (if include? (vec enriched-wines) [])}
+              urls (vec
+                    (take 2 (re-seq #"https?://[^\s<>\"{}|\\^`\[\]]+" message)))
+              web-content
+              (when (seq urls)
+                (into
+                 {}
+                 (keep
+                  (fn [[url result]] (when-let [text (:ok result)] [url text]))
+                  (map vector urls (pmap web-fetch/fetch-url-content urls)))))
+              context (cond-> {:summary condensed
+                               :selected-wines
+                               (if include? (vec enriched-wines) [])}
+                        (seq web-content) (assoc :web-content web-content))
               response
               (ai/chat-about-wines provider context conversation-history image)]
           (response/response response))))
