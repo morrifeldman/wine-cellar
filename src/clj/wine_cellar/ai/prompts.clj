@@ -244,13 +244,21 @@
       (str header "\n" body suffix))))
 
 (defn wine-collection-context
-  "Wraps the condensed cellar snapshot with optional selected wines details."
-  [{:keys [summary selected-wines]}]
+  "Wraps the condensed cellar snapshot with optional selected wines details.
+   Accepts optional :web-content map of {url -> text} to append after cellar data."
+  [{:keys [summary selected-wines web-content]}]
   (let [summary-text (condensed-summary-text summary)
         selection-text (selected-wines-context selected-wines)
         base (str "Here is information about the user's wine collection:\n\n"
-                  summary-text)]
-    (if selection-text (str base "\n\n" selection-text) base)))
+                  summary-text)
+        with-selection (if selection-text (str base "\n\n" selection-text) base)
+        web-section (when (seq web-content)
+                      (str "\n\nWEB PAGE CONTENT:\n"
+                           (str/join "\n\n"
+                                     (map (fn [[url text]]
+                                            (str "URL: " url "\n\n" text))
+                                          web-content))))]
+    (if web-section (str with-selection web-section) with-selection)))
 
 (defn current-year [] (.getValue (java.time.Year/now)))
 
