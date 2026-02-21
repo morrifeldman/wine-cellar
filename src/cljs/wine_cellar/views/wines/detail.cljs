@@ -26,6 +26,7 @@
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.typography :refer [typography]]
     [reagent-mui.material.text-field :refer [text-field]]
+    [reagent-mui.material.tooltip :refer [tooltip]]
     [reagent-mui.material.modal :refer [modal]]
     [reagent-mui.material.backdrop :refer [backdrop]]
     [reagent-mui.material.autocomplete :refer [autocomplete]]
@@ -57,74 +58,7 @@
     [wine-cellar.views.components.technical-data :refer
      [technical-data-editor]]))
 
-(defn editable-location
-  [app-state wine]
-  [editable-text-field
-   {:value (:location wine)
-    :on-save
-    (fn [new-value]
-      (let [clean-value (if (str/blank? new-value) nil new-value)]
-        (api/update-wine app-state (:id wine) {:location clean-value})))
-    :validate-fn (fn [value]
-                   (cond (str/blank? value) nil ; Allow empty/clearing
-                         (not (common/valid-location? value))
-                         common/format-location-error
-                         :else nil))
-    :empty-text "Not specified"
-    :compact? true
-    :text-field-props {:helperText common/format-location-error}}])
 
-(defn editable-purveyor
-  [app-state wine]
-  (let [all-wines (:wines @app-state)
-        existing-purveyors (->> all-wines
-                                (map :purveyor)
-                                (filter #(and % (not (str/blank? %))))
-                                (distinct)
-                                (sort)
-                                (vec))]
-    [editable-autocomplete-field
-     {:value (:purveyor wine)
-      :options existing-purveyors
-      :free-solo true
-      :on-save (fn [new-value]
-                 (api/update-wine app-state (:id wine) {:purveyor new-value}))
-      :empty-text "Not specified"
-      :compact? true}]))
-
-(defn editable-purchase-date
-  [app-state wine]
-  [editable-text-field
-   {:value (format-date-iso (:purchase_date wine))
-    :on-save
-    (fn [new-value]
-      (api/update-wine app-state (:id wine) {:purchase_date new-value}))
-    :empty-text "Add purchase date"
-    :compact? true
-    :text-field-props {:type "date"}}])
-
-(defn editable-price
-  [app-state wine]
-  [editable-text-field
-   {:value (when-let [price (:price wine)] (gstring/format "%.2f" price))
-    :on-save
-    (fn [new-value]
-      (if (str/blank? new-value)
-        ;; Clear the price when empty
-        (api/update-wine app-state (:id wine) {:price nil})
-        ;; Save the parsed price when not empty
-        (let [parsed-price (js/parseFloat new-value)]
-          (when-not (js/isNaN parsed-price)
-            (api/update-wine app-state (:id wine) {:price parsed-price})))))
-    :validate-fn (fn [value]
-                   (let [parsed (js/parseFloat value)]
-                     (cond (str/blank? value) nil ;; Allow empty value
-                           (js/isNaN parsed) "Price must be a valid number"
-                           (< parsed 0) "Price cannot be negative"
-                           :else nil)))
-    :empty-text "Not specified"
-    :compact? true
-    :text-field-props {:type "number" :InputProps {:startAdornment "$"}}}])
 
 (defn editable-alcohol-percentage
   [app-state wine]
@@ -145,6 +79,7 @@
                            (< parsed 0) "Alcohol percentage cannot be negative"
                            (> parsed 100) "Alcohol percentage cannot exceed 100"
                            :else nil)))
+    :format-fn #(str % "% ABV")
     :empty-text "Add ABV"
     :compact? true
     :text-field-props {:type "number"
@@ -174,6 +109,7 @@
                                      (< parsed 0) "Dosage cannot be negative"
                                      (> parsed 200) "Dosage must be ≤ 200 g/L"
                                      :else nil)))))
+    :format-fn #(str "Dosage " % " g/L")
     :empty-text "Add dosage"
     :compact? true
     :text-field-props
@@ -198,53 +134,13 @@
                              (> parsed (.getFullYear (js/Date.)))
                              "Year cannot be in the future"
                              :else nil))))
+    :format-fn #(str "Disgorged in " %)
     :empty-text "Add disgorgement year"
     :compact? true
     :text-field-props
     {:type "number"
      :helperText "Year when the wine was disgorged (for sparkling wines)"}}])
 
-(defn editable-original-quantity
-  [app-state wine]
-  [editable-text-field
-   {:value (when-let [qty (:original_quantity wine)] (str qty))
-    :on-save
-    (fn [new-value]
-      (let [parsed-qty
-            (if (str/blank? new-value) nil (js/parseInt new-value 10))
-            current-qty (:quantity wine)]
-        (cond
-          ;; Allow clearing (nil)
-          (nil? parsed-qty)
-          (api/update-wine app-state (:id wine) {:original_quantity nil})
-          ;; Check if valid and not less than current quantity
-          (and (not (js/isNaN parsed-qty))
-               (> parsed-qty 0)
-               (>= parsed-qty current-qty))
-          (api/update-wine app-state (:id wine) {:original_quantity parsed-qty})
-          ;; Error case - show alert
-          (< parsed-qty current-qty)
-          (js/alert (str "Original quantity ("
-                         parsed-qty
-                         ") cannot be less than current quantity ("
-                         current-qty
-                         ")"))
-          ;; Other validation errors will be caught by validate-fn
-          :else nil)))
-    :validate-fn (fn [value]
-                   (cond (str/blank? value) nil ;; Allow empty value
-                         :else
-                         (let [parsed (js/parseInt value 10)
-                               current-qty (:quantity wine)]
-                           (cond (js/isNaN parsed) "Must be a valid number"
-                                 (< parsed 1) "Must be at least 1"
-                                 (< parsed current-qty)
-                                 (str "Can't have originally bought " parsed
-                                      " when you currently have " current-qty)
-                                 :else nil))))
-    :empty-text "Not specified"
-    :compact? true
-    :text-field-props {:type "number"}}])
 
 (defn update-wine-metadata
   [app-state wine metadata-key new-value]
@@ -333,7 +229,8 @@
                          :else (let [parsed (js/parseInt value 10)]
                                  (vintage/valid-vintage? parsed))))
     :empty-text "Add vintage"
-    :compact? true}])
+    :compact? true
+    :display-sx {:fontSize "1.2rem" :fontWeight 500}}])
 
 (defn editable-designation
   [app-state wine]
@@ -470,69 +367,20 @@
     :empty-text "Select format"
     :compact? true}])
 
-(defn editable-drink-from-year
-  [app-state wine]
-  [editable-text-field
-   {:value (when-let [year (:drink_from_year wine)] (str year))
-    :on-save (fn [new-value]
-               (let [parsed-year (when-not (str/blank? new-value)
-                                   (js/parseInt new-value 10))
-                     drink-until-year (:drink_until_year wine)]
-                 ;; Check cross-field validation
-                 (if-let [window-error (vintage/valid-tasting-window?
-                                        parsed-year
-                                        drink-until-year)]
-                   (js/alert window-error)
-                   (api/update-wine app-state
-                                    (:id wine)
-                                    {:drink_from_year parsed-year}))))
-    :validate-fn (fn [value]
-                   (if (str/blank? value)
-                     nil ;; Allow empty value
-                     (let [parsed (js/parseInt value 10)
-                           drink-until-year (:drink_until_year wine)]
-                       (vintage/valid-tasting-window? parsed
-                                                      drink-until-year))))
-    :empty-text "Add drink from year"
-    :text-field-props
-    {:type "number" :helperText "Year when the wine is/was ready to drink"}}])
-
-(defn editable-drink-until-year
-  [app-state wine]
-  [editable-text-field
-   {:value (when-let [year (:drink_until_year wine)] (str year))
-    :on-save (fn [new-value]
-               (let [parsed-year (when-not (str/blank? new-value)
-                                   (js/parseInt new-value 10))
-                     drink-from-year (:drink_from_year wine)]
-                 ;; Check cross-field validation
-                 (if-let [window-error (vintage/valid-tasting-window?
-                                        drink-from-year
-                                        parsed-year)]
-                   (js/alert window-error)
-                   (api/update-wine app-state
-                                    (:id wine)
-                                    {:drink_until_year parsed-year}))))
-    :validate-fn (fn [value]
-                   (if (str/blank? value)
-                     nil ;; Allow empty value
-                     (let [parsed (js/parseInt value 10)
-                           drink-from-year (:drink_from_year wine)]
-                       (vintage/valid-tasting-window? drink-from-year parsed))))
-    :empty-text "Add drink until year"
-    :text-field-props
-    {:type "number" :helperText "Year when the wine should be consumed by"}}])
 
 (defn wine-identity-section
   [app-state wine]
   [box {:sx {:mb 3 :pb 2 :borderBottom "1px solid rgba(0,0,0,0.08)"}}
    [grid {:container true :spacing 2}
-    [grid {:item true :xs 12 :sm 6}
-     [typography {:variant "body2" :color "text.secondary"} "Producer"]
-     [editable-producer app-state wine]]
-    [grid {:item true :xs 12 :sm 6}
-     [typography {:variant "body2" :color "text.secondary"} "Wine Name"]
-     [editable-name app-state wine]]]])
+    [grid {:item true :xs 12 :sm 4}
+     [tooltip {:title "Vintage" :placement "top" :arrow true}
+      [box {:sx {:width "100%"}} [editable-vintage app-state wine]]]]
+    [grid {:item true :xs 12 :sm 4}
+     [tooltip {:title "Producer" :placement "top" :arrow true}
+      [box {:sx {:width "100%"}} [editable-producer app-state wine]]]]
+    [grid {:item true :xs 12 :sm 4}
+     [tooltip {:title "Wine Name" :placement "top" :arrow true}
+      [box {:sx {:width "100%"}} [editable-name app-state wine]]]]]])
 
 (defn image-zoom-modal
   [app-state image-data image-title]
@@ -629,7 +477,6 @@
    ;; Front Wine Label Image
    [grid {:item true :xs 6}
     [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-     [typography {:variant "body2" :color "text.secondary"} "Front Label"]
      [clickable-wine-image (:label_image wine) "front" "Front Wine Label"
       #(api/update-wine-image app-state (:id wine) %)
       #(api/update-wine-image
@@ -639,7 +486,6 @@
    ;; Back Wine Label Image
    [grid {:item true :xs 6}
     [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-     [typography {:variant "body2" :color "text.secondary"} "Back Label"]
      [clickable-wine-image (:back_label_image wine) "back" "Back Wine Label"
       #(api/update-wine-image app-state (:id wine) %)
       #(api/update-wine-image app-state
@@ -669,8 +515,8 @@
    (for [[idx [title content]] (map-indexed vector fields)]
      ^{:key idx}
      [grid {:item true :xs 12 :sm (int (/ 12 (count fields)))}
-      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-       title] content])])
+      [tooltip {:title title :placement "top" :arrow true}
+       [box {:sx {:width "100%"}} content]]])])
 
 (defn wine-terroir-section
   [app-state wine]
@@ -699,29 +545,177 @@
     [["Disgorgement Year" [editable-disgorgement-year app-state wine]]
      ["Dosage (g/L)" [editable-dosage app-state wine]]]]
    [box {:sx {:mt 1}}
-    [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-     "Grape Varieties"] [wine-varieties-list app-state (:id wine)]]])
+    [tooltip {:title "Grape Varieties" :placement "top" :arrow true}
+     [box {:sx {:width "100%"}} [wine-varieties-list app-state (:id wine)]]]]])
+
+(defn- cellar-summary
+  [wine]
+  (let [qty (:quantity wine)
+        original (:original_quantity wine)
+        location (when-not (str/blank? (:location wine)) (:location wine))]
+    (cond (and original location) (str qty " of " original " · " location)
+          original (str qty " of " original)
+          location (str qty " bottles · " location)
+          :else (str qty " bottles"))))
+
+(defn- cellar-edit-modal
+  [app-state wine open?]
+  (r/with-let
+   [laid-down-val (r/atom (when-let [q (:original_quantity wine)] (str q)))
+    location-val (r/atom (or (:location wine) "")) error-msg (r/atom nil)]
+   [dialog
+    {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
+    [dialog-title "Cellar Stock"]
+    [dialog-content
+     [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
+      [quantity-control app-state (:id wine) (:quantity wine)
+       (str (:quantity wine)) (:original_quantity wine)]
+      [box {:sx {:borderTop "1px solid rgba(255,255,255,0.08)" :mt 0.5}}]
+      [text-field
+       {:value (or @laid-down-val "")
+        :label "Laid Down"
+        :type "number"
+        :fullWidth true
+        :size "small"
+        :error (boolean @error-msg)
+        :helperText (or @error-msg "Bottles originally purchased or laid down")
+        :onChange (fn [e]
+                    (reset! laid-down-val (.. e -target -value))
+                    (reset! error-msg nil))}]
+      [text-field
+       {:value (or @location-val "")
+        :label "Location"
+        :fullWidth true
+        :size "small"
+        :placeholder "e.g. E2, Rack 2, Wine Fridge"
+        :onChange (fn [e] (reset! location-val (.. e -target -value)))}]]]
+    [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
+     [button
+      {:variant "contained"
+       :onClick
+       (fn []
+         (let [location (when-not (str/blank? @location-val) @location-val)
+               laid-down (when-not (str/blank? @laid-down-val)
+                           (js/parseInt @laid-down-val 10))
+               current-qty (:quantity wine)]
+           (if (and laid-down
+                    (not (js/isNaN laid-down))
+                    (< laid-down current-qty))
+             (reset! error-msg (str "Can't set laid down to " laid-down
+                                    " — current stock is " current-qty))
+             (do (api/update-wine app-state
+                                  (:id wine)
+                                  {:location location
+                                   :original_quantity laid-down})
+                 (reset! open? false)))))} "Save"]]]))
 
 (defn wine-cellar-section
   [app-state wine]
-  [box {:sx {:mt 3 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
-   [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
-   [flat-inline-fields
-    [["Location" [editable-location app-state wine]]
-     ["Current Qty"
-      [quantity-control app-state (:id wine) (:quantity wine)
-       (str (:quantity wine)) (:original_quantity wine)]]
-     ["Original Qty" [editable-original-quantity app-state wine]]
-     ["Vintage" [editable-vintage app-state wine]]]]])
+  (r/with-let
+   [open? (r/atom false)]
+   [box
+    {:sx {:mt 3 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
+    [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
+    [box
+     {:sx {:cursor "pointer"
+           :borderRadius 1
+           :px 0.5
+           :mx -0.5
+           "&:hover" {:bgcolor "action.hover"}}
+      :onClick #(reset! open? true)}
+     [typography {:variant "body1"} (cellar-summary wine)]]
+    (when @open? [cellar-edit-modal app-state wine open?])]))
+
+(defn- provenance-summary
+  [wine]
+  (let [price (:price wine)
+        purveyor (when-not (str/blank? (:purveyor wine)) (:purveyor wine))
+        date (format-date-iso (:purchase_date wine))
+        price-str (when price (str "$" (gstring/format "%.2f" price)))]
+    (if (and (nil? price-str) (nil? purveyor) (nil? date))
+      "Add purchase details"
+      (str/join
+       " "
+       (filter identity
+               [(when price-str (str "Paid " price-str))
+                (when purveyor
+                  (if price-str (str "from " purveyor) (str "From " purveyor)))
+                (when date (str "on " date))])))))
+
+(defn- provenance-edit-modal
+  [app-state wine open?]
+  (r/with-let
+   [price-val (r/atom (when-let [p (:price wine)] (gstring/format "%.2f" p)))
+    purveyor-val (r/atom (or (:purveyor wine) "")) date-val
+    (r/atom (format-date-iso (:purchase_date wine)))]
+   (let [all-wines (:wines @app-state)
+         existing-purveyors (->> all-wines
+                                 (map :purveyor)
+                                 (filter #(and % (not (str/blank? %))))
+                                 (distinct)
+                                 (sort)
+                                 (vec))]
+     [dialog
+      {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
+      [dialog-title "Purchase Details"]
+      [dialog-content
+       [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
+        [text-field
+         {:value (or @price-val "")
+          :type "number"
+          :label "Price"
+          :fullWidth true
+          :InputProps {:startAdornment "$"}
+          :onChange (fn [e] (reset! price-val (.. e -target -value)))}]
+        [autocomplete
+         {:freeSolo true
+          :options existing-purveyors
+          :value @purveyor-val
+          :onChange (fn [_ v] (when v (reset! purveyor-val v)))
+          :onInputChange (fn [_ v _] (reset! purveyor-val v))
+          :renderInput (fn [params]
+                         (let [props (gobj/clone params)]
+                           (gobj/set props "label" "Purchased From")
+                           (gobj/set props "variant" "outlined")
+                           (gobj/set props "fullWidth" true)
+                           (r/create-element TextField props)))}]
+        [text-field
+         {:value (or @date-val "")
+          :type "date"
+          :label "Purchase Date"
+          :fullWidth true
+          :InputLabelProps {:shrink true}
+          :onChange (fn [e] (reset! date-val (.. e -target -value)))}]]]
+      [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
+       [button
+        {:variant "contained"
+         :onClick (fn []
+                    (let [price (when-not (str/blank? @price-val)
+                                  (js/parseFloat @price-val))
+                          purveyor (when-not (str/blank? @purveyor-val)
+                                     @purveyor-val)
+                          date (when-not (str/blank? @date-val) @date-val)]
+                      (api/update-wine
+                       app-state
+                       (:id wine)
+                       {:price price :purveyor purveyor :purchase_date date})
+                      (reset! open? false)))} "Save"]]])))
 
 (defn wine-provenance-section
   [app-state wine]
-  [box {:sx {:mt 3 :borderLeft "3px solid rgba(255,213,79,0.7)" :pl 1.5 :pb 2}}
-   [section-header receipt "Provenance" "rgba(255,213,79,0.7)"]
-   [flat-inline-fields
-    [["Price" [editable-price app-state wine]]
-     ["Purchased From" [editable-purveyor app-state wine]]
-     ["Purchase Date" [editable-purchase-date app-state wine]]]]])
+  (r/with-let
+   [open? (r/atom false)]
+   [box {:sx {:mt 3 :borderLeft "3px solid rgba(255,213,79,0.7)" :pl 1.5 :pb 2}}
+    [section-header receipt "Provenance" "rgba(255,213,79,0.7)"]
+    [box
+     {:sx {:cursor "pointer"
+           :borderRadius 1
+           :px 0.5
+           :mx -0.5
+           "&:hover" {:bgcolor "action.hover"}}
+      :onClick #(reset! open? true)}
+     [typography {:variant "body1"} (provenance-summary wine)]]
+    (when @open? [provenance-edit-modal app-state wine open?])]))
 
 (defn wine-tasting-window-suggestion-buttons
   [app-state wine]
@@ -818,26 +812,77 @@
       (get-in @app-state [:window-suggestion :message])]
      [wine-tasting-window-suggestion-buttons app-state wine]]))
 
+(defn- drinking-window-modal
+  [app-state wine open?]
+  (r/with-let
+   [from-val (r/atom (when-let [y (:drink_from_year wine)] (str y))) until-val
+    (r/atom (when-let [y (:drink_until_year wine)] (str y))) error-msg
+    (r/atom nil)]
+   [dialog
+    {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
+    [dialog-title "Drinking Window"]
+    [dialog-content
+     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
+      [text-field
+       {:value (or @from-val "")
+        :type "number"
+        :label "Drink From Year"
+        :fullWidth true
+        :onChange (fn [e]
+                    (reset! from-val (.. e -target -value))
+                    (reset! error-msg nil))}]
+      [text-field
+       {:value (or @until-val "")
+        :type "number"
+        :label "Drink Until Year"
+        :fullWidth true
+        :error (boolean @error-msg)
+        :helperText @error-msg
+        :onChange (fn [e]
+                    (reset! until-val (.. e -target -value))
+                    (reset! error-msg nil))}]]]
+    [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
+     [button
+      {:variant "contained"
+       :onClick (fn []
+                  (let [from (when-not (str/blank? @from-val)
+                               (js/parseInt @from-val 10))
+                        until (when-not (str/blank? @until-val)
+                                (js/parseInt @until-val 10))
+                        err (vintage/valid-tasting-window? from until)]
+                    (if err
+                      (reset! error-msg err)
+                      (do (api/update-wine app-state
+                                           (:id wine)
+                                           {:drink_from_year from
+                                            :drink_until_year until})
+                          (reset! open? false)))))} "Save"]]]))
+
 (defn wine-tasting-window-section
   [app-state wine]
-  [box {:sx {:mt 3 :borderLeft "3px solid rgba(255,152,0,0.7)" :pl 1.5 :pb 2}}
-   [section-header schedule "Drinking Window" "rgba(255,152,0,0.7)"]
-   [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-    [grid {:container true :spacing 2}
-     [grid {:item true :xs 6}
-      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-       "From"] [editable-drink-from-year app-state wine]]
-     [grid {:item true :xs 6}
-      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-       "Until"] [editable-drink-until-year app-state wine]]]
-    [box {:sx {:mt 1}} [editable-tasting-window-commentary app-state wine]]
-    (let [status (vintage/tasting-window-status wine)]
-      [typography
-       {:variant "body2"
-        :color (vintage/tasting-window-color status)
-        :sx {:mt 1 :fontStyle "italic"}}
-       (vintage/format-tasting-window-text wine)])
-    [wine-tasting-window-suggestion app-state wine]]])
+  (r/with-let
+   [open? (r/atom false)]
+   [box {:sx {:mt 3 :borderLeft "3px solid rgba(255,152,0,0.7)" :pl 1.5 :pb 2}}
+    [section-header schedule "Drinking Window" "rgba(255,152,0,0.7)"]
+    [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+     (let [status (vintage/tasting-window-status wine)
+           window-text (vintage/format-tasting-window-text wine)]
+       [typography
+        {:variant "body2"
+         :color (if (str/blank? window-text)
+                  "text.secondary"
+                  (vintage/tasting-window-color status))
+         :sx {:fontStyle "italic"
+              :cursor "pointer"
+              :borderRadius 1
+              :px 0.5
+              :mx -0.5
+              "&:hover" {:bgcolor "action.hover"}}
+         :onClick #(reset! open? true)}
+        (if (str/blank? window-text) "Set drinking window" window-text)])
+     [box {:sx {:mt 1}} [editable-tasting-window-commentary app-state wine]]
+     [wine-tasting-window-suggestion app-state wine]]
+    (when @open? [drinking-window-modal app-state wine open?])]))
 
 (defn wine-ai-summary-section
   [app-state wine]
@@ -896,7 +941,8 @@
 
 (defn history-date-cell
   [record]
-  [table-cell (format-date-iso (:occurred_at record))])
+  [table-cell {:sx {:whiteSpace "nowrap"}}
+   (format-date-iso (:occurred_at record))])
 
 (defn history-change-cell
   [record]
@@ -1047,7 +1093,8 @@
         [table-container
          [table {:size "small" :sx {:minWidth 700}}
           [table-head
-           [table-row [table-cell {:sx {:width 110}} "Date"]
+           [table-row
+            [table-cell {:sx {:width 130 :whiteSpace "nowrap"}} "Date"]
             [table-cell {:sx {:width 60}} "Change"]
             [table-cell {:sx {:width 130}} "Reason"]
             [table-cell {:sx {:width 170}} "Balance"]

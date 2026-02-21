@@ -128,12 +128,6 @@
                 :bgcolor "rgba(255,255,255,0.02)"
                 :borderRadius 2
                 :border "1px dashed rgba(255,255,255,0.1)"}}
-          [typography
-           {:variant "caption"
-            :sx {:display "block"
-                 :mb 1.5
-                 :fontWeight "bold"
-                 :color "text.secondary"}} "ADD NEW FIELD"]
           [grid {:container true :spacing 2 :sx {:alignItems "flex-start"}}
            [grid {:item true :xs 12 :sm 4}
             [autocomplete

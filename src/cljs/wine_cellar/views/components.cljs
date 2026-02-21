@@ -14,7 +14,6 @@
             [reagent-mui.icons.arrow-drop-down :refer [arrow-drop-down]]
             [reagent-mui.material.text-field :refer [text-field]]
             [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.edit :refer [edit]]
             [reagent-mui.icons.save :refer [save]]
             [reagent-mui.icons.cancel :refer [cancel]]
             [reagent-mui.material.typography :refer [typography]]
@@ -218,8 +217,8 @@
    - force-edit-mode?: If true, start in edit mode (useful for generated content)
    - compact?: If true, stack buttons vertically to save horizontal space"
   [{:keys [value on-save on-cancel validate-fn empty-text render-input-fn
-           force-edit-mode? compact? display-sx]
-    :or {empty-text "Not specified"}}]
+           force-edit-mode? compact? display-sx format-fn]
+    :or {empty-text "Not specified" format-fn identity}}]
   (r/with-let
    [editing (r/atom (boolean force-edit-mode?)) field-value (r/atom value)
     field-error (r/atom nil) saving (r/atom false)]
@@ -299,14 +298,17 @@
      [box
       {:display "flex"
        :alignItems "center"
-       :justifyContent "space-between"
-       :width "100%"}
+       :width "100%"
+       :sx {:cursor "pointer"
+            :borderRadius 1
+            :px 0.5
+            :mx -0.5
+            "&:hover" {:bgcolor "action.hover"}}
+       :onClick #(reset! editing true)}
       [typography (merge {:variant "body1"} (when display-sx {:sx display-sx}))
-       (if (or (nil? value) (str/blank? value)) empty-text value)]
-      [icon-button
-       {:sx {:color "primary.main"}
-        :size "small"
-        :onClick #(reset! editing true)} [edit]]])))
+       (if (or (nil? value) (str/blank? (str value)))
+         empty-text
+         (format-fn value))]])))
 
   ;; Specific field implementations
 (defn editable-text-field
