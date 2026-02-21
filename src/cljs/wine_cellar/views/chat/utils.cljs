@@ -123,6 +123,16 @@
             target-scroll (- (+ current-scroll relative-top) center-offset)]
         (.scrollTo container #js {:top target-scroll :behavior "smooth"})))))
 
+(defn scroll-to-element-top!
+  [element-id container]
+  (when-let [el (.getElementById js/document element-id)]
+    (when container
+      (let [el-rect (.getBoundingClientRect el)
+            container-rect (.getBoundingClientRect container)
+            relative-top (- (.-top el-rect) (.-top container-rect))
+            target-scroll (- (+ (.-scrollTop container) relative-top) 8)]
+        (.scrollTo container #js {:top target-scroll :behavior "smooth"})))))
+
 (defn scroll-to-position!
   [container top]
   (when (and container top)
@@ -135,6 +145,7 @@
     (when intent
       (case (:type intent)
         :bottom (scroll-to-bottom! container)
+        :ai-top (scroll-to-element-top! "latest-ai-response" container)
         :search-match (scroll-to-element! "active-search-match" container)
         :position (scroll-to-position! container (:top intent))
         nil)

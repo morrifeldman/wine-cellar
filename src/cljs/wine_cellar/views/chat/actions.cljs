@@ -125,7 +125,7 @@
                                  :timestamp (.getTime (js/Date.))}]
                  (swap! messages conj ai-message)
                  (swap! app-state assoc-in [:chat :messages] @messages)
-                 (chat-utils/set-scroll-intent! app-state {:type :bottom})
+                 (chat-utils/set-scroll-intent! app-state {:type :ai-top})
                  (persist-conversation-message!
                   app-state
                   wines
@@ -193,7 +193,7 @@
                                        :timestamp (.getTime (js/Date.))}]
                        (swap! messages conj ai-message)
                        (swap! app-state assoc-in [:chat :messages] @messages)
-                       (chat-utils/set-scroll-intent! app-state {:type :bottom})
+                       (chat-utils/set-scroll-intent! app-state {:type :ai-top})
                        (persist-conversation-message!
                         app-state
                         wines

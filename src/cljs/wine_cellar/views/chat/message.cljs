@@ -134,14 +134,16 @@
 
 (defn message-bubble
   "Renders a single chat message bubble"
-  [{:keys [text is-user timestamp id]} on-edit app-state global-offset]
+  [{:keys [text is-user timestamp id]} on-edit app-state global-offset
+   last-ai-id]
   (let [chat-state (:chat @app-state)
         search-term (:local-search-term chat-state)
         current-match-idx (:current-match-index chat-state 0)]
     [box
-     {:sx {:display "flex"
-           :justify-content (if is-user "flex-end" "flex-start")
-           :mb 1}}
+     (cond-> {:sx {:display "flex"
+                   :justify-content (if is-user "flex-end" "flex-start")
+                   :mb 1}}
+       (= id last-ai-id) (assoc :id "latest-ai-response"))
      [paper ; Vector literal.
       {:elevation 2
        :sx {:p 2
@@ -235,7 +237,11 @@
                                                            regex))))])
                                  [[] 0]
                                  current-messages)))
-                (repeat (count current-messages) 0))]
+                (repeat (count current-messages) 0))
+              last-ai-id (->> current-messages
+                              (filter #(not (:is-user %)))
+                              last
+                              :id)]
           [box
            {:ref #(reset! scroll-ref %)
             :on-scroll (fn [e]
@@ -260,4 +266,4 @@
                             global-offset (nth prefix-match-counts idx)]
                         ^{:key msg-id}
                         [message-bubble message edit-handler app-state
-                         global-offset]))))]))})))
+                         global-offset last-ai-id]))))]))})))
