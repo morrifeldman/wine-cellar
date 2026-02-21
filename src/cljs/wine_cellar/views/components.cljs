@@ -218,7 +218,7 @@
    - force-edit-mode?: If true, start in edit mode (useful for generated content)
    - compact?: If true, stack buttons vertically to save horizontal space"
   [{:keys [value on-save on-cancel validate-fn empty-text render-input-fn
-           force-edit-mode? compact?]
+           force-edit-mode? compact? display-sx]
     :or {empty-text "Not specified"}}]
   (r/with-let
    [editing (r/atom (boolean force-edit-mode?)) field-value (r/atom value)
@@ -301,7 +301,7 @@
        :alignItems "center"
        :justifyContent "space-between"
        :width "100%"}
-      [typography {:variant "body1"}
+      [typography (merge {:variant "body1"} (when display-sx {:sx display-sx}))
        (if (or (nil? value) (str/blank? value)) empty-text value)]
       [icon-button
        {:sx {:color "primary.main"}

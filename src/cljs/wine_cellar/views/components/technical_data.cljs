@@ -101,10 +101,6 @@
             ;; Sort metadata by key for consistent display
             sorted-entries (sort-by (comp str key) metadata)]
         [box {:sx {:mt 2}}
-         [typography
-          {:variant "subtitle2"
-           :sx {:mb 2 :color "primary.main" :fontWeight "bold"}}
-          "Technical Data & Notes"]
          ;; Existing Entries
          (when (seq sorted-entries)
            [box {:sx {:mb 3}}

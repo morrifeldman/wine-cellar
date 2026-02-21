@@ -10,6 +10,14 @@
     [reagent-mui.icons.delete :refer [delete]]
     [reagent-mui.icons.edit :refer [edit]]
     [reagent-mui.icons.close :refer [close]]
+    [reagent-mui.icons.public :refer [public] :rename {public globe}]
+    [reagent-mui.icons.wine-bar :refer [wine-bar]]
+    [reagent-mui.icons.inventory :refer [inventory]]
+    [reagent-mui.icons.receipt :refer [receipt]]
+    [reagent-mui.icons.schedule :refer [schedule]]
+    [reagent-mui.icons.science :refer [science]]
+    [reagent-mui.icons.history :refer [history] :rename {history history-icon}]
+    [reagent-mui.icons.rate-review :refer [rate-review]]
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.button :refer [button]]
     [reagent-mui.material.icon-button :refer [icon-button]]
@@ -292,7 +300,8 @@
                  (if (valid-name-producer? updated-wine)
                    (api/update-wine app-state (:id wine) {:name new-value})
                    (js/alert "Either Wine Name or Producer must be provided"))))
-    :empty-text "Add wine name"}])
+    :empty-text "Add wine name"
+    :display-sx {:fontSize "1.2rem" :fontWeight 500}}])
 
 (defn editable-producer
   [app-state wine]
@@ -303,7 +312,8 @@
                  (if (valid-name-producer? updated-wine)
                    (api/update-wine app-state (:id wine) {:producer new-value})
                    (js/alert "Either Wine Name or Producer must be provided"))))
-    :empty-text "Add producer"}])
+    :empty-text "Add producer"
+    :display-sx {:fontSize "1.2rem" :fontWeight 500}}])
 
 (defn editable-vintage
   [app-state wine]
@@ -516,30 +526,13 @@
 (defn wine-identity-section
   [app-state wine]
   [box {:sx {:mb 3 :pb 2 :borderBottom "1px solid rgba(0,0,0,0.08)"}}
-   ;; Producer + Name
    [grid {:container true :spacing 2}
     [grid {:item true :xs 12 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Producer"]
      [editable-producer app-state wine]]
     [grid {:item true :xs 12 :sm 6}
      [typography {:variant "body2" :color "text.secondary"} "Wine Name"]
-     [editable-name app-state wine]]]
-   ;; Country + Region
-   [grid {:container true :spacing 1 :sx {:mt 2}}
-    [grid {:item true :xs 12 :sm 6}
-     [typography {:variant "body2" :color "text.secondary"} "Country"]
-     [editable-country app-state wine]]
-    [grid {:item true :xs 12 :sm 6}
-     [typography {:variant "body2" :color "text.secondary"} "Region"]
-     [editable-region app-state wine]]]
-   ;; Appellation + Appellation Tier
-   [grid {:container true :spacing 1 :sx {:mt 1}}
-    [grid {:item true :xs 12 :sm 6}
-     [typography {:variant "body2" :color "text.secondary"} "Appellation"]
-     [editable-appellation app-state wine]]
-    [grid {:item true :xs 12 :sm 6}
-     [typography {:variant "body2" :color "text.secondary"} "Appellation Tier"]
-     [editable-appellation-tier app-state wine]]]])
+     [editable-name app-state wine]]]])
 
 (defn image-zoom-modal
   [app-state image-data image-title]
@@ -634,7 +627,7 @@
    (when-let [zoomed (get @app-state :zoomed-image)]
      [image-zoom-modal app-state (:data zoomed) (:title zoomed)])
    ;; Front Wine Label Image
-   [grid {:item true :xs 12 :md 6}
+   [grid {:item true :xs 6}
     [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
      [typography {:variant "body2" :color "text.secondary"} "Front Label"]
      [clickable-wine-image (:label_image wine) "front" "Front Wine Label"
@@ -644,7 +637,7 @@
         (:id wine)
         (assoc wine :label_image nil :label_thumbnail nil)) app-state]]]
    ;; Back Wine Label Image
-   [grid {:item true :xs 12 :md 6}
+   [grid {:item true :xs 6}
     [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
      [typography {:variant "body2" :color "text.secondary"} "Back Label"]
      [clickable-wine-image (:back_label_image wine) "back" "Back Wine Label"
@@ -653,85 +646,82 @@
                               (:id wine)
                               (assoc wine :back_label_image nil)) app-state]]]])
 
-(defn stacked-fields-column
+(defn- section-header
+  [icon-component label border-color]
+  [box
+   {:sx {:display "flex"
+         :alignItems "center"
+         :mb 1.5
+         :pb 1
+         :borderBottom "1px solid rgba(255,255,255,0.06)"}}
+   [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
+    [icon-component {:fontSize "small"}]]
+   [typography
+    {:variant "overline"
+     :sx {:fontWeight 700
+          :letterSpacing "0.1em"
+          :color "text.secondary"
+          :lineHeight 1}} label]])
+
+(defn- flat-inline-fields
   [fields]
-  [grid {:container true :spacing 1 :direction "column"}
-   (for [[idx field] (map-indexed vector fields)]
+  [grid {:container true :spacing 2 :sx {:mb 1}}
+   (for [[idx [title content]] (map-indexed vector fields)]
      ^{:key idx}
-     [grid {:item true}
-      [paper
-       {:elevation 0
-        :sx {:p 2 :borderRadius 1 :mb (if (< idx (dec (count fields))) 1 0)}}
-       field]])])
+     [grid {:item true :xs 12 :sm (int (/ 12 (count fields)))}
+      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
+       title] content])])
 
-(defn field-card
-  [title content]
-  [paper {:elevation 0 :sx {:p 2 :borderRadius 1 :height "100%"}}
-   [typography {:variant "body2" :color "text.secondary"} title] content])
-
-(defn compact-field-group
-  [fields]
-  [paper {:elevation 0 :sx {:p 2 :borderRadius 1 :height "100%"}}
-   [grid {:container true :spacing 2}
-    (for [[idx [title content]] (map-indexed vector fields)]
-      ^{:key idx}
-      [grid {:item true :xs 12}
-       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-        title] content])]])
-
-(defn inline-field-group
-  [fields]
-  [paper {:elevation 0 :sx {:p 2 :borderRadius 1 :height "100%"}}
-   [grid {:container true :spacing 1}
-    (for [[idx [title content]] (map-indexed vector fields)]
-      ^{:key idx}
-      [grid {:item true :xs 12 :sm (int (/ 12 (count fields)))}
-       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-        title] content])]])
-
-(defn wine-classification-section
+(defn wine-terroir-section
   [app-state wine]
-  [:<>
-   ;; Classification + Designation + Vineyard
-   [grid {:item true :xs 12 :md 6}
-    [inline-field-group
-     [["Classification" [editable-classification app-state wine]]
-      ["Designation" [editable-designation app-state wine]]
-      ["Vineyard" [editable-vineyard app-state wine]]]]]])
+  [box {:sx {:mt 3 :borderLeft "3px solid rgba(139,195,74,0.7)" :pl 1.5 :pb 2}}
+   [section-header globe "Terroir" "rgba(139,195,74,0.7)"]
+   [flat-inline-fields
+    [["Country" [editable-country app-state wine]]
+     ["Region" [editable-region app-state wine]]
+     ["Appellation" [editable-appellation app-state wine]]
+     ["Tier" [editable-appellation-tier app-state wine]]]]
+   [flat-inline-fields
+    [["Classification" [editable-classification app-state wine]]
+     ["Designation" [editable-designation app-state wine]]
+     ["Vineyard" [editable-vineyard app-state wine]]]]])
 
-(defn wine-compact-details-section
+(defn wine-composition-section
   [app-state wine]
-  [:<>
-   ;; Grape Varieties (needs space for multiple varieties)
-   [grid {:item true :xs 12 :md 6}
-    [field-card "Grape Varieties" [wine-varieties-list app-state (:id wine)]]]
-   ;; Wine Characteristics: Style + Closure + Bottle Format + Alcohol %
-   [grid {:item true :xs 12 :md 6}
-    [inline-field-group
-     [["Style" [editable-styles app-state wine]]
-      ["Closure" [editable-closure-type app-state wine]]
-      ["Format" [editable-bottle-format app-state wine]]
-      ["Alcohol %" [editable-alcohol-percentage app-state wine]]]]]
-   ;; Inventory Info: Location + Current Quantity + Original Quantity
-   [grid {:item true :xs 12 :md 6}
-    [inline-field-group
-     [["Location" [editable-location app-state wine]]
-      ["Current Qty"
-       [quantity-control app-state (:id wine) (:quantity wine)
-        (str (:quantity wine)) (:original_quantity wine)]]
-      ["Original Qty" [editable-original-quantity app-state wine]]]]]
-   ;; Purchase Info: Price + Purchased From + Purchase Date
-   [grid {:item true :xs 12 :md 6}
-    [inline-field-group
-     [["Price" [editable-price app-state wine]]
-      ["Purchased From" [editable-purveyor app-state wine]]
-      ["Purchase Date" [editable-purchase-date app-state wine]]]]]
-   ;; Vintage Info: Vintage + Disgorgement Year
-   [grid {:item true :xs 12 :md 6}
-    [inline-field-group
-     [["Vintage" [editable-vintage app-state wine]]
-      ["Disgorgement Year" [editable-disgorgement-year app-state wine]]
-      ["Dosage (g/L)" [editable-dosage app-state wine]]]]]])
+  [box {:sx {:mt 3 :borderLeft "3px solid rgba(186,104,200,0.7)" :pl 1.5 :pb 2}}
+   [section-header wine-bar "Composition" "rgba(186,104,200,0.7)"]
+   [flat-inline-fields
+    [["Style" [editable-styles app-state wine]]
+     ["Closure" [editable-closure-type app-state wine]]
+     ["Format" [editable-bottle-format app-state wine]]
+     ["Alcohol %" [editable-alcohol-percentage app-state wine]]]]
+   [flat-inline-fields
+    [["Disgorgement Year" [editable-disgorgement-year app-state wine]]
+     ["Dosage (g/L)" [editable-dosage app-state wine]]]]
+   [box {:sx {:mt 1}}
+    [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
+     "Grape Varieties"] [wine-varieties-list app-state (:id wine)]]])
+
+(defn wine-cellar-section
+  [app-state wine]
+  [box {:sx {:mt 3 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
+   [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
+   [flat-inline-fields
+    [["Location" [editable-location app-state wine]]
+     ["Current Qty"
+      [quantity-control app-state (:id wine) (:quantity wine)
+       (str (:quantity wine)) (:original_quantity wine)]]
+     ["Original Qty" [editable-original-quantity app-state wine]]
+     ["Vintage" [editable-vintage app-state wine]]]]])
+
+(defn wine-provenance-section
+  [app-state wine]
+  [box {:sx {:mt 3 :borderLeft "3px solid rgba(255,213,79,0.7)" :pl 1.5 :pb 2}}
+   [section-header receipt "Provenance" "rgba(255,213,79,0.7)"]
+   [flat-inline-fields
+    [["Price" [editable-price app-state wine]]
+     ["Purchased From" [editable-purveyor app-state wine]]
+     ["Purchase Date" [editable-purchase-date app-state wine]]]]])
 
 (defn wine-tasting-window-suggestion-buttons
   [app-state wine]
@@ -830,81 +820,79 @@
 
 (defn wine-tasting-window-section
   [app-state wine]
-  [grid {:item true :xs 12}
-   [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-    [typography {:variant "body2" :color "text.secondary"} "Tasting Window"]
-    [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-     ;; From and Until on same row
-     [grid {:container true :spacing 2}
-      [grid {:item true :xs 6}
-       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-        "From"] [editable-drink-from-year app-state wine]]
-      [grid {:item true :xs 6}
-       [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
-        "Until"] [editable-drink-until-year app-state wine]]]
-     [box {:sx {:mt 1}} [editable-tasting-window-commentary app-state wine]]
-     (let [status (vintage/tasting-window-status wine)]
-       [typography
-        {:variant "body2"
-         :color (vintage/tasting-window-color status)
-         :sx {:mt 1 :fontStyle "italic"}}
-        (vintage/format-tasting-window-text wine)])
-     [wine-tasting-window-suggestion app-state wine]]]])
+  [box {:sx {:mt 3 :borderLeft "3px solid rgba(255,152,0,0.7)" :pl 1.5 :pb 2}}
+   [section-header schedule "Drinking Window" "rgba(255,152,0,0.7)"]
+   [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+    [grid {:container true :spacing 2}
+     [grid {:item true :xs 6}
+      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
+       "From"] [editable-drink-from-year app-state wine]]
+     [grid {:item true :xs 6}
+      [typography {:variant "body2" :color "text.secondary" :sx {:mb 0.5}}
+       "Until"] [editable-drink-until-year app-state wine]]]
+    [box {:sx {:mt 1}} [editable-tasting-window-commentary app-state wine]]
+    (let [status (vintage/tasting-window-status wine)]
+      [typography
+       {:variant "body2"
+        :color (vintage/tasting-window-color status)
+        :sx {:mt 1 :fontStyle "italic"}}
+       (vintage/format-tasting-window-text wine)])
+    [wine-tasting-window-suggestion app-state wine]]])
 
 (defn wine-ai-summary-section
   [app-state wine]
   (let [generating? (:generating-ai-summary? @app-state)]
-    [grid {:item true :xs 12}
-     [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-      [typography {:variant "body2" :color "text.secondary"} "AI Wine Summary"]
-      [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-       [editable-ai-summary app-state wine]
-       [box
-        {:sx
-         {:mt 1 :display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
-        [button
-         {:variant "outlined"
-          :color "secondary"
-          :size "small"
-          :disabled generating?
-          :startIcon (when-not generating? (r/as-element [auto-awesome]))
-          :onClick
-          (fn []
-            (swap! app-state assoc :generating-ai-summary? true)
-            (-> (api/generate-wine-summary app-state wine)
-                (.then (fn [summary]
-                         (swap! app-state update
-                           :wines
-                           (fn [wines]
-                             (map #(if (= (:id %) (:id wine))
-                                     (assoc % :ai_summary summary)
-                                     %)
-                                  wines)))
-                         (swap! app-state assoc-in
-                           [:force-edit-ai-summary (:id wine)]
-                           true)
-                         (swap! app-state dissoc :generating-ai-summary?)))
-                (.catch (fn [error]
-                          (swap! app-state assoc
-                            :error
-                            (str "Failed to generate summary: " error))
-                          (swap! app-state dissoc :generating-ai-summary?)))))}
-         (if generating?
-           [box {:sx {:display "flex" :alignItems "center"}}
-            [circular-progress {:size 20 :sx {:mr 1}}] "Generating..."]
-           "Generate AI Summary")]
-        [provider-toggle-button app-state
-         {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]]]]]))
+    [box
+     {:sx {:mt 3 :borderLeft "3px solid rgba(232,195,200,0.7)" :pl 1.5 :pb 2}}
+     [section-header auto-awesome "AI Summary" "rgba(232,195,200,0.7)"]
+     [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+      [editable-ai-summary app-state wine]
+      [box
+       {:sx
+        {:mt 1 :display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
+       [button
+        {:variant "outlined"
+         :color "secondary"
+         :size "small"
+         :disabled generating?
+         :startIcon (when-not generating? (r/as-element [auto-awesome]))
+         :onClick
+         (fn []
+           (swap! app-state assoc :generating-ai-summary? true)
+           (-> (api/generate-wine-summary app-state wine)
+               (.then (fn [summary]
+                        (swap! app-state update
+                          :wines
+                          (fn [wines]
+                            (map #(if (= (:id %) (:id wine))
+                                    (assoc % :ai_summary summary)
+                                    %)
+                                 wines)))
+                        (swap! app-state assoc-in
+                          [:force-edit-ai-summary (:id wine)]
+                          true)
+                        (swap! app-state dissoc :generating-ai-summary?)))
+               (.catch (fn [error]
+                         (swap! app-state assoc
+                           :error
+                           (str "Failed to generate summary: " error))
+                         (swap! app-state dissoc :generating-ai-summary?)))))}
+        (if generating?
+          [box {:sx {:display "flex" :alignItems "center"}}
+           [circular-progress {:size 20 :sx {:mr 1}}] "Generating..."]
+          "Generate AI Summary")]
+       [provider-toggle-button app-state
+        {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]]]]))
 
 (defn wine-technical-notes-section
   [app-state wine]
-  [grid {:item true :xs 12}
-   [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-    [technical-data-editor
-     {:metadata (or (:metadata wine) {})
-      :on-change
-      (fn [new-metadata]
-        (api/update-wine app-state (:id wine) {:metadata new-metadata}))}]]])
+  [box {:sx {:mt 3 :borderLeft "3px solid rgba(128,203,196,0.7)" :pl 1.5 :pb 2}}
+   [section-header science "Technical Notes" "rgba(128,203,196,0.7)"]
+   [technical-data-editor
+    {:metadata (or (:metadata wine) {})
+     :on-change
+     (fn [new-metadata]
+       (api/update-wine app-state (:id wine) {:metadata new-metadata}))}]])
 
 (defn history-date-cell
   [record]
@@ -1046,14 +1034,9 @@
 (defn inventory-history-section
   [app-state wine]
   (let [history (get-in @app-state [:inventory-history (:id wine)])]
-    [box {:sx {:mt 4}}
-     [typography
-      {:variant "h5"
-       :component "h3"
-       :sx {:mb 2
-            :pb 1
-            :borderBottom "1px solid rgba(0,0,0,0.08)"
-            :color "primary.main"}} "Inventory History"]
+    [box
+     {:sx {:mt 3 :borderLeft "3px solid rgba(144,164,174,0.7)" :pl 1.5 :pb 2}}
+     [section-header history-icon "Inventory History" "rgba(144,164,174,0.7)"]
      (if (empty? history)
        [typography
         {:variant "body2" :color "text.secondary" :fontStyle "italic"}
@@ -1084,14 +1067,8 @@
 
 (defn wine-tasting-notes-section
   [app-state wine]
-  [box {:sx {:mt 4}}
-   [typography
-    {:variant "h5"
-     :component "h3"
-     :sx {:mb 3
-          :pb 1
-          :borderBottom "1px solid rgba(0,0,0,0.08)"
-          :color "primary.main"}} "Tasting Notes"]
+  [box {:sx {:mt 3 :borderLeft "3px solid rgba(240,98,146,0.7)" :pl 1.5 :pb 2}}
+   [section-header rate-review "Tasting Notes" "rgba(240,98,146,0.7)"]
    [tasting-notes-list app-state (:id wine)]
    (when-not (:editing-note-id @app-state)
      [tasting-note-form app-state (:id wine)])])
@@ -1109,15 +1086,14 @@
      :bgcolor "container.main"
      :backgroundImage
      "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"}}
-   ;; Wine title and basic info
-   [wine-identity-section app-state wine]
-   [grid {:container true :spacing 6 :sx {:mb 4}}
-    [wine-images-section app-state wine]
-    [wine-classification-section app-state wine]
-    [wine-compact-details-section app-state wine]
-    [wine-technical-notes-section app-state wine]
-    [wine-tasting-window-section app-state wine]
-    [wine-ai-summary-section app-state wine]]
+   [grid {:container true :spacing 2 :sx {:mb 1}}
+    [wine-images-section app-state wine]] [wine-identity-section app-state wine]
+   [wine-terroir-section app-state wine]
+   [wine-composition-section app-state wine]
+   [wine-cellar-section app-state wine] [wine-provenance-section app-state wine]
+   [wine-tasting-window-section app-state wine]
+   [wine-ai-summary-section app-state wine]
+   [wine-technical-notes-section app-state wine]
    [inventory-history-section app-state wine]
    [wine-tasting-notes-section app-state wine]])
 

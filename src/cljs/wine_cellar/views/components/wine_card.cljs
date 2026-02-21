@@ -36,8 +36,8 @@
   [_app-state wine]
   [box
    {:sx {:mr 2
-         :width 100
-         :height 100
+         :width 70
+         :height 130
          :display "flex"
          :alignItems "center"
          :justifyContent "center"
@@ -159,9 +159,9 @@
   [box
    {:sx {:display "flex"
          :alignItems "center"
-         :px 1
-         :py 0.3
-         :borderRadius 1
+         :px 1.5
+         :py 0.4
+         :borderRadius "20px"
          :border "1px solid"
          :bgcolor "rgba(25,118,210,0.08)"
          :borderColor "rgba(25,118,210,0.2)"}}
@@ -177,9 +177,9 @@
   [box
    {:sx {:display "flex"
          :alignItems "center"
-         :px 1
-         :py 0.3
-         :borderRadius 1
+         :px 1.5
+         :py 0.4
+         :borderRadius "20px"
          :border "1px solid"
          :bgcolor "rgba(0,0,0,0.04)"
          :borderColor "rgba(0,0,0,0.12)"}}
@@ -200,6 +200,14 @@
         (when internal-rating [internal-rating-badge internal-rating])
         (when external-rating [external-rating-badge external-rating])]])))
 
+(defn- tasting-window-bg
+  [status]
+  (case status
+    :too-young "rgba(237,108,2,0.12)"
+    :ready "rgba(46,125,50,0.12)"
+    :too-old "rgba(211,47,47,0.12)"
+    "transparent"))
+
 (defn wine-tasting-window
   [status drink-from-year drink-until-year]
   [box {:sx {:display "flex" :alignItems "center"}}
@@ -208,7 +216,13 @@
           :fontWeight "medium"
           :display "flex"
           :alignItems "center"}}
-    [box {:sx {:display "flex"}}
+    [box
+     {:sx {:display "flex"
+           :alignItems "center"
+           :bgcolor (tasting-window-bg status)
+           :borderRadius "20px"
+           :px 1
+           :py 0.2}}
      (when drink-from-year
        [typography {:variant "body2" :sx {:lineHeight 1.2}}
         (str drink-from-year)])
@@ -267,6 +281,26 @@
    (when (:show-verification-checkboxes? @app-state)
      [box {:sx {:mt 0.5}} [wine-verification-checkbox app-state wine]])])
 
+(defn- wine-style-border-color
+  [style]
+  (case style
+    "Red" "rgba(160, 50, 65, 0.75)"
+    "White" "rgba(200, 170, 65, 0.75)"
+    "Rosé" "rgba(220, 125, 140, 0.75)"
+    "Sparkling" "rgba(190, 185, 210, 0.7)"
+    "Orange" "rgba(190, 115, 45, 0.75)"
+    "rgba(120, 80, 90, 0.4)"))
+
+(defn- wine-style-background
+  [style]
+  (case style
+    "Red" "linear-gradient(to right, rgba(114,47,55,0.05), transparent)"
+    "White" "linear-gradient(to right, rgba(180,150,55,0.05), transparent)"
+    "Rosé" "linear-gradient(to right, rgba(200,95,110,0.05), transparent)"
+    "Sparkling" "linear-gradient(to right, rgba(180,175,200,0.04), transparent)"
+    "Orange" "linear-gradient(to right, rgba(175,105,40,0.05), transparent)"
+    nil))
+
 (defn- selected-wine?
   [app-state wine-id]
   (contains? (get @app-state :selected-wine-ids #{}) wine-id))
@@ -303,24 +337,22 @@
                     (selected-wine? app-state wine-id))]
     [paper
      {:elevation (if selected? 6 2)
-      :sx
-      (cond->
-        {:p 1.5 ;; Reduced padding
-         :mb 2
-         :borderRadius 2
-         :position "relative"
-         :overflow "hidden"
-         :transition "transform 0.2s, box-shadow 0.2s"
-         :height "100%"
-         :display "flex"
-         :flexDirection "column"
-         :justifyContent "space-between"
-         :backgroundImage
-         (when (= (:style wine) "Red")
-           "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))")
-         :cursor "pointer"
-         ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
-        selected? (assoc :border "1px solid rgba(144,202,249,0.65)"))
+      :sx (cond-> {:p 1.5 ;; Reduced padding
+                   :mb 2
+                   :borderRadius 2
+                   :position "relative"
+                   :overflow "hidden"
+                   :transition "transform 0.2s, box-shadow 0.2s"
+                   :height "100%"
+                   :display "flex"
+                   :flexDirection "column"
+                   :justifyContent "space-between"
+                   :borderLeft (str "3px solid "
+                                    (wine-style-border-color (:style wine)))
+                   :backgroundImage (wine-style-background (:style wine))
+                   :cursor "pointer"
+                   ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
+            selected? (assoc :border "1px solid rgba(144,202,249,0.65)"))
       :onClick #(api/load-wine-detail-page app-state (:id wine))}
      [wine-selection-checkbox app-state wine]
      ;; Wine header with thumbnail and basic info

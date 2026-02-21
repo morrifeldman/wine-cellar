@@ -275,7 +275,7 @@
                         (swap! app-state assoc :show-report? true)
                         (api/fetch-latest-report app-state
                                                  {:provider provider})))}
-         [list-item-icon [insights {:fontSize "small" :color "secondary"}]]
+         [list-item-icon [insights {:fontSize "small" :color "primary"}]]
          "Insights"]
         [menu-item
          {:on-click (fn []
@@ -341,28 +341,30 @@
    ;; Right side
    (if (mobile?)
      [more-menu app-state]
-     [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
-      [button
-       {:variant "contained"
-        :color "secondary"
-        :onClick #(let [provider (get-in @app-state [:ai :provider])]
-                    (swap! app-state assoc :show-report? true)
-                    (api/fetch-latest-report app-state {:provider provider}))}
-       "Insights"]
-      [button
-       {:variant "outlined"
-        :color "primary"
-        :onClick #(swap! app-state assoc :show-collection-stats? true)} "Stats"]
-      [button
-       {:variant "outlined"
-        :color "primary"
-        :onClick #(swap! app-state assoc :view :sensor-readings)} "Sensors"]
-      [button
-       {:variant "outlined"
-        :color "primary"
-        :startIcon (r/as-element [visibility-off])
-        :onClick #(swap! app-state assoc :view :blind-tastings)} "Blind"]
-      [admin-menu app-state]])])
+     (let [current-view (:view @app-state)]
+       [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
+        [button
+         {:variant "contained"
+          :color "primary"
+          :onClick #(let [provider (get-in @app-state [:ai :provider])]
+                      (swap! app-state assoc :show-report? true)
+                      (api/fetch-latest-report app-state {:provider provider}))}
+         "Insights"]
+        [button
+         {:variant "contained"
+          :color "primary"
+          :onClick #(swap! app-state assoc :show-collection-stats? true)}
+         "Stats"]
+        [button
+         {:variant (if (= current-view :sensor-readings) "contained" "outlined")
+          :color "primary"
+          :onClick #(swap! app-state assoc :view :sensor-readings)} "Sensors"]
+        [button
+         {:variant (if (= current-view :blind-tastings) "contained" "outlined")
+          :color "primary"
+          :startIcon (r/as-element [visibility-off])
+          :onClick #(swap! app-state assoc :view :blind-tastings)} "Blind"]
+        [admin-menu app-state]]))])
 
 (defn main-app
   [app-state]

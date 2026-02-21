@@ -77,7 +77,6 @@
         personal-notes (filter #(not (:is_external %)) notes)
         external-notes (filter :is_external notes)]
     [box {:sx {:mb 3}}
-     [typography {:variant "h5" :component "h3" :sx {:mb 2}} "Tasting Notes"]
      (if (empty? notes)
        [typography {:variant "body1" :sx {:fontStyle "italic"}}
         "No tasting notes yet."]
