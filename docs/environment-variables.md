@@ -21,8 +21,8 @@ In production (when `CLOJURE_ENV=production`), the following environment variabl
 ### AI Features
 
 - `ANTHROPIC_API_KEY`: API key for Anthropic's Claude API (required for wine label analysis)
-- `ANTHROPIC_MODEL`: Claude model to use (optional, defaults to claude-sonnet-4-20250514)
-- `ANTHROPIC_LIGHT_MODEL`: Lightweight Claude model for quick tasks like conversation titles (optional, defaults to claude-3-5-haiku-20241022)
+- `ANTHROPIC_MODEL`: Claude model to use (optional, defaults to claude-sonnet-4-6)
+- `ANTHROPIC_LIGHT_MODEL`: Lightweight Claude model for quick tasks like conversation titles (optional, defaults to claude-haiku-4-5)
 - `OPENAI_API_KEY`: API key for OpenAI Responses (optional, required for ChatGPT support)
 - `OPENAI_MODEL`: OpenAI model to use (optional, defaults to gpt-5)
 - `OPENAI_LIGHT_MODEL`: Lightweight OpenAI model for quick tasks like conversation titles (optional, defaults to gpt-5-mini; gpt-5-nano also works well)

@@ -8,17 +8,15 @@
 
 (def api-url "https://api.anthropic.com/v1/messages")
 
-(defstate model
-          :start
-          (config-utils/get-config "ANTHROPIC_MODEL"
-                                   :fallback
-                                   "claude-sonnet-4-20250514")) ; Default to current model
+(defstate
+ model
+ :start
+ (config-utils/get-config "ANTHROPIC_MODEL" :fallback "claude-sonnet-4-6")) ; Default to current model
 
-(defstate light-model
-          :start
-          (config-utils/get-config "ANTHROPIC_LIGHT_MODEL"
-                                   :fallback
-                                   "claude-3-5-haiku-20241022"))
+(defstate
+ light-model
+ :start
+ (config-utils/get-config "ANTHROPIC_LIGHT_MODEL" :fallback "claude-haiku-4-5"))
 
 (defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
 
