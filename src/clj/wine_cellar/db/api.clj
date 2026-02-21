@@ -241,7 +241,7 @@
                            search-text]
                  pattern (str "%" search-text "%")
                  escaped (-> search-text
-                             (java.util.regex.Pattern/quote)
+                             (str/replace #"[\\.+*?()\[\]{}^$|]" "\\\\$0")
                              (str/replace "'" "''"))
                  ;; Count total occurrences using regexp_matches
                  occurrence-sql
