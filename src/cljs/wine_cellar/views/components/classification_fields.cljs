@@ -82,10 +82,20 @@
         :on-change #(do (update-field! :appellation %)
                         ;; Clear dependent fields when appellation changes
                         (when (not= appellation %)
+                          (update-field! :appellation_tier nil)
                           (update-field! :classification nil)
                           (when include-designation?
                             (update-field! :designation nil))))}]]
      [form/form-row
+      [form/select-field
+       {:label "Appellation Tier"
+        :tooltip (:appellation_tier common/field-descriptions)
+        :required false
+        :free-solo true
+        :disabled (or (empty? country) (empty? region))
+        :value (:appellation_tier data)
+        :options (sort common/appellation-tiers)
+        :on-change #(update-field! :appellation_tier %)}]
       [form/select-field
        {:label "Classification"
         :tooltip (:classification common/field-descriptions)

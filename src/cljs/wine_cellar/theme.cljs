@@ -82,10 +82,11 @@
      :MuiInputBase {:styleOverrides
                     {:root {"&.Mui-disabled" {:color "text.disabled"}
                             "&.Mui-disabled input" {:color "text.disabled"}}}}
-     :MuiAutocomplete {:styleOverrides
-                       {:root {"&.Mui-disabled" {:color "text.disabled"}
-                               "&.Mui-disabled .MuiInputBase-input"
-                               {:color "text.disabled"}}}}
+     :MuiAutocomplete
+     {:styleOverrides
+      {:root {"&.Mui-disabled" {:color "text.disabled"}
+              "&.Mui-disabled .MuiInputBase-input" {:color "text.disabled"}}
+       :clearIndicator {:visibility "visible" :color "#D0D0D0"}}}
      :MuiFormLabel {:styleOverrides {:root {"&.Mui-disabled"
                                             {:color "text.secondary"}}}}
      :MuiSelect {:styleOverrides {:root {:fontSize "0.85rem"}}}

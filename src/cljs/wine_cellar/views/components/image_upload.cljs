@@ -6,7 +6,6 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
-            [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.close :refer [close]]))
 
 (defn create-thumbnail
@@ -120,7 +119,7 @@
 
 ;; Image preview component
 (defn render-image-preview
-  [image-data on-image-remove disabled]
+  [image-data]
   [box
    {:sx {:position "relative"
          :width "100%"
@@ -133,15 +132,7 @@
      :sx {:maxWidth "100%"
           :maxHeight "300px"
           :objectFit "contain"
-          :borderRadius 1
-          :mb 1}}]
-   (when (not disabled)
-     [button
-      {:variant "outlined"
-       :color "secondary"
-       :size "small"
-       :onClick #(on-image-remove)
-       :startIcon (r/as-element [delete])} "Remove Image"])])
+          :borderRadius 1}}]])
 
 ;; Camera controls component - we've moved this functionality directly into the
 ;; image-upload component
@@ -159,8 +150,7 @@
   [_props]
   (let [show-camera (r/atom false)
         uploading (r/atom false)]
-    (fn [{:keys [image-data on-image-change on-image-remove disabled
-                 label-type]}]
+    (fn [{:keys [image-data on-image-change disabled label-type]}]
       (let [label-text (if (= label-type "back") "back" "front")]
         [box {:sx {:width "100%"}}
          ;; Show camera modal if active
@@ -175,8 +165,8 @@
                 (on-image-change image-data))) #(reset! show-camera false)])
          ;; Image preview or camera controls
          (if image-data
-           ;; Show image with remove button
-           [render-image-preview image-data on-image-remove disabled]
+           ;; Show image preview
+           [render-image-preview image-data]
            ;; Show camera controls
            [box
             {:sx {:display "flex"

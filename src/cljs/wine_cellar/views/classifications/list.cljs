@@ -111,6 +111,7 @@
   [table-row [table-cell (:country classification)]
    [table-cell (:region classification)]
    [table-cell (or (:appellation classification) "")]
+   [table-cell (or (:appellation_tier classification) "")]
    [table-cell (or (:classification classification) "")]
    [table-cell (or (:vineyard classification) "")]
    [table-cell
@@ -123,13 +124,13 @@
    [table
     [table-head
      [table-row [table-cell "Country"] [table-cell "Region"]
-      [table-cell "Appellation"] [table-cell "Classification"]
-      [table-cell "Vineyard"] [table-cell "Allowed Designations"]
-      [table-cell "Actions"]]]
+      [table-cell "Appellation"] [table-cell "Tier"]
+      [table-cell "Classification"] [table-cell "Vineyard"]
+      [table-cell "Allowed Designations"] [table-cell "Actions"]]]
     [table-body
      (if (empty? classifications)
        [table-row
-        [table-cell {:col-span 7}
+        [table-cell {:col-span 8}
          [typography {:align "center" :sx {:py 3}}
           "No classifications found. Add one to get started."]]]
        (for [classification classifications]

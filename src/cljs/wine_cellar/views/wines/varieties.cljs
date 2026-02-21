@@ -7,14 +7,10 @@
             [reagent-mui.material.dialog-actions :refer [dialog-actions]]
             [reagent-mui.material.dialog-content :refer [dialog-content]]
             [reagent-mui.material.dialog-title :refer [dialog-title]]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.material.list :refer [list]]
-            [reagent-mui.material.list-item :refer [list-item]]
+            [reagent-mui.material.text-field :refer [text-field]]
             [reagent-mui.material.typography :refer [typography]]
+            [reagent-mui.material.tooltip :refer [tooltip]]
             [reagent-mui.icons.add :refer [add]]
-            [reagent-mui.icons.delete :refer [delete]]
-            [reagent-mui.icons.edit :refer [edit]]
             [wine-cellar.api :as api]
             [wine-cellar.views.components.form :refer
              [form-container form-actions form-row select-field number-field]]))
@@ -176,56 +172,87 @@
                     (swap! app-state assoc :deleting-wine-variety-id nil))}
        "Remove"]]]))
 
+(defn- variety-edit-modal
+  [app-state wine-id variety open-variety]
+  (r/with-let
+   [pct-val (r/atom (when-let [p (:percentage variety)] (str p)))]
+   [dialog
+    {:open true
+     :onClose #(reset! open-variety nil)
+     :maxWidth "xs"
+     :fullWidth true} [dialog-title (:variety_name variety)]
+    [dialog-content
+     [box {:sx {:pt 1}}
+      [text-field
+       {:value (or @pct-val "")
+        :label "Percentage"
+        :type "number"
+        :fullWidth true
+        :size "small"
+        :inputProps {:min 0 :max 100}
+        :helperText "Percentage of this grape in the blend (0–100)"
+        :onChange (fn [e] (reset! pct-val (.. e -target -value)))}]]]
+    [dialog-actions
+     [button
+      {:color "error"
+       :sx {:mr "auto"}
+       :onClick (fn []
+                  (reset! open-variety nil)
+                  (swap! app-state assoc
+                    :deleting-wine-variety-id
+                    (:variety_id variety)))} "Delete"]
+     [button {:onClick #(reset! open-variety nil)} "Cancel"]
+     [button
+      {:variant "contained"
+       :onClick (fn []
+                  (let [pct (when-not (str/blank? @pct-val)
+                              (js/parseInt @pct-val 10))]
+                    (api/update-wine-variety-percentage app-state
+                                                        wine-id
+                                                        (:variety_id variety)
+                                                        pct)
+                    (reset! open-variety nil)))} "Save"]]]))
+
 (defn wine-varieties-list
   [app-state wine-id]
-  (let [varieties (:wine-varieties @app-state)
-        variety-total
-        (when-let [percentages (seq (remove nil? (map :percentage varieties)))]
-          (reduce + percentages))]
-    [box {:sx {:width "100%"}}
-     ;; Remove the card wrapper and just keep the content
-     (if (empty? varieties)
-       [typography {:variant "body1"}
-        "No grape varieties associated with this wine."]
-       [list
-        (for [variety varieties]
-          ^{:key (:variety_id variety)}
-          [list-item
-           [grid {:container true :spacing 2 :alignItems "center"}
-            [grid {:item true :xs 6}
-             [typography {:variant "body1"} (:variety_name variety)]]
-            [grid {:item true :xs 4}
-             (if (:percentage variety)
-               [typography {:variant "body2"} (str (:percentage variety) "%")]
-               [typography {:variant "body2" :color "text.secondary"}
-                "No percentage specified"])]
-            [grid {:item true :xs 2 :textAlign "right"}
-             [icon-button
-              {:edge "end"
-               :aria-label "edit"
-               :sx {:color "primary.main"}
-               :on-click #(swap! app-state assoc
-                            :editing-wine-variety-id (:variety_id variety)
-                            :editing-wine-variety variety
-                            :show-wine-variety-form? true)} [edit]]
-             [icon-button
-              {:edge "end"
-               :aria-label "delete"
-               :sx {:color "#ff8a80"}
-               :on-click #(swap! app-state assoc
-                            :deleting-wine-variety-id
-                            (:variety_id variety))} [delete]]]]])])
-     (when (and variety-total (not= variety-total 100))
-       [typography {:variant "body1"} (str "Total: " variety-total "%")])
-     (when-not (:show-wine-variety-form? @app-state)
-       [button
-        {:variant "contained"
-         :color "primary"
-         :size "small"
-         :start-icon (r/as-element [add])
-         :sx {:mt 2}
-         :on-click #(swap! app-state assoc :show-wine-variety-form? true)}
-        "Add Variety"])
-     (when (:show-wine-variety-form? @app-state)
-       [wine-variety-form app-state wine-id])
-     [delete-variety-confirmation-dialog app-state wine-id]]))
+  (r/with-let
+   [open-variety (r/atom nil)]
+   (let [varieties (:wine-varieties @app-state)
+         variety-total
+         (when-let [percentages (seq (remove nil? (map :percentage varieties)))]
+           (reduce + percentages))]
+     [box {:sx {:width "100%"}}
+      (if (empty? varieties)
+        [typography {:variant "body1"}
+         "No grape varieties associated with this wine."]
+        [box
+         (for [variety varieties]
+           ^{:key (:variety_id variety)}
+           [box
+            {:sx {:display "flex"
+                  :alignItems "center"
+                  :cursor "pointer"
+                  :py 0.75
+                  :px 0.5
+                  :mx -0.5
+                  :borderRadius 1
+                  "&:hover" {:bgcolor "action.hover"}}
+             :onClick #(reset! open-variety variety)}
+            [typography {:sx {:flex 1} :variant "body1"}
+             (:variety_name variety)]
+            [typography {:variant "body2" :color "text.secondary"}
+             (if (:percentage variety) (str (:percentage variety) "%") "–")]])])
+      (when (and variety-total (not= variety-total 100))
+        [typography {:variant "body1"} (str "Total: " variety-total "%")])
+      (when-not (:show-wine-variety-form? @app-state)
+        [tooltip {:title "Add grape variety" :placement "right" :arrow true}
+         [button
+          {:size "small"
+           :sx {:mt 1 :color "text.secondary" :minWidth 0 :p 0.5}
+           :on-click #(swap! app-state assoc :show-wine-variety-form? true)}
+          [add {:fontSize "small"}]]])
+      (when (:show-wine-variety-form? @app-state)
+        [wine-variety-form app-state wine-id])
+      [delete-variety-confirmation-dialog app-state wine-id]
+      (when @open-variety
+        [variety-edit-modal app-state wine-id @open-variety open-variety])])))

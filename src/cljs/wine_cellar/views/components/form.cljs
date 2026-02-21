@@ -63,7 +63,8 @@
 
 (defn form-actions
   "Standard form action buttons (submit, cancel) with consistent styling"
-  [{:keys [on-submit on-cancel submit-text cancel-text disabled loading?]}]
+  [{:keys [on-submit on-cancel submit-text cancel-text disabled loading?
+           on-delete]}]
   [grid
    {:item true
     :xs 12
@@ -72,6 +73,9 @@
          :mt 2 ;; Reduced from mt 4
          :pt 1 ;; Reduced from pt 2
          :borderTop "1px solid rgba(0,0,0,0.08)"}}
+   (when on-delete
+     [button {:color "error" :size "small" :sx {:mr "auto"} :onClick on-delete}
+      "Delete"])
    (when on-cancel
      [button
       {:variant "outlined"

@@ -217,7 +217,7 @@
    - force-edit-mode?: If true, start in edit mode (useful for generated content)
    - compact?: If true, stack buttons vertically to save horizontal space"
   [{:keys [value on-save on-cancel validate-fn empty-text render-input-fn
-           force-edit-mode? compact? display-sx format-fn]
+           force-edit-mode? compact? display-sx format-fn inline?]
     :or {empty-text "Not specified" format-fn identity}}]
   (r/with-let
    [editing (r/atom (boolean force-edit-mode?)) field-value (r/atom value)
@@ -296,19 +296,22 @@
                       (when on-cancel (on-cancel)))} [cancel]]])]
      ;; View mode
      [box
-      {:display "flex"
-       :alignItems "center"
-       :width "100%"
-       :sx {:cursor "pointer"
-            :borderRadius 1
-            :px 0.5
-            :mx -0.5
-            "&:hover" {:bgcolor "action.hover"}}
-       :onClick #(reset! editing true)}
-      [typography (merge {:variant "body1"} (when display-sx {:sx display-sx}))
-       (if (or (nil? value) (str/blank? (str value)))
-         empty-text
-         (format-fn value))]])))
+      (cond-> {:display (if inline? "inline-flex" "flex")
+               :alignItems "center"
+               :sx {:cursor "pointer"
+                    :borderRadius 1
+                    :px 0.5
+                    :mx -0.5
+                    "&:hover" {:bgcolor "action.hover"}}
+               :onClick #(reset! editing true)}
+        (not inline?) (assoc :width "100%"))
+      (let [empty? (or (nil? value) (str/blank? (str value)))]
+        [typography
+         {:variant "body1"
+          :sx (merge (or display-sx {})
+                     (when empty?
+                       {:color "text.disabled" :fontStyle "italic"}))}
+         (if empty? empty-text (format-fn value))])])))
 
   ;; Specific field implementations
 (defn editable-text-field
@@ -332,45 +335,48 @@
   "Autocomplete implementation of editable-field"
   [{:keys [options option-label free-solo multiple tooltip] :as props}]
   [editable-field-wrapper
-   (assoc props
-          :render-input-fn
-          (fn [value on-change error]
-            [autocomplete
-             {:multiple (boolean multiple)
-              :freeSolo (boolean free-solo)
-              :options options
-              :size "small"
-              :value (cond-> value multiple (or []))
-              :getOptionLabel (or option-label
-                                  (fn [option]
-                                    (cond (nil? option) ""
-                                          (string? option) option
-                                          :else (str option))))
-              :renderInput (fn [params]
-                             (let [text-field-el [text-field
-                                                  (merge (safe-js-props params)
-                                                         {:variant "outlined"
-                                                          :size "small"
-                                                          :error (boolean error)
-                                                          :helperText error
-                                                          :autoFocus true})]]
-                               (r/as-element
-                                (if tooltip
-                                  [mui-tooltip/tooltip
-                                   {:title tooltip :arrow true :placement "top"}
-                                   [box {:sx {:width "100%"}} text-field-el]]
-                                  text-field-el))))
-              :onChange (fn [_event new-value] (on-change new-value))
-              :on-input-change (when free-solo
-                                 (fn [_event new-value reason]
-                                   (when (= reason "input")
-                                     (on-change new-value))))
-              :clearOnBlur true
-              :autoHighlight true
-              :selectOnFocus true
-              :disableCloseOnSelect multiple
-              :blur-on-select "touch"
-              :openOnFocus true}]))])
+   (assoc
+    props
+    :render-input-fn
+    (fn [value on-change error]
+      [autocomplete
+       {:multiple (boolean multiple)
+        :freeSolo (boolean free-solo)
+        :options options
+        :size "small"
+        :sx {"& .MuiAutocomplete-clearIndicator" {:color "text.secondary"}
+             "& .MuiAutocomplete-popupIndicator" {:color "text.secondary"}}
+        :value (cond-> value multiple (or []))
+        :getOptionLabel (or option-label
+                            (fn [option]
+                              (cond (nil? option) ""
+                                    (string? option) option
+                                    :else (str option))))
+        :renderInput (fn [params]
+                       (let [text-field-el [text-field
+                                            (merge (safe-js-props params)
+                                                   {:variant "outlined"
+                                                    :size "small"
+                                                    :error (boolean error)
+                                                    :helperText error
+                                                    :autoFocus true})]]
+                         (r/as-element
+                          (if tooltip
+                            [mui-tooltip/tooltip
+                             {:title tooltip :arrow true :placement "top"}
+                             [box {:sx {:width "100%"}} text-field-el]]
+                            text-field-el))))
+        :onChange (fn [_event new-value] (on-change new-value))
+        :on-input-change (when free-solo
+                           (fn [_event new-value reason]
+                             (when (= reason "input") (on-change new-value))))
+        :clearOnBlur true
+        :autoHighlight true
+        :selectOnFocus true
+        :disableCloseOnSelect multiple
+        :blur-on-select "touch"
+        :openOnFocus true
+        :forcePopupIcon false}]))])
 
 (defn editable-classification-field
   "Classification field implementation of editable-field for country, region, Appellation, and classification"

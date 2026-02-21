@@ -4,16 +4,15 @@
             [cljs.core.async :refer [go <!]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.text-field :refer [text-field]]
-            [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.edit :refer [edit]]
-            [reagent-mui.icons.save :refer [save]]
-            [reagent-mui.icons.cancel :refer [cancel]]
-            [reagent-mui.icons.delete :refer [delete]]
+            [reagent-mui.material.dialog :refer [dialog]]
+            [reagent-mui.material.dialog-title :refer [dialog-title]]
+            [reagent-mui.material.dialog-content :refer [dialog-content]]
+            [reagent-mui.material.dialog-actions :refer [dialog-actions]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.autocomplete :refer [autocomplete]]
             [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.grid :refer [grid]]
+            [reagent-mui.material.tooltip :refer [tooltip]]
+            [reagent-mui.icons.add :refer [add]]
             [wine-cellar.common :as common]
             [wine-cellar.api :as api]
             [wine-cellar.utils.mui :refer [safe-js-props]]))
@@ -26,46 +25,33 @@
       (str/replace #"\s+" "-")
       keyword))
 
-(defn inline-editor
-  [{:keys [value on-save on-delete]}]
+(defn- field-edit-modal
+  [entry open-entry metadata on-change]
   (r/with-let
-   [editing? (r/atom false) temp-value (r/atom value)]
-   (if @editing?
-     ;; Edit Mode
-     [box {:display "flex" :alignItems "flex-start" :width "100%"}
-      [text-field
-       {:full-width true
-        :variant "outlined"
-        :size "small"
-        :multiline true
-        :value @temp-value
-        :auto-focus true
-        :on-change #(reset! temp-value (.. % -target -value))}]
-      [box {:display "flex" :flexDirection "column" :ml 0.5}
-       [icon-button
-        {:color "primary"
-         :size "small"
-         :on-click #(do (on-save @temp-value) (reset! editing? false))} [save]]
-       [icon-button
-        {:color "secondary"
-         :size "small"
-         :on-click #(do (reset! temp-value value) (reset! editing? false))}
-        [cancel]]]]
-     ;; View Mode
-     [box
-      {:display "flex"
-       :alignItems "flex-start"
-       :justifyContent "space-between"
-       :width "100%"}
-      [typography {:variant "body2" :sx {:flex 1 :mr 1 :whiteSpace "pre-wrap"}}
-       (str value)]
-      [box {:display "flex" :gap 0.5}
-       [icon-button
-        {:sx {:color "primary.main"}
-         :size "small"
-         :on-click #(reset! editing? true)} [edit]]
-       [icon-button {:sx {:color "#ff8a80"} :size "small" :on-click on-delete}
-        [delete]]]])))
+   [val-atom (r/atom (:value entry))]
+   (let [close #(reset! open-entry nil)]
+     [dialog {:open true :onClose close :maxWidth "sm" :fullWidth true}
+      [dialog-title (common/humanize-key (:key entry))]
+      [dialog-content
+       [box {:sx {:pt 1}}
+        [text-field
+         {:value @val-atom
+          :multiline true
+          :rows 4
+          :fullWidth true
+          :size "small"
+          :autoFocus true
+          :onChange #(reset! val-atom (.. % -target -value))}]]]
+      [dialog-actions
+       [button
+        {:color "error"
+         :sx {:mr "auto"}
+         :onClick #(do (on-change (dissoc metadata (:key entry))) (close))}
+        "Delete"] [button {:onClick close} "Cancel"]
+       [button
+        {:variant "contained"
+         :onClick #(do (on-change (assoc metadata (:key entry) @val-atom))
+                       (close))} "Save"]]])))
 (defn technical-data-editor
   "Component to edit arbitrary metadata fields.
                Props:
@@ -74,6 +60,8 @@
   []
   (let [new-key-input (r/atom "")
         new-value (r/atom "")
+        open-entry (r/atom nil)
+        add-open? (r/atom false)
         base-keys (mapv common/humanize-key common/technical-data-keys)
         suggested-options (r/atom base-keys)]
     (go (let [result (<! (api/GET "/api/wines/technical-data-keys"
@@ -88,8 +76,6 @@
       (let [metadata (if (and metadata (not (map? metadata)))
                        (js->clj metadata :keywordize-keys true)
                        metadata)
-            handle-delete (fn [k] (on-change (dissoc metadata k)))
-            handle-save (fn [k v] (on-change (assoc metadata k v)))
             handle-add (fn []
                          (let [k (normalize-input-key @new-key-input)
                                v @new-value]
@@ -101,14 +87,23 @@
             ;; Sort metadata by key for consistent display
             sorted-entries (sort-by (comp str key) metadata)]
         [box {:sx {:mt 2}}
+         (when @open-entry
+           [field-edit-modal @open-entry open-entry metadata on-change])
          ;; Existing Entries
          (when (seq sorted-entries)
            [box {:sx {:mb 3}}
             (for [[k v] sorted-entries]
               ^{:key (str k)}
               [box
-               {:sx
-                {:mb 2 :pb 1 :borderBottom "1px solid rgba(255,255,255,0.05)"}}
+               {:sx {:mb 2
+                     :pb 1
+                     :borderBottom "1px solid rgba(255,255,255,0.05)"
+                     :cursor "pointer"
+                     :px 0.5
+                     :mx -0.5
+                     :borderRadius 1
+                     "&:hover" {:bgcolor "action.hover"}}
+                :onClick #(reset! open-entry {:key k :value v})}
                [typography
                 {:variant "caption"
                  :sx {:fontWeight "bold"
@@ -117,19 +112,22 @@
                       :display "block"
                       :mb 0.5
                       :letterSpacing "0.05em"}} (common/humanize-key k)]
-               [inline-editor
-                {:value v
-                 :on-save #(handle-save k %)
-                 :on-delete #(handle-delete k)}]])])
-         ;; Add New Entry
-         [paper
-          {:elevation 0
-           :sx {:p 2
-                :bgcolor "rgba(255,255,255,0.02)"
-                :borderRadius 2
-                :border "1px dashed rgba(255,255,255,0.1)"}}
-          [grid {:container true :spacing 2 :sx {:alignItems "flex-start"}}
-           [grid {:item true :xs 12 :sm 4}
+               [typography {:variant "body2" :sx {:whiteSpace "pre-wrap"}}
+                (str v)]])])
+         ;; Add button
+         [tooltip {:title "Add technical data" :placement "right" :arrow true}
+          [button
+           {:size "small"
+            :sx {:mt 1 :color "text.secondary" :minWidth 0 :p 0.5}
+            :on-click #(reset! add-open? true)} [add {:fontSize "small"}]]]
+         ;; Add New Entry modal
+         [dialog
+          {:open @add-open?
+           :onClose #(reset! add-open? false)
+           :maxWidth "sm"
+           :fullWidth true} [dialog-title "Add Technical Data"]
+          [dialog-content
+           [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
             [autocomplete
              {:free-solo true
               :options @suggested-options
@@ -142,8 +140,8 @@
                                                      :variant "outlined"
                                                      :placeholder
                                                      "e.g. Soil Type"
-                                                     :size "small"})]))}]]
-           [grid {:item true :xs 12 :sm 6}
+                                                     :size "small"
+                                                     :autoFocus true})]))}]
             [text-field
              {:full-width true
               :label "Value"
@@ -152,17 +150,11 @@
               :multiline true
               :maxRows 8
               :value @new-value
-              :on-change #(reset! new-value (.. % -target -value))
-              :on-key-down (fn [e]
-                             (when (and (= (.-key e) "Enter")
-                                        (not (.-shiftKey e)))
-                               (.preventDefault e)
-                               (handle-add)))}]]
-           [grid {:item true :xs 12 :sm 2}
-            [button
-             {:full-width true
-              :variant "contained"
-              :color "primary"
-              :size "medium"
-              :disabled (or (str/blank? @new-key-input) (str/blank? @new-value))
-              :on-click handle-add} "Add"]]]]]))))
+              :on-change #(reset! new-value (.. % -target -value))}]]]
+          [dialog-actions
+           [button {:on-click #(reset! add-open? false)} "Cancel"]
+           [button
+            {:variant "contained"
+             :disabled (or (str/blank? @new-key-input) (str/blank? @new-value))
+             :on-click (fn [] (handle-add) (reset! add-open? false))}
+            "Add"]]]]))))

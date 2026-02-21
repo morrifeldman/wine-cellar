@@ -18,7 +18,6 @@
              [wset-conclusions-section]]))
 
 (defn- initialize-editing-note!
-  "Initialize form state when starting to edit an existing note"
   [app-state editing-note wine-id editing-note-id]
   (swap! app-state assoc
     :new-tasting-note
@@ -28,7 +27,6 @@
         (dissoc :notes))))
 
 (defn- initialize-new-note!
-  "Initialize form state when switching to a new wine"
   [app-state wine-id]
   (swap! app-state update
     :new-tasting-note
@@ -37,7 +35,6 @@
          (dissoc :notes))))
 
 (defn- get-form-state
-  "Extract form state from app-state for the given wine"
   [app-state]
   (let [editing-note-id (:editing-note-id @app-state)
         editing? (boolean editing-note-id)
@@ -47,112 +44,124 @@
     {:editing-note-id editing-note-id
      :editing? editing?
      :editing-note editing-note
-     :new-note (:new-tasting-note @app-state)
      :submitting? (:submitting-note? @app-state)}))
 
 (defn- handle-form-initialization!
-  "Handle form initialization logic with state tracking"
-  [app-state wine-id last-wine-id last-editing-note-id
+  [app-state wine-id last-wine-id last-note-id
    {:keys [editing? editing-note editing-note-id]}]
-  ;; Initialize form for editing if we have an editing-note-id (only once
-  ;; per edit session)
-  (when (and editing? (not= @last-editing-note-id editing-note-id))
-    (reset! last-editing-note-id editing-note-id)
+  (when (and editing? (not= @last-note-id editing-note-id))
+    (reset! last-note-id editing-note-id)
     (initialize-editing-note! app-state editing-note wine-id editing-note-id))
-  ;; Initialize form when switching wines (only once per wine change)
   (when (and (not editing?) (not= @last-wine-id wine-id))
     (reset! last-wine-id wine-id)
     (initialize-new-note! app-state wine-id)))
 
+(defn- collect-note-data
+  "Build note-data map from form state and DOM refs."
+  [updated-note notes-ref other-obs-ref nose-obs-ref palate-obs-ref final-ref]
+  (let [wset? (get-in updated-note [:wset_data :note_type])
+        read-ref #(when (and wset? @%) (.-value @%))
+        other-text (read-ref other-obs-ref)
+        nose-text (read-ref nose-obs-ref)
+        palate-text (read-ref palate-obs-ref)
+        final-text (read-ref final-ref)
+        updated
+        (cond-> updated-note
+          other-text (assoc-in [:wset_data :appearance :other_observations]
+                      other-text)
+          nose-text (assoc-in [:wset_data :nose :other_observations] nose-text)
+          palate-text (assoc-in [:wset_data :palate :other_observations]
+                       palate-text)
+          final-text (assoc-in [:wset_data :conclusions :final_comments]
+                      final-text))]
+    (-> updated
+        (assoc :notes (when @notes-ref (.-value @notes-ref)))
+        (update :rating (fn [r] (if (string? r) (js/parseInt r) r)))
+        (dissoc :wine-id :note-id))))
+
+(defn- wset-sections
+  [app-state updated-note style-info other-obs-ref nose-obs-ref palate-obs-ref
+   final-ref]
+  [form-row
+   [grid {:container true :spacing 2}
+    [grid {:item true :xs 12}
+     [wset-appearance-section
+      {:appearance (get-in updated-note [:wset_data :appearance] {})
+       :style-info style-info
+       :other-observations-ref other-obs-ref
+       :on-change #(swap! app-state assoc-in
+                     [:new-tasting-note :wset_data :appearance]
+                     %)}]]
+    [grid {:item true :xs 12}
+     [wset-nose-section
+      {:nose (get-in updated-note [:wset_data :nose] {})
+       :other-observations-ref nose-obs-ref
+       :on-change
+       #(swap! app-state assoc-in [:new-tasting-note :wset_data :nose] %)}]]
+    [grid {:item true :xs 12}
+     [wset-palate-section
+      {:palate (get-in updated-note [:wset_data :palate] {})
+       :style-info style-info
+       :other-observations-ref palate-obs-ref
+       :nose (get-in updated-note [:wset_data :nose] {})
+       :on-change
+       #(swap! app-state assoc-in [:new-tasting-note :wset_data :palate] %)}]]
+    [grid {:item true :xs 12}
+     [wset-conclusions-section
+      {:conclusions (get-in updated-note [:wset_data :conclusions] {})
+       :final-comments-ref final-ref
+       :on-change #(swap! app-state assoc-in
+                     [:new-tasting-note :wset_data :conclusions]
+                     %)}]]]])
+
 ;; TODO -- add type for external tasting notes
 (defn tasting-note-form
-  [app-state wine-id]
+  [app-state wine-id & [on-close]]
   (r/with-let
-   [last-wine-id (r/atom nil) last-editing-note-id (r/atom nil) notes-ref
-    (r/atom nil) other-observations-ref (r/atom nil) nose-observations-ref
-    (r/atom nil) palate-observations-ref (r/atom nil) final-comments-ref
-    (r/atom nil) wset-expanded? (r/atom false)]
+   [last-wine-id (r/atom nil) last-note-id (r/atom nil) notes-ref (r/atom nil)
+    other-obs-ref (r/atom nil) nose-obs-ref (r/atom nil) palate-obs-ref
+    (r/atom nil) final-ref (r/atom nil) wset-expanded? (r/atom false)]
    (let [form-state (get-form-state app-state)]
      (handle-form-initialization! app-state
                                   wine-id
                                   last-wine-id
-                                  last-editing-note-id
+                                  last-note-id
                                   form-state)
-     ;; Get the latest version of new-note after potential updates
-     (let [updated-note (:new-tasting-note @app-state)
+     (let [{:keys [editing? editing-note-id editing-note submitting?]}
+           form-state
+           updated-note (:new-tasting-note @app-state)
            current-wine (first (filter #(= (:id %) wine-id)
                                        (:wines @app-state)))
-           wine-style (get current-wine :style "Red")
-           style-info (common/style->info wine-style)
+           style-info (common/style->info (get current-wine :style "Red"))
            wset-style (:wset-style style-info)
            is-external (boolean (:is_external updated-note))
-           {:keys [editing? editing-note-id editing-note submitting?]}
-           form-state
            wset-mode? (boolean (get-in updated-note [:wset_data :note_type]))
-           has-existing-notes? (seq (:notes editing-note))
-           show-notes-field? (or (not wset-mode?) has-existing-notes?)]
+           show-notes? (or (not wset-mode?) (seq (:notes editing-note)))]
        [form-container
         {:title (if editing? "Edit Tasting Note" "Add Tasting Note")
          :on-submit
-         #(do (swap! app-state assoc :submitting-note? true)
-              ;; Get notes text from DOM
-              (let [notes-text (when @notes-ref (.-value @notes-ref))
-                    ;; Get WSET other observations from refs if WSET mode
-                    ;; enabled
-                    other-obs-text (when (and @other-observations-ref
-                                              (get-in updated-note
-                                                      [:wset_data :note_type]))
-                                     (.-value @other-observations-ref))
-                    nose-obs-text (when (and @nose-observations-ref
-                                             (get-in updated-note
-                                                     [:wset_data :note_type]))
-                                    (.-value @nose-observations-ref))
-                    palate-obs-text (when (and @palate-observations-ref
-                                               (get-in updated-note
-                                                       [:wset_data :note_type]))
-                                      (.-value @palate-observations-ref))
-                    final-comments-text
-                    (when (and @final-comments-ref
-                               (get-in updated-note [:wset_data :note_type]))
-                      (.-value @final-comments-ref))
-                    ;; Update WSET data with other observations from refs
-                    updated-note-with-obs
-                    (cond-> updated-note
-                      other-obs-text (assoc-in [:wset_data :appearance
-                                                :other_observations]
-                                      other-obs-text)
-                      nose-obs-text (assoc-in [:wset_data :nose
-                                               :other_observations]
-                                     nose-obs-text)
-                      palate-obs-text (assoc-in [:wset_data :palate
-                                                 :other_observations]
-                                       palate-obs-text)
-                      final-comments-text (assoc-in [:wset_data :conclusions
-                                                     :final_comments]
-                                           final-comments-text))
-                    note-data (-> updated-note-with-obs
-                                  (assoc :notes notes-text)
-                                  (update :rating
-                                          (fn [r]
-                                            (if (string? r) (js/parseInt r) r)))
-                                  (dissoc :wine-id :note-id))]
-                (if editing?
-                  (api/update-tasting-note app-state
+         #(let [note-data (collect-note-data updated-note
+                                             notes-ref
+                                             other-obs-ref
+                                             nose-obs-ref
+                                             palate-obs-ref
+                                             final-ref)]
+            (swap! app-state assoc :submitting-note? true)
+            (if editing?
+              (do (api/update-tasting-note app-state
                                            wine-id
                                            editing-note-id
                                            note-data)
-                  (api/create-tasting-note app-state
-                                           wine-id
-                                           note-data
-                                           notes-ref))))}
-        ;; External note toggle
+                  (when on-close (on-close)))
+              (do
+                (api/create-tasting-note app-state wine-id note-data notes-ref)
+                (when on-close (on-close)))))}
         [form-row
          [checkbox-field
           {:label "External Tasting Note"
            :checked is-external
            :on-change
            #(swap! app-state update-in [:new-tasting-note :is_external] not)}]]
-        ;; Source field (only shown for external notes)
         (when is-external
           [form-row
            [select-field
@@ -167,75 +176,31 @@
                (swap! app-state assoc-in [:new-tasting-note :source] val))
              :on-change
              #(swap! app-state assoc-in [:new-tasting-note :source] %)}]])
-        ;; WSET Structured Notes checkbox
         [form-row
          [checkbox-field
           {:label "WSET Structured Tasting"
-           :checked (boolean (get-in updated-note [:wset_data :note_type]))
+           :checked wset-mode?
            :on-change
-           #(if (get-in updated-note [:wset_data :note_type])
-              ;; Remove WSET data completely
+           #(if wset-mode?
               (do (swap! app-state assoc-in [:new-tasting-note :wset_data] nil)
                   (reset! wset-expanded? false))
-              ;; Initialize WSET data and expand
-              (let [default-appearance
-                    {:colour (or (:default-color style-info) :garnet)
-                     :intensity (or (:default-intensity style-info) :medium)}]
-                (swap! app-state assoc-in
-                  [:new-tasting-note :wset_data]
-                  {:note_type "wset_level_3"
-                   :version "1.0"
-                   :wset_wine_style wset-style
-                   :appearance default-appearance
-                   :nose {}
-                   :palate {}
-                   :conclusions {}})
-                (reset! wset-expanded? true)))}]]
-        ;; WSET Content (only shown when enabled)
-        (when (get-in updated-note [:wset_data :note_type])
-          [form-row
-           [grid {:container true :spacing 2}
-            ;; Appearance Section
-            [grid {:item true :xs 12}
-             [wset-appearance-section
-              {:appearance (get-in updated-note [:wset_data :appearance] {})
-               :style-info style-info
-               :other-observations-ref other-observations-ref
-               :on-change #(swap! app-state assoc-in
-                             [:new-tasting-note :wset_data :appearance]
-                             %)}]]
-            ;; Nose Section
-            [grid {:item true :xs 12}
-             [wset-nose-section
-              {:nose (get-in updated-note [:wset_data :nose] {})
-               :other-observations-ref nose-observations-ref
-               :on-change #(swap! app-state assoc-in
-                             [:new-tasting-note :wset_data :nose]
-                             %)}]]
-            ;; Palate Section
-            [grid {:item true :xs 12}
-             [wset-palate-section
-              {:palate (get-in updated-note [:wset_data :palate] {})
-               :style-info style-info
-               :other-observations-ref palate-observations-ref
-               :nose (get-in updated-note [:wset_data :nose] {})
-               :on-change #(swap! app-state assoc-in
-                             [:new-tasting-note :wset_data :palate]
-                             %)}]]
-            ;; Conclusions Section
-            [grid {:item true :xs 12}
-             [wset-conclusions-section
-              {:conclusions (get-in updated-note [:wset_data :conclusions] {})
-               :final-comments-ref final-comments-ref
-               :on-change #(swap! app-state assoc-in
-                             [:new-tasting-note :wset_data :conclusions]
-                             %)}]]]])
-        ;; Divider between WSET and traditional notes (only when expanded)
-        (when (and (get-in updated-note [:wset_data :note_type])
-                   @wset-expanded?)
+              (do (swap! app-state assoc-in
+                    [:new-tasting-note :wset_data]
+                    {:note_type "wset_level_3"
+                     :version "1.0"
+                     :wset_wine_style wset-style
+                     :appearance
+                     {:colour (or (:default-color style-info) :garnet)
+                      :intensity (or (:default-intensity style-info) :medium)}
+                     :nose {}
+                     :palate {}
+                     :conclusions {}})
+                  (reset! wset-expanded? true)))}]]
+        (when wset-mode?
+          [wset-sections app-state updated-note style-info other-obs-ref
+           nose-obs-ref palate-obs-ref final-ref])
+        (when (and wset-mode? @wset-expanded?)
           [form-row [divider {:sx {:my 2 :borderColor "rating.medium"}}]])
-        ;; Date input (required only for personal notes, unless editing
-        ;; existing dateless note)
         [form-row
          [date-field
           {:label "Tasting Date"
@@ -249,8 +214,7 @@
                               :else nil)
            :on-change
            #(swap! app-state assoc-in [:new-tasting-note :tasting_date] %)}]]
-        ;; Tasting notes textarea (uncontrolled for performance)
-        (when show-notes-field?
+        (when show-notes?
           [grid {:item true :xs 12}
            [mui-text-field/text-field
             {:multiline true
@@ -269,7 +233,6 @@
              :placeholder (if wset-mode?
                             "Enter your tasting notes here... (Optional)"
                             "Enter your tasting notes here...")}]])
-        ;; Rating input
         [form-row
          [number-field
           {:label "Rating (1-100)"
@@ -280,12 +243,16 @@
            :on-change #(swap! app-state assoc-in
                          [:new-tasting-note :rating]
                          (js/parseInt %))}]]
-        ;; Submit and Cancel buttons
         [form-actions
          {:submit-text (if editing? "Update Note" "Add Note")
           :loading? submitting?
-          :cancel-text (when editing? "Cancel")
-          :on-cancel (when editing?
-                       #(swap! app-state assoc
-                          :editing-note-id nil
-                          :new-tasting-note {}))}]]))))
+          :cancel-text "Cancel"
+          :on-delete
+          (when editing?
+            (fn []
+              (api/delete-tasting-note app-state wine-id editing-note-id)
+              (swap! app-state assoc :editing-note-id nil :new-tasting-note {})
+              (when on-close (on-close))))
+          :on-cancel
+          #(do (swap! app-state assoc :editing-note-id nil :new-tasting-note {})
+               (when on-close (on-close)))}]]))))
