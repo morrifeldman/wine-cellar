@@ -264,7 +264,7 @@
 
 (defn- filters-row
   [app-state state devices loading?]
-  [box {:sx {:display "flex" :gap 2 :alignItems "center"}}
+  [box {:sx {:display "flex" :gap 2 :alignItems "center" :flexWrap "wrap"}}
    [bucket-select app-state state] [range-select app-state state]
    [device-select app-state state devices]
    [button {:variant "outlined" :onClick #(load-sensor-data! app-state)}
