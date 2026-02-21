@@ -11,8 +11,7 @@
             [wine-cellar.utils.formatting :refer
              [appellations-for-region classifications-for-appellation
               designations-for-classification regions-for-country
-              unique-countries unique-purveyors valid-name-producer?
-              vineyards-for-region]]
+              unique-countries unique-purveyors valid-name-producer?]]
             [wine-cellar.utils.vintage :as vintage]
             [wine-cellar.views.components.form :refer
              [currency-field date-field form-actions form-container form-divider
@@ -279,10 +278,8 @@
      [form-row
       [smart-select-field app-state [:new-wine :vineyard] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
-       :tooltip (:vineyard common/field-descriptions) :options
-       (vineyards-for-region classifications
-                             (:country new-wine)
-                             (:region new-wine)) :label "Vineyard"]
+       :tooltip (:vineyard common/field-descriptions) :options [] :label
+       "Vineyard"]
       [smart-select-field app-state [:new-wine :classification] :free-solo true
        :disabled (or (empty? (:country new-wine)) (empty? (:region new-wine)))
        :tooltip (:classification common/field-descriptions) :options

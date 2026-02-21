@@ -3,8 +3,7 @@
 (ns wine-cellar.views.components.classification-fields
   (:require [wine-cellar.utils.formatting :refer
              [unique-countries regions-for-country appellations-for-region
-              vineyards-for-region classifications-for-appellation
-              designations-for-classification]]
+              classifications-for-appellation designations-for-classification]]
             [wine-cellar.views.components.form :as form]
             [wine-cellar.common :as common]))
 
@@ -26,7 +25,6 @@
                     :region true
                     :appellation false
                     :classification false
-                    :vineyard false
                     :designation false}}}]
   (let [data (get-in @app-state path)
         country (:country data)
@@ -52,7 +50,6 @@
                           (update-field! :region nil)
                           (update-field! :appellation nil)
                           (update-field! :classification nil)
-                          (update-field! :vineyard nil)
                           (when include-designation?
                             (update-field! :designation nil))))}]
       [form/select-field
@@ -68,7 +65,6 @@
                         (when (not= region %)
                           (update-field! :appellation nil)
                           (update-field! :classification nil)
-                          (update-field! :vineyard nil)
                           (when include-designation?
                             (update-field! :designation nil))))}]
       [form/select-field
@@ -112,15 +108,6 @@
                         ;; changes
                         (when (and include-designation? (not= classification %))
                           (update-field! :designation nil)))}]
-      [form/select-field
-       {:label "Vineyard"
-        :tooltip (:vineyard common/field-descriptions)
-        :required (get required? :vineyard false)
-        :free-solo true
-        :disabled (or (empty? country) (empty? region))
-        :value (:vineyard data)
-        :options (vineyards-for-region classifications country region)
-        :on-change #(update-field! :vineyard %)}]
       (when include-designation?
         [form/select-field
          {:label "Designation"

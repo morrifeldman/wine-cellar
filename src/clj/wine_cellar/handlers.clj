@@ -141,9 +141,7 @@
                                :region (:region wine)
                                :appellation (:appellation wine)
                                :appellation_tier (:appellation_tier wine)
-                               :classification (:classification wine)
-                               :designations (when (:designation wine)
-                                               [(:designation wine)])}]
+                               :classification (:classification wine)}]
            ;; Only create if all required fields are present
            (when (and (:country classification) (:region classification))
              (db-api/create-or-update-classification classification)))

@@ -55,6 +55,8 @@
    (sql-execute-helper tx
                        migrations/rename-cellar-conditions-to-sensor-readings)
    (sql-execute-helper tx migrations/migrate-temperature-to-temperatures)
+   (sql-execute-helper tx
+                       migrations/remove-classification-vineyard-designations)
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/tasting-notes-table-schema)

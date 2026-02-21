@@ -303,7 +303,13 @@
            :disable-close-on-select multiple
            :open-on-focus true
            :blur-on-select "touch"
-           :on-blur on-blur}
+           :on-blur (fn [event]
+                      (when (and free-solo on-change)
+                        (let [input-text (.-value (.-target event))]
+                          (when (and (seq input-text)
+                                     (not= input-text (or (str value) "")))
+                            (on-change input-text))))
+                      (when on-blur (on-blur event)))}
           on-input-change-handler (assoc :on-input-change
                                          on-input-change-handler)
           (some? input-value) (assoc :input-value input-value))]

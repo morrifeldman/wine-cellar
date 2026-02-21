@@ -3,7 +3,6 @@
     [wine-cellar.api :as api]
     [wine-cellar.common :as common]
     [wine-cellar.views.wines.form :refer [wine-form]]
-    [wine-cellar.views.components :refer [toggle-button]]
     [wine-cellar.views.admin.devices :refer [devices-page]]
     [wine-cellar.views.admin.sql :refer [sql-page]]
     [wine-cellar.views.components.ai-provider-toggle :as provider-toggle]
@@ -26,6 +25,7 @@
     [reagent-mui.material.menu-item :refer [menu-item]]
     [reagent-mui.material.list-item-icon :refer [list-item-icon]]
     [reagent-mui.material.divider :refer [divider]]
+    [reagent-mui.material.tooltip :refer [tooltip]]
     [reagent.core :as r]
     [reagent-mui.icons.close :refer [close]]
     [reagent-mui.icons.add :refer [add]]
@@ -321,11 +321,17 @@
              :boxShadow 3}
         :on-click #(swap! app-state update :show-wine-form? not)}
        (if show-form? [arrow-back] [add])]
-      [toggle-button
-       {:app-state app-state
-        :path [:show-wine-form?]
-        :show-text "Add New Wine"
-        :hide-text "Show Wine List"}])))
+      [tooltip
+       {:title (if show-form? "Show Wine List" "Add New Wine")
+        :placement "right"
+        :arrow true}
+       [button
+        {:size "small"
+         :sx {:color "text.secondary" :minWidth 0 :p 0.5}
+         :on-click #(swap! app-state update :show-wine-form? not)}
+        (if show-form?
+          [arrow-back {:fontSize "small"}]
+          [add {:fontSize "small"}])]])))
 
 (defn top-controls
   [app-state]
@@ -344,14 +350,14 @@
      (let [current-view (:view @app-state)]
        [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
         [button
-         {:variant "contained"
+         {:variant "outlined"
           :color "primary"
           :onClick #(let [provider (get-in @app-state [:ai :provider])]
                       (swap! app-state assoc :show-report? true)
                       (api/fetch-latest-report app-state {:provider provider}))}
          "Insights"]
         [button
-         {:variant "contained"
+         {:variant "outlined"
           :color "primary"
           :onClick #(swap! app-state assoc :show-collection-stats? true)}
          "Stats"]
@@ -362,7 +368,7 @@
         [button
          {:variant (if (= current-view :blind-tastings) "contained" "outlined")
           :color "primary"
-          :startIcon (r/as-element [visibility-off])
+          :startIcon (r/as-element [visibility-off {:color "inherit"}])
           :onClick #(swap! app-state assoc :view :blind-tastings)} "Blind"]
         [admin-menu app-state]]))])
 
@@ -445,13 +451,7 @@
               :color "primary"
               :on-click #(swap! app-state dissoc :view)
               :sx {:mt 2}} "Back to Wine List"]]
-           (= (:view state) :classifications)
-           [:div [classifications-page app-state]
-            [button
-             {:variant "outlined"
-              :color "primary"
-              :on-click #(swap! app-state dissoc :view)
-              :sx {:mt 2}} "Back to Wine List"]]
+           (= (:view state) :classifications) [classifications-page app-state]
            (= (:view state) :sensor-readings)
            [:div
             [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}

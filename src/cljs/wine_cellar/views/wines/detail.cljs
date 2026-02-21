@@ -554,9 +554,9 @@
   [box {:sx {:mt 3 :borderLeft "3px solid rgba(186,104,200,0.7)" :pl 1.5 :pb 2}}
    [section-header wine-bar "Composition" "rgba(186,104,200,0.7)"]
    [dot-separated-row [editable-styles app-state wine]
-    [editable-closure-type app-state wine]
+    [editable-alcohol-percentage app-state wine]
     [editable-bottle-format app-state wine]
-    [editable-alcohol-percentage app-state wine]]
+    [editable-closure-type app-state wine]]
    (when (contains? sparkling-styles (:style wine))
      [box {:sx {:display "flex" :alignItems "baseline" :gap 0.5 :mt 1.5}}
       [dot-separated-row [editable-disgorgement-year app-state wine]

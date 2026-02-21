@@ -21,8 +21,9 @@
      {:elevation 1
       :sx {:p 2
            :mb 2
-           :borderLeft
-           (if is-external "4px solid #9e9e9e" "4px solid rgba(240,98,146,0.7)")
+           :borderLeft (if is-external
+                         "4px solid rgba(100,181,246,0.7)"
+                         "4px solid rgba(128,203,196,0.7)")
            :cursor "pointer"
            "&:hover" {:boxShadow 3}}
       :onClick #(swap! app-state assoc :editing-note-id (:id note))}

@@ -1,5 +1,6 @@
 (ns wine-cellar.utils.formatting
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [wine-cellar.common :as common]))
 
 (defn format-date
   [date-string]
@@ -46,14 +47,7 @@
        distinct
        sort))
 
-(defn vineyards-for-region
-  [classifications country region]
-  (->> classifications
-       (filter #(and (= country (:country %)) (= region (:region %))))
-       (map :vineyard)
-       (remove nil?)
-       distinct
-       sort))
+(defn vineyards-for-region [_classifications _country _region] [])
 
 (defn classifications-for-appellation
   [classifications country region appellation]
@@ -67,15 +61,8 @@
        sort))
 
 (defn designations-for-classification
-  [classifications country region appellation classification]
-  (or (->> classifications
-           (filter #(and (= country (:country %))
-                         (= region (:region %))
-                         (= appellation (:appellation %))
-                         (= classification (:classification %))))
-           first
-           :designations)
-      []))
+  [_classifications _country _region _appellation _classification]
+  (sort common/wine-designations))
 
 (defn unique-purveyors
   "Returns a sorted list of unique purveyors from the wines collection"

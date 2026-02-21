@@ -206,7 +206,7 @@
 
 (def classification-schema
   (s/keys :req-un [::country ::region]
-          :opt-un [::appellation ::classification ::vineyard ::designations]))
+          :opt-un [::appellation ::appellation_tier ::classification]))
 
 (def tasting-note-schema
   (s/keys :opt-un

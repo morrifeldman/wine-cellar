@@ -548,7 +548,7 @@
 
 ;; Classification operations
 (defn create-or-update-classification
-  "Creates a new classification or updates an existing one by combining levels"
+  "Returns an existing classification matching the given fields, or creates a new one."
   ([classification]
    (jdbc/with-transaction [tx ds]
                           (create-or-update-classification tx classification)))
@@ -563,28 +563,15 @@
                           [:= [:coalesce :appellation_tier ""]
                            [:coalesce (:appellation_tier classification) ""]]
                           [:= [:coalesce :classification ""]
-                           [:coalesce (:classification classification) ""]]
-                          [:= [:coalesce :vineyard ""]
-                           [:coalesce (:vineyard classification) ""]]]}
+                           [:coalesce (:classification classification) ""]]]}
          existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
      (if existing
-       ;; Update existing classification - merge designations
-       (let [designations1 (or (:designations existing) [])
-             designations2 (or (:designations classification) [])
-             combined-designations (vec (distinct (concat designations1
-                                                          designations2)))
-             update-query {:update :wine_classifications
-                           :set {:designations (->pg-array
-                                                combined-designations)}
-                           :where [:= :id (:id existing)]
-                           :returning :*}]
-         (jdbc/execute-one! tx (sql/format update-query) db-opts))
-       ;; Create new classification
-       (let [insert-query {:insert-into :wine_classifications
-                           :values
-                           [(update classification :designations ->pg-array)]
-                           :returning :*}]
-         (jdbc/execute-one! tx (sql/format insert-query) db-opts))))))
+       existing
+       (jdbc/execute-one! tx
+                          (sql/format {:insert-into :wine_classifications
+                                       :values [classification]
+                                       :returning :*})
+                          db-opts)))))
 
 (defn get-classifications
   []
@@ -604,11 +591,10 @@
 (defn update-classification!
   [id classification]
   (jdbc/execute-one! ds
-                     (sql/format
-                      {:update :wine_classifications
-                       :set (update classification :designations ->pg-array)
-                       :where [:= :id id]
-                       :returning :*})
+                     (sql/format {:update :wine_classifications
+                                  :set classification
+                                  :where [:= :id id]
+                                  :returning :*})
                      db-opts))
 
 (defn delete-classification!

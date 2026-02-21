@@ -40,3 +40,13 @@
 
 (def rename-cellar-conditions-to-sensor-readings
   {:raw ["ALTER TABLE IF EXISTS cellar_conditions RENAME TO sensor_readings"]})
+
+(def remove-classification-vineyard-designations
+  {:raw
+   ["DO $$ BEGIN "
+    "IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='wine_classifications' AND COLUMN_NAME='vineyard') THEN "
+    "ALTER TABLE wine_classifications DROP CONSTRAINT IF EXISTS wine_classifications_natural_key; "
+    "ALTER TABLE wine_classifications DROP COLUMN IF EXISTS vineyard; "
+    "ALTER TABLE wine_classifications DROP COLUMN IF EXISTS designations; "
+    "ALTER TABLE wine_classifications ADD CONSTRAINT wine_classifications_natural_key UNIQUE NULLS NOT DISTINCT (country, region, appellation, appellation_tier, classification); "
+    "END IF; END $$;"]})
