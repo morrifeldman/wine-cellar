@@ -68,6 +68,8 @@
 
 (defn handle-hashchange [_] (sync-state-with-url))
 
+(defonce url-sync-timer (atom nil))
+
 (add-watch
  app-state
  :url-sync
@@ -76,7 +78,11 @@
              (not= (:selected-wine-id old-state) (:selected-wine-id new-state))
              (not= (:show-wine-form? old-state) (:show-wine-form? new-state))
              (not= (:show-report? old-state) (:show-report? new-state)))
-     (update-url-from-state new-state))))
+     (when @url-sync-timer (js/clearTimeout @url-sync-timer))
+     (reset! url-sync-timer (js/setTimeout #(do (reset! url-sync-timer nil)
+                                                (update-url-from-state
+                                                 @app-state))
+                                           0)))))
 
 (defonce root (atom nil))
 

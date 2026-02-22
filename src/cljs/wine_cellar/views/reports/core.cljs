@@ -18,9 +18,8 @@
 
 (defn- open-wine
   [app-state id]
-  (swap! app-state #(-> %
-                        (assoc :return-to-report? true :selected-wine-id id)
-                        (dissoc :show-report?)))
+  (swap! app-state assoc :return-to-report? true)
+  (swap! app-state dissoc :show-report?)
   (api/load-wine-detail-page app-state id))
 
 (defn- highlight-wine-card
@@ -176,32 +175,37 @@
         [highlight-wine-card highlight #(open-wine app-state %)]])]))
 
 (defn- report-paper
-  [app-state report loading?]
+  [app-state report loading? {:keys [has-prev? has-next? prev-id next-id]}]
   [paper
    {:elevation 24
-    :sx {:width "100%"
-         :maxWidth "900px"
-         :maxHeight "90vh"
-         :overflow "auto"
-         :p 4
-         :position "relative"}}
-   [icon-button
-    {:sx {:position "absolute" :top 16 :right 16 :color "text.secondary"}
-     :on-click #(swap! app-state dissoc :show-report? :report)} [:span "✕"]]
-   [button
-    {:variant "text"
-     :size "small"
-     :color "secondary"
-     :sx {:position "absolute" :top 16 :right 60}
-     :on-click #(let [provider (get-in @app-state [:ai :provider])]
-                  (api/fetch-latest-report app-state
-                                           {:force? true :provider provider})
-                  (api/fetch-report-list app-state))} "Regenerate"]
-   [typography
-    {:variant "h3"
-     :gutterBottom true
-     :color "primary.main"
-     :sx {:fontWeight 600}} "🍷 Cellar Insights"]
+    :sx
+    {:width "100%" :maxWidth "900px" :maxHeight "90vh" :overflow "auto" :p 4}}
+   [box {:sx {:display "flex" :alignItems "center" :mb 2 :gap 0.5}}
+    [icon-button
+     {:sx {:opacity (if has-prev? 1 0.25) :color "text.secondary"}
+      :disabled (not has-prev?)
+      :on-click #(api/fetch-report-by-id app-state prev-id)}
+     [:span {:style {:fontSize "1.5rem" :lineHeight 1}} "‹"]]
+    [typography
+     {:variant "h4" :color "primary.main" :sx {:fontWeight 600 :ml 1}}
+     "🍷 Cellar Insights"]
+    [icon-button
+     {:sx {:opacity (if has-next? 1 0.25) :color "text.secondary"}
+      :disabled (not has-next?)
+      :on-click #(api/fetch-report-by-id app-state next-id)}
+     [:span {:style {:fontSize "1.5rem" :lineHeight 1}} "›"]]
+    [box {:sx {:flex 1}}]
+    [button
+     {:variant "text"
+      :size "small"
+      :color "secondary"
+      :on-click #(let [provider (get-in @app-state [:ai :provider])]
+                   (api/fetch-latest-report app-state
+                                            {:force? true :provider provider})
+                   (api/fetch-report-list app-state))} "Regenerate"]
+    [icon-button
+     {:sx {:color "text.secondary"}
+      :on-click #(swap! app-state dissoc :show-report? :report)} [:span "✕"]]]
    (cond @loading? [box
                     {:sx {:display "flex"
                           :flexDirection "column"
@@ -212,23 +216,6 @@
                      "Consulting the sommelier..."]]
          @report [report-body app-state report]
          :else [typography {:color "error"} "Failed to load report."])])
-
-(defn- nav-arrow
-  [direction has? id app-state]
-  (let [left? (= direction :left)]
-    [icon-button
-     {:sx {:position "absolute"
-           (if left? :left :right) 8
-           :top "50%"
-           :transform "translateY(-50%)"
-           :opacity (if has? 1 0.25)
-           :color "rgba(255,255,255,0.9)"
-           :bgcolor "rgba(255,255,255,0.12)"
-           :border "1px solid rgba(255,255,255,0.2)"
-           "&:hover" {:bgcolor "rgba(255,255,255,0.2)"}}
-      :disabled (not has?)
-      :on-click #(api/fetch-report-by-id app-state id)}
-     [:span {:style {:fontSize "1.5rem" :lineHeight 1}} (if left? "‹" "›")]]))
 
 (defn report-modal
   [app-state]
@@ -266,6 +253,9 @@
                    :display "flex"
                    :justifyContent "center"
                    :alignItems "center"
-                   :p 2}} [report-paper app-state report loading?]
-             [nav-arrow :left has-prev? prev-id app-state]
-             [nav-arrow :right has-next? next-id app-state]]))))))
+                   :p 2}}
+             [report-paper app-state report loading?
+              {:has-prev? has-prev?
+               :has-next? has-next?
+               :prev-id prev-id
+               :next-id next-id}]]))))))
