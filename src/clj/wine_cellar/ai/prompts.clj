@@ -508,12 +508,12 @@
 (defn report-user-message
   [report-data]
   (str
-   "Here is the data for this cellar report:\n"
-   report-data
+   "Here is the data for this cellar report:\n" report-data
    "\n\nPlease write a fun, engaging summary. "
    "Include sections for 'Cellar Status', 'Time to Drink' (urgency - mention wines ready now or past their prime), "
    "and a 'Spotlight Wine' commentary. "
    "If there are recently added wines, mention them as new additions to the collection. "
    "If there are wines past their prime, give a gentle nudge to drink them soon before they fade further. "
    "For the spotlight wine, explain why it's a good time to drink it based on the data provided. "
+   "When mentioning a specific wine by name, link it using markdown syntax [Wine Name](wine:ID) where ID is the wine's id from the data. Only link wines whose IDs appear in the data. "
    "Keep it under 300 words."))

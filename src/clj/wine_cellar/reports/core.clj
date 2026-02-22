@@ -126,6 +126,21 @@
                                        :updated_at [:now]}})
                      db-opts))
 
+(defn list-reports
+  []
+  (jdbc/execute! ds
+                 (sql/format {:select [:id :report_date]
+                              :from :cellar_reports
+                              :order-by [[:report_date :desc]]})
+                 db-opts))
+
+(defn get-report-by-id
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:select [:*] :from :cellar_reports :where [:= :id id]})
+                     db-opts))
+
 (defn generate-report!
   "Generates and saves a cellar report. Returns the report record."
   ([] (generate-report! {}))
@@ -161,6 +176,10 @@
                     "with provider:" selected-provider])
            data (generate-report-data tx)
            _ (tap> ["Generated data keys:" (keys data)])
+           model-name (get-in (ai/get-model-info) [:models selected-provider])
+           data (assoc data
+                       :ai-provider (name selected-provider)
+                       :ai-model model-name)
            data-json (json/write-value-as-string data)
            ai-response
            (try

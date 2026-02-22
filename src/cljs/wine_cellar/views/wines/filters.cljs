@@ -378,6 +378,13 @@
                                                          :sx {:ml "auto"})]))
          selection-buttons
          (cond-> []
+           (:return-to-report? state)
+           (conj [button
+                  {:variant "outlined"
+                   :size "small"
+                   :color "secondary"
+                   :onClick #(swap! app-state assoc :show-report? true)}
+                  "← Back to Insights"])
            (pos? selected-count)
            (conj [button
                   {:variant (if show-selected? "contained" "outlined")

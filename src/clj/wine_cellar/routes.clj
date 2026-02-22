@@ -301,10 +301,19 @@
            :parameters {:query ::series-query}
            :responses {200 {:body vector?} 500 {:body map?}}
            :handler handlers/sensor-reading-series}}]
+   ["/reports"
+    {:get {:summary "List all cellar insight reports"
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/list-reports}}]
    ["/reports/latest"
     {:get {:summary "Get the latest cellar insight report"
            :responses {200 {:body map?} 500 {:body map?}}
            :handler handlers/get-latest-report}}]
+   ["/reports/by-id/:id"
+    {:parameters {:path {:id int?}}
+     :get {:summary "Get a cellar insight report by ID"
+           :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+           :handler handlers/get-report}}]
    ;; Grape Varieties Routes
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"

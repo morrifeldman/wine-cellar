@@ -403,6 +403,19 @@
        (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
        (catch Exception e (server-error e))))
 
+(defn list-reports
+  [_]
+  (try (response/response (reports/list-reports))
+       (catch Exception e (server-error e))))
+
+(defn get-report
+  [{{{:keys [id]} :path} :parameters}]
+  (try (let [report (reports/get-report-by-id id)]
+         (if report
+           (response/response report)
+           {:status 404 :body {:error "Report not found"}}))
+       (catch Exception e (server-error e))))
+
 (defn get-latest-report
   [request]
   (let [force? (get-in request [:query-params "force"])

@@ -100,6 +100,21 @@
                 (str (name k) "=" (js/encodeURIComponent (str v))))]
     (when (seq pairs) (str "?" (string/join "&" pairs)))))
 
+(defn fetch-report-list
+  [app-state]
+  (go (let [result (<! (GET "/api/reports" "Failed to fetch report list"))]
+        (when (:success result)
+          (swap! app-state assoc-in [:report-nav :list] (:data result))))))
+
+(defn fetch-report-by-id
+  [app-state id]
+  (swap! app-state assoc :loading-report? true)
+  (go (let [result (<! (GET (str "/api/reports/by-id/" id)
+                            "Failed to fetch report"))]
+        (if (:success result)
+          (swap! app-state assoc :report (:data result) :loading-report? false)
+          (swap! app-state assoc :loading-report? false)))))
+
 (defn fetch-latest-report
   ([app-state] (fetch-latest-report app-state {}))
   ([app-state opts]
@@ -1366,10 +1381,13 @@
   "Clean up state when leaving wine detail page"
   ([app-state] (exit-wine-detail-page app-state {}))
   ([app-state _opts]
-   (swap! app-state dissoc
-     :selected-wine-id :tasting-notes
-     :editing-note-id :window-suggestion
-     :new-tasting-note :wine-varieties
-     :zoomed-image :inventory-history)
+   (let [return-to-report? (:return-to-report? @app-state)]
+     (swap! app-state dissoc
+       :selected-wine-id
+       :tasting-notes :editing-note-id
+       :window-suggestion :new-tasting-note
+       :wine-varieties :zoomed-image
+       :inventory-history :return-to-report?)
+     (when return-to-report? (swap! app-state assoc :show-report? true)))
    ;; Refresh wine list to get updated ratings from database
    (fetch-wines app-state {:background? true})))

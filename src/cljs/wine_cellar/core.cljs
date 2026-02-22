@@ -16,6 +16,7 @@
   (let [url (cond (:selected-wine-id state) (str "/wine/"
                                                  (:selected-wine-id state))
                   (:show-wine-form? state) "/add-wine"
+                  (:show-report? state) "/insights"
                   (= (:view state) :grape-varieties) "/grape-varieties"
                   (= (:view state) :classifications) "/classifications"
                   (= (:view state) :sql) "/admin/sql"
@@ -30,9 +31,18 @@
   []
   (let [hash (.-hash js/location)
         path (if (clojure.string/starts-with? hash "#") (subs hash 1) "/")]
-    (cond (= path "/") {:view nil :selected-wine-id nil :show-wine-form? false}
-          (= path "/add-wine")
-          {:view nil :selected-wine-id nil :show-wine-form? true}
+    (cond (= path "/") {:view nil
+                        :selected-wine-id nil
+                        :show-wine-form? false
+                        :show-report? false}
+          (= path "/insights") {:view nil
+                                :selected-wine-id nil
+                                :show-wine-form? false
+                                :show-report? true}
+          (= path "/add-wine") {:view nil
+                                :selected-wine-id nil
+                                :show-wine-form? true
+                                :show-report? false}
           (= path "/grape-varieties")
           {:view :grape-varieties :selected-wine-id nil :show-wine-form? false}
           (= path "/classifications")
@@ -53,6 +63,7 @@
     (when (and current-wine-id (not= current-wine-id new-wine-id))
       (api/exit-wine-detail-page app-state))
     (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
+    (when-not (:show-report? url-state) (swap! app-state dissoc :show-report?))
     (swap! app-state merge url-state)))
 
 (defn handle-hashchange [_] (sync-state-with-url))
@@ -63,7 +74,8 @@
  (fn [_ _ old-state new-state]
    (when (or (not= (:view old-state) (:view new-state))
              (not= (:selected-wine-id old-state) (:selected-wine-id new-state))
-             (not= (:show-wine-form? old-state) (:show-wine-form? new-state)))
+             (not= (:show-wine-form? old-state) (:show-wine-form? new-state))
+             (not= (:show-report? old-state) (:show-report? new-state)))
      (update-url-from-state new-state))))
 
 (defonce root (atom nil))
