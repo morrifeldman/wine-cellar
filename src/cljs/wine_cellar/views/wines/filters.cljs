@@ -424,7 +424,6 @@
        [box {:sx {:display "flex" :flexDirection "column" :gap 0.5}}
         [box
          {:sx {:display "flex" :alignItems "center" :gap 0.75 :flexWrap "wrap"}}
-         expand-btn
          [box {:sx {:flex 1 :minWidth {:xs 80 :sm 160}}}
           [search-field app-state]] history-btn clear-btn
          (when count-info
@@ -448,7 +447,8 @@
                 (if same?
                   (fmt-n total)
                   (str (fmt-n visible) " / " (fmt-n total)))]
-               [wine-bar {:fontSize "small" :sx {:color "text.secondary"}}]]]))]
+               [wine-bar {:fontSize "small" :sx {:color "text.secondary"}}]]]))
+         expand-btn]
         (when (seq selection-buttons)
           (into
            [box
@@ -621,9 +621,12 @@
 
 (defn filter-bar
   ([app-state] (filter-bar app-state nil))
-  ([app-state count-info]
+  ([app-state count-info] (filter-bar app-state count-info nil))
+  ([app-state count-info {:keys [paper-sx]}]
    (let [classifications (:classifications @app-state)]
-     [paper {:elevation 1 :sx {:p {:xs 2 :md 3} :mb 3 :borderRadius 2}}
+     [paper
+      {:elevation 1
+       :sx (merge {:p {:xs 2 :md 3} :mb 3 :borderRadius 2} paper-sx)}
       [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
        [filter-header app-state count-info] [sort-filter-chip app-state]]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}

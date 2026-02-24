@@ -232,8 +232,11 @@
                                indicator-props change-context-mode!]
             filter-count-info {:visible visible-count :total total-count}
             filter-panel (when filters-active?
-                           (wine-filters/compact-filter-bar app-state
-                                                            filter-count-info))
+                           (wine-filters/filter-bar app-state
+                                                    filter-count-info
+                                                    {:paper-sx
+                                                     {:backgroundColor
+                                                      "background.default"}}))
             toggle-sidebar!
             (fn []
               (let [opening? (not sidebar-open?)]
