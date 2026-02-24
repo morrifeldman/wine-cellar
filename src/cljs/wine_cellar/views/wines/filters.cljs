@@ -28,11 +28,28 @@
              [form-control-label]]
             [reagent-mui.material.form-group :refer [form-group]]
             [reagent-mui.icons.sort :refer [sort] :rename {sort sort-icon}]
+            [reagent-mui.material.popover :refer [popover]]
             [reagent-mui.material.list-item-text :refer [list-item-text]]
             [wine-cellar.utils.vintage :refer [tasting-window-label]]
             [wine-cellar.state :as app-state-core]))
 
 (defn- fmt-n [v] (.toLocaleString (js/Number. (or v 0)) "en-US"))
+
+(def ^:private sort-labels
+  {"location" "Location"
+   "producer" "Producer"
+   "name" "Name"
+   "vintage" "Vintage"
+   "region" "Region"
+   "latest_internal_rating" "Internal Rating"
+   "average_external_rating" "External Rating"
+   "quantity" "Quantity"
+   "price" "Price"
+   "alcohol_percentage" "Alcohol %"
+   "drink_from_year" "Win. Open"
+   "drink_until_year" "Win. Close"
+   "created_at" "Date Added"
+   "updated_at" "Last Updated"})
 
 (defn search-field
   [app-state]
@@ -341,18 +358,18 @@
                       {:size "small"
                        :color "secondary"
                        :onClick #(swap! app-state assoc
-                                   :filters
-                                   {:search ""
-                                    :country nil
-                                    :region nil
-                                    :styles []
-                                    :style nil
-                                    :varieties []
-                                    :variety nil
-                                    :price-range nil
-                                    :tasting-window nil
-                                    :verification nil
-                                    :columns #{}})}
+                                   :filters {:search ""
+                                             :country nil
+                                             :region nil
+                                             :styles []
+                                             :style nil
+                                             :varieties []
+                                             :variety nil
+                                             :price-range nil
+                                             :tasting-window nil
+                                             :verification nil
+                                             :columns #{}}
+                                   :sort {:field :created_at :direction :desc})}
                       [restart-alt {:fontSize "small"}]]]]
          selection-buttons
          (cond-> []
@@ -502,14 +519,113 @@
        [box {:sx {:ml {:sm "auto"}}}
         [style-selector app-state {:sx {:width {:xs 100 :sm 130}}}]])]))
 
+(def ^:private chip-btn-sx
+  {:display "flex"
+   :alignItems "center"
+   :gap 0.5
+   :px 1
+   :py 0.5
+   :background "none"
+   :border "none"
+   :cursor "pointer"
+   :color "text.secondary"
+   :fontSize "0.8rem"
+   :whiteSpace "nowrap"
+   "&:hover" {:backgroundColor "action.hover"}})
+
+(defn- sort-filter-chip
+  [app-state]
+  (r/with-let
+   [sort-anchor (r/atom nil) style-anchor (r/atom nil)]
+   (let [state @app-state
+         sort-state (:sort state)
+         field (or (some-> (:field sort-state)
+                           name)
+                   "created_at")
+         direction (or (:direction sort-state) :asc)
+         styles (let [raw (:styles (:filters state))]
+                  (if (seq raw) (str/join ", " raw) "All Styles"))]
+     [box {:sx {:display "flex" :alignItems "center"}}
+      [box
+       {:sx {:display "flex"
+             :alignItems "center"
+             :border "1px solid"
+             :borderColor "divider"
+             :borderRadius 1
+             :overflow "hidden"}}
+       [box
+        {:component "button"
+         :onClick #(reset! sort-anchor (.-currentTarget %))
+         :sx chip-btn-sx} (get sort-labels field field)]
+       [typography
+        {:variant "body2" :color "text.disabled" :sx {:userSelect "none"}} "·"]
+       [tooltip {:title (if (= direction :asc) "Ascending" "Descending")}
+        [box
+         {:component "button"
+          :onClick #(swap! app-state update-in
+                      [:sort :direction]
+                      (fn [d] (if (= :asc d) :desc :asc)))
+          :sx chip-btn-sx}
+         [sort-icon
+          {:fontSize "small"
+           :sx (when (= direction :desc) {:transform "scaleY(-1)"})}]]]
+       [typography
+        {:variant "body2" :color "text.disabled" :sx {:userSelect "none"}} "·"]
+       [box
+        {:component "button"
+         :onClick #(reset! style-anchor (.-currentTarget %))
+         :sx chip-btn-sx} styles [expand-more {:fontSize "small"}]]]
+      [popover
+       {:open (boolean @sort-anchor)
+        :anchorEl @sort-anchor
+        :onClose #(reset! sort-anchor nil)
+        :anchorOrigin {:vertical "bottom" :horizontal "left"}
+        :transformOrigin {:vertical "top" :horizontal "left"}}
+       [box
+        {:sx
+         {:p 2 :display "flex" :flexDirection "column" :gap 2 :minWidth 240}}
+        [form-control {:variant "outlined" :size "small" :fullWidth true}
+         [select
+          {:value field
+           :size "small"
+           :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
+           :onChange #(swap! app-state update
+                        :sort
+                        (fn [s]
+                          (let [new-field (keyword (.. % -target -value))]
+                            (if (= new-field (:field s))
+                              s
+                              {:field new-field :direction :asc}))))}
+          [menu-item {:value "location"} "Location"]
+          [menu-item {:value "producer"} "Producer"]
+          [menu-item {:value "name"} "Name"]
+          [menu-item {:value "vintage"} "Vintage"]
+          [menu-item {:value "region"} "Region"]
+          [menu-item {:value "latest_internal_rating"} "Internal Rating"]
+          [menu-item {:value "average_external_rating"} "External Rating"]
+          [menu-item {:value "quantity"} "Quantity"]
+          [menu-item {:value "price"} "Price"]
+          [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]
+          [menu-item {:value "drink_from_year"} "Drinking Window Open"]
+          [menu-item {:value "drink_until_year"} "Drinking Window Close"]
+          [menu-item {:value "created_at"} "Date Added"]
+          [menu-item {:value "updated_at"} "Last Updated"]]]]]
+      [popover
+       {:open (boolean @style-anchor)
+        :anchorEl @style-anchor
+        :onClose #(reset! style-anchor nil)
+        :anchorOrigin {:vertical "bottom" :horizontal "left"}
+        :transformOrigin {:vertical "top" :horizontal "left"}}
+       [box {:sx {:p 2 :minWidth 200}}
+        [style-selector app-state {:fullWidth true}]]]])))
+
 (defn filter-bar
   ([app-state] (filter-bar app-state nil))
   ([app-state count-info]
    (let [classifications (:classifications @app-state)]
      [paper {:elevation 1 :sx {:p {:xs 2 :md 3} :mb 3 :borderRadius 2}}
       [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-       [filter-header app-state count-info]
-       [sort-controls-row app-state nil {:compact? false}]]
+       [filter-header app-state count-info] [sort-filter-chip app-state]]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}
        [box {:sx {:pt 1.5}}
         [filter-controls-grid app-state classifications 2]]]])))
