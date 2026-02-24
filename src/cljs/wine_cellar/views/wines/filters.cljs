@@ -17,54 +17,31 @@
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.collapse :refer [collapse]]
             [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.material.tooltip :refer [tooltip]]
             [reagent-mui.icons.expand-more :refer [expand-more]]
             [reagent-mui.icons.expand-less :refer [expand-less]]
+            [reagent-mui.icons.history :refer [history]]
+            [reagent-mui.icons.restart-alt :refer [restart-alt]]
+            [reagent-mui.icons.wine-bar :refer [wine-bar]]
             [reagent-mui.material.checkbox :refer [checkbox]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
             [reagent-mui.material.form-group :refer [form-group]]
-            [reagent-mui.icons.arrow-upward :refer [arrow-upward]]
-            [reagent-mui.icons.arrow-downward :refer [arrow-downward]]
+            [reagent-mui.icons.sort :refer [sort] :rename {sort sort-icon}]
             [reagent-mui.material.list-item-text :refer [list-item-text]]
             [wine-cellar.utils.vintage :refer [tasting-window-label]]
             [wine-cellar.state :as app-state-core]))
 
-(defn- format-number
-  [value]
-  (.toLocaleString (js/Number. (or value 0)) "en-US"))
-
-(defn- visible-wine-indicator
-  [{:keys [visible total compact? inline? sx]}]
-  (when (and (some? visible) (some? total))
-    (let [visible-text (format-number visible)
-          total-text (format-number total)
-          total-line (str total-text " Total")
-          filtered-line (if inline?
-                          (str visible-text " / " total-text)
-                          (str visible-text " (" total-text " Total)"))
-          same-count? (= visible total)
-          margin-top (if (or compact? inline?) 0 0.5)
-          display (if inline? "inline-flex" "flex")
-          align-items (if inline? "center" "flex-start")]
-      [box
-       {:sx (merge {:mt margin-top :display display :alignItems align-items}
-                   sx)}
-       [typography
-        {:variant "body2"
-         :color "text.secondary"
-         :component "span"
-         :sx {:whiteSpace "nowrap"}}
-        (if same-count? total-line filtered-line)]])))
+(defn- fmt-n [v] (.toLocaleString (js/Number. (or v 0)) "en-US"))
 
 (defn search-field
   [app-state]
   (let [filters (:filters @app-state)]
     [text-field
      {:fullWidth true
-      :label "Search"
       :variant "outlined"
       :size "small"
-      :placeholder "Search all wine properties..."
+      :placeholder "Search…"
       :value (:search filters)
       :sx {"& .MuiOutlinedInput-root"
            {"& fieldset" {:borderColor "divider" :opacity 0.8}
@@ -337,45 +314,46 @@
   ([app-state count-info {:keys [compact?]}]
    (let [state @app-state
          gap (if compact? 0.4 0.75)
-         margin-bottom (if compact? 0.75 2)
          button-gap (if compact? 0.5 {:xs 0.5 :md 1})
          button-color (if (:show-out-of-stock? state) "secondary" "primary")
-         show-controls? (if compact? (:show-filters? state) true)
          selected-count (count (or (:selected-wine-ids state) #{}))
          show-selected? (and (:show-selected-wines? state)
                              (pos? selected-count))
-         header-buttons
-         (cond-> []
-           true (conj
-                 [button
-                  {:variant "outlined"
-                   :size "small"
-                   :color button-color
-                   :onClick #(swap! app-state update :show-out-of-stock? not)}
-                  (if (:show-out-of-stock? state) "In Cellar" "All History")])
-           true (conj
-                 [button
-                  {:variant "outlined"
-                   :size "small"
-                   :color "secondary"
-                   :onClick #(swap! app-state assoc
-                               :filters
-                               {:search ""
-                                :country nil
-                                :region nil
-                                :styles []
-                                :style nil
-                                :varieties []
-                                :variety nil
-                                :price-range nil
-                                :tasting-window nil
-                                :verification nil
-                                :columns #{}})} "Clear Filters"])
-           (and count-info (not compact?)) (conj [visible-wine-indicator
-                                                  (assoc count-info
-                                                         :compact? compact?
-                                                         :inline? true
-                                                         :sx {:ml "auto"})]))
+         expand-btn [icon-button
+                     {:onClick #(swap! app-state update :show-filters? not)
+                      :size "small"
+                      :sx {:color "text.secondary" :p 0.5 :alignSelf "center"}}
+                     (if (:show-filters? state) [expand-less] [expand-more])]
+         history-btn [box {:sx {:alignSelf "center" :display "flex"}}
+                      [tooltip
+                       {:title (if (:show-out-of-stock? state)
+                                 "Show In Cellar Only"
+                                 "Show All History")}
+                       [icon-button
+                        {:size "small"
+                         :color button-color
+                         :onClick
+                         #(swap! app-state update :show-out-of-stock? not)}
+                        [history {:fontSize "small"}]]]]
+         clear-btn [box {:sx {:alignSelf "center" :display "flex"}}
+                    [tooltip {:title "Clear Filters"}
+                     [icon-button
+                      {:size "small"
+                       :color "secondary"
+                       :onClick #(swap! app-state assoc
+                                   :filters
+                                   {:search ""
+                                    :country nil
+                                    :region nil
+                                    :styles []
+                                    :style nil
+                                    :varieties []
+                                    :variety nil
+                                    :price-range nil
+                                    :tasting-window nil
+                                    :verification nil
+                                    :columns #{}})}
+                      [restart-alt {:fontSize "small"}]]]]
          selection-buttons
          (cond-> []
            (:return-to-report? state)
@@ -402,41 +380,64 @@
                                          :onClick
                                          #(app-state-core/clear-selected-wines!
                                            app-state)} "Clear Selection"]))]
-     [box
-      {:sx {:display "flex" :flexDirection "column" :gap gap :mb margin-bottom}}
-      [box
-       {:sx {:display "flex"
-             :justifyContent "space-between"
-             :alignItems "center"
-             :flexWrap "wrap"
-             :gap 1}}
-       [box {:sx {:display "flex" :alignItems "center" :gap gap}}
-        [typography
-         {:variant (if compact? "subtitle2" "subtitle1")
-          :sx {:fontWeight "medium" :lineHeight 1.1}} "Filter Wines"]
-        [icon-button
-         {:onClick #(swap! app-state update :show-filters? not)
-          :size "small"
-          :sx {:color "text.secondary" :p 0.5}}
-         (if (:show-filters? state) [expand-less] [expand-more])]]
-       [style-selector app-state {:sx {:width 140}}]]
-      (when show-controls?
-        [box {:sx {:display "flex" :flexDirection "column" :gap 0.75 :mt 0.5}}
-         (into [box
-                {:sx {:display "flex"
-                      :gap button-gap
-                      :flexWrap "wrap"
-                      :alignItems "center"}}]
-               header-buttons)
-         (when (seq selection-buttons)
-           (into [box
-                  {:sx {:display "flex"
-                        :gap button-gap
-                        :flexWrap "wrap"
-                        :alignItems "center"}}]
-                 selection-buttons))])
-      (when (and (not compact?) count-info compact?)
-        (visible-wine-indicator (assoc count-info :compact? compact?)))])))
+     (if compact?
+       [box {:sx {:display "flex" :flexDirection "column" :gap gap :mb 0.75}}
+        [box
+         {:sx {:display "flex"
+               :justifyContent "space-between"
+               :alignItems "center"
+               :flexWrap "wrap"
+               :gap 1}}
+         [box {:sx {:display "flex" :alignItems "center" :gap gap}} expand-btn]
+         [style-selector app-state {:sx {:width 140}}]]
+        (when (:show-filters? state)
+          [box {:sx {:display "flex" :flexDirection "column" :gap 0.75 :mt 0.5}}
+           [box
+            {:sx {:display "flex"
+                  :gap button-gap
+                  :flexWrap "wrap"
+                  :alignItems "center"}} history-btn clear-btn]
+           (when (seq selection-buttons)
+             (into [box
+                    {:sx {:display "flex"
+                          :gap button-gap
+                          :flexWrap "wrap"
+                          :alignItems "center"}}]
+                   selection-buttons))])]
+       [box {:sx {:display "flex" :flexDirection "column" :gap 0.5}}
+        [box
+         {:sx {:display "flex" :alignItems "center" :gap 0.75 :flexWrap "wrap"}}
+         expand-btn
+         [box {:sx {:flex 1 :minWidth {:xs 80 :sm 160}}}
+          [search-field app-state]] history-btn clear-btn
+         (when count-info
+           (let [{:keys [visible total]} count-info
+                 same? (= visible total)
+                 tip (if same?
+                       (str (fmt-n total) " wines")
+                       (str (fmt-n visible) " of " (fmt-n total) " wines"))]
+             [tooltip {:title tip}
+              [box
+               {:sx {:ml "auto"
+                     :display "flex"
+                     :alignItems "center"
+                     :gap 0.5
+                     :cursor "default"}}
+               [typography
+                {:variant "body2"
+                 :color "text.secondary"
+                 :component "span"
+                 :sx {:whiteSpace "nowrap"}}
+                (if same?
+                  (fmt-n total)
+                  (str (fmt-n visible) " / " (fmt-n total)))]
+               [wine-bar {:fontSize "small" :sx {:color "text.secondary"}}]]]))]
+        (when (seq selection-buttons)
+          (into
+           [box
+            {:sx
+             {:display "flex" :gap 0.75 :flexWrap "wrap" :alignItems "center"}}]
+           selection-buttons))]))))
 
 (defn- filter-controls-grid
   [app-state classifications spacing]
@@ -447,67 +448,67 @@
    [verification-filter app-state] [column-filter app-state]])
 
 (defn- sort-controls-row
-  [app-state {:keys [compact?]}]
+  [app-state _count-info {:keys [compact?]}]
   (let [gap (if compact? 1.5 2)
-        margin-top (if compact? 1 1.25)
-        padding-top (if compact? 0.75 1)
         min-width (if compact? 160 180)]
-    [box
-     {:sx
-      {:mt margin-top :pt padding-top :borderTop "1px solid rgba(0,0,0,0.08)"}}
-     [box {:sx {:display "flex" :alignItems "center" :gap gap :flexWrap "wrap"}}
-      [typography
-       {:variant "subtitle2"
-        :sx {:height "40px" :display "flex" :alignItems "center"}} "Sort by:"]
-      [form-control
-       {:variant "outlined" :size "small" :sx {:minWidth min-width}}
-       [select
-        {:value (let [sort-state (:sort @app-state)
-                      current-field (:field sort-state)]
-                  (if current-field (name current-field) "producer"))
-         :size "small"
-         :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
-         :onChange #(swap! app-state update
-                      :sort
-                      (fn [sort]
-                        (let [new-field (keyword (.. % -target -value))]
-                          (if (= new-field (:field sort))
-                            sort
-                            {:field new-field :direction :asc}))))}
-        [menu-item {:value "location"} "Location"]
-        [menu-item {:value "producer"} "Producer"]
-        [menu-item {:value "name"} "Name"]
-        [menu-item {:value "vintage"} "Vintage"]
-        [menu-item {:value "region"} "Region"]
-        [menu-item {:value "latest_internal_rating"} "Internal Rating"]
-        [menu-item {:value "average_external_rating"} "External Rating"]
-        [menu-item {:value "quantity"} "Quantity"]
-        [menu-item {:value "price"} "Price"]
-        [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]
-        [menu-item {:value "drink_from_year"} "Drinking Window Open"]
-        [menu-item {:value "drink_until_year"} "Drinking Window Close"]
-        [menu-item {:value "created_at"} "Date Added"]
-        [menu-item {:value "updated_at"} "Last Updated"]]]
-      [icon-button
-       {:size "small"
-        :onClick #(swap! app-state update-in
-                    [:sort :direction]
-                    (fn [dir] (if (= :asc dir) :desc :asc)))
-        :sx {:color "text.secondary"}}
-       (let [sort-state (:sort @app-state)
-             current-direction (:direction sort-state)]
-         (if (= current-direction :asc) [arrow-upward] [arrow-downward]))]]]))
+    [box {:sx {:display "flex" :alignItems "center" :gap gap :flexWrap "wrap"}}
+     [form-control {:variant "outlined" :size "small" :sx {:minWidth min-width}}
+      [select
+       {:value (let [sort-state (:sort @app-state)
+                     current-field (:field sort-state)]
+                 (if current-field (name current-field) "producer"))
+        :size "small"
+        :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
+        :onChange #(swap! app-state update
+                     :sort
+                     (fn [s]
+                       (let [new-field (keyword (.. % -target -value))]
+                         (if (= new-field (:field s))
+                           s
+                           {:field new-field :direction :asc}))))}
+       [menu-item {:value "location"} "Location"]
+       [menu-item {:value "producer"} "Producer"]
+       [menu-item {:value "name"} "Name"]
+       [menu-item {:value "vintage"} "Vintage"]
+       [menu-item {:value "region"} "Region"]
+       [menu-item {:value "latest_internal_rating"} "Internal Rating"]
+       [menu-item {:value "average_external_rating"} "External Rating"]
+       [menu-item {:value "quantity"} "Quantity"]
+       [menu-item {:value "price"} "Price"]
+       [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]
+       [menu-item {:value "drink_from_year"} "Drinking Window Open"]
+       [menu-item {:value "drink_until_year"} "Drinking Window Close"]
+       [menu-item {:value "created_at"} "Date Added"]
+       [menu-item {:value "updated_at"} "Last Updated"]]]
+     (let [current-direction (get-in @app-state [:sort :direction])]
+       [box {:sx {:alignSelf "center" :display "flex"}}
+        [tooltip
+         {:title (if (= current-direction :asc) "Ascending" "Descending")}
+         [icon-button
+          {:size "small"
+           :onClick #(swap! app-state update-in
+                       [:sort :direction]
+                       (fn [dir] (if (= :asc dir) :desc :asc)))
+           :sx {:color "text.secondary"}}
+          [sort-icon
+           {:fontSize "small"
+            :sx (when (= current-direction :desc)
+                  {:transform "scaleY(-1)"})}]]]])
+     (when-not compact?
+       [box {:sx {:ml "auto"}}
+        [style-selector app-state {:sx {:width 130}}]])]))
 
 (defn filter-bar
   ([app-state] (filter-bar app-state nil))
   ([app-state count-info]
    (let [classifications (:classifications @app-state)]
      [paper {:elevation 1 :sx {:p {:xs 2 :md 3} :mb 3 :borderRadius 2}}
-      [filter-header app-state count-info]
-      [box {:sx {:mt 1.5 :mb 0.5}} [search-field app-state]]
+      [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
+       [filter-header app-state count-info]
+       [sort-controls-row app-state nil {:compact? false}]]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}
-       [box {:sx {:pt 1.5}} [filter-controls-grid app-state classifications 2]]]
-      (sort-controls-row app-state {:compact? false})])))
+       [box {:sx {:pt 1.5}}
+        [filter-controls-grid app-state classifications 2]]]])))
 
 (defn compact-filter-bar
   ([app-state] (compact-filter-bar app-state nil))
@@ -526,4 +527,4 @@
        [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
         [box {:sx {:mt 1}} [search-field app-state]]
         [filter-controls-grid app-state classifications 2]
-        (sort-controls-row app-state {:compact? true})]]])))
+        (sort-controls-row app-state nil {:compact? true})]]])))

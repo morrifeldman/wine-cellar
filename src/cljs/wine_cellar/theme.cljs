@@ -108,5 +108,7 @@
                                          "rgba(232,195,200,0.2)"}}}
      :MuiCard {:styleOverrides {:root {:borderRadius "8px" ;; Reduced from
                                                            ;; 12px
-                                       :overflow "hidden"}}}}
+                                       :overflow "hidden"}}}
+     :MuiFormControlLabel {:styleOverrides {:label {:color "#F5F5F5"}}}
+     :MuiSlider {:styleOverrides {:markLabel {:color "#D0D0D0"}}}}
     :shape {:borderRadius 6}})) ;; Reduced from 8
