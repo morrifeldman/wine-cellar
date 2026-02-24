@@ -123,8 +123,8 @@
     :on-close #(swap! app-state assoc-in [:chat :open?] false)
     :max-width "md"
     :full-width true
-    :PaperProps {:sx {:py 2 :px 2}}} (chat-dialog-header header-props)
-   (chat-dialog-content content-props)])
+    :PaperProps {:sx {:py 2 :px 2 :height "85vh"}}}
+   (chat-dialog-header header-props) (chat-dialog-content content-props)])
 
 (defn chat-dialog
   "Main chat dialog component"
