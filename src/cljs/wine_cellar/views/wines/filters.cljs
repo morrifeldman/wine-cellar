@@ -498,7 +498,7 @@
             :sx (when (= current-direction :desc)
                   {:transform "scaleY(-1)"})}]]]])
      (when-not compact?
-       [box {:sx {:ml "auto"}}
+       [box {:sx {:ml {:sm "auto"}}}
         [style-selector app-state {:sx {:width {:xs 100 :sm 130}}}]])]))
 
 (defn filter-bar
