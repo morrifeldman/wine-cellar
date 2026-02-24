@@ -1,7 +1,6 @@
 (ns wine-cellar.views.chat.context
-  (:require [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.typography :refer [typography]]
+  (:require [reagent-mui.material.typography :refer [typography]]
+            [reagent-mui.material.tooltip :refer [tooltip]]
             [wine-cellar.api :as api]
             [wine-cellar.state :as state-core]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
@@ -150,33 +149,14 @@
                         0)
                 next-mode (nth context-cycle
                                (mod (inc idx) (count context-cycle)))]
-            (change-context-mode! next-mode)))
-        toggle-style {:backgroundColor "rgba(255,255,255,0.08)"
-                      :borderRadius 1
-                      :px 1
-                      :py 0.25
-                      :border "1px solid rgba(255,255,255,0.2)"
-                      :color "rgba(255,255,255,0.8)"
-                      :textTransform "uppercase"
-                      :fontSize "0.65rem"
-                      :fontWeight 600
-                      :lineHeight 1.1
-                      :letterSpacing "0.05em"
-                      :minWidth 0
-                      "&:hover" {:backgroundColor "rgba(255,255,255,0.12)"}}]
-    [box {:sx {:display "flex" :flexDirection "column" :gap 0.5}}
-     [button
-      {:variant "outlined"
-       :size "small"
-       :onClick cycle-context-mode!
-       :sx toggle-style}
-      [:span
-       {:style {:display "inline-flex"
-                :flexDirection "column"
-                :alignItems "center"
-                :gap "0.1rem"}} "Toggle"
-       [:span {:style {:display "block"}} "Context"]]]
+            (change-context-mode! next-mode)))]
+    [tooltip {:title "Cycle Context"}
      [typography
       {:variant "caption"
-       :sx (merge {:color color :fontSize "0.7rem" :lineHeight 1.2} sx)}
-      label]]))
+       :onClick cycle-context-mode!
+       :sx (merge {:color color
+                   :fontSize "0.7rem"
+                   :lineHeight 1.2
+                   :cursor "pointer"
+                   "&:hover" {:opacity 0.8}}
+                  sx)} label]]))

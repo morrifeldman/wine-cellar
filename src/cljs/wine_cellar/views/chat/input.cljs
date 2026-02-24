@@ -12,7 +12,8 @@
             [reagent-mui.icons.bookmarks :refer [bookmarks]]
             [wine-cellar.views.chat.utils :refer
              [handle-clipboard-image handle-paste-event]]
-            [wine-cellar.views.chat.message :refer [attached-image-preview]]))
+            [wine-cellar.views.chat.message :refer [attached-image-preview]]
+            [wine-cellar.views.components.ai-provider-toggle :as ai-toggle]))
 
 (def ^:private preset-deal-sites
   [{:label "Last Bottle"
@@ -80,6 +81,7 @@
              :align-items "center"
              :gap 1
              :flex-wrap "wrap"}}
+       [ai-toggle/provider-toggle-button app-state {:sx {:mr "auto"}}]
        (let [is-mobile? (and js/navigator.maxTouchPoints
                              (> js/navigator.maxTouchPoints 0))
              trigger-upload #(when-let [input (js/document.getElementById

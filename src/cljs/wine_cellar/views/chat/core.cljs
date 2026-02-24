@@ -9,11 +9,13 @@
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [reagent-mui.material.tooltip :refer [tooltip]]
             [reagent-mui.icons.chat :refer [chat]]
+            [reagent-mui.icons.forum :refer [forum]]
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.clear-all :refer [clear-all]]
             [wine-cellar.views.components.image-upload :refer [camera-capture]]
-            [wine-cellar.views.components.ai-provider-toggle :as ai-toggle]
+            [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.views.wines.filters :as wine-filters]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
             [wine-cellar.api :as api]
@@ -40,16 +42,16 @@
            (if conversation-loading?
              [circular-progress {:size 18}]
              [chat {:fontSize "small"}])]
-          [button
-           {:variant "outlined"
-            :size "small"
-            :disabled conversation-loading?
-            :on-click on-toggle-sidebar
-            :sx
-            {:textTransform "none" :display "flex" :alignItems "center" :gap 1}}
-           (if conversation-loading?
-             [circular-progress {:size 16 :sx {:color "primary.main"}}]
-             (if sidebar-open? "Hide Conversations" "Show Conversations"))])]
+          [tooltip
+           {:title (if sidebar-open? "Hide Conversations" "Conversations")}
+           [icon-button
+            {:size "small"
+             :disabled conversation-loading?
+             :on-click on-toggle-sidebar
+             :sx {:color "secondary.main"}}
+            (if conversation-loading?
+              [circular-progress {:size 18}]
+              [forum {:fontSize "small"}])]])]
     [dialog-title
      [box
       {:sx {:display "flex"
@@ -58,29 +60,21 @@
             :gap (if is-mobile? 0.5 1)
             :flex-wrap "nowrap"}}
       [box {:sx {:display "flex" :align-items "center" :gap 0.75 :minWidth 0}}
-       [box
-        {:sx {:display "flex"
-              :flex-direction "column"
-              :align-items "flex-start"
-              :gap 0.25}}
-        [ai-toggle/provider-toggle-button app-state
-         {:mobile-min-width (if is-mobile? "96px" "120px")
-          :sx {:alignSelf "flex-start"}}]
-        (when context-indicator context-indicator)]]
+       (when context-indicator context-indicator)]
       [box
        {:sx {:display "flex" :align-items "center" :gap (if is-mobile? 0.5 1)}}
        conversation-toggle
-       [icon-button
-        {:on-click #(chat-actions/clear-chat! app-state
-                                              messages
-                                              message-ref
-                                              pending-image)
-         :title "Clear chat history"
-         :sx {:color "secondary.main"}} [clear-all]]
-       [icon-button
-        {:on-click #(chat-actions/close-chat! app-state message-ref)
-         :title "Close chat"
-         :sx {:color "secondary.main"}} [close]]]]]))
+       [tooltip {:title "Clear chat history"}
+        [icon-button
+         {:on-click #(chat-actions/clear-chat! app-state
+                                               messages
+                                               message-ref
+                                               pending-image)
+          :sx {:color "secondary.main"}} [clear-all]]]
+       [tooltip {:title "Close"}
+        [icon-button
+         {:on-click #(chat-actions/close-chat! app-state message-ref)
+          :sx {:color "secondary.main"}} [close]]]]]]))
 
 (defn- chat-main-column
   [{:keys [sidebar-open? show-camera? handle-camera-capture handle-camera-cancel
@@ -99,7 +93,7 @@
          (is-editing?)
          (conj
           [box {:component "span" :sx {:display "block"}}
-           [reagent-mui.material.typography/typography
+           [typography
             {:variant "caption" :sx {:color "warning.main" :px 2 :py 0.5}}
             "Editing message - all responses after this will be regenerated"]]))
        (conj [chat-input/chat-input message-ref handle-send is-sending?

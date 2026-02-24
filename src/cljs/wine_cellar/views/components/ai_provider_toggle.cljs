@@ -1,6 +1,7 @@
 (ns wine-cellar.views.components.ai-provider-toggle
   (:require [wine-cellar.common :as common]
-            [reagent-mui.material.button :refer [button]]))
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.tooltip :refer [tooltip]]))
 
 (defn toggle-provider!
   [app-state]
@@ -38,9 +39,9 @@
                   :minWidth (or mobile-min-width (if (mobile?) "96px" "120px"))
                   :height "28px"
                   :lineHeight 1.2}]
-     [button
-      {:variant variant
-       :size size
-       :on-click #(toggle-provider! app-state)
-       :sx (merge base-sx sx)
-       :title title} display-label])))
+     [tooltip {:title title}
+      [button
+       {:variant variant
+        :size size
+        :on-click #(toggle-provider! app-state)
+        :sx (merge base-sx sx)} display-label]])))
