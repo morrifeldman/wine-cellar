@@ -454,8 +454,9 @@
      [form-control
       {:variant "outlined"
        :size "small"
-       :sx
-       {:flex 1 :minWidth (if compact? 160 180) :maxWidth {:xs 220 :sm 320}}}
+       :sx {:flex 1
+            :minWidth (if compact? 160 {:xs 100 :sm 180})
+            :maxWidth {:xs 220 :sm 320}}}
       [select
        {:value (let [sort-state (:sort @app-state)
                      current-field (:field sort-state)]
