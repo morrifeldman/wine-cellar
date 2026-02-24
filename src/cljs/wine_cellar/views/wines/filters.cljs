@@ -450,9 +450,12 @@
 (defn- sort-controls-row
   [app-state _count-info {:keys [compact?]}]
   (let [gap (if compact? 1.5 2)
-        min-width (if compact? 160 180)]
+        min-width (if compact? 160 {:xs 120 :sm 180})]
     [box {:sx {:display "flex" :alignItems "center" :gap gap :flexWrap "wrap"}}
-     [form-control {:variant "outlined" :size "small" :sx {:minWidth min-width}}
+     [form-control
+      {:variant "outlined"
+       :size "small"
+       :sx {:minWidth min-width :maxWidth {:xs 150 :sm 300}}}
       [select
        {:value (let [sort-state (:sort @app-state)
                      current-field (:field sort-state)]
@@ -496,7 +499,7 @@
                   {:transform "scaleY(-1)"})}]]]])
      (when-not compact?
        [box {:sx {:ml "auto"}}
-        [style-selector app-state {:sx {:width 130}}]])]))
+        [style-selector app-state {:sx {:width {:xs 100 :sm 130}}}]])]))
 
 (defn filter-bar
   ([app-state] (filter-bar app-state nil))
