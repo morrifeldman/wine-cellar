@@ -674,4 +674,7 @@
       auth/wrap-auth]}})
   ; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
   (ring/routes (ring/create-file-handler {:path "/"})
+               (fn [{:keys [request-method]}]
+                 (when (= :get request-method)
+                   (response/resource-response "index.html" {:root "public"})))
                (ring/create-default-handler))))

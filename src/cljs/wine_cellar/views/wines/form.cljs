@@ -7,6 +7,7 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent.core :as r]
             [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]
             [wine-cellar.common :as common]
             [wine-cellar.utils.formatting :refer
              [appellations-for-region classifications-for-appellation
@@ -416,7 +417,6 @@
        :cancel-text "Cancel"
        :loading? submitting?
        :on-cancel #(do (swap! app-state assoc
-                         :show-wine-form? false
-                         :new-wine {:bottle_format "Standard (750ml)"})
-                       ;; Use replaceState to fix back button behavior
-                       (.replaceState js/history nil "" "/"))}]]))
+                         :new-wine
+                         {:bottle_format "Standard (750ml)"})
+                       (nav/replace-wines!))}]]))

@@ -14,13 +14,10 @@
             [reagent-mui.material.card-media :refer [card-media]]
             [reagent-mui.material.grid :refer [grid]]
             ["react-markdown" :default ReactMarkdown]
-            [wine-cellar.api :as api]))
+            [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]))
 
-(defn- open-wine
-  [app-state id]
-  (swap! app-state assoc :return-to-report? true)
-  (swap! app-state dissoc :show-report?)
-  (api/load-wine-detail-page app-state id))
+(defn- open-wine [_app-state id] (nav/go-wine-detail! id))
 
 (defn- highlight-wine-card
   [wine on-view-wine]
@@ -205,7 +202,8 @@
                    (api/fetch-report-list app-state))} "Regenerate"]
     [icon-button
      {:sx {:color "text.secondary"}
-      :on-click #(swap! app-state dissoc :show-report? :report)} [:span "✕"]]]
+      :on-click #(do (swap! app-state dissoc :report) (nav/replace-wines!))}
+     [:span "✕"]]]
    (cond @loading? [box
                     {:sx {:display "flex"
                           :flexDirection "column"

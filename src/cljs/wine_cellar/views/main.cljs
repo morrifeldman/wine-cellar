@@ -1,6 +1,7 @@
 (ns wine-cellar.views.main
   (:require
     [wine-cellar.api :as api]
+    [wine-cellar.nav :as nav]
     [wine-cellar.common :as common]
     [wine-cellar.views.wines.form :refer [wine-form]]
     [wine-cellar.views.admin.devices :refer [devices-page]]
@@ -112,26 +113,12 @@
                   :fontSize "0.75rem"
                   :color "rgba(255, 255, 255, 0.7)"
                   :font-family "monospace"}} model])]) [divider]
-   [menu-item
-    {:on-click (fn []
-                 (close-menu!)
-                 (api/fetch-devices app-state)
-                 (swap! app-state assoc :view :devices))} "Devices"]
-   [menu-item
-    {:on-click (fn []
-                 (close-menu!)
-                 (api/fetch-grape-varieties app-state)
-                 (swap! app-state assoc :view :grape-varieties))}
+   [menu-item {:on-click (fn [] (close-menu!) (nav/go-devices!))} "Devices"]
+   [menu-item {:on-click (fn [] (close-menu!) (nav/go-grape-varieties!))}
     "Grape Varieties"]
-   [menu-item
-    {:on-click (fn []
-                 (close-menu!)
-                 (api/fetch-classifications app-state)
-                 (swap! app-state assoc :view :classifications))}
+   [menu-item {:on-click (fn [] (close-menu!) (nav/go-classifications!))}
     "Classifications"]
-   [menu-item
-    {:on-click (fn [] (close-menu!) (swap! app-state assoc :view :sql))}
-    "SQL Query"]
+   [menu-item {:on-click (fn [] (close-menu!) (nav/go-admin-sql!))} "SQL Query"]
    [menu-item
     {:on-click
      (fn [] (close-menu!) (swap! app-state update :show-debug-controls? not))}
@@ -268,13 +255,7 @@
          :open (boolean @anchor-el)
          :on-close #(reset! anchor-el nil)}
         ;; Main Actions
-        [menu-item
-         {:on-click (fn []
-                      (reset! anchor-el nil)
-                      (let [provider (get-in @app-state [:ai :provider])]
-                        (swap! app-state assoc :show-report? true)
-                        (api/fetch-latest-report app-state
-                                                 {:provider provider})))}
+        [menu-item {:on-click (fn [] (reset! anchor-el nil) (nav/go-insights!))}
          [list-item-icon [insights {:fontSize "small" :color "primary"}]]
          "Insights"]
         [menu-item
@@ -283,16 +264,11 @@
                       (swap! app-state assoc :show-collection-stats? true))}
          [list-item-icon [bar-chart {:fontSize "small" :color "primary"}]]
          "Stats"]
-        [menu-item
-         {:on-click (fn []
-                      (reset! anchor-el nil)
-                      (swap! app-state assoc :view :sensor-readings))}
+        [menu-item {:on-click (fn [] (reset! anchor-el nil) (nav/go-sensors!))}
          [list-item-icon [thermostat {:fontSize "small" :color "primary"}]]
          "Sensors"]
         [menu-item
-         {:on-click (fn []
-                      (reset! anchor-el nil)
-                      (swap! app-state assoc :view :blind-tastings))}
+         {:on-click (fn [] (reset! anchor-el nil) (nav/go-blind-tastings!))}
          [list-item-icon [visibility-off {:fontSize "small" :color "primary"}]]
          "Blind Tastings"] [divider]
         [typography
@@ -319,7 +295,7 @@
              :width 48
              :height 48
              :boxShadow 3}
-        :on-click #(swap! app-state update :show-wine-form? not)}
+        :on-click #(if show-form? (nav/go-wines!) (nav/go-add-wine!))}
        (if show-form? [arrow-back] [add])]
       [tooltip
        {:title (if show-form? "Show Wine List" "Add New Wine")
@@ -328,7 +304,7 @@
        [button
         {:size "small"
          :sx {:color "text.secondary" :minWidth 0 :p 0.5}
-         :on-click #(swap! app-state update :show-wine-form? not)}
+         :on-click #(if show-form? (nav/go-wines!) (nav/go-add-wine!))}
         (if show-form?
           [arrow-back {:fontSize "small"}]
           [add {:fontSize "small"}])]])))
@@ -350,11 +326,7 @@
      (let [current-view (:view @app-state)]
        [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
         [button
-         {:variant "outlined"
-          :color "primary"
-          :onClick #(let [provider (get-in @app-state [:ai :provider])]
-                      (swap! app-state assoc :show-report? true)
-                      (api/fetch-latest-report app-state {:provider provider}))}
+         {:variant "outlined" :color "primary" :onClick #(nav/go-insights!)}
          "Insights"]
         [button
          {:variant "outlined"
@@ -364,12 +336,12 @@
         [button
          {:variant (if (= current-view :sensor-readings) "contained" "outlined")
           :color "primary"
-          :onClick #(swap! app-state assoc :view :sensor-readings)} "Sensors"]
+          :onClick #(nav/go-sensors!)} "Sensors"]
         [button
          {:variant (if (= current-view :blind-tastings) "contained" "outlined")
           :color "primary"
           :startIcon (r/as-element [visibility-off {:color "inherit"}])
-          :onClick #(swap! app-state assoc :view :blind-tastings)} "Blind"]
+          :onClick #(nav/go-blind-tastings!)} "Blind"]
         [admin-menu app-state]]))])
 
 (defn main-app
@@ -449,7 +421,7 @@
             [button
              {:variant "outlined"
               :color "primary"
-              :on-click #(swap! app-state dissoc :view)
+              :on-click #(nav/go-wines!)
               :sx {:mt 2}} "Back to Wine List"]]
            (= (:view state) :classifications) [classifications-page app-state]
            (= (:view state) :sensor-readings)
@@ -457,36 +429,28 @@
             [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
              [typography {:variant "h5"} "Sensors"]
              [button
-              {:variant "outlined"
-               :color "primary"
-               :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
-            [sensor-readings-panel app-state]]
+              {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
+              "Back to Wine List"]] [sensor-readings-panel app-state]]
            (= (:view state) :devices)
            [:div
             [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
              [typography {:variant "h5"} "Devices"]
              [button
-              {:variant "outlined"
-               :color "primary"
-               :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
-            [devices-page app-state]]
+              {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
+              "Back to Wine List"]] [devices-page app-state]]
            (= (:view state) :sql)
            [:div
             [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
              [typography {:variant "h5"} "Admin: SQL"]
              [button
-              {:variant "outlined"
-               :color "primary"
-               :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
-            [sql-page]]
+              {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
+              "Back to Wine List"]] [sql-page]]
            (= (:view state) :blind-tastings)
            [:div
             [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
              [button
-              {:variant "outlined"
-               :color "primary"
-               :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]]
-            [blind-tastings-page app-state]
+              {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
+              "Back to Wine List"]] [blind-tastings-page app-state]
             [blind-tasting-form-dialog app-state]
             [link-blind-tasting-dialog app-state]]
            ;; Wine views

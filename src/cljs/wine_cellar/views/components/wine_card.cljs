@@ -15,7 +15,8 @@
              [tasting-window-status tasting-window-color]]
             [wine-cellar.views.components :refer [quantity-control]]
             [wine-cellar.state :as app-state]
-            [wine-cellar.api :as api]))
+            [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]))
 
 ;; Utility functions
 (defn get-rating-color
@@ -353,7 +354,7 @@
                    :cursor "pointer"
                    ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
             selected? (assoc :border "1px solid rgba(144,202,249,0.65)"))
-      :onClick #(api/load-wine-detail-page app-state (:id wine))}
+      :onClick #(nav/go-wine-detail! (:id wine))}
      [wine-selection-checkbox app-state wine]
      ;; Wine header with thumbnail and basic info
      [wine-header app-state wine]

@@ -7,6 +7,7 @@
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.icons.edit :refer [edit]]
             [reagent-mui.icons.close :refer [close]]
+            [wine-cellar.nav :as nav]
             [wine-cellar.views.chat.utils :as chat-utils :refer
              [escape-regex execute-scroll-intent!]]))
 
@@ -113,19 +114,12 @@
                                                        "common.white"
                                                        "primary.main")}} ; Map
                                                                          ; literal.
-                               :on-click (fn [e] ; Function definition.
-                                           (.preventDefault e)
-                                           (.stopPropagation e)
-                                           (swap! app-state
-                                             (fn [state] ; Function
-                                                         ; definition.
-                                               (-> state
-                                                   (assoc :selected-wine-id
-                                                          (js/parseInt wine-id))
-                                                   (assoc-in [:chat :open?] ; Keyword
-                                                                            ; literal.
-                                                             false)))))} ; Map
-                                                                         ; literal.
+                               :on-click
+                               (fn [e]
+                                 (.preventDefault e)
+                                 (.stopPropagation e)
+                                 (swap! app-state assoc-in [:chat :open?] false)
+                                 (nav/go-wine-detail! (js/parseInt wine-id)))}
                               link-text]])) ; Vector literal.
                          (conj elements highlighted-part))] ; Vector literal.
                    [new-elements (+ offset match-count)])) ; Vector literal.

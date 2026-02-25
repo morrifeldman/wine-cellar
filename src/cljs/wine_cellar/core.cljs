@@ -3,86 +3,86 @@
             [reagent.dom.client :as dom-client]
             [wine-cellar.views.main :as views]
             [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]
             [wine-cellar.state :refer [initial-app-state]]
             [wine-cellar.theme :refer [wine-theme]]
-            [clojure.string]
+            [reitit.frontend :as rf]
+            [reitit.frontend.easy :as rfe]
             [reagent-mui.styles :refer [theme-provider]]
             [goog.object :as gobj]))
 
 (defonce app-state (r/atom initial-app-state))
 
-(defn update-url-from-state
-  [state]
-  (let [url (cond (:selected-wine-id state) (str "/wine/"
-                                                 (:selected-wine-id state))
-                  (:show-wine-form? state) "/add-wine"
-                  (:show-report? state) "/insights"
-                  (= (:view state) :grape-varieties) "/grape-varieties"
-                  (= (:view state) :classifications) "/classifications"
-                  (= (:view state) :sql) "/admin/sql"
-                  :else "/")
-        current-hash (.-hash js/location)
-        current-path (if (clojure.string/starts-with? current-hash "#")
-                       (subs current-hash 1)
-                       "/")]
-    (when (not= url current-path) (set! (.-hash js/location) url))))
+(defn- match->nav-state
+  [match]
+  (let [name (-> match
+                 :data
+                 :name)
+        params (:path-params match)]
+    (case name
+      ::nav/wines {:view nil
+                   :selected-wine-id nil
+                   :show-wine-form? false
+                   :show-report? false}
+      ::nav/wine-detail {:view nil
+                         :selected-wine-id (js/parseInt (:id params) 10)
+                         :show-wine-form? false
+                         :show-report? false}
+      ::nav/add-wine {:view nil
+                      :selected-wine-id nil
+                      :show-wine-form? true
+                      :show-report? false}
+      ::nav/insights {:view nil
+                      :selected-wine-id nil
+                      :show-wine-form? false
+                      :show-report? true}
+      ::nav/grape-varieties {:view :grape-varieties
+                             :selected-wine-id nil
+                             :show-wine-form? false
+                             :show-report? false}
+      ::nav/classifications {:view :classifications
+                             :selected-wine-id nil
+                             :show-wine-form? false
+                             :show-report? false}
+      ::nav/sensors {:view :sensor-readings
+                     :selected-wine-id nil
+                     :show-wine-form? false
+                     :show-report? false}
+      ::nav/devices {:view :devices
+                     :selected-wine-id nil
+                     :show-wine-form? false
+                     :show-report? false}
+      ::nav/blind-tastings {:view :blind-tastings
+                            :selected-wine-id nil
+                            :show-wine-form? false
+                            :show-report? false}
+      ::nav/admin-sql {:view :sql
+                       :selected-wine-id nil
+                       :show-wine-form? false
+                       :show-report? false}
+      {:view nil
+       :selected-wine-id nil
+       :show-wine-form? false
+       :show-report? false})))
 
-(defn parse-url
-  []
-  (let [hash (.-hash js/location)
-        path (if (clojure.string/starts-with? hash "#") (subs hash 1) "/")]
-    (cond (= path "/") {:view nil
-                        :selected-wine-id nil
-                        :show-wine-form? false
-                        :show-report? false}
-          (= path "/insights") {:view nil
-                                :selected-wine-id nil
-                                :show-wine-form? false
-                                :show-report? true}
-          (= path "/add-wine") {:view nil
-                                :selected-wine-id nil
-                                :show-wine-form? true
-                                :show-report? false}
-          (= path "/grape-varieties")
-          {:view :grape-varieties :selected-wine-id nil :show-wine-form? false}
-          (= path "/classifications")
-          {:view :classifications :selected-wine-id nil :show-wine-form? false}
-          (= path "/admin/sql")
-          {:view :sql :selected-wine-id nil :show-wine-form? false}
-          (.startsWith path "/wine/") {:view nil
-                                       :selected-wine-id
-                                       (js/parseInt (subs path 6) 10)
-                                       :show-wine-form? false}
-          :else {:view nil :selected-wine-id nil :show-wine-form? false})))
-
-(defn sync-state-with-url
-  []
-  (let [url-state (parse-url)
-        current-wine-id (:selected-wine-id @app-state)
-        new-wine-id (:selected-wine-id url-state)]
-    (when (and current-wine-id (not= current-wine-id new-wine-id))
+(defn on-navigate
+  [match _history]
+  (let [nav-state (match->nav-state match)
+        old-wine-id (:selected-wine-id @app-state)
+        new-wine-id (:selected-wine-id nav-state)]
+    (when (and old-wine-id (not= old-wine-id new-wine-id))
       (api/exit-wine-detail-page app-state))
+    (swap! app-state (fn [s]
+                       (-> s
+                           (dissoc :zoomed-image)
+                           (merge nav-state))))
     (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
-    (when-not (:show-report? url-state) (swap! app-state dissoc :show-report?))
-    (swap! app-state merge url-state)))
-
-(defn handle-hashchange [_] (sync-state-with-url))
-
-(defonce url-sync-timer (atom nil))
-
-(add-watch
- app-state
- :url-sync
- (fn [_ _ old-state new-state]
-   (when (or (not= (:view old-state) (:view new-state))
-             (not= (:selected-wine-id old-state) (:selected-wine-id new-state))
-             (not= (:show-wine-form? old-state) (:show-wine-form? new-state))
-             (not= (:show-report? old-state) (:show-report? new-state)))
-     (when @url-sync-timer (js/clearTimeout @url-sync-timer))
-     (reset! url-sync-timer (js/setTimeout #(do (reset! url-sync-timer nil)
-                                                (update-url-from-state
-                                                 @app-state))
-                                           0)))))
+    (when (:show-report? nav-state)
+      (api/fetch-latest-report app-state
+                               {:provider (get-in @app-state [:ai :provider])}))
+    (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
+    (when (= :sensor-readings (:view nav-state))
+      (api/fetch-latest-sensor-readings app-state {}))))
 
 (defonce root (atom nil))
 
@@ -136,24 +136,16 @@
 (defn init
   []
   (js/console.log "Initializing app...")
-  ;; Set up browser hash handling
-  (.addEventListener js/window "hashchange" handle-hashchange)
-  ;; Sync initial state with URL
-  (sync-state-with-url)
-  ;; Fetch model info and default provider on app load
+  (rfe/start! (rf/router nav/routes) on-navigate {:use-fragment false})
   (when-not @api/headless-mode?
     (api/fetch-model-info app-state)
     (api/fetch-verbose-logging-state app-state))
-  ;; Only fetch data if we don't already have it and we're not in headless
-  ;; mode
   (when (and (empty? (:wines @app-state)) (not @api/headless-mode?))
     (api/fetch-wines app-state))
   (when (and (empty? (:classifications @app-state)) (not @api/headless-mode?))
     (api/fetch-classifications app-state))
   (when (and (empty? (:grape-varieties @app-state)) (not @api/headless-mode?))
     (api/fetch-grape-varieties app-state))
-  (when-let [wine-id (:selected-wine-id @app-state)]
-    (api/load-wine-detail-page app-state wine-id))
   (when-not @root
     (reset! root (dom-client/create-root (js/document.getElementById "app"))))
   (dom-client/render @root

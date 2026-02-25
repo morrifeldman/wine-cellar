@@ -4,6 +4,7 @@
             [cljs-http.client :as http]
             [cljs.core.async :refer [<! go chan put!]]
             [wine-cellar.config :as config]
+            [wine-cellar.nav :as nav]
             [wine-cellar.state :refer [initial-app-state]]
             [wine-cellar.utils.filters :as filters]))
 
@@ -354,25 +355,18 @@
 (defn create-wine
   [app-state wine]
   (js/console.log "Sending wine data:" (clj->js wine))
-  (go
-   (let [result (<! (POST "/api/wines" wine "Failed to create wine"))]
-     (if (:success result)
-       (do
-         ;; Use replaceState BEFORE updating app state to fix back button
-         ;; behavior. This replaces the add wine form entry in history
-         ;; before navigation
-         (.replaceState js/history nil "" "/")
-         (fetch-wines app-state)
-         (fetch-classifications app-state) ;; Refresh classifications
-                                           ;; after adding a wine
-         (swap! app-state assoc
-           :new-wine {}
-           :window-reason nil
-           :show-wine-form? false
-           :submitting-wine? false))
-       (swap! app-state assoc
-         :error (:error result)
-         :submitting-wine? false)))))
+  (go (let [result (<! (POST "/api/wines" wine "Failed to create wine"))]
+        (if (:success result)
+          (do (nav/replace-wines!)
+              (fetch-wines app-state)
+              (fetch-classifications app-state)
+              (swap! app-state assoc
+                :new-wine {}
+                :window-reason nil
+                :submitting-wine? false))
+          (swap! app-state assoc
+            :error (:error result)
+            :submitting-wine? false)))))
 
 (defn delete-wine
   [app-state id]
@@ -1378,16 +1372,10 @@
   (fetch-inventory-history app-state wine-id))
 
 (defn exit-wine-detail-page
-  "Clean up state when leaving wine detail page"
-  ([app-state] (exit-wine-detail-page app-state {}))
-  ([app-state _opts]
-   (let [return-to-report? (:return-to-report? @app-state)]
-     (swap! app-state dissoc
-       :selected-wine-id
-       :tasting-notes :editing-note-id
-       :window-suggestion :new-tasting-note
-       :wine-varieties :zoomed-image
-       :inventory-history :return-to-report?)
-     (when return-to-report? (swap! app-state assoc :show-report? true)))
-   ;; Refresh wine list to get updated ratings from database
-   (fetch-wines app-state {:background? true})))
+  [app-state]
+  (swap! app-state dissoc
+    :selected-wine-id :tasting-notes
+    :editing-note-id :window-suggestion
+    :new-tasting-note :wine-varieties
+    :zoomed-image :inventory-history)
+  (fetch-wines app-state {:background? true}))

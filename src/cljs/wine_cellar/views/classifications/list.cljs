@@ -18,6 +18,7 @@
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.arrow-back :refer [arrow-back]]
             [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]
             [wine-cellar.views.components.classification-fields :refer
              [classification-fields]]
             [wine-cellar.views.classifications.form :refer
@@ -121,7 +122,7 @@
        {:variant "outlined"
         :color "primary"
         :start-icon (r/as-element [arrow-back])
-        :on-click #(swap! app-state dissoc :view)} "Back to Wine List"]
+        :on-click #(nav/go-wines!)} "Back to Wine List"]
       [button
        {:variant "contained"
         :color "primary"

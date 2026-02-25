@@ -41,6 +41,7 @@
     [reagent-mui.material.table-row :refer [table-row]]
     [reagent.core :as r]
     [wine-cellar.api :as api]
+    [wine-cellar.nav :as nav]
     [wine-cellar.common :as common]
     [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
     [wine-cellar.utils.vintage :as vintage]
@@ -480,6 +481,7 @@
             ":hover" {:bgcolor "rgba(0,0,0,0.1)"}}
        :onClick
        #(do (.stopPropagation %)
+            (.pushState js/history nil "" (.-pathname js/location))
             (swap! app-state assoc
               :zoomed-image
               {:data image-data :title title :on-remove on-image-remove}))}
@@ -1177,16 +1179,8 @@
   [app-state selected-wine-id selected-wine]
   (fn []
     (when (js/confirm (delete-wine-confirmation-text selected-wine))
-      (go
-       ;; Delete the wine
-       (<! (api/delete-wine app-state selected-wine-id))
-       ;; Replace browser history to prevent back button to deleted wine
-       (.replaceState js/history nil "" "/")
-       ;; Navigate back to the list automatically
-       (swap! app-state dissoc
-         :selected-wine-id :tasting-notes
-         :editing-note-id :window-suggestion)
-       (swap! app-state assoc :new-tasting-note {})))))
+      (go (<! (api/delete-wine app-state selected-wine-id))
+          (nav/replace-wines!)))))
 
 (defn wine-action-buttons
   "Render the back and delete buttons for wine details"
@@ -1196,8 +1190,7 @@
     {:variant "contained"
      :color "primary"
      :start-icon (r/as-element [arrow-back])
-     :onClick #(do (tap> {:back-button-clicked true})
-                   (api/exit-wine-detail-page app-state))} "Back to List"]
+     :onClick #(nav/go-wines!)} "Back to List"]
    [button
     {:variant "outlined"
      :color "error"
