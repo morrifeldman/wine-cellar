@@ -405,7 +405,7 @@
   [app-state image-data image-title on-remove]
   [modal
    {:open (boolean (get @app-state :zoomed-image))
-    :onClose #(swap! app-state dissoc :zoomed-image)
+    :onClose #(.back js/history)
     :closeAfterTransition true}
    [backdrop
     {:sx {:color "white"} :open (boolean (get @app-state :zoomed-image))}
@@ -435,11 +435,9 @@
           {:size "small"
            :color "error"
            :variant "text"
-           :onClick (fn [] (on-remove) (swap! app-state dissoc :zoomed-image))}
-          "Remove"])
-       [button
-        {:onClick #(swap! app-state dissoc :zoomed-image)
-         :sx {:minWidth "auto" :p 1}} [close]]]]
+           :onClick (fn [] (on-remove) (.back js/history))} "Remove"])
+       [button {:onClick #(.back js/history) :sx {:minWidth "auto" :p 1}}
+        [close]]]]
      ;; Image container
      [box
       {:sx {:flex 1

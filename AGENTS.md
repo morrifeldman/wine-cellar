@@ -26,7 +26,7 @@ Backend Clojure source lives in `src/clj/wine_cellar`, shared code in `src/cljc`
 - **Code Suggestions**: If code replacement tools encounter errors, suggest changes in chat instead
 - **Small Edits**: For single character additions (like missing parentheses), suggest the fix in chat rather than using Edit tool
 - **Json Processing**: Use jsonista for json processing
-- **Git Operations**: Do NOT commit or stage code. User handles `git add` and `git commit` manually
+- **Git Operations**: Stage and commit code when work is complete. Follow the commit message style in the Commit & PR Guidelines section below.
 - **Formatting**: Do NOT run code formatting tools. A pre-commit hook handles this
 - **Migrations**: Propose ad-hoc Clojure scripts (in `scripts/wine_cellar/scripts/`) for data tasks rather than manual DB manipulations
 - **Testing**: Ask user to test features before proposing finalization; do not assume they work
