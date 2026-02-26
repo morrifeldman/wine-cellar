@@ -26,7 +26,8 @@
                          "4px solid rgba(128,203,196,0.7)")
            :cursor "pointer"
            "&:hover" {:boxShadow 3}}
-      :onClick #(swap! app-state assoc :editing-note-id (:id note))}
+      :onClick #(do (.pushState js/history nil "" (.-pathname js/location))
+                    (swap! app-state assoc :editing-note-id (:id note)))}
      [grid {:container true}
       ;; Header with date/source and rating
       [grid {:item true :xs 9}

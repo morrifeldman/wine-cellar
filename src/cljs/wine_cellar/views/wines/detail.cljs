@@ -1106,26 +1106,24 @@
 
 (defn wine-tasting-notes-section
   [app-state wine]
-  (r/with-let
-   [add-open? (r/atom false)]
-   (let [on-close #(do (reset! add-open? false)
-                       (swap! app-state assoc
-                         :editing-note-id nil
-                         :new-tasting-note {}))]
-     [box
-      {:sx {:mt 3 :borderLeft "3px solid rgba(240,98,146,0.7)" :pl 1.5 :pb 2}}
-      [section-header rate-review "Tasting Notes" "rgba(240,98,146,0.7)"]
-      [tasting-notes-list app-state (:id wine)]
-      [tooltip {:title "Add tasting note" :placement "right" :arrow true}
-       [button
-        {:size "small"
-         :sx {:mt 1 :color "text.secondary" :minWidth 0 :p 0.5}
-         :on-click #(reset! add-open? true)} [add {:fontSize "small"}]]]
-      [dialog
-       {:open (or @add-open? (boolean (:editing-note-id @app-state)))
-        :onClose on-close
-        :maxWidth "md"
-        :fullWidth true} [tasting-note-form app-state (:id wine) on-close]]])))
+  (let [on-close #(.back js/history)]
+    [box
+     {:sx {:mt 3 :borderLeft "3px solid rgba(240,98,146,0.7)" :pl 1.5 :pb 2}}
+     [section-header rate-review "Tasting Notes" "rgba(240,98,146,0.7)"]
+     [tasting-notes-list app-state (:id wine)]
+     [tooltip {:title "Add tasting note" :placement "right" :arrow true}
+      [button
+       {:size "small"
+        :sx {:mt 1 :color "text.secondary" :minWidth 0 :p 0.5}
+        :on-click #(do (.pushState js/history nil "" (.-pathname js/location))
+                       (swap! app-state assoc :show-tasting-note-form? true))}
+       [add {:fontSize "small"}]]]
+     [dialog
+      {:open (or (:show-tasting-note-form? @app-state)
+                 (boolean (:editing-note-id @app-state)))
+       :onClose on-close
+       :maxWidth "md"
+       :fullWidth true} [tasting-note-form app-state (:id wine) on-close]]]))
 
 (defn wine-detail
   [app-state wine]
@@ -1188,7 +1186,7 @@
     {:variant "contained"
      :color "primary"
      :start-icon (r/as-element [arrow-back])
-     :onClick #(nav/go-wines!)} "Back to List"]
+     :onClick #(.back js/history)} "Back to List"]
    [button
     {:variant "outlined"
      :color "error"

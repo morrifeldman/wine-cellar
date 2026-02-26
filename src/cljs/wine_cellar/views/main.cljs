@@ -261,6 +261,7 @@
         [menu-item
          {:on-click (fn []
                       (reset! anchor-el nil)
+                      (.pushState js/history nil "" (.-pathname js/location))
                       (swap! app-state assoc :show-collection-stats? true))}
          [list-item-icon [bar-chart {:fontSize "small" :color "primary"}]]
          "Stats"]
@@ -331,7 +332,8 @@
         [button
          {:variant "outlined"
           :color "primary"
-          :onClick #(swap! app-state assoc :show-collection-stats? true)}
+          :onClick #(do (.pushState js/history nil "" (.-pathname js/location))
+                        (swap! app-state assoc :show-collection-stats? true))}
          "Stats"]
         [button
          {:variant (if (= current-view :sensor-readings) "contained" "outlined")

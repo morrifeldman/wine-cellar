@@ -17,7 +17,15 @@
             [wine-cellar.api :as api]
             [wine-cellar.nav :as nav]))
 
-(defn- open-wine [_app-state id] (nav/go-wine-detail! id))
+(defonce ^:private insights-el (atom nil))
+
+(defn- open-wine
+  [_app-state id]
+  (let [scroll-y (if-let [el @insights-el]
+                   (.-scrollTop el)
+                   0)]
+    (.replaceState js/history #js {:scrollY scroll-y} "")
+    (nav/go-wine-detail! id)))
 
 (defn- highlight-wine-card
   [wine on-view-wine]
@@ -47,11 +55,16 @@
 (defn- handle-selection
   [app-state ids]
   (if (seq ids)
-    (swap! app-state assoc
-      :selected-wine-ids (set ids)
-      :show-selected-wines? true
-      :show-report? false
-      :return-to-report? true)
+    (do (.replaceState js/history
+                       #js {:scrollY (if-let [el @insights-el]
+                                       (.-scrollTop el)
+                                       0)}
+                       "")
+        (.pushState js/history nil "" (.-pathname js/location))
+        (swap! app-state assoc
+          :selected-wine-ids (set ids)
+          :show-selected-wines? true
+          :show-report? false))
     (js/console.warn "No IDs to select")))
 
 (defn- markdown-components
@@ -173,47 +186,58 @@
 
 (defn- report-paper
   [app-state report loading? {:keys [has-prev? has-next? prev-id next-id]}]
-  [paper
-   {:elevation 24
-    :sx
-    {:width "100%" :maxWidth "900px" :maxHeight "90vh" :overflow "auto" :p 4}}
-   [box {:sx {:display "flex" :alignItems "center" :mb 2 :gap 0.5}}
-    [icon-button
-     {:sx {:opacity (if has-prev? 1 0.25) :color "text.secondary"}
-      :disabled (not has-prev?)
-      :on-click #(api/fetch-report-by-id app-state prev-id)}
-     [:span {:style {:fontSize "1.5rem" :lineHeight 1}} "‹"]]
-    [typography
-     {:variant "h4" :color "primary.main" :sx {:fontWeight 600 :ml 1}}
-     "🍷 Cellar Insights"]
-    [icon-button
-     {:sx {:opacity (if has-next? 1 0.25) :color "text.secondary"}
-      :disabled (not has-next?)
-      :on-click #(api/fetch-report-by-id app-state next-id)}
-     [:span {:style {:fontSize "1.5rem" :lineHeight 1}} "›"]]
-    [box {:sx {:flex 1}}]
-    [button
-     {:variant "text"
-      :size "small"
-      :color "secondary"
-      :on-click #(let [provider (get-in @app-state [:ai :provider])]
-                   (api/fetch-latest-report app-state
-                                            {:force? true :provider provider})
-                   (api/fetch-report-list app-state))} "Regenerate"]
-    [icon-button
-     {:sx {:color "text.secondary"}
-      :on-click #(do (swap! app-state dissoc :report) (nav/replace-wines!))}
-     [:span "✕"]]]
-   (cond @loading? [box
-                    {:sx {:display "flex"
-                          :flexDirection "column"
-                          :alignItems "center"
-                          :p 8
-                          :gap 2}} [circular-progress {:color "secondary"}]
-                    [typography {:variant "body1" :color "text.secondary"}
-                     "Consulting the sommelier..."]]
-         @report [report-body app-state report]
-         :else [typography {:color "error"} "Failed to load report."])])
+  (r/with-let
+   [ref-fn
+    (fn [el]
+      (reset! insights-el el)
+      (when el
+        (when-let [scroll (:restore-scroll @app-state)]
+          (js/requestAnimationFrame (fn []
+                                      (set! (.-scrollTop el) scroll)
+                                      (swap! app-state dissoc
+                                        :restore-scroll))))))]
+   [paper
+    {:ref ref-fn
+     :elevation 24
+     :sx
+     {:width "100%" :maxWidth "900px" :maxHeight "90vh" :overflow "auto" :p 4}}
+    [box {:sx {:display "flex" :alignItems "center" :mb 2 :gap 0.5}}
+     [icon-button
+      {:sx {:opacity (if has-prev? 1 0.25) :color "text.secondary"}
+       :disabled (not has-prev?)
+       :on-click #(api/fetch-report-by-id app-state prev-id)}
+      [:span {:style {:fontSize "1.5rem" :lineHeight 1}} "‹"]]
+     [typography
+      {:variant "h4" :color "primary.main" :sx {:fontWeight 600 :ml 1}}
+      "🍷 Cellar Insights"]
+     [icon-button
+      {:sx {:opacity (if has-next? 1 0.25) :color "text.secondary"}
+       :disabled (not has-next?)
+       :on-click #(api/fetch-report-by-id app-state next-id)}
+      [:span {:style {:fontSize "1.5rem" :lineHeight 1}} "›"]]
+     [box {:sx {:flex 1}}]
+     [button
+      {:variant "text"
+       :size "small"
+       :color "secondary"
+       :on-click #(let [provider (get-in @app-state [:ai :provider])]
+                    (api/fetch-latest-report app-state
+                                             {:force? true :provider provider})
+                    (api/fetch-report-list app-state))} "Regenerate"]
+     [icon-button
+      {:sx {:color "text.secondary"}
+       :on-click #(do (swap! app-state dissoc :report) (nav/replace-wines!))}
+      [:span "✕"]]]
+    (cond @loading? [box
+                     {:sx {:display "flex"
+                           :flexDirection "column"
+                           :alignItems "center"
+                           :p 8
+                           :gap 2}} [circular-progress {:color "secondary"}]
+                     [typography {:variant "body1" :color "text.secondary"}
+                      "Consulting the sommelier..."]]
+          @report [report-body app-state report]
+          :else [typography {:color "error"} "Failed to load report."])]))
 
 (defn report-modal
   [app-state]

@@ -348,10 +348,7 @@
         stats-data (summary/collection-stats wines
                                              {:visible-wines visible-wines})
         metric (or (:stats-metric @app-state) :wines)]
-    [modal
-     {:open open?
-      :onClose #(swap! app-state dissoc :show-collection-stats?)
-      :closeAfterTransition true}
+    [modal {:open open? :onClose #(.back js/history) :closeAfterTransition true}
      [backdrop {:sx {:color "white"} :open open?}
       [box
        {:sx {:position "absolute"
@@ -375,7 +372,7 @@
         [box {:sx {:display "flex" :alignItems "center" :gap 1.5}}
          [stats-metric-toggle app-state]
          [icon-button
-          {:onClick #(swap! app-state dissoc :show-collection-stats?)
+          {:onClick #(.back js/history)
            :sx {:minWidth "auto" :p 1 :color "text.secondary"}} [close]]]]
        [stats-content app-state stats-data metric {:compact? false}]]]]))
 

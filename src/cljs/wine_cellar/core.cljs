@@ -74,15 +74,28 @@
       (api/exit-wine-detail-page app-state))
     (swap! app-state (fn [s]
                        (-> s
-                           (dissoc :zoomed-image)
+                           (dissoc :zoomed-image
+                                   :show-collection-stats?
+                                   :show-tasting-note-form?
+                                   :editing-note-id
+                                   :new-tasting-note
+                                   :show-selected-wines?
+                                   :selected-wine-ids
+                                   :return-to-report?)
                            (merge nav-state))))
     (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
-    (when (:show-report? nav-state)
+    (when (and (:show-report? nav-state) (not (:report @app-state)))
       (api/fetch-latest-report app-state
                                {:provider (get-in @app-state [:ai :provider])}))
     (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
     (when (= :sensor-readings (:view nav-state))
-      (api/fetch-latest-sensor-readings app-state {}))))
+      (api/fetch-latest-sensor-readings app-state {}))
+    (when (gobj/get (.-state js/history) "chatOpen")
+      (.replaceState js/history #js {} "" (.-pathname js/location))
+      (swap! app-state assoc-in [:chat :open?] true))
+    (when-let [scroll-y (gobj/get (.-state js/history) "scrollY")]
+      (.replaceState js/history #js {} "" (.-pathname js/location))
+      (swap! app-state assoc :restore-scroll scroll-y))))
 
 (defonce root (atom nil))
 

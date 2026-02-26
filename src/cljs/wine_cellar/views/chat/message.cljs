@@ -118,6 +118,9 @@
                                (fn [e]
                                  (.preventDefault e)
                                  (.stopPropagation e)
+                                 (.replaceState js/history
+                                                #js {:chatOpen true}
+                                                "")
                                  (swap! app-state assoc-in [:chat :open?] false)
                                  (nav/go-wine-detail! (js/parseInt wine-id)))}
                               link-text]])) ; Vector literal.
