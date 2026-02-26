@@ -1379,3 +1379,107 @@
     :new-tasting-note :wine-varieties
     :zoomed-image :inventory-history)
   (fetch-wines app-state {:background? true}))
+
+;; Bar API
+(defn fetch-bar-data
+  [app-state]
+  (swap! app-state assoc-in [:bar :loading?] true)
+  (go
+   (let [spirits-result (<! (GET "/api/spirits" "Failed to fetch spirits"))
+         inventory-result (<! (GET "/api/bar-inventory"
+                                   "Failed to fetch bar inventory"))
+         recipes-result (<! (GET "/api/cocktail-recipes"
+                                 "Failed to fetch recipes"))]
+     (swap! app-state
+       (fn [s]
+         (-> s
+             (assoc-in [:bar :loading?] false)
+             (assoc-in [:bar :spirits] (or (:data spirits-result) []))
+             (assoc-in [:bar :inventory-items] (or (:data inventory-result) []))
+             (assoc-in [:bar :recipes] (or (:data recipes-result) []))))))))
+
+(defn create-spirit
+  [app-state spirit]
+  (go (let [result (<! (POST "/api/spirits" spirit "Failed to create spirit"))]
+        (if (:success result)
+          (do (swap! app-state update-in [:bar :spirits] conj (:data result))
+              (swap! app-state assoc-in [:bar :show-spirit-form?] false)
+              (swap! app-state assoc-in [:bar :new-spirit] {}))
+          (swap! app-state assoc-in [:bar :error] (:error result))))))
+
+(defn update-spirit
+  [app-state id spirit]
+  (go (let [result (<! (PUT (str "/api/spirits/" id)
+                            spirit
+                            "Failed to update spirit"))]
+        (if (:success result)
+          (do (swap! app-state update-in
+                [:bar :spirits]
+                (fn [spirits]
+                  (mapv #(if (= (:id %) id) (:data result) %) spirits)))
+              (swap! app-state assoc-in [:bar :editing-spirit-id] nil))
+          (swap! app-state assoc-in [:bar :error] (:error result))))))
+
+(defn delete-spirit
+  [app-state id]
+  (go (let [result (<! (DELETE (str "/api/spirits/" id)
+                               "Failed to delete spirit"))]
+        (if (:success result)
+          (swap! app-state update-in
+            [:bar :spirits]
+            (fn [spirits] (filterv #(not= (:id %) id) spirits)))
+          (swap! app-state assoc-in [:bar :error] (:error result))))))
+
+(defn toggle-bar-inventory-item
+  [app-state id have-it?]
+  (go (let [result (<! (PUT (str "/api/bar-inventory/" id)
+                            {:have_it have-it?}
+                            "Failed to update inventory item"))]
+        (when (:success result)
+          (swap! app-state update-in
+            [:bar :inventory-items]
+            (fn [items] (mapv #(if (= (:id %) id) (:data result) %) items)))))))
+
+(defn create-bar-inventory-item
+  [app-state item]
+  (go
+   (let [result (<! (POST "/api/bar-inventory"
+                          item
+                          "Failed to create inventory item"))]
+     (if (:success result)
+       (swap! app-state update-in [:bar :inventory-items] conj (:data result))
+       (swap! app-state assoc-in [:bar :error] (:error result))))))
+
+(defn create-cocktail-recipe
+  [app-state recipe]
+  (go (let [result (<! (POST "/api/cocktail-recipes"
+                             recipe
+                             "Failed to create recipe"))]
+        (if (:success result)
+          (do (swap! app-state update-in [:bar :recipes] conj (:data result))
+              (swap! app-state assoc-in [:bar :show-recipe-form?] false)
+              (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []}))
+          (swap! app-state assoc-in [:bar :error] (:error result))))))
+
+(defn update-cocktail-recipe
+  [app-state id recipe]
+  (go (let [result (<! (PUT (str "/api/cocktail-recipes/" id)
+                            recipe
+                            "Failed to update recipe"))]
+        (if (:success result)
+          (do (swap! app-state update-in
+                [:bar :recipes]
+                (fn [recipes]
+                  (mapv #(if (= (:id %) id) (:data result) %) recipes)))
+              (swap! app-state assoc-in [:bar :editing-recipe-id] nil))
+          (swap! app-state assoc-in [:bar :error] (:error result))))))
+
+(defn delete-cocktail-recipe
+  [app-state id]
+  (go (let [result (<! (DELETE (str "/api/cocktail-recipes/" id)
+                               "Failed to delete recipe"))]
+        (if (:success result)
+          (swap! app-state update-in
+            [:bar :recipes]
+            (fn [recipes] (filterv #(not= (:id %) id) recipes)))
+          (swap! app-state assoc-in [:bar :error] (:error result))))))

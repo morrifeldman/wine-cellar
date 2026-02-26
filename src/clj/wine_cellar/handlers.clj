@@ -436,6 +436,96 @@
                         :timestamp (str (java.time.Instant/now))})
     (catch Exception e (server-error e))))
 
+;; Bar Handlers
+
+(defn get-spirits
+  [_]
+  (try (response/response (db-api/get-spirits))
+       (catch Exception e (server-error e))))
+
+(defn get-spirit
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if-let [spirit (db-api/get-spirit id)]
+         (response/response spirit)
+         (response/not-found {:error "Spirit not found"}))
+       (catch Exception e (server-error e))))
+
+(defn create-spirit
+  [request]
+  (let [body (-> request
+                 :parameters
+                 :body)]
+    (try {:status 201 :body (db-api/create-spirit! body)}
+         (catch Exception e (server-error e)))))
+
+(defn update-spirit
+  [{{{:keys [id]} :path body :body} :parameters}]
+  (try (if (db-api/get-spirit id)
+         (response/response (db-api/update-spirit! id body))
+         (response/not-found {:error "Spirit not found"}))
+       (catch Exception e (server-error e))))
+
+(defn delete-spirit
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if (db-api/get-spirit id)
+         (do (db-api/delete-spirit! id) (no-content))
+         (response/not-found {:error "Spirit not found"}))
+       (catch Exception e (server-error e))))
+
+(defn get-bar-inventory
+  [_]
+  (try (response/response (db-api/get-bar-inventory-items))
+       (catch Exception e (server-error e))))
+
+(defn update-bar-inventory-item
+  [{{{:keys [id]} :path body :body} :parameters}]
+  (try (if-let [updated (db-api/update-bar-inventory-item! id body)]
+         (response/response updated)
+         (response/not-found {:error "Bar inventory item not found"}))
+       (catch Exception e (server-error e))))
+
+(defn create-bar-inventory-item
+  [request]
+  (let [body (-> request
+                 :parameters
+                 :body)]
+    (try {:status 201 :body (db-api/create-bar-inventory-item! body)}
+         (catch Exception e (server-error e)))))
+
+(defn get-cocktail-recipes
+  [_]
+  (try (response/response (db-api/get-cocktail-recipes))
+       (catch Exception e (server-error e))))
+
+(defn get-cocktail-recipe
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if-let [recipe (db-api/get-cocktail-recipe id)]
+         (response/response recipe)
+         (response/not-found {:error "Recipe not found"}))
+       (catch Exception e (server-error e))))
+
+(defn create-cocktail-recipe
+  [request]
+  (let [body (-> request
+                 :parameters
+                 :body)]
+    (try {:status 201 :body (db-api/create-cocktail-recipe! body)}
+         (catch Exception e (server-error e)))))
+
+(defn update-cocktail-recipe
+  [{{{:keys [id]} :path body :body} :parameters}]
+  (try (if (db-api/get-cocktail-recipe id)
+         (response/response (db-api/update-cocktail-recipe! id body))
+         (response/not-found {:error "Recipe not found"}))
+       (catch Exception e (server-error e))))
+
+(defn delete-cocktail-recipe
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if (db-api/get-cocktail-recipe id)
+         (do (db-api/delete-cocktail-recipe! id) (no-content))
+         (response/not-found {:error "Recipe not found"}))
+       (catch Exception e (server-error e))))
+
 ;; Chat Handlers
 
 (defn chat-with-ai
@@ -462,6 +552,9 @@
                                [])
               cellar-wines (or (db-api/get-wines-for-list) [])
               condensed (summary/condensed-summary cellar-wines)
+              spirits (db-api/get-spirits)
+              inventory-items (db-api/get-bar-inventory-items)
+              recipes (db-api/get-cocktail-recipes)
               urls (vec
                     (take 2 (re-seq #"https?://[^\s<>\"{}|\\^`\[\]]+" message)))
               web-content
@@ -473,7 +566,10 @@
                   (map vector urls (pmap web-fetch/fetch-url-content urls)))))
               context (cond-> {:summary condensed
                                :selected-wines
-                               (if include? (vec enriched-wines) [])}
+                               (if include? (vec enriched-wines) [])
+                               :bar {:spirits spirits
+                                     :inventory-items inventory-items
+                                     :recipes recipes}}
                         (seq web-content) (assoc :web-content web-content))
               response
               (ai/chat-about-wines provider context conversation-history image)]

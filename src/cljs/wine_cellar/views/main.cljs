@@ -3,6 +3,7 @@
     [wine-cellar.api :as api]
     [wine-cellar.nav :as nav]
     [wine-cellar.common :as common]
+    [wine-cellar.views.bar.core :refer [bar-page]]
     [wine-cellar.views.wines.form :refer [wine-form]]
     [wine-cellar.views.admin.devices :refer [devices-page]]
     [wine-cellar.views.admin.sql :refer [sql-page]]
@@ -35,6 +36,7 @@
     [reagent-mui.icons.insights :refer [insights]]
     [reagent-mui.icons.bar-chart :refer [bar-chart]]
     [reagent-mui.icons.thermostat :refer [thermostat]]
+    [reagent-mui.icons.local-bar :refer [local-bar]]
     [reagent-mui.icons.visibility-off :refer [visibility-off]]
     [wine-cellar.views.components.debug :refer [debug-sidebar]]
     [wine-cellar.views.chat.core :refer [wine-chat]]
@@ -271,7 +273,10 @@
         [menu-item
          {:on-click (fn [] (reset! anchor-el nil) (nav/go-blind-tastings!))}
          [list-item-icon [visibility-off {:fontSize "small" :color "primary"}]]
-         "Blind Tastings"] [divider]
+         "Blind Tastings"]
+        [menu-item {:on-click (fn [] (reset! anchor-el nil) (nav/go-bar!))}
+         [list-item-icon [local-bar {:fontSize "small" :color "primary"}]]
+         "Bar"] [divider]
         [typography
          {:variant "caption"
           :sx {:px 2
@@ -344,7 +349,11 @@
           :color "primary"
           :startIcon (r/as-element [visibility-off {:color "inherit"}])
           :onClick #(nav/go-blind-tastings!)} "Blind"]
-        [admin-menu app-state]]))])
+        [button
+         {:variant (if (= current-view :bar) "contained" "outlined")
+          :color "primary"
+          :startIcon (r/as-element [local-bar {:color "inherit"}])
+          :onClick #(nav/go-bar!)} "Bar"] [admin-menu app-state]]))])
 
 (defn main-app
   [app-state]
@@ -418,7 +427,8 @@
                        :starting-text
                        "📝 Starting wine summary regeneration..."})]
        card)
-     (cond (= (:view state) :grape-varieties)
+     (cond (= (:view state) :bar) [bar-page app-state]
+           (= (:view state) :grape-varieties)
            [:div [grape-varieties-page app-state]
             [button
              {:variant "outlined"

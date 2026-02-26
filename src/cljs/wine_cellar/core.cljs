@@ -60,6 +60,10 @@
                        :selected-wine-id nil
                        :show-wine-form? false
                        :show-report? false}
+      ::nav/bar {:view :bar
+                 :selected-wine-id nil
+                 :show-wine-form? false
+                 :show-report? false}
       {:view nil
        :selected-wine-id nil
        :show-wine-form? false
@@ -90,6 +94,7 @@
     (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
     (when (= :sensor-readings (:view nav-state))
       (api/fetch-latest-sensor-readings app-state {}))
+    (when (= :bar (:view nav-state)) (api/fetch-bar-data app-state))
     (when (gobj/get (.-state js/history) "chatOpen")
       (.replaceState js/history #js {} "" (.-pathname js/location))
       (swap! app-state assoc-in [:chat :open?] true))

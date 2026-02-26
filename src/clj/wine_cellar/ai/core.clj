@@ -24,12 +24,13 @@
 (defn chat-about-wines
   [provider context conversation-history image]
   {:pre [(map? context) (contains? context :summary)]}
-  (let [{:keys [summary selected-wines web-content]} context
+  (let [{:keys [summary selected-wines web-content bar]} context
         prompt {:system-text (prompts/wine-system-instructions)
                 :context-text (prompts/wine-collection-context
                                {:summary summary
                                 :selected-wines selected-wines
-                                :web-content web-content})
+                                :web-content web-content
+                                :bar bar})
                 :messages (prompts/conversation-messages conversation-history
                                                          image)}]
     (case provider

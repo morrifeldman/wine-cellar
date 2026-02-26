@@ -198,3 +198,33 @@
                   [:firmware_version :varchar] [:capabilities :jsonb]
                   [:notes :text] [:created_at :timestamp [:default [:now]]]
                   [:updated_at :timestamp [:default [:now]]]]})
+
+(def spirits-table-schema
+  {:create-table [:spirits :if-not-exists]
+   :with-columns [[:id :integer :generated :by-default :as :identity
+                   :primary-key] [:name :varchar [:not nil]]
+                  [:category :varchar [:not nil]] [:distillery :varchar]
+                  [:country :varchar] [:region :varchar]
+                  [:age_statement :varchar] [:abv :numeric [4 1]]
+                  [:quantity :integer [:default 1]] [:price :numeric [10 2]]
+                  [:purchase_date :date] [:location :varchar] [:notes :text]
+                  [:created_at :timestamptz [:default [:now]]]
+                  [:updated_at :timestamptz [:default [:now]]]]})
+
+(def bar-inventory-items-table-schema
+  {:create-table [:bar_inventory_items :if-not-exists]
+   :with-columns
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:name :varchar [:not nil]] [:category :varchar [:not nil]]
+    [:have_it :boolean [:default false]] [:sort_order :integer [:default 0]]
+    [:created_at :timestamptz [:default [:now]]]]})
+
+(def cocktail-recipes-table-schema
+  {:create-table [:cocktail_recipes :if-not-exists]
+   :with-columns
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:name :varchar [:not nil]] [:description :text]
+    [:ingredients :jsonb [:not nil] [:default [:raw "'[]'::jsonb"]]]
+    [:instructions :text] [:tags :varchar :array] [:source :varchar]
+    [:created_at :timestamptz [:default [:now]]]
+    [:updated_at :timestamptz [:default [:now]]]]})

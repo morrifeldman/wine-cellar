@@ -68,6 +68,10 @@
    (sql-execute-helper tx schema/cellar-reports-table-schema)
    (sql-execute-helper tx schema/sensor-readings-table-schema)
    (sql-execute-helper tx schema/devices-table-schema)
+   (sql-execute-helper tx schema/spirits-table-schema)
+   (sql-execute-helper tx schema/bar-inventory-items-table-schema)
+   (sql-execute-helper tx schema/cocktail-recipes-table-schema)
+   (sql-execute-helper tx migrations/seed-bar-inventory-items)
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
 

@@ -41,6 +41,30 @@
 (def rename-cellar-conditions-to-sensor-readings
   {:raw ["ALTER TABLE IF EXISTS cellar_conditions RENAME TO sensor_readings"]})
 
+(def seed-bar-inventory-items
+  {:raw
+   ["DO $$ BEGIN "
+    "IF NOT EXISTS (SELECT 1 FROM bar_inventory_items LIMIT 1) THEN "
+    "INSERT INTO bar_inventory_items (name, category, sort_order) VALUES "
+    "('lime juice', 'juice', 10), " "('lemon juice', 'juice', 20), "
+    "('orange juice', 'juice', 30), " "('grapefruit juice', 'juice', 40), "
+    "('pineapple juice', 'juice', 50), " "('cranberry juice', 'juice', 60), "
+    "('club soda', 'soda', 10), " "('tonic water', 'soda', 20), "
+    "('ginger beer', 'soda', 30), " "('ginger ale', 'soda', 40), "
+    "('cola', 'soda', 50), " "('simple syrup', 'syrup', 10), "
+    "('honey syrup', 'syrup', 20), " "('grenadine', 'syrup', 30), "
+    "('orgeat', 'syrup', 40), " "('agave nectar', 'syrup', 50), "
+    "('falernum', 'syrup', 60), " "('Angostura bitters', 'bitters', 10), "
+    "('Peychaud''s bitters', 'bitters', 20), "
+    "('orange bitters', 'bitters', 30), " "('mole bitters', 'bitters', 40), "
+    "('lime wedges', 'garnish', 10), " "('lemon wedges', 'garnish', 20), "
+    "('orange peel', 'garnish', 30), "
+    "('maraschino cherries', 'garnish', 40), " "('olives', 'garnish', 50), "
+    "('cocktail onions', 'garnish', 60), " "('fresh mint', 'garnish', 70), "
+    "('fresh basil', 'garnish', 80), " "('rosemary', 'garnish', 90), "
+    "('heavy cream', 'other', 10), " "('egg whites', 'other', 20), "
+    "('coconut cream', 'other', 30); " "END IF; END $$;"]})
+
 (def remove-classification-vineyard-designations
   {:raw
    ["DO $$ BEGIN "

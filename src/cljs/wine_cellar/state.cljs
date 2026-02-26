@@ -58,7 +58,19 @@
                     :show-form? false
                     :show-link-dialog? false
                     :linking-note-id nil
-                    :submitting? false}})
+                    :submitting? false}
+   :bar {:spirits []
+         :inventory-items []
+         :recipes []
+         :loading? false
+         :error nil
+         :active-tab :spirits
+         :show-spirit-form? false
+         :editing-spirit-id nil
+         :show-recipe-form? false
+         :editing-recipe-id nil
+         :new-spirit {}
+         :new-recipe {:ingredients []}}})
 
 (def ^:private context-modes #{:summary :selection :selection+filters})
 

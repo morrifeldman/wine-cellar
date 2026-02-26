@@ -243,22 +243,79 @@
           suffix (when truncated? "\n... and more wines")]
       (str header "\n" body suffix))))
 
+(defn- bar-context-text
+  "Renders bar inventory (spirits, mixers/garnishes, recipes) as a text summary."
+  [{:keys [spirits inventory-items recipes]}]
+  (when (or (seq spirits) (seq inventory-items) (seq recipes))
+    (let [spirits-section
+          (when (seq spirits)
+            (let [by-cat (group-by :category spirits)]
+              (str "Spirits (" (count spirits)
+                   " bottles):\n"
+                   (str/join
+                    "\n"
+                    (for [[cat items] by-cat]
+                      (str "  " (str/capitalize cat)
+                           ": " (str/join
+                                 ", "
+                                 (map (fn [s]
+                                        (str (:name s)
+                                             (when (:abv s)
+                                               (str " (" (:abv s) "% ABV)"))
+                                             (when (:quantity s)
+                                               (str ", qty: " (:quantity s)))))
+                                      items))))))))
+          inventory-section
+          (when (seq inventory-items)
+            (let [have (filter :have_it inventory-items)
+                  by-cat (group-by :category have)]
+              (when (seq have)
+                (str "Mixers & Garnishes available:\n"
+                     (str/join "\n"
+                               (for [[cat items] by-cat
+                                     :let [label (str/capitalize cat)]]
+                                 (str "  " label
+                                      ": " (str/join ", "
+                                                     (map :name items)))))))))
+          recipes-section
+          (when (seq recipes)
+            (str "Saved Recipes (" (count recipes)
+                 "):\n" (str/join
+                         "\n"
+                         (map (fn [r]
+                                (str "  "
+                                     (:name r)
+                                     (when (seq (:tags r))
+                                       (str " [" (str/join ", " (:tags r)) "]"))
+                                     " — "
+                                     (count (:ingredients r))
+                                     " ingredients"))
+                              recipes))))]
+      (str/join "\n\n"
+                (filter identity
+                        [spirits-section inventory-section recipes-section])))))
+
 (defn wine-collection-context
   "Wraps the condensed cellar snapshot with optional selected wines details.
-   Accepts optional :web-content map of {url -> text} to append after cellar data."
-  [{:keys [summary selected-wines web-content]}]
+   Accepts optional :web-content map of {url -> text} to append after cellar data.
+   Accepts optional :bar map with spirits, inventory-items, recipes."
+  [{:keys [summary selected-wines web-content bar]}]
   (let [summary-text (condensed-summary-text summary)
         selection-text (selected-wines-context selected-wines)
         base (str "Here is information about the user's wine collection:\n\n"
                   summary-text)
         with-selection (if selection-text (str base "\n\n" selection-text) base)
+        bar-text (bar-context-text bar)
+        with-bar (if bar-text
+                   (str with-selection "\n\n=== Bar Inventory ===\n" bar-text)
+                   with-selection)
         web-section (when (seq web-content)
                       (str "\n\nWEB PAGE CONTENT:\n"
                            (str/join "\n\n"
                                      (map (fn [[url text]]
                                             (str "URL: " url "\n\n" text))
                                           web-content))))]
-    (if web-section (str with-selection web-section) with-selection)))
+    (if web-section (str with-bar web-section) with-bar)))
 
 (defn current-year [] (.getValue (java.time.Year/now)))
 

@@ -1058,3 +1058,122 @@
                   (cond-> {:last_seen [:now]}
                     token_expires_at (assoc :token_expires_at
                                             token_expires_at))))
+
+;; Bar: Spirits
+(defn- spirit->db-spirit
+  [{:keys [purchase_date] :as spirit}]
+  (cond-> spirit purchase_date (update :purchase_date ->sql-date)))
+
+(defn get-spirits
+  []
+  (jdbc/execute! ds
+                 (sql/format
+                  {:select :* :from :spirits :order-by [[:created_at :desc]]})
+                 db-opts))
+
+(defn get-spirit
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format {:select :* :from :spirits :where [:= :id id]})
+                     db-opts))
+
+(defn create-spirit!
+  [spirit]
+  (jdbc/execute-one! ds
+                     (sql/format {:insert-into :spirits
+                                  :values [(spirit->db-spirit spirit)]
+                                  :returning :*})
+                     db-opts))
+
+(defn update-spirit!
+  [id spirit]
+  (jdbc/execute-one!
+   ds
+   (sql/format {:update :spirits
+                :set (assoc (spirit->db-spirit spirit) :updated_at [:now])
+                :where [:= :id id]
+                :returning :*})
+   db-opts))
+
+(defn delete-spirit!
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format {:delete-from :spirits :where [:= :id id]})
+                     db-opts))
+
+;; Bar: Inventory Items
+(defn get-bar-inventory-items
+  []
+  (jdbc/execute! ds
+                 (sql/format {:select :*
+                              :from :bar_inventory_items
+                              :order-by [:category :sort_order :name]})
+                 db-opts))
+
+(defn update-bar-inventory-item!
+  [id fields]
+  (jdbc/execute-one!
+   ds
+   (sql/format {:update :bar_inventory_items
+                :set (select-keys fields [:have_it :name :category :sort_order])
+                :where [:= :id id]
+                :returning :*})
+   db-opts))
+
+(defn create-bar-inventory-item!
+  [item]
+  (jdbc/execute-one! ds
+                     (sql/format {:insert-into :bar_inventory_items
+                                  :values [(select-keys item
+                                                        [:name :category
+                                                         :sort_order :have_it])]
+                                  :returning :*})
+                     db-opts))
+
+;; Bar: Cocktail Recipes
+(defn- recipe->db-recipe
+  [{:keys [ingredients tags] :as recipe}]
+  (cond-> recipe
+    ingredients (update :ingredients
+                        #(sql-cast :jsonb (json/write-value-as-string %)))
+    tags (update :tags #(->pg-array %))))
+
+(defn get-cocktail-recipes
+  []
+  (jdbc/execute! ds
+                 (sql/format {:select :*
+                              :from :cocktail_recipes
+                              :order-by [[:created_at :desc]]})
+                 db-opts))
+
+(defn get-cocktail-recipe
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format
+                      {:select :* :from :cocktail_recipes :where [:= :id id]})
+                     db-opts))
+
+(defn create-cocktail-recipe!
+  [recipe]
+  (jdbc/execute-one! ds
+                     (sql/format {:insert-into :cocktail_recipes
+                                  :values [(recipe->db-recipe recipe)]
+                                  :returning :*})
+                     db-opts))
+
+(defn update-cocktail-recipe!
+  [id recipe]
+  (jdbc/execute-one!
+   ds
+   (sql/format {:update :cocktail_recipes
+                :set (assoc (recipe->db-recipe recipe) :updated_at [:now])
+                :where [:= :id id]
+                :returning :*})
+   db-opts))
+
+(defn delete-cocktail-recipe!
+  [id]
+  (jdbc/execute-one! ds
+                     (sql/format {:delete-from :cocktail_recipes
+                                  :where [:= :id id]})
+                     db-opts))

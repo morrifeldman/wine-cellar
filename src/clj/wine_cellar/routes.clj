@@ -160,6 +160,42 @@
 (s/def ::query string?)
 (s/def ::search-text (s/nilable string?))
 
+;; Bar specs
+(s/def ::category (s/and string? (complement str/blank?)))
+(s/def ::distillery (s/nilable string?))
+(s/def ::age_statement (s/nilable string?))
+(s/def ::abv (s/nilable number?))
+(s/def ::have_it boolean?)
+(s/def ::sort_order (s/nilable int?))
+(s/def ::amount (s/nilable string?))
+(s/def ::unit (s/nilable string?))
+(s/def ::ingredient (s/keys :req-un [::name] :opt-un [::amount ::unit]))
+(s/def ::ingredients (s/coll-of ::ingredient))
+(s/def ::instructions (s/nilable string?))
+(s/def ::tags (s/nilable (s/coll-of string?)))
+(s/def ::description (s/nilable string?))
+
+(def spirit-schema
+  (s/keys :req-un [::name ::category]
+          :opt-un [::distillery ::country ::region ::age_statement ::abv
+                   ::quantity ::price ::purchase_date ::location ::notes]))
+
+(def spirit-update-schema
+  (s/keys :opt-un
+          [::name ::category ::distillery ::country ::region ::age_statement
+           ::abv ::quantity ::price ::purchase_date ::location ::notes]))
+
+(def bar-inventory-item-schema
+  (s/keys :req-un [::name ::category] :opt-un [::have_it ::sort_order]))
+
+(def cocktail-recipe-schema
+  (s/keys :req-un [::name ::ingredients]
+          :opt-un [::description ::instructions ::tags ::source]))
+
+(def cocktail-recipe-update-schema
+  (s/keys :opt-un
+          [::name ::ingredients ::description ::instructions ::tags ::source]))
+
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
 (def wine-schema
@@ -386,6 +422,61 @@
            :responses
            {200 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
            :handler handlers/link-blind-tasting}}]
+   ;; Bar routes
+   ["/spirits"
+    {:get {:summary "List all spirits"
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/get-spirits}
+     :post {:summary "Create a new spirit"
+            :parameters {:body spirit-schema}
+            :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
+            :handler handlers/create-spirit}}]
+   ["/spirits/:id"
+    {:parameters {:path {:id int?}}
+     :get {:summary "Get spirit by ID"
+           :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+           :handler handlers/get-spirit}
+     :put {:summary "Update spirit"
+           :parameters {:body spirit-update-schema}
+           :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+           :handler handlers/update-spirit}
+     :delete {:summary "Delete spirit"
+              :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+              :handler handlers/delete-spirit}}]
+   ["/bar-inventory"
+    {:get {:summary "List all bar inventory items"
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/get-bar-inventory}
+     :post {:summary "Add a custom bar inventory item"
+            :parameters {:body bar-inventory-item-schema}
+            :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
+            :handler handlers/create-bar-inventory-item}}]
+   ["/bar-inventory/:id"
+    {:parameters {:path {:id int?}}
+     :put {:summary "Update bar inventory item (e.g. toggle have_it)"
+           :parameters {:body (s/keys :opt-un [::have_it ::name ::sort_order])}
+           :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+           :handler handlers/update-bar-inventory-item}}]
+   ["/cocktail-recipes"
+    {:get {:summary "List all cocktail recipes"
+           :responses {200 {:body vector?} 500 {:body map?}}
+           :handler handlers/get-cocktail-recipes}
+     :post {:summary "Create a new cocktail recipe"
+            :parameters {:body cocktail-recipe-schema}
+            :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
+            :handler handlers/create-cocktail-recipe}}]
+   ["/cocktail-recipes/:id"
+    {:parameters {:path {:id int?}}
+     :get {:summary "Get cocktail recipe by ID"
+           :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+           :handler handlers/get-cocktail-recipe}
+     :put {:summary "Update cocktail recipe"
+           :parameters {:body cocktail-recipe-update-schema}
+           :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
+           :handler handlers/update-cocktail-recipe}
+     :delete {:summary "Delete cocktail recipe"
+              :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+              :handler handlers/delete-cocktail-recipe}}]
    ["/admin"
     ["/model-info"
      {:get {:summary "Get current AI model configuration"

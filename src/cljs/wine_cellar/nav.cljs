@@ -7,7 +7,7 @@
    ["/grape-varieties" {:name ::grape-varieties}]
    ["/classifications" {:name ::classifications}] ["/sensors" {:name ::sensors}]
    ["/devices" {:name ::devices}] ["/blind-tastings" {:name ::blind-tastings}]
-   ["/admin/sql" {:name ::admin-sql}]])
+   ["/admin/sql" {:name ::admin-sql}] ["/bar" {:name ::bar}]])
 
 (defn go-wines! [] (rfe/push-state ::wines))
 (defn go-wine-detail! [id] (rfe/push-state ::wine-detail {:id id}))
@@ -19,4 +19,5 @@
 (defn go-devices! [] (rfe/push-state ::devices))
 (defn go-blind-tastings! [] (rfe/push-state ::blind-tastings))
 (defn go-admin-sql! [] (rfe/push-state ::admin-sql))
+(defn go-bar! [] (rfe/push-state ::bar))
 (defn replace-wines! [] (rfe/replace-state ::wines))
