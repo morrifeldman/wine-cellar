@@ -377,6 +377,14 @@
        (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
        (catch Exception e (server-error e))))
 
+(defn analyze-spirit-label
+  [{{{:keys [label_image provider]} :body} :parameters}]
+  (try (if (nil? label_image)
+         {:status 400 :body {:error "Label image is required"}}
+         (response/response (ai/analyze-spirit-label provider label_image)))
+       (catch clojure.lang.ExceptionInfo e (handle-ai-error e))
+       (catch Exception e (server-error e))))
+
 (defn suggest-drinking-window
   [{{{:keys [wine provider]} :body} :parameters}]
   (try (if (nil? wine)
@@ -526,6 +534,14 @@
          (response/not-found {:error "Recipe not found"}))
        (catch Exception e (server-error e))))
 
+(defn extract-cocktail-recipe
+  [request]
+  (try (let [message-text (get-in request [:parameters :body :message-text])]
+         (if-let [recipe (ai/extract-cocktail-recipe message-text)]
+           (response/response recipe)
+           {:status 422 :body {:error "Could not extract recipe from text"}}))
+       (catch Exception e (server-error e))))
+
 ;; Chat Handlers
 
 (defn chat-with-ai
@@ -535,11 +551,12 @@
                    :parameters
                    :body)
           {:keys [wine-ids conversation-history image provider
-                  include-visible-wines?]}
+                  include-visible-wines? include-bar?]}
           body
           include? (if (contains? body :include-visible-wines?)
                      (boolean include-visible-wines?)
                      false)
+          include-bar? (boolean include-bar?)
           selected-ids (if include? (vec (remove nil? wine-ids)) [])
           message (or (some #(when (or (:is-user %) (:is_user %))
                                (or (:content %) (:text %)))
@@ -547,14 +564,16 @@
                       "")]
       (if (and (empty? conversation-history) (empty? image))
         {:status 400 :body {:error "Conversation history or image is required"}}
-        (let [enriched-wines (if (seq selected-ids)
-                               (db-api/get-enriched-wines-by-ids selected-ids)
-                               [])
-              cellar-wines (or (db-api/get-wines-for-list) [])
-              condensed (summary/condensed-summary cellar-wines)
-              spirits (db-api/get-spirits)
-              inventory-items (db-api/get-bar-inventory-items)
-              recipes (db-api/get-cocktail-recipes)
+        (let [enriched-wines (when (and (not include-bar?) (seq selected-ids))
+                               (db-api/get-enriched-wines-by-ids selected-ids))
+              cellar-wines (when-not include-bar?
+                             (or (db-api/get-wines-for-list) []))
+              condensed (when-not include-bar?
+                          (summary/condensed-summary cellar-wines))
+              bar (when include-bar?
+                    {:spirits (db-api/get-spirits)
+                     :inventory-items (db-api/get-bar-inventory-items)
+                     :recipes (db-api/get-cocktail-recipes)})
               urls (vec
                     (take 2 (re-seq #"https?://[^\s<>\"{}|\\^`\[\]]+" message)))
               web-content
@@ -564,12 +583,13 @@
                  (keep
                   (fn [[url result]] (when-let [text (:ok result)] [url text]))
                   (map vector urls (pmap web-fetch/fetch-url-content urls)))))
-              context (cond-> {:summary condensed
-                               :selected-wines
-                               (if include? (vec enriched-wines) [])
-                               :bar {:spirits spirits
-                                     :inventory-items inventory-items
-                                     :recipes recipes}}
+              context (cond-> {:chat-mode (if include-bar? :bar :wine)
+                               :summary condensed
+                               :selected-wines (if (and include?
+                                                        (not include-bar?))
+                                                 (vec enriched-wines)
+                                                 [])}
+                        include-bar? (assoc :bar bar)
                         (seq web-content) (assoc :web-content web-content))
               response
               (ai/chat-about-wines provider context conversation-history image)]
@@ -588,9 +608,10 @@
 (defn list-conversations
   [request]
   (try (let [email (ensure-user-email request)
-             search-text (get-in request [:parameters :query :search-text])]
-         (response/response (db-api/list-conversations-for-user email
-                                                                search-text)))
+             search-text (get-in request [:parameters :query :search-text])
+             chat-type (get-in request [:parameters :query :chat-type])]
+         (response/response
+          (db-api/list-conversations-for-user email search-text chat-type)))
        (catch Exception e
          (if-let [status (:status (ex-data e))]
            {:status status :body {:error (.getMessage e)}}
@@ -598,15 +619,16 @@
 (defn create-conversation
   [request]
   (try (let [email (ensure-user-email request)
-             {:keys [title wine_ids wine_search_state auto_tags pinned
-                     provider]}
+             {:keys [title wine_ids wine_search_state auto_tags pinned provider
+                     chat_type]}
              (get-in request [:parameters :body])
              payload (cond-> {:user_email email
                               :title title
                               :wine_ids wine_ids
                               :wine_search_state wine_search_state
                               :auto_tags auto_tags
-                              :provider provider}
+                              :provider provider
+                              :chat_type (or chat_type "wine")}
                        (some? pinned) (assoc :pinned pinned))
              conversation (db-api/create-conversation! payload)]
          (-> (response/response conversation)

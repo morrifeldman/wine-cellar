@@ -2,6 +2,10 @@
   (:require [clojure.string :as str]
             [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.dialog :refer [dialog]]
+            [reagent-mui.material.dialog-title :refer [dialog-title]]
+            [reagent-mui.material.dialog-content :refer [dialog-content]]
+            [reagent-mui.material.dialog-actions :refer [dialog-actions]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.button :refer [button]]
@@ -204,6 +208,33 @@
          :on-click #(when (js/confirm (str "Delete \"" (:name recipe) "\"?"))
                       (api/delete-cocktail-recipe app-state (:id recipe)))}
         [delete {:fontSize "small"}]]]]]))
+
+(defn save-recipe-dialog
+  [app-state]
+  (let [save-state (get-in @app-state [:chat :save-recipe])
+        open? (boolean (:open? save-state))
+        recipe (:recipe save-state)
+        close! #(swap! app-state assoc-in [:chat :save-recipe] {})
+        save! (fn []
+                (api/create-cocktail-recipe app-state
+                                            (assoc recipe :source "AI Chat"))
+                (close!)
+                (swap! app-state assoc-in [:bar :active-tab] :recipes))]
+    [dialog {:open open? :on-close close! :max-width "sm" :full-width true}
+     [dialog-title "Save Recipe"]
+     [dialog-content {:sx {:pt "12px !important"}}
+      [text-field "Recipe Name" (or (:name recipe) "")
+       #(swap! app-state assoc-in [:chat :save-recipe :recipe :name] %)]
+      (when (seq (:ingredients recipe))
+        [:<>
+         [typography {:variant "subtitle2" :sx {:mt 1.5 :mb 0.5}} "Ingredients"]
+         [typography {:variant "body2" :sx {:color "text.secondary"}}
+          (str/join " · "
+                    (map (fn [{:keys [amount unit name]}]
+                           (str/join " " (filter seq [amount unit name])))
+                         (:ingredients recipe)))]])]
+     [dialog-actions [button {:on-click close!} "Cancel"]
+      [button {:variant "contained" :on-click save!} "Save to Recipes"]]]))
 
 (defn recipes-tab
   [app-state]

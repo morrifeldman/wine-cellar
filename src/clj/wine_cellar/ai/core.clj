@@ -23,14 +23,19 @@
 
 (defn chat-about-wines
   [provider context conversation-history image]
-  {:pre [(map? context) (contains? context :summary)]}
-  (let [{:keys [summary selected-wines web-content bar]} context
-        prompt {:system-text (prompts/wine-system-instructions)
-                :context-text (prompts/wine-collection-context
-                               {:summary summary
-                                :selected-wines selected-wines
-                                :web-content web-content
-                                :bar bar})
+  {:pre [(map? context)]}
+  (let [{:keys [summary selected-wines web-content bar chat-mode]} context
+        bar-mode? (= :bar chat-mode)
+        prompt {:system-text (if bar-mode?
+                               (prompts/bar-system-instructions)
+                               (prompts/wine-system-instructions))
+                :context-text (if bar-mode?
+                                (prompts/bar-chat-context context)
+                                (prompts/wine-collection-context
+                                 {:summary summary
+                                  :selected-wines selected-wines
+                                  :web-content web-content
+                                  :bar bar}))
                 :messages (prompts/conversation-messages conversation-history
                                                          image)}]
     (case provider
@@ -67,6 +72,16 @@
       :anthropic (anthropic/analyze-wine-label prompt)
       :gemini (gemini/analyze-wine-label prompt))))
 
+(defn analyze-spirit-label
+  [provider front-image]
+  (let [system-prompt (prompts/spirit-label-analysis-system-prompt)
+        user-content (prompts/label-analysis-user-content front-image nil)
+        prompt {:system system-prompt :user-content user-content}]
+    (case provider
+      :openai (openai/analyze-spirit-label prompt)
+      :anthropic (anthropic/analyze-spirit-label prompt)
+      :gemini (gemini/analyze-spirit-label prompt))))
+
 (defn generate-conversation-title
   [provider first-message]
   (let [prompt (prompts/conversation-title-prompt first-message)
@@ -89,6 +104,11 @@
       :openai (openai/generate-report-commentary prompt)
       :anthropic (anthropic/generate-report-commentary prompt)
       :gemini (gemini/generate-report-commentary prompt))))
+
+(defn extract-cocktail-recipe
+  "Extracts structured cocktail recipe data from text. Always uses Anthropic."
+  [text]
+  (try (anthropic/extract-cocktail-recipe text) (catch Exception _ nil)))
 
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"

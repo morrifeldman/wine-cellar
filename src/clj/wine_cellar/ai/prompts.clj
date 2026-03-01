@@ -319,6 +319,33 @@
 
 (defn current-year [] (.getValue (java.time.Year/now)))
 
+(defn bar-system-instructions
+  []
+  (str
+   "You are a knowledgeable bartender and cocktail expert helping someone manage their home bar. "
+   "Please respond in a conversational, friendly tone. You can discuss cocktail recipes, "
+   "spirit recommendations, flavor pairings, substitutions, and any bar-related questions. "
+   "When you reference a saved recipe by name, mention it naturally in conversation. "
+   "The current year is "
+   (current-year)
+   ". "
+   "FORMATTING RULES: Respond in plain text with normal punctuation. Do not use markdown headers, bold, or italics. "
+   "You may use bullet points (using -) or numbered lists for readability when listing ingredients or steps."))
+
+(defn bar-chat-context
+  [{:keys [bar web-content]}]
+  (let [bar-text (bar-context-text bar)
+        base (if bar-text
+               (str "Here is the user's bar inventory:\n\n" bar-text)
+               "The user has no bar inventory on record yet.")
+        web-section (when (seq web-content)
+                      (str "\n\nWEB PAGE CONTENT:\n"
+                           (str/join "\n\n"
+                                     (map (fn [[url text]]
+                                            (str "URL: " url "\n\n" text))
+                                          web-content))))]
+    (if web-section (str base web-section) base)))
+
 (defn wine-system-instructions
   "Baseline system instructions shared across AI providers for chat."
   []
@@ -496,6 +523,25 @@
   [front-image back-image]
   {:system (label-analysis-system-prompt)
    :user-content (label-analysis-user-content front-image back-image)})
+
+(defn spirit-label-analysis-system-prompt
+  []
+  (let [categories (str/join ", "
+                             ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal"
+                              "brandy" "liqueur" "other"])]
+    (str
+     "You are a spirits expert extracting information from bottle label images. "
+     "Analyze the label and extract the following fields as JSON:\n\n"
+     "- name: The full spirit name (brand + expression, e.g. \"Johnnie Walker Black Label\")\n"
+     "- category: Spirit type. Must be one of: "
+     categories
+     "\n"
+     "- distillery: Producer or distillery name\n"
+     "- country: Country of origin\n"
+     "- region: Region of production (e.g. Speyside, Jalisco)\n"
+     "- age_statement: Age statement text if present (e.g. \"12 Year\"), else null\n"
+     "- abv: Alcohol by volume as a number (e.g. 40.0), else null\n\n"
+     "Return ONLY a valid JSON object. Use null for any field not on the label.")))
 
 (defn drinking-window-system-prompt
   []
