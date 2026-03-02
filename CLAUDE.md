@@ -7,7 +7,7 @@
 ├── AGENTS.md
 ├── automation
 │   └── postgresql.yml
-├── CLAUDE.md -> AGENTS.md
+├── CLAUDE.md
 ├── deps.edn
 ├── dev
 │   ├── assets
@@ -106,7 +106,6 @@
 ├── README.md
 ├── resources
 │   └── wine-classifications.edn
-├── Screenshot 2026-02-27 9.55.46 PM.png
 ├── scripts
 │   ├── format-clj.sh
 │   ├── format_zprint.clj
@@ -238,6 +237,6 @@
         ├── web_color_picker.html
         └── wine-colors.jpg
 
-56 directories, 178 files
+56 directories, 177 files
 ```
 

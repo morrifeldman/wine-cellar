@@ -164,6 +164,26 @@
                  :max-tokens 20000}]
     (call-gemini-api request :parse-json? true)))
 
+(def spirit-label-analysis-schema
+  (let [categories ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy"
+                    "liqueur" "other"]]
+    {:type "OBJECT"
+     :properties {:name {:type "STRING"}
+                  :category {:type "STRING" :enum (vec categories)}
+                  :distillery {:type "STRING"}
+                  :country {:type "STRING"}
+                  :region {:type "STRING"}
+                  :age_statement {:type "STRING"}
+                  :abv {:type "NUMBER"}}}))
+
+(defn analyze-spirit-label
+  [{:keys [system user-content]}]
+  (let [request {:system system
+                 :messages [{:role "user" :content user-content}]
+                 :response-schema spirit-label-analysis-schema
+                 :max-tokens 10000}]
+    (call-gemini-api request :parse-json? true)))
+
 (defn generate-wine-summary
   [{:keys [system user]}]
   (let [request {:system system

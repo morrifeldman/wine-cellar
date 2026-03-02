@@ -65,6 +65,10 @@
     "('heavy cream', 'other', 10), " "('egg whites', 'other', 20), "
     "('coconut cream', 'other', 30); " "END IF; END $$;"]})
 
+(def ensure-conversations-chat-type
+  {:raw
+   ["ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS chat_type VARCHAR DEFAULT 'wine'"]})
+
 (def remove-classification-vineyard-designations
   {:raw
    ["DO $$ BEGIN "

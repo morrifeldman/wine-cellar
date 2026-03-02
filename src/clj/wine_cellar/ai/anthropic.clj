@@ -209,6 +209,61 @@
                  :max_tokens 900}]
     (call-anthropic-api request true)))
 
+(def spirit-label-analysis-tool-name "record_spirit_label")
+
+(def spirit-label-analysis-tool
+  (let [categories ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy"
+                    "liqueur" "other"]
+        null-note
+        "Return null when the label does not provide this information."]
+    {:name spirit-label-analysis-tool-name
+     :description "Structured schema for spirit label extraction."
+     :input_schema
+     {:type "object"
+      :properties
+      {:name {:type ["string" "null"]
+              :description (str "Full spirit name (brand + expression). "
+                                null-note)}
+       :category {:type ["string" "null"]
+                  :enum (conj (vec categories) nil)
+                  :description (str "Spirit type. Must be one of: "
+                                    (str/join ", " categories)
+                                    ". " null-note)}
+       :distillery {:type ["string" "null"]
+                    :description (str "Producer or distillery name. "
+                                      null-note)}
+       :country {:type ["string" "null"]
+                 :description (str "Country of origin. " null-note)}
+       :region {:type ["string" "null"]
+                :description (str
+                              "Region of production (e.g. Speyside, Jalisco). "
+                              null-note)}
+       :age_statement {:type ["string" "null"]
+                       :description (str "Age statement text if present "
+                                         "(e.g. \"12 Year\"). "
+                                         null-note)}
+       :abv {:type ["number" "null"]
+             :description (str "Alcohol by volume as a number (e.g. 40.0). "
+                               null-note)}}
+      :required [:name :category :distillery :country :region :age_statement
+                 :abv]
+      :additionalProperties false}}))
+
+(defn analyze-spirit-label
+  "Analyzes spirit label images using Anthropic's Claude API.
+   Expects {:system string :user-content vector-of-content}."
+  [{:keys [system user-content]}]
+  (assert (string? system) "Spirit label analysis prompt requires :system text")
+  (assert (vector? user-content)
+          "Spirit label analysis prompt requires :user-content vector")
+  (let [request {:system system
+                 :messages [{:role "user" :content (vec user-content)}]
+                 :tools [spirit-label-analysis-tool]
+                 :tool_choice {:type "tool"
+                               :name spirit-label-analysis-tool-name}
+                 :max_tokens 600}]
+    (call-anthropic-api request true)))
+
 (defn chat-about-wines
   "Chat with AI about wine collection and wine-related topics with conversation history.
    Expects {:system-text ... :context-text ... :messages [...]} prepared by ai.core."
@@ -252,3 +307,35 @@
                  :max_tokens 1000
                  :temperature 0.7}]
     (call-anthropic-api request false)))
+
+(def extract-recipe-tool-name "save_cocktail_recipe")
+
+(def extract-recipe-tool
+  {:name extract-recipe-tool-name
+   :description "Extracts structured cocktail recipe data from text."
+   :input_schema {:type "object"
+                  :required ["name" "ingredients"]
+                  :properties {:name {:type "string"}
+                               :description {:type "string"}
+                               :ingredients {:type "array"
+                                             :items {:type "object"
+                                                     :required ["name"]
+                                                     :properties
+                                                     {:name {:type "string"}
+                                                      :amount {:type "string"}
+                                                      :unit {:type "string"}}}}
+                               :instructions {:type "string"}
+                               :tags {:type "array" :items {:type "string"}}}}})
+
+(defn extract-cocktail-recipe
+  "Extracts structured cocktail recipe data from a plain-text message."
+  [text]
+  {:pre [(string? text)]}
+  (let [request {:messages [{:role "user"
+                             :content (str "Extract the cocktail recipe from"
+                                           " this text:\n\n"
+                                           text)}]
+                 :tools [extract-recipe-tool]
+                 :tool_choice {:type "tool" :name extract-recipe-tool-name}
+                 :max_tokens 800}]
+    (call-anthropic-api request true)))

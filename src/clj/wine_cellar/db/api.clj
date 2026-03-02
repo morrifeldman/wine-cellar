@@ -226,12 +226,17 @@
 
 (defn list-conversations-for-user
   "Return conversations for the given user ordered by recent activity.
-   Optionally filter by search text matching title or message content."
-  ([user-email] (list-conversations-for-user user-email nil))
+   Optionally filter by search text matching title or message content.
+   chat-type defaults to 'wine' when not provided."
+  ([user-email] (list-conversations-for-user user-email nil nil))
   ([user-email search-text]
-   (let [base-query {:select [:c.*]
+   (list-conversations-for-user user-email search-text nil))
+  ([user-email search-text chat-type]
+   (let [resolved-type (or chat-type "wine")
+         base-query {:select [:c.*]
                      :from [[:ai_conversations :c]]
-                     :where [:= :c.user_email user-email]
+                     :where [:and [:= :c.user_email user-email]
+                             [:= :c.chat_type resolved-type]]
                      :order-by [[:c.pinned :desc] [:c.last_message_at :desc]
                                 [:c.created_at :desc]]}
          query
@@ -243,7 +248,6 @@
                  escaped (-> search-text
                              (str/replace #"[\\.+*?()\[\]{}^$|]" "\\\\$0")
                              (str/replace "'" "''"))
-                 ;; Count total occurrences using regexp_matches
                  occurrence-sql
                  (str "(SELECT COUNT(*) FROM ai_conversation_messages m2, "
                       "LATERAL regexp_matches(m2.content, '" escaped
@@ -253,7 +257,8 @@
               :left-join [[:ai_conversation_messages :m]
                           [:and [:= :c.id :m.conversation_id]
                            [:raw ["m.fts_content @@ " ts-query]]]]
-              :where [:= :c.user_email user-email]
+              :where [:and [:= :c.user_email user-email]
+                      [:= :c.chat_type resolved-type]]
               :group-by [:c.id]
               :having [:or [:ilike :c.title pattern] [:> [:count :m.id] 0]]
               :order-by [[:match_count :desc] [:c.last_message_at :desc]]}))

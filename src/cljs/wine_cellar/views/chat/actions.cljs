@@ -1,5 +1,6 @@
 (ns wine-cellar.views.chat.actions
   (:require [clojure.string :as string]
+            [goog.object :as gobj]
             [wine-cellar.api :as api]
             [wine-cellar.state :as state-core]
             [wine-cellar.views.chat.context :as chat-context]
@@ -29,10 +30,12 @@
                               (map :id)
                               (remove nil?)
                               vec)
+                chat-type (if (= :bar (:view state)) "bar" "wine")
                 payload (cond-> {:wine_search_state (build-wine-search-state
                                                      app-state
                                                      context-mode)
-                                 :provider (get-in @app-state [:ai :provider])}
+                                 :provider (get-in @app-state [:ai :provider])
+                                 :chat_type chat-type}
                           (seq wine-ids) (assoc :wine_ids wine-ids))]
             (swap! app-state assoc-in [:chat :creating-conversation?] true)
             (api/create-conversation!
@@ -291,7 +294,8 @@
   [app-state message-ref]
   (when-let [node @message-ref]
     (swap! app-state assoc-in [:chat :draft-message] (.-value node)))
-  (swap! app-state assoc-in [:chat :open?] false))
+  (swap! app-state assoc-in [:chat :open?] false)
+  (when (gobj/get (.-state js/history) "chatModalOpen") (.back js/history)))
 
 (defn delete-conversation-with-confirm!
   [app-state {:keys [id title]}]

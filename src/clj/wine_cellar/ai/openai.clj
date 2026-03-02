@@ -224,6 +224,40 @@
                  :reasoning {:effort "low"}}]
     (call-openai-responses request true)))
 
+(defn- spirit-label-analysis-schema
+  []
+  (let [categories ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy"
+                    "liqueur" "other"]]
+    {:type "object"
+     :properties {:name {:type ["string" "null"]}
+                  :category {:type ["string" "null"]
+                             :enum (conj (vec categories) nil)}
+                  :distillery {:type ["string" "null"]}
+                  :country {:type ["string" "null"]}
+                  :region {:type ["string" "null"]}
+                  :age_statement {:type ["string" "null"]}
+                  :abv {:type ["number" "null"]}}
+     :required [:name :category :distillery :country :region :age_statement
+                :abv]
+     :additionalProperties false}))
+
+(defn analyze-spirit-label
+  [{:keys [system user-content]}]
+  (assert (string? system) "Spirit label analysis prompt requires :system text")
+  (assert (vector? user-content)
+          "Spirit label analysis prompt requires :user-content vector")
+  (let [user-message (message->content {:role "user" :content user-content})
+        request {:input (into [{:role "system"
+                                :content [{:type "input_text" :text system}]}]
+                              [user-message])
+                 :text {:format {:type "json_schema"
+                                 :name "SpiritLabelAnalysis"
+                                 :strict true
+                                 :schema (spirit-label-analysis-schema)}}
+                 :max_output_tokens 600
+                 :reasoning {:effort "low"}}]
+    (call-openai-responses request true)))
+
 (defn generate-conversation-title
   [{:keys [system user]}]
   {:pre [(string? system) (string? user)]}

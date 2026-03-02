@@ -7,7 +7,8 @@
             [wine-cellar.nav :as nav]
             [wine-cellar.views.bar.spirits :refer [spirits-tab]]
             [wine-cellar.views.bar.inventory :refer [inventory-tab]]
-            [wine-cellar.views.bar.recipes :refer [recipes-tab]]))
+            [wine-cellar.views.bar.recipes :refer
+             [recipes-tab save-recipe-dialog]]))
 
 (def tab-values {:spirits 0 :recipes 1 :inventory 2})
 
@@ -38,4 +39,4 @@
        :spirits [spirits-tab app-state]
        :recipes [recipes-tab app-state]
        :inventory [inventory-tab app-state]
-       [spirits-tab app-state])]))
+       [spirits-tab app-state]) [save-recipe-dialog app-state]]))

@@ -2,11 +2,15 @@
   (:require [clojure.string :as string]
             [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.icons.edit :refer [edit]]
             [reagent-mui.icons.close :refer [close]]
+            [reagent-mui.icons.save :refer [save]]
+            [wine-cellar.api :as api]
             [wine-cellar.nav :as nav]
             [wine-cellar.views.chat.utils :as chat-utils :refer
              [escape-regex execute-scroll-intent!]]))
@@ -239,28 +243,60 @@
                               (filter #(not (:is-user %)))
                               last
                               :id)]
-          [box
-           {:ref #(reset! scroll-ref %)
-            :on-scroll (fn [e]
-                         (when (get-in @app-state [:chat :open?])
-                           (swap! app-state assoc-in
-                             [:chat :saved-scroll-pos]
-                             (.. e -target -scrollTop))))
-            :sx {:height "360px"
-                 :overflow-y "auto"
-                 :p 2
-                 :background-color "background.default"
-                 :border "1px solid"
-                 :border-color "divider"
-                 :border-radius 1}}
-           (if (empty? current-messages)
-             [typography
-              {:variant "body2"
-               :sx {:text-align "center" :color "text.secondary" :mt 2}}
-              "Start a conversation about your wine cellar..."]
-             (doall (for [[idx message] (map-indexed vector current-messages)]
-                      (let [msg-id (:id message)
-                            global-offset (nth prefix-match-counts idx)]
-                        ^{:key msg-id}
-                        [message-bubble message edit-handler app-state
-                         global-offset last-ai-id]))))]))})))
+          [:<>
+           [box
+            {:ref #(reset! scroll-ref %)
+             :on-scroll (fn [e]
+                          (when (get-in @app-state [:chat :open?])
+                            (swap! app-state assoc-in
+                              [:chat :saved-scroll-pos]
+                              (.. e -target -scrollTop))))
+             :sx {:height "360px"
+                  :overflow-y "auto"
+                  :p 2
+                  :background-color "background.default"
+                  :border "1px solid"
+                  :border-color "divider"
+                  :border-radius 1}}
+            (if (empty? current-messages)
+              [typography
+               {:variant "body2"
+                :sx {:text-align "center" :color "text.secondary" :mt 2}}
+               (if (= :bar (:view @app-state))
+                 "Start a conversation about your bar..."
+                 "Start a conversation about your wine cellar...")]
+              (doall (for [[idx message] (map-indexed vector current-messages)]
+                       (let [msg-id (:id message)
+                             global-offset (nth prefix-match-counts idx)]
+                         ^{:key msg-id}
+                         [message-bubble message edit-handler app-state
+                          global-offset last-ai-id]))))]
+           (when (= :bar (:view @app-state))
+             (let [last-ai-msg (->> current-messages
+                                    (filter #(not (:is-user %)))
+                                    last)
+                   save-state (get-in @app-state [:chat :save-recipe])]
+               (when last-ai-msg
+                 (let [extracting? (and (:extracting? save-state)
+                                        (= (:message-id save-state)
+                                           (:id last-ai-msg)))]
+                   [box
+                    {:sx {:display "flex"
+                          :justifyContent "flex-end"
+                          :px 0.5
+                          :pt 0.5}}
+                    [button
+                     {:size "small"
+                      :variant "outlined"
+                      :disabled extracting?
+                      :start-icon (r/as-element (if extracting?
+                                                  [circular-progress {:size 12}]
+                                                  [save {:fontSize "small"}]))
+                      :on-click #(api/extract-recipe-from-message!
+                                  app-state
+                                  (:id last-ai-msg)
+                                  (:text last-ai-msg))
+                      :sx {:fontSize "0.7rem"
+                           :color "secondary.main"
+                           :borderColor "secondary.main"}}
+                     "Save Recipe"]]))))]))})))

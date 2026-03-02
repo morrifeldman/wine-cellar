@@ -44,14 +44,15 @@
              [chat {:fontSize "small"}])]
           [tooltip
            {:title (if sidebar-open? "Hide Conversations" "Conversations")}
-           [icon-button
-            {:size "small"
-             :disabled conversation-loading?
-             :on-click on-toggle-sidebar
-             :sx {:color "secondary.main"}}
-            (if conversation-loading?
-              [circular-progress {:size 18}]
-              [forum {:fontSize "small"}])]])]
+           [:span
+            [icon-button
+             {:size "small"
+              :disabled conversation-loading?
+              :on-click on-toggle-sidebar
+              :sx {:color "secondary.main"}}
+             (if conversation-loading?
+               [circular-progress {:size 18}]
+               [forum {:fontSize "small"}])]]])]
     [dialog-title
      [box
       {:sx {:display "flex"
@@ -117,10 +118,10 @@
            true (conj main-column)))])
 
 (defn- chat-dialog-shell
-  [{:keys [app-state is-open header-props content-props]}]
+  [{:keys [is-open on-close header-props content-props]}]
   [dialog
    {:open is-open
-    :on-close #(swap! app-state assoc-in [:chat :open?] false)
+    :on-close on-close
     :max-width "md"
     :full-width true
     :PaperProps {:sx {:py 2 :px 2 :height "85vh"}}}
@@ -222,10 +223,16 @@
                                      (chat-context/sync-conversation-context!
                                       app-state
                                       (chat-context/context-wines app-state))))
-            context-indicator [chat-context/indicator-button context-mode
-                               indicator-props change-context-mode!]
+            bar-view? (= :bar (:view state))
+            context-indicator (if bar-view?
+                                [typography
+                                 {:variant "caption"
+                                  :sx {:color "text.secondary"
+                                       :fontSize "0.7rem"}} "Bar inventory"]
+                                [chat-context/indicator-button context-mode
+                                 indicator-props change-context-mode!])
             filter-count-info {:visible visible-count :total total-count}
-            filter-panel (when filters-active?
+            filter-panel (when (and (not bar-view?) filters-active?)
                            (wine-filters/filter-bar app-state
                                                     filter-count-info
                                                     {:paper-sx
@@ -340,8 +347,9 @@
                                    {:type :bottom})))
                            200)))
         (when (not is-open) (reset! dialog-opened false))
-        (chat-dialog-shell {:app-state app-state
-                            :is-open is-open
+        (chat-dialog-shell {:is-open is-open
+                            :on-close #(chat-actions/close-chat! app-state
+                                                                 message-ref)
                             :header-props header-props
                             :content-props content-props})))))
 
@@ -350,6 +358,9 @@
   ;; Always default to :selection+filters mode when opening chat
   (state-core/set-context-mode! app-state :selection+filters)
   (swap! app-state assoc-in [:chat :open?] true)
+  ;; Push a history entry so the back button closes the chat
+  ;; rather than navigating away from the current page
+  (.pushState js/history #js {:chatModalOpen true} "" (.-href js/location))
   (api/load-conversations! app-state {:force? true}))
 
 (defn wine-chat-fab

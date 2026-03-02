@@ -106,10 +106,12 @@
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
 (s/def ::pinned boolean?)
 (s/def ::include-visible-wines? boolean?)
+(s/def ::include-bar? boolean?)
+(s/def ::chat-type string?)
 (s/def ::conversation-create
   (s/keys :req-un [::provider]
-          :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags
-                   ::pinned]))
+          :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned
+                   ::chat-type]))
 (s/def ::conversation-update
   (s/keys :opt-un [::provider ::title ::wine_ids ::wine_search_state ::auto_tags
                    ::pinned]))
@@ -174,6 +176,7 @@
 (s/def ::instructions (s/nilable string?))
 (s/def ::tags (s/nilable (s/coll-of string?)))
 (s/def ::description (s/nilable string?))
+(s/def ::message-text string?)
 
 (def spirit-schema
   (s/keys :req-un [::name ::category]
@@ -351,17 +354,23 @@
            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
            :handler handlers/get-report}}]
    ;; Grape Varieties Routes
+   ["/cocktail-recipe-extract"
+    {:post {:summary "Extract recipe from text using AI"
+            :parameters {:body (s/keys :req-un [::message-text])}
+            :responses {200 {:body map?} 422 {:body map?} 500 {:body map?}}
+            :handler handlers/extract-cocktail-recipe}}]
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"
             :parameters {:body (s/keys :req-un [::provider]
                                        :opt-un [::message ::wine-ids
                                                 ::conversation-history ::image
-                                                ::include-visible-wines?])}
+                                                ::include-visible-wines?
+                                                ::include-bar?])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
    ["/conversations"
     {:get {:summary "List AI conversations for the authenticated user"
-           :parameters {:query (s/keys :opt-un [::search-text])}
+           :parameters {:query (s/keys :opt-un [::search-text ::chat-type])}
            :responses {200 {:body vector?} 500 {:body map?}}
            :handler handlers/list-conversations}
      :post {:summary "Create a new AI conversation"
@@ -431,6 +440,11 @@
             :parameters {:body spirit-schema}
             :responses {201 {:body map?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/create-spirit}}]
+   ["/spirits/analyze-label"
+    {:post {:summary "Analyze spirit label image"
+            :parameters {:body (s/keys :req-un [::label_image ::provider])}
+            :responses {200 {:body map?} 400 {:body map?} 500 {:body map?}}
+            :handler handlers/analyze-spirit-label}}]
    ["/spirits/:id"
     {:parameters {:path {:id int?}}
      :get {:summary "Get spirit by ID"
@@ -742,7 +756,8 @@
  (ring/ring-handler
   (ring/router
    wine-routes
-   {:data
+   {:conflicts nil
+    :data
     {:coercion spec-coercion/coercion
      :muuntaja m/instance
      :swagger {:ui "/api-docs"

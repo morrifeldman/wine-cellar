@@ -594,6 +594,22 @@
                            (do (swap! app-state assoc :error (:error result))
                                (reject (:error result))))))))))
 
+(defn analyze-spirit-label
+  [app-state label-image]
+  (swap! app-state assoc :analyzing-spirit-label? true)
+  (let [provider (get-in @app-state [:ai :provider])
+        payload {:label_image label-image :provider provider}]
+    (js/Promise. (fn [resolve reject]
+                   (go (let [result (<! (POST
+                                         "/api/spirits/analyze-label"
+                                         payload
+                                         "Failed to analyze spirit label"))]
+                         (swap! app-state assoc :analyzing-spirit-label? false)
+                         (if (:success result)
+                           (resolve (:data result))
+                           (do (swap! app-state assoc :error (:error result))
+                               (reject (:error result))))))))))
+
 (defn suggest-drinking-window
   [app-state wine]
   (swap! app-state assoc :suggesting-drinking-window? true)
@@ -783,8 +799,10 @@
          chat-state (:chat @app-state)
          loading? (:conversation-loading? chat-state)
          loaded? (:conversations-loaded? chat-state)
-         query (encode-query-params
-                (cond-> {} search-text (assoc :search-text search-text)))]
+         chat-type (if (= :bar (:view @app-state)) "bar" "wine")
+         query (encode-query-params (cond-> {:chat-type chat-type}
+                                      search-text (assoc :search-text
+                                                         search-text)))]
      (when (and (not loading?) (or force? (not loaded?) search-text))
        (swap! app-state (fn [state]
                           (-> state
@@ -1052,12 +1070,14 @@
   ([app-state message wines include? conversation-history image callback]
    (let
      [provider (get-in @app-state [:ai :provider])
+      include-bar? (= :bar (get @app-state :view))
       wine-ids (->> wines
                     (map :id)
                     (remove nil?)
                     vec)
       payload (cond-> {:conversation-history conversation-history
                        :include-visible-wines? include?
+                       :include-bar? include-bar?
                        :provider provider}
                 (seq message) (assoc :message message)
                 (and include? (seq wine-ids)) (assoc :wine-ids wine-ids)
@@ -1483,3 +1503,24 @@
             [:bar :recipes]
             (fn [recipes] (filterv #(not= (:id %) id) recipes)))
           (swap! app-state assoc-in [:bar :error] (:error result))))))
+
+(defn extract-recipe-from-message!
+  [app-state message-id message-text]
+  (swap! app-state assoc-in
+    [:chat :save-recipe]
+    {:extracting? true :message-id message-id :recipe nil :open? false})
+  (go (let [result (<! (POST "/api/cocktail-recipe-extract"
+                             {:message-text message-text}
+                             "Failed to extract recipe"))]
+        (if (:success result)
+          (swap! app-state assoc-in
+            [:chat :save-recipe]
+            {:extracting? false
+             :message-id message-id
+             :recipe (:data result)
+             :open? true})
+          (swap! app-state (fn [s]
+                             (-> s
+                                 (assoc-in [:chat :save-recipe :extracting?]
+                                           false)
+                                 (assoc-in [:bar :error] (:error result)))))))))
