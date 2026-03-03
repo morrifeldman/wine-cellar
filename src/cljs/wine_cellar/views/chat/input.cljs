@@ -58,8 +58,7 @@
 (defn- chat-input-actions
   [disabled? on-send message-ref app-state on-image-capture on-cancel-request
    attached-image]
-  (fn [disabled? on-send message-ref app-state on-image-capture
-       on-cancel-request attached-image]
+  (fn [& _]
     [box
      {:sx {:display "flex"
            :justify-content "flex-end"
