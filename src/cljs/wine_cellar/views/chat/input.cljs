@@ -107,6 +107,57 @@
                                 (js/Event. "input" #js {:bubbles true}))
                 (.focus @message-ref)))} label])]])))
 
+(defn- sending-buttons
+  [on-cancel-request]
+  [:<>
+   [button
+    {:variant "outlined"
+     :color "error"
+     :size "small"
+     :on-click on-cancel-request
+     :sx {:minWidth "60px"}} "Stop"]
+   [button
+    {:variant "contained"
+     :disabled true
+     :sx {:minWidth "60px" :px 1}
+     :startIcon (r/as-element [circular-progress
+                               {:size 14 :sx {:color "secondary.light"}}])}
+    [box {:sx {:color "text.disabled" :fontWeight "600" :fontSize "0.8rem"}}
+     "Sending..."]]])
+
+(defn- idle-buttons
+  [disabled? on-send message-ref app-state on-image-capture attached-image
+   bar-view? is-mobile? trigger-upload]
+  [:<>
+   (when (not bar-view?)
+     [deals-menu disabled? message-ref app-state is-mobile?])
+   (when is-mobile?
+     [tooltip {:title "Take photo"}
+      [icon-button
+       {:size "small" :color "inherit" :on-click #(on-image-capture nil)}
+       [camera-alt]]])
+   (if is-mobile?
+     [tooltip {:title "Upload photo"}
+      [icon-button {:size "small" :color "inherit" :on-click trigger-upload}
+       [photo-library]]]
+     [button
+      {:variant "outlined"
+       :size "small"
+       :startIcon (r/as-element [photo-library {:size 14}])
+       :on-click trigger-upload
+       :sx {:minWidth "100px"}} "Upload"])
+   [button
+    {:variant "contained"
+     :sx {:minWidth "60px" :px 1}
+     :startIcon (r/as-element [send {:size 14}])
+     :on-click #(when @message-ref
+                  (let [msg (.-value @message-ref)]
+                    (when (or (seq (str msg)) @attached-image)
+                      (on-send msg)
+                      (set! (.-value @message-ref) "")
+                      (swap! app-state update :chat dissoc :draft-message))))}
+    "Send"]])
+
 (defn- chat-input-actions
   [disabled? on-send message-ref app-state on-image-capture on-cancel-request
    attached-image]
@@ -134,56 +185,10 @@
                                          (aget 0))]
                        (handle-clipboard-image file attached-image))}]
        [ai-toggle/provider-toggle-button app-state {:sx {:mr "auto"}}]
-       (when (not bar-view?)
-         [deals-menu disabled? message-ref app-state is-mobile?])
-       (when is-mobile?
-         [tooltip {:title "Take photo"}
-          [icon-button
-           {:disabled @disabled?
-            :size "small"
-            :color "inherit"
-            :on-click #(on-image-capture nil)} [camera-alt]]])
-       (if is-mobile?
-         [tooltip {:title "Upload photo"}
-          [icon-button
-           {:disabled @disabled?
-            :size "small"
-            :color "inherit"
-            :on-click trigger-upload} [photo-library]]]
-         [button
-          {:variant "outlined"
-           :size "small"
-           :disabled @disabled?
-           :startIcon (r/as-element [photo-library {:size 14}])
-           :on-click trigger-upload
-           :sx {:minWidth "100px"}} "Upload"])
-       (when @disabled?
-         [button
-          {:variant "outlined"
-           :color "error"
-           :size "small"
-           :on-click on-cancel-request
-           :sx {:minWidth "60px"}} "Stop"])
-       [button
-        {:variant "contained"
-         :disabled @disabled?
-         :sx {:minWidth "60px" :px 1}
-         :startIcon (if @disabled?
-                      (r/as-element [circular-progress
-                                     {:size 14 :sx {:color "secondary.light"}}])
-                      (r/as-element [send {:size 14}]))
-         :on-click
-         #(when @message-ref
-            (let [msg (.-value @message-ref)]
-              (when (or (seq (str msg)) @attached-image)
-                (on-send msg)
-                (set! (.-value @message-ref) "")
-                (swap! app-state update :chat dissoc :draft-message))))}
-        [box
-         {:sx {:color (if @disabled? "text.disabled" "inherit")
-               :fontWeight (if @disabled? "600" "normal")
-               :fontSize (if @disabled? "0.8rem" "0.9rem")}}
-         (if @disabled? "Sending..." "Send")]]])))
+       (if @disabled?
+         [sending-buttons on-cancel-request]
+         [idle-buttons disabled? on-send message-ref app-state on-image-capture
+          attached-image bar-view? is-mobile? trigger-upload])])))
 
 (defn chat-input
   "Chat input field with send button and camera button - uncontrolled for performance"
