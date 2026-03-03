@@ -88,12 +88,15 @@
            [icon-button
             {:disabled @disabled?
              :size "small"
+             :color "inherit"
              :on-click #(on-image-capture nil)} [camera-alt]]])
         (if is-mobile?
           [tooltip {:title "Upload photo"}
            [icon-button
-            {:disabled @disabled? :size "small" :on-click trigger-upload}
-            [photo-library]]]
+            {:disabled @disabled?
+             :size "small"
+             :color "inherit"
+             :on-click trigger-upload} [photo-library]]]
           [button
            {:variant "outlined"
             :size "small"
