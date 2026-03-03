@@ -146,17 +146,16 @@
        :startIcon (r/as-element [photo-library {:size 14}])
        :on-click trigger-upload
        :sx {:minWidth "100px"}} "Upload"])
-   [button
-    {:variant "contained"
-     :sx {:minWidth "60px" :px 1}
-     :startIcon (r/as-element [send {:size 14}])
+   [icon-button
+    {:color "primary"
+     :variant "contained"
      :on-click #(when @message-ref
                   (let [msg (.-value @message-ref)]
                     (when (or (seq (str msg)) @attached-image)
                       (on-send msg)
                       (set! (.-value @message-ref) "")
                       (swap! app-state update :chat dissoc :draft-message))))}
-    "Send"]])
+    [send]]])
 
 (defn- chat-input-actions
   [disabled? on-send message-ref app-state on-image-capture on-cancel-request
