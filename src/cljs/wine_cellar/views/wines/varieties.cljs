@@ -226,7 +226,9 @@
         [typography {:variant "body1"}
          "No grape varieties associated with this wine."]
         [box
-         (for [variety varieties]
+         (for [variety (sort-by (fn [v] [(if (:percentage v) 0 1)
+                                         (- (or (:percentage v) 0))])
+                                varieties)]
            ^{:key (:variety_id variety)}
            [box
             {:sx {:display "flex"

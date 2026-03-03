@@ -2,6 +2,8 @@
   (:require [reagent.core :as r]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.material.tooltip :refer [tooltip]]
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.icons.send :refer [send]]
@@ -63,7 +65,7 @@
            :justify-content "flex-end"
            :align-items "center"
            :gap 1
-           :flex-wrap "wrap"}}
+           :flex-wrap "nowrap"}}
      [ai-toggle/provider-toggle-button app-state {:sx {:mr "auto"}}]
      (let [is-mobile? (and js/navigator.maxTouchPoints
                            (> js/navigator.maxTouchPoints 0))
@@ -82,21 +84,23 @@
                                           (aget 0))]
                         (handle-clipboard-image file attached-image))}]
         (when is-mobile?
+          [tooltip {:title "Take photo"}
+           [icon-button
+            {:disabled @disabled?
+             :size "small"
+             :on-click #(on-image-capture nil)} [camera-alt]]])
+        (if is-mobile?
+          [tooltip {:title "Upload photo"}
+           [icon-button
+            {:disabled @disabled? :size "small" :on-click trigger-upload}
+            [photo-library]]]
           [button
            {:variant "outlined"
             :size "small"
             :disabled @disabled?
-            :startIcon (r/as-element [camera-alt {:size 14}])
-            :on-click #(on-image-capture nil)
-            :sx {:minWidth "90px"}} "Camera"])
-        [button
-         {:variant "outlined"
-          :size "small"
-          :disabled @disabled?
-          :startIcon (r/as-element [photo-library {:size 14}])
-          :on-click trigger-upload
-          :sx {:minWidth (if is-mobile? "90px" "100px")}}
-         (if is-mobile? "Photos" "Upload")]
+            :startIcon (r/as-element [photo-library {:size 14}])
+            :on-click trigger-upload
+            :sx {:minWidth "100px"}} "Upload"])
         (when @disabled?
           [button
            {:variant "outlined"

@@ -220,10 +220,8 @@
       {:variant "text"
        :size "small"
        :color "secondary"
-       :on-click #(let [provider (get-in @app-state [:ai :provider])]
-                    (api/fetch-latest-report app-state
-                                             {:force? true :provider provider})
-                    (api/fetch-report-list app-state))} "Regenerate"]
+       :on-click #(do (api/fetch-latest-report app-state {:force? true})
+                      (api/fetch-report-list app-state))} "Regenerate"]
      [icon-button
       {:sx {:color "text.secondary"}
        :on-click #(do (swap! app-state dissoc :report) (nav/replace-wines!))}

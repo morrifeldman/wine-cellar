@@ -144,7 +144,7 @@
 (defn generate-report!
   "Generates and saves a cellar report. Returns the report record."
   ([] (generate-report! {}))
-  ([{:keys [force? provider]}]
+  ([{:keys [force?]}]
    (jdbc/with-transaction
     [tx ds]
     (let [{:keys [report-date]} (get-date-range)
@@ -164,7 +164,7 @@
                                  (:recently-added-ids summary-data)))
           stale? (and existing (not has-ids?))
           should-generate? (or (nil? existing) stale? force?)
-          selected-provider (or provider :gemini)]
+          selected-provider :anthropic]
       (if (not should-generate?)
         (do (tap> "Returning existing report from database") existing)
         (let

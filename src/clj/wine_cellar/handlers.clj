@@ -426,11 +426,8 @@
 
 (defn get-latest-report
   [request]
-  (let [force? (get-in request [:query-params "force"])
-        provider (some-> (get-in request [:query-params "provider"])
-                         keyword)]
-    (try (let [report (reports/generate-report! {:force? (boolean force?)
-                                                 :provider provider})]
+  (let [force? (get-in request [:query-params "force"])]
+    (try (let [report (reports/generate-report! {:force? (boolean force?)})]
            (response/response report))
          (catch Exception e (server-error e)))))
 
