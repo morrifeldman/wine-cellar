@@ -73,7 +73,8 @@
    (sql-execute-helper tx schema/cocktail-recipes-table-schema)
    (sql-execute-helper tx migrations/seed-bar-inventory-items)
    (sql-execute-helper tx migrations/ensure-conversations-chat-type)
-   (sql-execute-helper tx migrations/ensure-sensor-readings-indexes)
+   (sql-execute-helper tx migrations/ensure-sensor-readings-device-measured-index)
+   (sql-execute-helper tx migrations/ensure-sensor-readings-measured-index)
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
 

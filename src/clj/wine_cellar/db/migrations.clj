@@ -69,10 +69,13 @@
   {:raw
    ["ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS chat_type VARCHAR DEFAULT 'wine'"]})
 
-(def ensure-sensor-readings-indexes
+(def ensure-sensor-readings-device-measured-index
   {:raw
-   ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_device_measured ON sensor_readings(device_id, measured_at DESC)"
-    "CREATE INDEX IF NOT EXISTS idx_sensor_readings_measured ON sensor_readings(measured_at DESC)"]})
+   ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_device_measured ON sensor_readings(device_id, measured_at DESC)"]})
+
+(def ensure-sensor-readings-measured-index
+  {:raw
+   ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_measured ON sensor_readings(measured_at DESC)"]})
 
 (def remove-classification-vineyard-designations
   {:raw
