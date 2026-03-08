@@ -48,7 +48,7 @@
                      :loading-latest? false
                      :loading-series? false
                      :bucket "1d"
-                     :range :all
+                     :range :30d
                      :device-id nil
                      :error nil}
    :blind-tastings {:list []

@@ -227,17 +227,16 @@
 │                   ├── list.cljs
 │                   └── varieties.cljs
 ├── test-results
-├── tools
-│   └── wine-color-picker
-│       ├── debug_sampling.jpg
-│       ├── extract_colors_programmatic.py
-│       ├── refine_whites.py
-│       ├── requirements.txt
-│       ├── serve_color_picker.py
-│       ├── web_color_picker.html
-│       └── wine-colors.jpg
-└── WhatsApp Image 2026-03-02 at 11.01.35 PM (1).jpeg
+└── tools
+    └── wine-color-picker
+        ├── debug_sampling.jpg
+        ├── extract_colors_programmatic.py
+        ├── refine_whites.py
+        ├── requirements.txt
+        ├── serve_color_picker.py
+        ├── web_color_picker.html
+        └── wine-colors.jpg
 
-56 directories, 178 files
+56 directories, 177 files
 ```
 
