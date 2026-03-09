@@ -67,6 +67,7 @@
    (sql-execute-helper tx schema/inventory-history-table-schema)
    (sql-execute-helper tx schema/cellar-reports-table-schema)
    (sql-execute-helper tx schema/sensor-readings-table-schema)
+   (sql-execute-helper tx schema/sensor-temperatures-table-schema)
    (sql-execute-helper tx schema/devices-table-schema)
    (sql-execute-helper tx schema/spirits-table-schema)
    (sql-execute-helper tx schema/bar-inventory-items-table-schema)
@@ -75,6 +76,9 @@
    (sql-execute-helper tx migrations/ensure-conversations-chat-type)
    (sql-execute-helper tx migrations/ensure-sensor-readings-device-measured-index)
    (sql-execute-helper tx migrations/ensure-sensor-readings-measured-index)
+   (sql-execute-helper tx migrations/ensure-sensor-temperatures-reading-id-index)
+   (sql-execute-helper tx
+                       migrations/ensure-sensor-temperatures-reading-sensor-index)
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
 
@@ -97,6 +101,9 @@
    (sql-execute-helper tx
                        {:raw ["DROP TABLE IF EXISTS ai_conversations CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS tasting_notes CASCADE"]})
+   (sql-execute-helper
+    tx
+    {:raw ["DROP TABLE IF EXISTS sensor_temperatures CASCADE"]})
    (sql-execute-helper tx
                        {:raw ["DROP TABLE IF EXISTS sensor_readings CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS devices CASCADE"]})

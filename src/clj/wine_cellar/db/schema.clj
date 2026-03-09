@@ -187,6 +187,17 @@
     [:notes :text] [:measured_at :timestamptz [:default [:now]]]
     [:created_at :timestamp [:default [:now]]]]})
 
+(def sensor-temperatures-table-schema
+  {:create-table [:sensor_temperatures :if-not-exists]
+   :with-columns
+   [[:id :bigserial :primary-key] [:reading_id :bigint [:not nil]]
+    [:sensor_addr :varchar [:not nil]]
+    [:temperature_c :double-precision [:not nil]]
+    [[:foreign-key :reading_id] :references [:sensor_readings :id] :on-delete
+     :cascade]
+    [[:constraint :sensor_temperatures_reading_sensor_unique] :unique
+     [:composite :reading_id :sensor_addr]]]})
+
 (def devices-table-schema
   {:create-table [:devices :if-not-exists]
    :with-columns [[:id :bigserial :primary-key] [:device_id :varchar [:not nil]]

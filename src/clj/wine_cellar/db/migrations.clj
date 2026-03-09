@@ -77,6 +77,14 @@
   {:raw
    ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_measured ON sensor_readings(measured_at DESC)"]})
 
+(def ensure-sensor-temperatures-reading-id-index
+  {:raw
+   ["CREATE INDEX IF NOT EXISTS idx_sensor_temperatures_reading_id ON sensor_temperatures(reading_id)"]})
+
+(def ensure-sensor-temperatures-reading-sensor-index
+  {:raw
+   ["CREATE UNIQUE INDEX IF NOT EXISTS idx_sensor_temperatures_reading_sensor ON sensor_temperatures(reading_id, sensor_addr)"]})
+
 (def remove-classification-vineyard-designations
   {:raw
    ["DO $$ BEGIN "

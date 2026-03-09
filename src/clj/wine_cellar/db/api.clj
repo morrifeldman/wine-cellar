@@ -811,13 +811,27 @@
 (defn create-sensor-reading!
   ([reading] (create-sensor-reading! ds reading))
   ([tx-or-ds reading]
-   (some-> (jdbc/execute-one! tx-or-ds
-                              (sql/format {:insert-into :sensor_readings
-                                           :values [(sensor-reading->db-row
-                                                     reading)]
-                                           :returning :*})
-                              db-opts)
-           db-sensor-reading->reading)))
+   (jdbc/with-transaction
+    [tx tx-or-ds]
+    (let [row (sensor-reading->db-row reading)
+          inserted (some-> (jdbc/execute-one!
+                            tx
+                            (sql/format {:insert-into :sensor_readings
+                                         :values [row]
+                                         :returning :*})
+                            db-opts)
+                           db-sensor-reading->reading)]
+      (when-let [temps (:temperatures reading)]
+        (let [reading-id (:id inserted)]
+          (doseq [[addr temp] temps]
+            (jdbc/execute!
+             tx
+             (sql/format {:insert-into :sensor_temperatures
+                          :values [{:reading_id reading-id
+                                    :sensor_addr (name addr)
+                                    :temperature_c (Double/parseDouble
+                                                    (str temp))}]})))) )
+      inserted))))
 
 (defn list-sensor-readings
   ([] (list-sensor-readings {}))
@@ -871,9 +885,8 @@
   "Return aggregated sensor readings bucketed by the requested interval. Results
   always include :device_id and :bucket_start (ISO string). Metrics include
   avg/min/max per bucket for available numeric fields.
-  Temperature aggregation: computes per-sensor averages via jsonb_each_text and
-  returns avg_temperatures as a JSONB map {sensor_key: avg_value}.
-  Uses a single base CTE to avoid scanning sensor_readings twice."
+  Temperature aggregation: computes per-sensor averages via sensor_temperatures table
+  and returns avg_temperatures as a JSONB map {sensor_key: avg_value}."
   [{:keys [device_id from to bucket]}]
   (let
     [bucket-seconds (get bucket->seconds bucket 3600)
@@ -882,9 +895,9 @@
                   bucket-seconds
                   bucket-seconds)
      conditions (cond-> ["1=1"]
-                  device_id (conj "device_id = ?")
-                  from (conj "measured_at >= ?::timestamptz")
-                  to (conj "measured_at <= ?::timestamptz"))
+                  device_id (conj "sr.device_id = ?")
+                  from (conj "sr.measured_at >= ?::timestamptz")
+                  to (conj "sr.measured_at <= ?::timestamptz"))
      params (cond-> []
               device_id (conj device_id)
               from (conj from)
@@ -892,17 +905,10 @@
      where-clause (str/join " AND " conditions)
      sql-str
      (str
-      "WITH base AS ("
+      "WITH buckets AS ("
       "  SELECT device_id, "
       bucket-expr
       " AS bucket_start,"
-      "    humidity_pct, pressure_hpa, illuminance_lux, co2_ppm, battery_mv,"
-      "    temperatures"
-      "  FROM sensor_readings"
-      "  WHERE "
-      where-clause
-      "), buckets AS ("
-      "  SELECT device_id, bucket_start,"
       "    AVG(humidity_pct) AS avg_humidity_pct,"
       "    MIN(humidity_pct) AS min_humidity_pct,"
       "    MAX(humidity_pct) AS max_humidity_pct,"
@@ -917,19 +923,25 @@
       "    AVG(battery_mv) AS avg_battery_mv,"
       "    MIN(battery_mv) AS min_battery_mv,"
       "    MAX(battery_mv) AS max_battery_mv"
-      "  FROM base" "  GROUP BY device_id, bucket_start"
-      "), temp_agg AS (" "  SELECT device_id, bucket_start,"
-      "    sensor_key," "    AVG(sensor_val::float) AS avg_val,"
-      "    MIN(sensor_val::float) AS min_val,"
-      "    MAX(sensor_val::float) AS max_val"
-      "  FROM base,"
-      "    LATERAL jsonb_each_text(temperatures) AS t(sensor_key, sensor_val)"
-      "  WHERE temperatures IS NOT NULL"
-      "  GROUP BY device_id, bucket_start, sensor_key"
+      "  FROM sensor_readings sr"
+      "  WHERE "
+      where-clause
+      "  GROUP BY device_id, bucket_start"
+      "), temp_agg AS (" "  SELECT sr.device_id, "
+      bucket-expr
+      " AS bucket_start,"
+      "    st.sensor_addr," "    AVG(st.temperature_c) AS avg_val,"
+      "    MIN(st.temperature_c) AS min_val,"
+      "    MAX(st.temperature_c) AS max_val"
+      "  FROM sensor_readings sr"
+      "  JOIN sensor_temperatures st ON sr.id = st.reading_id"
+      "  WHERE "
+      where-clause
+      "  GROUP BY sr.device_id, bucket_start, st.sensor_addr"
       "), temp_json AS (" "  SELECT device_id, bucket_start,"
-      "    jsonb_object_agg(sensor_key, round(avg_val::numeric, 2)) AS avg_temperatures,"
-      "    jsonb_object_agg(sensor_key, round(min_val::numeric, 2)) AS min_temperatures,"
-      "    jsonb_object_agg(sensor_key, round(max_val::numeric, 2)) AS max_temperatures"
+      "    jsonb_object_agg(sensor_addr, round(avg_val::numeric, 2)) AS avg_temperatures,"
+      "    jsonb_object_agg(sensor_addr, round(min_val::numeric, 2)) AS min_temperatures,"
+      "    jsonb_object_agg(sensor_addr, round(max_val::numeric, 2)) AS max_temperatures"
       "  FROM temp_agg"
       "  GROUP BY device_id, bucket_start" ")"
       " SELECT b.device_id, b.bucket_start,"
@@ -942,7 +954,7 @@
       " FROM buckets b"
       " LEFT JOIN temp_json t ON b.device_id = t.device_id AND b.bucket_start = t.bucket_start"
       " ORDER BY b.bucket_start ASC, b.device_id ASC")
-     rows (jdbc/execute! ds (into [sql-str] params) db-opts)]
+     rows (jdbc/execute! ds (into [sql-str] (vec (concat params params))) db-opts)]
     (->> rows
          (map (fn [row]
                 (cond-> row
