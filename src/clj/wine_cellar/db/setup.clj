@@ -5,7 +5,6 @@
             [next.jdbc :as jdbc]
             [wine-cellar.db.api :as db-api]
             [wine-cellar.db.connection :refer [db-opts ds]]
-            [wine-cellar.db.migrations :as migrations]
             [wine-cellar.db.schema :as schema]))
 
 ;; Classification seeding
@@ -48,20 +47,13 @@
   ([tx]
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/create-wine-style-type)
-   (sql-execute-helper tx migrations/ensure-classifications-appellation-tier)
-   (sql-execute-helper tx migrations/ensure-messages-fts-index)
-   (sql-execute-helper tx migrations/ensure-blind-tasting-columns)
-   (sql-execute-helper tx migrations/ensure-devices-sensor-config)
-   (sql-execute-helper tx
-                       migrations/rename-cellar-conditions-to-sensor-readings)
-   (sql-execute-helper tx migrations/migrate-temperature-to-temperatures)
-   (sql-execute-helper tx
-                       migrations/remove-classification-vineyard-designations)
+   ;; Tables
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)
    (sql-execute-helper tx schema/tasting-notes-table-schema)
    (sql-execute-helper tx schema/ai-conversations-table-schema)
    (sql-execute-helper tx schema/ai-conversation-messages-table-schema)
+   (sql-execute-helper tx schema/ensure-messages-fts-column)
    (sql-execute-helper tx schema/grape-varieties-table-schema)
    (sql-execute-helper tx schema/wine-grape-varieties-table-schema)
    (sql-execute-helper tx schema/inventory-history-table-schema)
@@ -72,13 +64,36 @@
    (sql-execute-helper tx schema/spirits-table-schema)
    (sql-execute-helper tx schema/bar-inventory-items-table-schema)
    (sql-execute-helper tx schema/cocktail-recipes-table-schema)
-   (sql-execute-helper tx migrations/seed-bar-inventory-items)
-   (sql-execute-helper tx migrations/ensure-conversations-chat-type)
-   (sql-execute-helper tx migrations/ensure-sensor-readings-device-measured-index)
-   (sql-execute-helper tx migrations/ensure-sensor-readings-measured-index)
-   (sql-execute-helper tx migrations/ensure-sensor-temperatures-reading-id-index)
-   (sql-execute-helper tx
-                       migrations/ensure-sensor-temperatures-reading-sensor-index)
+   ;; Indexes
+   (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_device_measured ON sensor_readings(device_id, measured_at DESC)"]})
+   (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_measured ON sensor_readings(measured_at DESC)"]})
+   (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_temperatures_reading_id ON sensor_temperatures(reading_id)"]})
+   ;; Seed data
+   (sql-execute-helper
+    tx
+    {:raw
+     ["DO $$ BEGIN "
+      "IF NOT EXISTS (SELECT 1 FROM bar_inventory_items LIMIT 1) THEN "
+      "INSERT INTO bar_inventory_items (name, category, sort_order) VALUES "
+      "('lime juice', 'juice', 10), " "('lemon juice', 'juice', 20), "
+      "('orange juice', 'juice', 30), " "('grapefruit juice', 'juice', 40), "
+      "('pineapple juice', 'juice', 50), " "('cranberry juice', 'juice', 60), "
+      "('club soda', 'soda', 10), " "('tonic water', 'soda', 20), "
+      "('ginger beer', 'soda', 30), " "('ginger ale', 'soda', 40), "
+      "('cola', 'soda', 50), " "('simple syrup', 'syrup', 10), "
+      "('honey syrup', 'syrup', 20), " "('grenadine', 'syrup', 30), "
+      "('orgeat', 'syrup', 40), " "('agave nectar', 'syrup', 50), "
+      "('falernum', 'syrup', 60), " "('Angostura bitters', 'bitters', 10), "
+      "('Peychaud''s bitters', 'bitters', 20), "
+      "('orange bitters', 'bitters', 30), " "('mole bitters', 'bitters', 40), "
+      "('lime wedges', 'garnish', 10), " "('lemon wedges', 'garnish', 20), "
+      "('orange peel', 'garnish', 30), "
+      "('maraschino cherries', 'garnish', 40), " "('olives', 'garnish', 50), "
+      "('cocktail onions', 'garnish', 60), " "('fresh mint', 'garnish', 70), "
+      "('fresh basil', 'garnish', 80), " "('rosemary', 'garnish', 90), "
+      "('heavy cream', 'other', 10), " "('egg whites', 'other', 20), "
+      "('coconut cream', 'other', 30); " "END IF; END $$;"]})
+   ;; View
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/enriched-wines-view-schema)))
 

@@ -70,6 +70,7 @@
                   [:title :varchar] [:wine_ids :integer :array]
                   [:wine_search_state :jsonb] [:auto_tags :varchar :array]
                   [:provider :varchar [:default "anthropic"]]
+                  [:chat_type :varchar [:default "wine"]]
                   [:pinned :boolean [:default false]]
                   [:total_tokens_used :integer [:default 0]]
                   [:created_at :timestamp [:default [:now]]]
@@ -85,7 +86,17 @@
                   [:image_data :bytea] [:tokens_used :integer]
                   [:created_at :timestamp [:default [:now]]]
                   [[:foreign-key :conversation_id] :references
-                   [:ai_conversations :id] :on-delete :cascade]]})
+                   [:ai_conversations :id] :on-delete :cascade]]}
+
+  )
+
+(def ensure-messages-fts-column
+  {:raw
+   ["DO $$ BEGIN "
+    "IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='ai_conversation_messages' AND COLUMN_NAME='fts_content') THEN "
+    "ALTER TABLE ai_conversation_messages ADD COLUMN fts_content tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED; "
+    "CREATE INDEX IF NOT EXISTS idx_messages_fts_content ON ai_conversation_messages USING GIN (fts_content); "
+    "END IF; END $$;"]})
 #_(sql/format ai-conversation-messages-table-schema)
 
 
@@ -207,6 +218,7 @@
                   [:claim_code_hash :varchar] [:refresh_token_hash :varchar]
                   [:token_expires_at :timestamptz] [:last_seen :timestamptz]
                   [:firmware_version :varchar] [:capabilities :jsonb]
+                  [:sensor_config :jsonb]
                   [:notes :text] [:created_at :timestamp [:default [:now]]]
                   [:updated_at :timestamp [:default [:now]]]]})
 

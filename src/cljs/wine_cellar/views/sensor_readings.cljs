@@ -161,7 +161,7 @@
       :isAnimationActive false}]))
 
 (defn- chart
-  [{:keys [data metric unit convert decimals]}]
+  [{:keys [data metric unit convert decimals autoscale?]}]
   (let [convert (or convert identity)
         convert-value (fn [v]
                         (-> v
@@ -198,10 +198,11 @@
                                                 #js {:month "short"
                                                      :day "numeric"})))}]
       [:> YAxis
-       {:tick {:fill "#f4f0eb"}
-        :axisLine {:stroke "#f4f0eb"}
-        :tickFormatter
-        (fn [v] (let [n (js/Number v)] (str (.toFixed n decimals) unit)))}]
+       (cond-> {:tick {:fill "#f4f0eb"}
+                :axisLine {:stroke "#f4f0eb"}
+                :tickFormatter
+                (fn [v] (let [n (js/Number v)] (str (.toFixed n decimals) unit)))}
+         autoscale? (assoc :domain #js ["auto" "auto"]))]
       [:> Tooltip
        {:contentStyle #js {:backgroundColor "#2b0e16"
                            :border "1px solid #f4f0eb"}
@@ -327,6 +328,7 @@
       [:> YAxis
        {:tick {:fill "#f4f0eb"}
         :axisLine {:stroke "#f4f0eb"}
+        :domain #js ["auto" "auto"]
         :tickFormatter (fn [v] (str (.toFixed (js/Number v) 1) "°F"))}]
       [:> Tooltip
        {:contentStyle #js {:backgroundColor "#2b0e16"
@@ -353,14 +355,15 @@
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Temperature (°F)"]
     [temp-chart {:series series :sensor-config sensor-config}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Humidity"]
-    [chart {:data series :metric :avg_humidity_pct :unit "%"}]
+    [chart {:data series :metric :avg_humidity_pct :unit "%" :autoscale? true}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Pressure (inHg)"]
     [chart
      {:data series
       :metric :avg_pressure_hpa
       :unit " inHg"
       :convert pressure-hpa->inhg
-      :decimals 2}]
+      :decimals 2
+      :autoscale? true}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Illuminance (lux)"]
     [chart
      {:data series :metric :avg_illuminance_lux :unit " lx" :decimals 0}]]])
