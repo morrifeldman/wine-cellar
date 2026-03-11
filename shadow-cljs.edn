@@ -9,7 +9,8 @@
                 [metosin/reitit-frontend "0.7.2"]]
  :nrepl {:middleware [cider.nrepl/cider-middleware
                       refactor-nrepl.middleware/wrap-refactor]}
- :dev-http {8080 "public"}
+ :dev-http {8080 {:root "public"
+                   :push-state/index "index.html"}}
  :builds {:app {:target :browser
                 :output-dir "public/js"
                 :asset-path "/js"

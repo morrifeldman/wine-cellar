@@ -174,7 +174,7 @@
                   :country {:type "STRING"}
                   :region {:type "STRING"}
                   :age_statement {:type "STRING"}
-                  :abv {:type "NUMBER"}}}))
+                  :proof {:type "INTEGER"}}}))
 
 (defn analyze-spirit-label
   [{:keys [system user-content]}]

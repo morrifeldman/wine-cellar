@@ -11,21 +11,21 @@
     :category "gin"
     :distillery "William Grant & Sons"
     :country "Scotland"
-    :abv 41.4M
+    :proof 83
     :quantity 1
     :price 38.00M}
    {:name "Campari"
     :category "liqueur"
     :distillery "Campari Group"
     :country "Italy"
-    :abv 24.0M
+    :proof 48
     :quantity 1
     :price 32.00M}
    {:name "Carpano Antica Formula"
     :category "other"
     :distillery "Fratelli Branca"
     :country "Italy"
-    :abv 16.5M
+    :proof 33
     :quantity 1
     :price 28.00M}])
 

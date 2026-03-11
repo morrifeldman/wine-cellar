@@ -236,9 +236,9 @@
                   :country {:type ["string" "null"]}
                   :region {:type ["string" "null"]}
                   :age_statement {:type ["string" "null"]}
-                  :abv {:type ["number" "null"]}}
+                  :proof {:type ["integer" "null"]}}
      :required [:name :category :distillery :country :region :age_statement
-                :abv]
+                :proof]
      :additionalProperties false}))
 
 (defn analyze-spirit-label

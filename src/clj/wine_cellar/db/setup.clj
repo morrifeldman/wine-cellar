@@ -64,6 +64,16 @@
    (sql-execute-helper tx schema/spirits-table-schema)
    (sql-execute-helper tx schema/bar-inventory-items-table-schema)
    (sql-execute-helper tx schema/cocktail-recipes-table-schema)
+   ;; Migrations
+   (sql-execute-helper
+    tx
+    {:raw
+     ["DO $$ BEGIN "
+      "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='spirits' AND column_name='abv') THEN "
+      "UPDATE spirits SET abv = ROUND(abv * 2) WHERE abv IS NOT NULL; "
+      "ALTER TABLE spirits RENAME COLUMN abv TO proof; "
+      "ALTER TABLE spirits ALTER COLUMN proof TYPE integer USING proof::integer; "
+      "END IF; END $$;"]})
    ;; Indexes
    (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_device_measured ON sensor_readings(device_id, measured_at DESC)"]})
    (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_measured ON sensor_readings(measured_at DESC)"]})

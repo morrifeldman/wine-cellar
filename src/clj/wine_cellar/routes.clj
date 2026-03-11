@@ -166,7 +166,7 @@
 (s/def ::category (s/and string? (complement str/blank?)))
 (s/def ::distillery (s/nilable string?))
 (s/def ::age_statement (s/nilable string?))
-(s/def ::abv (s/nilable number?))
+(s/def ::proof (s/nilable int?))
 (s/def ::have_it boolean?)
 (s/def ::sort_order (s/nilable int?))
 (s/def ::amount (s/nilable string?))
@@ -180,13 +180,13 @@
 
 (def spirit-schema
   (s/keys :req-un [::name ::category]
-          :opt-un [::distillery ::country ::region ::age_statement ::abv
+          :opt-un [::distillery ::country ::region ::age_statement ::proof
                    ::quantity ::price ::purchase_date ::location ::notes]))
 
 (def spirit-update-schema
   (s/keys :opt-un
           [::name ::category ::distillery ::country ::region ::age_statement
-           ::abv ::quantity ::price ::purchase_date ::location ::notes]))
+           ::proof ::quantity ::price ::purchase_date ::location ::notes]))
 
 (def bar-inventory-item-schema
   (s/keys :req-un [::name ::category] :opt-un [::have_it ::sort_order]))
@@ -779,8 +779,8 @@
       coercion/coerce-response-middleware swagger/swagger-feature
       auth/wrap-auth]}})
   ; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
-  (ring/routes (ring/create-file-handler {:path "/"})
+  (ring/routes (ring/create-file-handler {:path "/" :root "public"})
                (fn [{:keys [request-method]}]
                  (when (= :get request-method)
-                   (response/resource-response "index.html" {:root "public"})))
+                   (response/file-response "public/index.html")))
                (ring/create-default-handler))))

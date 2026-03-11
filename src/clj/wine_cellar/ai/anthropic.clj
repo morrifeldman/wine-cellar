@@ -242,11 +242,11 @@
                        :description (str "Age statement text if present "
                                          "(e.g. \"12 Year\"). "
                                          null-note)}
-       :abv {:type ["number" "null"]
-             :description (str "Alcohol by volume as a number (e.g. 40.0). "
-                               null-note)}}
+       :proof {:type ["integer" "null"]
+               :description (str "Proof value as an integer (e.g. 80). "
+                                 null-note)}}
       :required [:name :category :distillery :country :region :age_statement
-                 :abv]
+                 :proof]
       :additionalProperties false}}))
 
 (defn analyze-spirit-label
@@ -313,29 +313,36 @@
 (def extract-recipe-tool
   {:name extract-recipe-tool-name
    :description "Extracts structured cocktail recipe data from text."
-   :input_schema {:type "object"
-                  :required ["name" "ingredients"]
-                  :properties {:name {:type "string"}
-                               :description {:type "string"}
-                               :ingredients {:type "array"
-                                             :items {:type "object"
-                                                     :required ["name"]
-                                                     :properties
-                                                     {:name {:type "string"}
-                                                      :amount {:type "string"}
-                                                      :unit {:type "string"}}}}
-                               :instructions {:type "string"}
-                               :tags {:type "array" :items {:type "string"}}}}})
+   :input_schema
+   {:type "object"
+    :required ["recipes"]
+    :properties
+    {:recipes
+     {:type "array"
+      :items {:type "object"
+              :required ["name" "ingredients"]
+              :properties {:name {:type "string"}
+                           :description {:type "string"}
+                           :ingredients {:type "array"
+                                         :items {:type "object"
+                                                 :required ["name"]
+                                                 :properties
+                                                 {:name {:type "string"}
+                                                  :amount {:type "string"}
+                                                  :unit {:type "string"}}}}
+                           :instructions {:type "string"}
+                           :tags {:type "array"
+                                  :items {:type "string"}}}}}}}})
 
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from a plain-text message."
   [text]
   {:pre [(string? text)]}
   (let [request {:messages [{:role "user"
-                             :content (str "Extract the cocktail recipe from"
+                             :content (str "Extract all cocktail recipes from"
                                            " this text:\n\n"
                                            text)}]
                  :tools [extract-recipe-tool]
                  :tool_choice {:type "tool" :name extract-recipe-tool-name}
-                 :max_tokens 800}]
+                 :max_tokens 2000}]
     (call-anthropic-api request true)))

@@ -16,6 +16,7 @@
             [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.edit :refer [edit]]
+            [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.api :as api]
             [wine-cellar.views.components.ai-provider-toggle :refer
              [provider-toggle-button]]
@@ -111,7 +112,8 @@
                         (update-field! :region (:region result)))
                       (when (:age_statement result)
                         (update-field! :age_statement (:age_statement result)))
-                      (when (:abv result) (update-field! :abv (:abv result)))))
+                      (when (:proof result)
+                        (update-field! :proof (:proof result)))))
                    (.catch (fn [err]
                              (swap! app-state assoc
                                :error
@@ -155,8 +157,8 @@
             [text-field "Age" (:age_statement spirit)
              #(update-field! :age_statement %)]]
            [box {:sx {:flex "1 1 80px"}}
-            [text-field "ABV %" (:abv spirit)
-             #(update-field! :abv (js/parseFloat %)) :type "number"]]
+            [text-field "Proof" (:proof spirit)
+             #(update-field! :proof (js/parseInt %)) :type "number"]]
            [box {:sx {:flex "1 1 70px"}}
             [text-field "Qty" (:quantity spirit)
              #(update-field! :quantity (js/parseInt %)) :type "number"]]
@@ -201,7 +203,7 @@
   [spirit]
   (->> [(:category spirit) (:distillery spirit) (:country spirit)
         (when (:age_statement spirit) (:age_statement spirit))
-        (when (:abv spirit) (str (:abv spirit) "% ABV"))
+        (when (:proof spirit) (str (:proof spirit) " proof"))
         (when (:quantity spirit) (str "qty: " (:quantity spirit)))]
        (filter identity)
        (str/join " · ")))
@@ -247,28 +249,51 @@
      [delete {:fontSize "small"}]]]])
 
 (defn spirits-tab
-  [app-state]
-  (let [bar @(r/cursor app-state [:bar])
-        spirits (:spirits bar)
-        show-form? (:show-spirit-form? bar)
-        editing-id (:editing-spirit-id bar)
-        loading? (:loading? bar)]
-    [box
-     [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-      [typography {:variant "h6"} (str "Spirits (" (count spirits) ")")]
-      (when-not (or show-form? editing-id)
-        [button
-         {:variant "outlined"
-          :color "primary"
-          :start-icon (r/as-element [add])
-          :on-click #(swap! app-state assoc-in [:bar :show-spirit-form?] true)}
-         "Add Spirit"])]
-     (when (or show-form? editing-id) [spirit-form app-state])
-     (if loading?
-       [box {:sx {:display "flex" :justifyContent "center" :py 4}}
-        [circular-progress {:color "primary"}]]
-       (if (empty? spirits)
-         [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
-          "No spirits yet. Add your first bottle!"]
-         (for [spirit spirits]
-           ^{:key (:id spirit)} [spirit-card app-state spirit])))]))
+  [_app-state]
+  (let [search-text (r/atom "")]
+    (fn [app-state]
+      (let [bar @(r/cursor app-state [:bar])
+            spirits (:spirits bar)
+            show-form? (:show-spirit-form? bar)
+            editing-id (:editing-spirit-id bar)
+            loading? (:loading? bar)
+            term (normalize-text @search-text)
+            filtered (if (seq term)
+                       (filter
+                        (fn [s]
+                          (some #(when % (str/includes? (normalize-text %) term))
+                                [(:name s) (:category s) (:distillery s)
+                                 (:country s) (:region s) (:notes s)
+                                 (:age_statement s)]))
+                        spirits)
+                       spirits)
+            count-label (if (seq term)
+                          (str "Spirits (" (count filtered) "/" (count spirits) ")")
+                          (str "Spirits (" (count spirits) ")"))]
+        [box
+         [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
+          [typography {:variant "h6"} count-label]
+          (when-not (or show-form? editing-id)
+            [button
+             {:variant "outlined"
+              :color "primary"
+              :start-icon (r/as-element [add])
+              :on-click #(swap! app-state assoc-in [:bar :show-spirit-form?] true)}
+             "Add Spirit"])]
+         (when (or show-form? editing-id) [spirit-form app-state])
+         (when (and (seq spirits) (not loading?))
+           [mui-text-field/text-field
+            {:label "Search spirits"
+             :value @search-text
+             :on-change #(reset! search-text (-> % .-target .-value))
+             :size "small"
+             :full-width true
+             :sx {:mb 2}}])
+         (if loading?
+           [box {:sx {:display "flex" :justifyContent "center" :py 4}}
+            [circular-progress {:color "primary"}]]
+           (if (empty? spirits)
+             [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
+              "No spirits yet. Add your first bottle!"]
+             (for [spirit filtered]
+               ^{:key (:id spirit)} [spirit-card app-state spirit])))]))))

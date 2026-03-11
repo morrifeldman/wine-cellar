@@ -228,7 +228,7 @@
                    :primary-key] [:name :varchar [:not nil]]
                   [:category :varchar [:not nil]] [:distillery :varchar]
                   [:country :varchar] [:region :varchar]
-                  [:age_statement :varchar] [:abv :numeric [4 1]]
+                  [:age_statement :varchar] [:proof :integer]
                   [:quantity :integer [:default 1]] [:price :numeric [10 2]]
                   [:purchase_date :date] [:location :varchar] [:notes :text]
                   [:created_at :timestamptz [:default [:now]]]

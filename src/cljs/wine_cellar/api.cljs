@@ -1513,12 +1513,15 @@
                              {:message-text message-text}
                              "Failed to extract recipe"))]
         (if (:success result)
-          (swap! app-state assoc-in
-            [:chat :save-recipe]
-            {:extracting? false
-             :message-id message-id
-             :recipe (:data result)
-             :open? true})
+          (let [data (:data result)
+                recipes (or (:recipes data)
+                            (when (:name data) [data]))]
+            (swap! app-state assoc-in
+              [:chat :save-recipe]
+              {:extracting? false
+               :message-id message-id
+               :recipes (vec recipes)
+               :open? true}))
           (swap! app-state (fn [s]
                              (-> s
                                  (assoc-in [:chat :save-recipe :extracting?]

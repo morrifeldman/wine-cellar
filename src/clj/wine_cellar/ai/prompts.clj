@@ -260,8 +260,8 @@
                                  ", "
                                  (map (fn [s]
                                         (str (:name s)
-                                             (when (:abv s)
-                                               (str " (" (:abv s) "% ABV)"))
+                                             (when (:proof s)
+                                               (str " (" (:proof s) " proof)"))
                                              (when (:quantity s)
                                                (str ", qty: " (:quantity s)))))
                                       items))))))))
@@ -540,7 +540,7 @@
      "- country: Country of origin\n"
      "- region: Region of production (e.g. Speyside, Jalisco)\n"
      "- age_statement: Age statement text if present (e.g. \"12 Year\"), else null\n"
-     "- abv: Alcohol by volume as a number (e.g. 40.0), else null\n\n"
+     "- proof: Proof value as an integer (e.g. 80), else null\n\n"
      "Return ONLY a valid JSON object. Use null for any field not on the label.")))
 
 (defn drinking-window-system-prompt
