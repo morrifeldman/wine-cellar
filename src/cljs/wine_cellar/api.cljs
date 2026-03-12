@@ -1420,25 +1420,30 @@
 
 (defn create-spirit
   [app-state spirit]
-  (go (let [result (<! (POST "/api/spirits" spirit "Failed to create spirit"))]
-        (if (:success result)
-          (do (swap! app-state update-in [:bar :spirits] conj (:data result))
-              (swap! app-state assoc-in [:bar :show-spirit-form?] false)
-              (swap! app-state assoc-in [:bar :new-spirit] {}))
-          (swap! app-state assoc-in [:bar :error] (:error result))))))
+  (js/Promise.
+   (fn [resolve reject]
+     (go (let [result (<! (POST "/api/spirits" spirit "Failed to create spirit"))]
+           (if (:success result)
+             (do (swap! app-state update-in [:bar :spirits] conj (:data result))
+                 (resolve (:data result)))
+             (do (swap! app-state assoc-in [:bar :error] (:error result))
+                 (reject (:error result)))))))))
 
 (defn update-spirit
-  [app-state id spirit]
-  (go (let [result (<! (PUT (str "/api/spirits/" id)
-                            spirit
-                            "Failed to update spirit"))]
-        (if (:success result)
-          (do (swap! app-state update-in
-                [:bar :spirits]
-                (fn [spirits]
-                  (mapv #(if (= (:id %) id) (:data result) %) spirits)))
-              (swap! app-state assoc-in [:bar :editing-spirit-id] nil))
-          (swap! app-state assoc-in [:bar :error] (:error result))))))
+  [app-state id updates]
+  (js/Promise.
+   (fn [resolve reject]
+     (go (let [result (<! (PUT (str "/api/spirits/" id)
+                               updates
+                               "Failed to update spirit"))]
+           (if (:success result)
+             (do (swap! app-state update-in
+                   [:bar :spirits]
+                   (fn [spirits]
+                     (mapv #(if (= (:id %) id) (:data result) %) spirits)))
+                 (resolve (:data result)))
+             (do (swap! app-state assoc-in [:bar :error] (:error result))
+                 (reject (:error result)))))))))
 
 (defn delete-spirit
   [app-state id]

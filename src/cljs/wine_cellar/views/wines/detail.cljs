@@ -46,8 +46,8 @@
     [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
     [wine-cellar.utils.vintage :as vintage]
     [wine-cellar.views.components :refer
-     [editable-autocomplete-field editable-classification-field
-      editable-text-field quantity-control]]
+     [dot-separated-row editable-autocomplete-field
+      editable-classification-field editable-text-field quantity-control]]
     [wine-cellar.views.components.image-upload :refer [image-upload]]
     [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
     [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
@@ -383,17 +383,6 @@
     :inline? true}])
 
 
-(defn- dot-sep
-  []
-  [typography
-   {:component "span" :sx {:color "text.secondary" :mx 0.75 :userSelect "none"}}
-   "·"])
-
-(defn- dot-separated-row
-  [& children]
-  [box {:sx {:display "flex" :flexWrap "wrap" :alignItems "baseline"}}
-   (for [[i child] (map-indexed vector children)]
-     ^{:key i} [:<> (when (pos? i) [dot-sep]) child])])
 
 (defn wine-identity-section
   [app-state wine]

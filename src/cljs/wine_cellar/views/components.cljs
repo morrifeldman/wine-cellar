@@ -23,6 +23,19 @@
             [wine-cellar.api :as api]
             [wine-cellar.utils.mui :refer [safe-js-props]]))
 
+;; Dot-separated inline layout
+(defn dot-sep
+  []
+  [typography
+   {:component "span" :sx {:color "text.secondary" :mx 0.75 :userSelect "none"}}
+   "·"])
+
+(defn dot-separated-row
+  [& children]
+  [box {:sx {:display "flex" :flexWrap "wrap" :alignItems "baseline"}}
+   (for [[i child] (map-indexed vector children)]
+     ^{:key i} [:<> (when (pos? i) [dot-sep]) child])])
+
 ;; Shared styles
 (def form-field-style
   {:min-width "180px" :width "75%" :backgroundColor "container.main"})
