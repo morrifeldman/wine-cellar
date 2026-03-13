@@ -814,23 +814,23 @@
    (jdbc/with-transaction
     [tx tx-or-ds]
     (let [row (sensor-reading->db-row reading)
-          inserted (some-> (jdbc/execute-one!
-                            tx
-                            (sql/format {:insert-into :sensor_readings
-                                         :values [row]
-                                         :returning :*})
-                            db-opts)
+          inserted (some-> (jdbc/execute-one! tx
+                                              (sql/format {:insert-into
+                                                           :sensor_readings
+                                                           :values [row]
+                                                           :returning :*})
+                                              db-opts)
                            db-sensor-reading->reading)]
       (when-let [temps (:temperatures reading)]
         (let [reading-id (:id inserted)]
           (doseq [[addr temp] temps]
-            (jdbc/execute!
-             tx
-             (sql/format {:insert-into :sensor_temperatures
-                          :values [{:reading_id reading-id
-                                    :sensor_addr (name addr)
-                                    :temperature_c (Double/parseDouble
-                                                    (str temp))}]})))) )
+            (jdbc/execute! tx
+                           (sql/format {:insert-into :sensor_temperatures
+                                        :values [{:reading_id reading-id
+                                                  :sensor_addr (name addr)
+                                                  :temperature_c
+                                                  (Double/parseDouble
+                                                   (str temp))}]})))))
       inserted))))
 
 (defn list-sensor-readings
@@ -918,7 +918,8 @@
       "    AVG(illuminance_lux) AS avg_illuminance_lux,"
       "    MIN(illuminance_lux) AS min_illuminance_lux,"
       "    MAX(illuminance_lux) AS max_illuminance_lux,"
-      "    AVG(co2_ppm) AS avg_co2_ppm," "    MIN(co2_ppm) AS min_co2_ppm,"
+      "    AVG(co2_ppm) AS avg_co2_ppm,"
+      "    MIN(co2_ppm) AS min_co2_ppm,"
       "    MAX(co2_ppm) AS max_co2_ppm,"
       "    AVG(battery_mv) AS avg_battery_mv,"
       "    MIN(battery_mv) AS min_battery_mv,"
@@ -927,10 +928,12 @@
       "  WHERE "
       where-clause
       "  GROUP BY device_id, bucket_start"
-      "), temp_agg AS (" "  SELECT sr.device_id, "
+      "), temp_agg AS ("
+      "  SELECT sr.device_id, "
       bucket-expr
       " AS bucket_start,"
-      "    st.sensor_addr," "    AVG(st.temperature_c) AS avg_val,"
+      "    st.sensor_addr,"
+      "    AVG(st.temperature_c) AS avg_val,"
       "    MIN(st.temperature_c) AS min_val,"
       "    MAX(st.temperature_c) AS max_val"
       "  FROM sensor_readings sr"
@@ -954,7 +957,8 @@
       " FROM buckets b"
       " LEFT JOIN temp_json t ON b.device_id = t.device_id AND b.bucket_start = t.bucket_start"
       " ORDER BY b.bucket_start ASC, b.device_id ASC")
-     rows (jdbc/execute! ds (into [sql-str] (vec (concat params params))) db-opts)]
+     rows
+     (jdbc/execute! ds (into [sql-str] (vec (concat params params))) db-opts)]
     (->> rows
          (map (fn [row]
                 (cond-> row

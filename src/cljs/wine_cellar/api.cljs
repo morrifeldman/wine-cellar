@@ -1422,7 +1422,8 @@
   [app-state spirit]
   (js/Promise.
    (fn [resolve reject]
-     (go (let [result (<! (POST "/api/spirits" spirit "Failed to create spirit"))]
+     (go (let [result (<!
+                       (POST "/api/spirits" spirit "Failed to create spirit"))]
            (if (:success result)
              (do (swap! app-state update-in [:bar :spirits] conj (:data result))
                  (resolve (:data result)))
@@ -1514,21 +1515,20 @@
   (swap! app-state assoc-in
     [:chat :save-recipe]
     {:extracting? true :message-id message-id :recipe nil :open? false})
-  (go (let [result (<! (POST "/api/cocktail-recipe-extract"
-                             {:message-text message-text}
-                             "Failed to extract recipe"))]
-        (if (:success result)
-          (let [data (:data result)
-                recipes (or (:recipes data)
-                            (when (:name data) [data]))]
-            (swap! app-state assoc-in
-              [:chat :save-recipe]
-              {:extracting? false
-               :message-id message-id
-               :recipes (vec recipes)
-               :open? true}))
-          (swap! app-state (fn [s]
-                             (-> s
-                                 (assoc-in [:chat :save-recipe :extracting?]
-                                           false)
-                                 (assoc-in [:bar :error] (:error result)))))))))
+  (go
+   (let [result (<! (POST "/api/cocktail-recipe-extract"
+                          {:message-text message-text}
+                          "Failed to extract recipe"))]
+     (if (:success result)
+       (let [data (:data result)
+             recipes (or (:recipes data) (when (:name data) [data]))]
+         (swap! app-state assoc-in
+           [:chat :save-recipe]
+           {:extracting? false
+            :message-id message-id
+            :recipes (vec recipes)
+            :open? true}))
+       (swap! app-state (fn [s]
+                          (-> s
+                              (assoc-in [:chat :save-recipe :extracting?] false)
+                              (assoc-in [:bar :error] (:error result)))))))))

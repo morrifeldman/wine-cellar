@@ -255,27 +255,24 @@
                    (str/join
                     "\n"
                     (for [[cat items] by-cat]
-                      (str "  " (str/capitalize cat)
-                           ": " (str/join
-                                 ", "
-                                 (map (fn [{:keys [name subcategory distillery proof age_statement
-                                                 country region notes]}]
-                                        (str name
-                                             (when subcategory
-                                               (str " (" subcategory ")"))
-                                             (when distillery
-                                               (str " [" distillery "]"))
-                                             (when proof
-                                               (str " (" proof " proof)"))
-                                             (when age_statement
-                                               (str ", " age_statement))
-                                             (when country
-                                               (str ", " country
-                                                    (when region
-                                                      (str "/" region))))
-                                             (when notes
-                                               (str " — " notes))))
-                                      items))))))))
+                      (str
+                       "  " (str/capitalize cat)
+                       ": "
+                       (str/join
+                        ", "
+                        (map
+                         (fn [{:keys [name subcategory distillery proof
+                                      age_statement country region notes]}]
+                           (str
+                            name
+                            (when subcategory (str " (" subcategory ")"))
+                            (when distillery (str " [" distillery "]"))
+                            (when proof (str " (" proof " proof)"))
+                            (when age_statement (str ", " age_statement))
+                            (when country
+                              (str ", " country (when region (str "/" region))))
+                            (when notes (str " — " notes))))
+                         items))))))))
           inventory-section
           (when (seq inventory-items)
             (let [have (filter :have_it inventory-items)
@@ -544,8 +541,7 @@
      "You are a spirits expert extracting information from bottle label images. "
      "Analyze the label and extract the following fields as JSON:\n\n"
      "- name: The full spirit name (brand + expression, e.g. \"Johnnie Walker Black Label\")\n"
-     "- category: Spirit type. Must be one of: "
-     categories
+     "- category: Spirit type. Must be one of: " categories
      "\n"
      "- subcategory: More specific type (e.g. \"bourbon\", \"rye\", \"single malt\", \"reposado\", \"amaro\"), else null\n"
      "- distillery: Producer or distillery name\n"

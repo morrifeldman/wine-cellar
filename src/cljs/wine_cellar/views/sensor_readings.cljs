@@ -200,8 +200,9 @@
       [:> YAxis
        (cond-> {:tick {:fill "#f4f0eb"}
                 :axisLine {:stroke "#f4f0eb"}
-                :tickFormatter
-                (fn [v] (let [n (js/Number v)] (str (.toFixed n decimals) unit)))}
+                :tickFormatter (fn [v]
+                                 (let [n (js/Number v)]
+                                   (str (.toFixed n decimals) unit)))}
          autoscale? (assoc :domain #js ["auto" "auto"]))]
       [:> Tooltip
        {:contentStyle #js {:backgroundColor "#2b0e16"

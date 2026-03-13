@@ -65,17 +65,16 @@
 
 (def ai-conversations-table-schema
   {:create-table [:ai_conversations :if-not-exists]
-   :with-columns [[:id :integer :generated :by-default :as :identity
-                   :primary-key] [:user_email :varchar [:not nil]]
-                  [:title :varchar] [:wine_ids :integer :array]
-                  [:wine_search_state :jsonb] [:auto_tags :varchar :array]
-                  [:provider :varchar [:default "anthropic"]]
-                  [:chat_type :varchar [:default "wine"]]
-                  [:pinned :boolean [:default false]]
-                  [:total_tokens_used :integer [:default 0]]
-                  [:created_at :timestamp [:default [:now]]]
-                  [:updated_at :timestamp [:default [:now]]]
-                  [:last_message_at :timestamp [:default [:now]]]]})
+   :with-columns
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:user_email :varchar [:not nil]] [:title :varchar]
+    [:wine_ids :integer :array] [:wine_search_state :jsonb]
+    [:auto_tags :varchar :array] [:provider :varchar [:default "anthropic"]]
+    [:chat_type :varchar [:default "wine"]] [:pinned :boolean [:default false]]
+    [:total_tokens_used :integer [:default 0]]
+    [:created_at :timestamp [:default [:now]]]
+    [:updated_at :timestamp [:default [:now]]]
+    [:last_message_at :timestamp [:default [:now]]]]})
 #_(sql/format ai-conversations-table-schema)
 
 (def ai-conversation-messages-table-schema
@@ -86,9 +85,7 @@
                   [:image_data :bytea] [:tokens_used :integer]
                   [:created_at :timestamp [:default [:now]]]
                   [[:foreign-key :conversation_id] :references
-                   [:ai_conversations :id] :on-delete :cascade]]}
-
-  )
+                   [:ai_conversations :id] :on-delete :cascade]]})
 
 (def ensure-messages-fts-column
   {:raw
@@ -200,35 +197,32 @@
 
 (def sensor-temperatures-table-schema
   {:create-table [:sensor_temperatures :if-not-exists]
-   :with-columns
-   [[:id :bigserial :primary-key] [:reading_id :bigint [:not nil]]
-    [:sensor_addr :varchar [:not nil]]
-    [:temperature_c :double-precision [:not nil]]
-    [[:foreign-key :reading_id] :references [:sensor_readings :id] :on-delete
-     :cascade]
-    [[:constraint :sensor_temperatures_reading_sensor_unique] :unique
-     [:composite :reading_id :sensor_addr]]]})
+   :with-columns [[:id :bigserial :primary-key] [:reading_id :bigint [:not nil]]
+                  [:sensor_addr :varchar [:not nil]]
+                  [:temperature_c :double-precision [:not nil]]
+                  [[:foreign-key :reading_id] :references [:sensor_readings :id]
+                   :on-delete :cascade]
+                  [[:constraint :sensor_temperatures_reading_sensor_unique]
+                   :unique [:composite :reading_id :sensor_addr]]]})
 
 (def devices-table-schema
   {:create-table [:devices :if-not-exists]
-   :with-columns [[:id :bigserial :primary-key] [:device_id :varchar [:not nil]]
-                  {:raw
-                   ["CONSTRAINT devices_device_id_unique UNIQUE (device_id)"]}
-                  [:status :varchar [:not nil] [:default "pending"]]
-                  [:claim_code_hash :varchar] [:refresh_token_hash :varchar]
-                  [:token_expires_at :timestamptz] [:last_seen :timestamptz]
-                  [:firmware_version :varchar] [:capabilities :jsonb]
-                  [:sensor_config :jsonb]
-                  [:notes :text] [:created_at :timestamp [:default [:now]]]
-                  [:updated_at :timestamp [:default [:now]]]]})
+   :with-columns
+   [[:id :bigserial :primary-key] [:device_id :varchar [:not nil]]
+    {:raw ["CONSTRAINT devices_device_id_unique UNIQUE (device_id)"]}
+    [:status :varchar [:not nil] [:default "pending"]]
+    [:claim_code_hash :varchar] [:refresh_token_hash :varchar]
+    [:token_expires_at :timestamptz] [:last_seen :timestamptz]
+    [:firmware_version :varchar] [:capabilities :jsonb] [:sensor_config :jsonb]
+    [:notes :text] [:created_at :timestamp [:default [:now]]]
+    [:updated_at :timestamp [:default [:now]]]]})
 
 (def spirits-table-schema
   {:create-table [:spirits :if-not-exists]
    :with-columns [[:id :integer :generated :by-default :as :identity
                    :primary-key] [:name :varchar [:not nil]]
                   [:category :varchar [:not nil]] [:subcategory :varchar]
-                  [:distillery :varchar]
-                  [:country :varchar] [:region :varchar]
+                  [:distillery :varchar] [:country :varchar] [:region :varchar]
                   [:age_statement :varchar] [:proof :integer]
                   [:quantity :integer [:default 1]] [:price :numeric [10 2]]
                   [:purchase_date :date] [:location :varchar] [:notes :text]

@@ -182,7 +182,8 @@
 (def spirit-schema
   (s/keys :req-un [::name ::category]
           :opt-un [::subcategory ::distillery ::country ::region ::age_statement
-                   ::proof ::quantity ::price ::purchase_date ::location ::notes]))
+                   ::proof ::quantity ::price ::purchase_date ::location
+                   ::notes]))
 
 (def spirit-update-schema
   (s/keys :opt-un

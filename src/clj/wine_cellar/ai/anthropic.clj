@@ -316,12 +316,12 @@
    :input_schema
    {:type "object"
     :required ["recipes"]
-    :properties
-    {:recipes
-     {:type "array"
-      :items {:type "object"
-              :required ["name" "ingredients"]
-              :properties {:name {:type "string"}
+    :properties {:recipes
+                 {:type "array"
+                  :items {:type "object"
+                          :required ["name" "ingredients"]
+                          :properties
+                          {:name {:type "string"}
                            :description {:type "string"}
                            :ingredients {:type "array"
                                          :items {:type "object"
@@ -331,8 +331,7 @@
                                                   :amount {:type "string"}
                                                   :unit {:type "string"}}}}
                            :instructions {:type "string"}
-                           :tags {:type "array"
-                                  :items {:type "string"}}}}}}}})
+                           :tags {:type "array" :items {:type "string"}}}}}}}})
 
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from a plain-text message."

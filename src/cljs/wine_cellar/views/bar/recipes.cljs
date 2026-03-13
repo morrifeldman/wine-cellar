@@ -13,7 +13,8 @@
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.checkbox :refer [checkbox]]
-            [reagent-mui.material.form-control-label :refer [form-control-label]]
+            [reagent-mui.material.form-control-label :refer
+             [form-control-label]]
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.edit :refer [edit]]
@@ -229,7 +230,8 @@
                     (doseq [idx (sort sel)]
                       (let [recipe (nth recipes idx)]
                         (api/create-cocktail-recipe
-                         app-state (assoc recipe :source "AI Chat"))))
+                         app-state
+                         (assoc recipe :source "AI Chat"))))
                     (close!)
                     (swap! app-state assoc-in [:bar :active-tab] :recipes))]
         [dialog {:open open? :on-close close! :max-width "sm" :full-width true}
@@ -241,40 +243,39 @@
                ^{:key idx}
                [box {:sx {:mb 1}}
                 [form-control-label
-                 {:control
-                  (r/as-element
-                   [checkbox
-                    {:checked (boolean (contains? sel idx))
-                     :on-change
-                     (fn []
-                       (swap! selected
-                              (fn [s] (if (contains? s idx)
-                                        (disj s idx)
-                                        (conj s idx)))))}])
+                 {:control (r/as-element
+                            [checkbox
+                             {:checked (boolean (contains? sel idx))
+                              :on-change (fn []
+                                           (swap! selected
+                                             (fn [s]
+                                               (if (contains? s idx)
+                                                 (disj s idx)
+                                                 (conj s idx)))))}])
                   :label
                   (r/as-element
                    [box
                     [typography {:variant "body1" :sx {:fontWeight 600}}
                      (:name recipe)]
-                    [typography
-                     {:variant "body2" :sx {:color "text.secondary"}}
+                    [typography {:variant "body2" :sx {:color "text.secondary"}}
                      (str (count (:ingredients recipe)) " ingredients")]])}]])
              recipes)
             (let [recipe (first recipes)]
               [:<>
                [text-field "Recipe Name" (or (:name recipe) "")
                 #(swap! app-state assoc-in
-                        [:chat :save-recipe :recipes 0 :name] %)]
+                   [:chat :save-recipe :recipes 0 :name]
+                   %)]
                (when (seq (:ingredients recipe))
                  [:<>
                   [typography {:variant "subtitle2" :sx {:mt 1.5 :mb 0.5}}
                    "Ingredients"]
                   [typography {:variant "body2" :sx {:color "text.secondary"}}
-                   (str/join
-                    " · "
-                    (map (fn [{:keys [amount unit name]}]
-                           (str/join " " (filter seq [amount unit name])))
-                         (:ingredients recipe)))]])]))]
+                   (str/join " · "
+                             (map (fn [{:keys [amount unit name]}]
+                                    (str/join " "
+                                              (filter seq [amount unit name])))
+                                  (:ingredients recipe)))]])]))]
          [dialog-actions [button {:on-click close!} "Cancel"]
           [button
            {:variant "contained"

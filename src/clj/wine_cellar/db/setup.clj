@@ -82,9 +82,18 @@
       "ALTER TABLE spirits ADD COLUMN subcategory varchar; "
       "END IF; END $$;"]})
    ;; Indexes
-   (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_device_measured ON sensor_readings(device_id, measured_at DESC)"]})
-   (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_measured ON sensor_readings(measured_at DESC)"]})
-   (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_temperatures_reading_id ON sensor_temperatures(reading_id)"]})
+   (sql-execute-helper
+    tx
+    {:raw
+     ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_device_measured ON sensor_readings(device_id, measured_at DESC)"]})
+   (sql-execute-helper
+    tx
+    {:raw
+     ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_measured ON sensor_readings(measured_at DESC)"]})
+   (sql-execute-helper
+    tx
+    {:raw
+     ["CREATE INDEX IF NOT EXISTS idx_sensor_temperatures_reading_id ON sensor_temperatures(reading_id)"]})
    ;; Seed data
    (sql-execute-helper
     tx
@@ -133,9 +142,9 @@
    (sql-execute-helper tx
                        {:raw ["DROP TABLE IF EXISTS ai_conversations CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS tasting_notes CASCADE"]})
-   (sql-execute-helper
-    tx
-    {:raw ["DROP TABLE IF EXISTS sensor_temperatures CASCADE"]})
+   (sql-execute-helper tx
+                       {:raw
+                        ["DROP TABLE IF EXISTS sensor_temperatures CASCADE"]})
    (sql-execute-helper tx
                        {:raw ["DROP TABLE IF EXISTS sensor_readings CASCADE"]})
    (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS devices CASCADE"]})

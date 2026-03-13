@@ -386,8 +386,12 @@
 
 (defn wine-identity-section
   [app-state wine]
-  [box {:sx {:mb 3 :pb 2 :borderBottom "1px solid rgba(0,0,0,0.08)"
-             :display "flex" :justifyContent "center"}}
+  [box
+   {:sx {:mb 3
+         :pb 2
+         :borderBottom "1px solid rgba(0,0,0,0.08)"
+         :display "flex"
+         :justifyContent "center"}}
    [dot-separated-row [editable-vintage app-state wine]
     [editable-producer app-state wine] [editable-name app-state wine]]])
 
