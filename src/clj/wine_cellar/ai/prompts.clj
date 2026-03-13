@@ -258,9 +258,11 @@
                       (str "  " (str/capitalize cat)
                            ": " (str/join
                                  ", "
-                                 (map (fn [{:keys [name distillery proof age_statement
+                                 (map (fn [{:keys [name subcategory distillery proof age_statement
                                                  country region quantity notes]}]
                                         (str name
+                                             (when subcategory
+                                               (str " (" subcategory ")"))
                                              (when distillery
                                                (str " [" distillery "]"))
                                              (when proof
@@ -547,6 +549,7 @@
      "- category: Spirit type. Must be one of: "
      categories
      "\n"
+     "- subcategory: More specific type (e.g. \"bourbon\", \"rye\", \"single malt\", \"reposado\", \"amaro\"), else null\n"
      "- distillery: Producer or distillery name\n"
      "- country: Country of origin\n"
      "- region: Region of production (e.g. Speyside, Jalisco)\n"

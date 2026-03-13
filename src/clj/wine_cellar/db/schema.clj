@@ -226,7 +226,8 @@
   {:create-table [:spirits :if-not-exists]
    :with-columns [[:id :integer :generated :by-default :as :identity
                    :primary-key] [:name :varchar [:not nil]]
-                  [:category :varchar [:not nil]] [:distillery :varchar]
+                  [:category :varchar [:not nil]] [:subcategory :varchar]
+                  [:distillery :varchar]
                   [:country :varchar] [:region :varchar]
                   [:age_statement :varchar] [:proof :integer]
                   [:quantity :integer [:default 1]] [:price :numeric [10 2]]

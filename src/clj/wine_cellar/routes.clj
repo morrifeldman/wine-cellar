@@ -164,6 +164,7 @@
 
 ;; Bar specs
 (s/def ::category (s/and string? (complement str/blank?)))
+(s/def ::subcategory (s/nilable string?))
 (s/def ::distillery (s/nilable string?))
 (s/def ::age_statement (s/nilable string?))
 (s/def ::proof (s/nilable int?))
@@ -180,13 +181,14 @@
 
 (def spirit-schema
   (s/keys :req-un [::name ::category]
-          :opt-un [::distillery ::country ::region ::age_statement ::proof
-                   ::quantity ::price ::purchase_date ::location ::notes]))
+          :opt-un [::subcategory ::distillery ::country ::region ::age_statement
+                   ::proof ::quantity ::price ::purchase_date ::location ::notes]))
 
 (def spirit-update-schema
   (s/keys :opt-un
-          [::name ::category ::distillery ::country ::region ::age_statement
-           ::proof ::quantity ::price ::purchase_date ::location ::notes]))
+          [::name ::category ::subcategory ::distillery ::country ::region
+           ::age_statement ::proof ::quantity ::price ::purchase_date ::location
+           ::notes]))
 
 (def bar-inventory-item-schema
   (s/keys :req-un [::name ::category] :opt-un [::have_it ::sort_order]))

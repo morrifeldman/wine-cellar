@@ -74,6 +74,13 @@
       "ALTER TABLE spirits RENAME COLUMN abv TO proof; "
       "ALTER TABLE spirits ALTER COLUMN proof TYPE integer USING proof::integer; "
       "END IF; END $$;"]})
+   (sql-execute-helper
+    tx
+    {:raw
+     ["DO $$ BEGIN "
+      "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='spirits' AND column_name='subcategory') THEN "
+      "ALTER TABLE spirits ADD COLUMN subcategory varchar; "
+      "END IF; END $$;"]})
    ;; Indexes
    (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_device_measured ON sensor_readings(device_id, measured_at DESC)"]})
    (sql-execute-helper tx {:raw ["CREATE INDEX IF NOT EXISTS idx_sensor_readings_measured ON sensor_readings(measured_at DESC)"]})

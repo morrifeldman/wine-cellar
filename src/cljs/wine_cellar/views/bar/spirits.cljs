@@ -31,6 +31,9 @@
   (into {} (map (fn [c] [c (str (str/upper-case (subs c 0 1)) (subs c 1))])
                 spirit-categories)))
 
+(defn- unique-spirit-values [spirits k]
+  (->> spirits (map k) (remove str/blank?) distinct sort vec))
+
 (defn- section-header
   [icon-component label border-color]
   [box
@@ -144,9 +147,9 @@
                       (.then
                        (fn [result]
                          (let [fields (select-keys result
-                                                   [:name :category :distillery
-                                                    :country :region :age_statement
-                                                    :proof])
+                                                   [:name :category :subcategory
+                                                    :distillery :country :region
+                                                    :age_statement :proof])
                                updates (into {}
                                              (filter (fn [[_ v]] (some? v)))
                                              fields)]
@@ -181,6 +184,13 @@
                :format-fn #(get category-labels % %)
                :empty-text "Set category"
                :inline? true}]
+             [editable-autocomplete-field
+              {:value (:subcategory spirit)
+               :options (unique-spirit-values (:spirits bar) :subcategory)
+               :free-solo true
+               :on-save #(api/update-spirit app-state (:id spirit) {:subcategory %})
+               :empty-text "Add subcategory"
+               :inline? true}]
              [editable-text-field
               {:value (:distillery spirit)
                :on-save #(api/update-spirit app-state (:id spirit) {:distillery %})
@@ -191,13 +201,17 @@
                       :pb 2}}
             [section-header globe "Origin" "rgba(139,195,74,0.7)"]
             [dot-separated-row
-             [editable-text-field
+             [editable-autocomplete-field
               {:value (:country spirit)
+               :options (unique-spirit-values (:spirits bar) :country)
+               :free-solo true
                :on-save #(api/update-spirit app-state (:id spirit) {:country %})
                :empty-text "Add country"
                :inline? true}]
-             [editable-text-field
+             [editable-autocomplete-field
               {:value (:region spirit)
+               :options (unique-spirit-values (:spirits bar) :region)
+               :free-solo true
                :on-save #(api/update-spirit app-state (:id spirit) {:region %})
                :empty-text "Add region"
                :inline? true}]
@@ -277,7 +291,7 @@
 
 (defn- spirit-meta
   [spirit]
-  (->> [(:category spirit) (:distillery spirit) (:country spirit)
+  (->> [(:category spirit) (:subcategory spirit) (:distillery spirit) (:country spirit)
         (when (:age_statement spirit) (:age_statement spirit))
         (when (:proof spirit) (str (:proof spirit) " proof"))
         (when (:quantity spirit) (str "qty: " (:quantity spirit)))]
@@ -324,9 +338,9 @@
                        (filter
                         (fn [s]
                           (some #(when % (str/includes? (normalize-text %) term))
-                                [(:name s) (:category s) (:distillery s)
-                                 (:country s) (:region s) (:notes s)
-                                 (:age_statement s)]))
+                                [(:name s) (:category s) (:subcategory s)
+                                 (:distillery s) (:country s) (:region s)
+                                 (:notes s) (:age_statement s)]))
                         spirits)
                        spirits)
             count-label (if (seq term)
