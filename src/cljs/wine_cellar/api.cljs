@@ -800,7 +800,7 @@
          loading? (:conversation-loading? chat-state)
          loaded? (:conversations-loaded? chat-state)
          chat-type (if (= :bar (:view @app-state)) "bar" "wine")
-         query (encode-query-params (cond-> {:chat-type chat-type}
+         query (encode-query-params (cond-> {:chat_type chat-type}
                                       search-text (assoc :search-text
                                                          search-text)))]
      (when (and (not loading?) (or force? (not loaded?) search-text))

@@ -606,7 +606,7 @@
   [request]
   (try (let [email (ensure-user-email request)
              search-text (get-in request [:parameters :query :search-text])
-             chat-type (get-in request [:parameters :query :chat-type])]
+             chat-type (get-in request [:parameters :query :chat_type])]
          (response/response
           (db-api/list-conversations-for-user email search-text chat-type)))
        (catch Exception e
