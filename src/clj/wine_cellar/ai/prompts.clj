@@ -258,12 +258,23 @@
                       (str "  " (str/capitalize cat)
                            ": " (str/join
                                  ", "
-                                 (map (fn [s]
-                                        (str (:name s)
-                                             (when (:proof s)
-                                               (str " (" (:proof s) " proof)"))
-                                             (when (:quantity s)
-                                               (str ", qty: " (:quantity s)))))
+                                 (map (fn [{:keys [name distillery proof age_statement
+                                                 country region quantity notes]}]
+                                        (str name
+                                             (when distillery
+                                               (str " [" distillery "]"))
+                                             (when proof
+                                               (str " (" proof " proof)"))
+                                             (when age_statement
+                                               (str ", " age_statement))
+                                             (when country
+                                               (str ", " country
+                                                    (when region
+                                                      (str "/" region))))
+                                             (when quantity
+                                               (str ", qty: " quantity))
+                                             (when notes
+                                               (str " — " notes))))
                                       items))))))))
           inventory-section
           (when (seq inventory-items)
