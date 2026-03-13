@@ -259,7 +259,7 @@
                            ": " (str/join
                                  ", "
                                  (map (fn [{:keys [name subcategory distillery proof age_statement
-                                                 country region quantity notes]}]
+                                                 country region notes]}]
                                         (str name
                                              (when subcategory
                                                (str " (" subcategory ")"))
@@ -273,8 +273,6 @@
                                                (str ", " country
                                                     (when region
                                                       (str "/" region))))
-                                             (when quantity
-                                               (str ", qty: " quantity))
                                              (when notes
                                                (str " — " notes))))
                                       items))))))))

@@ -293,8 +293,7 @@
   [spirit]
   (->> [(:category spirit) (:subcategory spirit) (:distillery spirit) (:country spirit)
         (when (:age_statement spirit) (:age_statement spirit))
-        (when (:proof spirit) (str (:proof spirit) " proof"))
-        (when (:quantity spirit) (str "qty: " (:quantity spirit)))]
+        (when (:proof spirit) (str (:proof spirit) " proof"))]
        (filter identity)
        (str/join " · ")))
 
