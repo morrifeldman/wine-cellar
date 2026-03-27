@@ -18,6 +18,8 @@
             [reagent-mui.icons.cancel :refer [cancel]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [reagent-mui.material.input-adornment :refer [input-adornment]]
+            [reagent-mui.icons.close :refer [close]]
             [reagent-mui.material.tooltip :as mui-tooltip]
             [wine-cellar.utils.formatting :as formatting]
             [wine-cellar.api :as api]
@@ -318,7 +320,9 @@
                     :px 0.5
                     :mx -0.5
                     "&:hover" {:bgcolor "action.hover"}}
-               :onClick #(reset! editing true)}
+               :onClick #(do (reset! field-value value)
+                                   (reset! field-error nil)
+                                   (reset! editing true))}
         (not inline?) (assoc :width "100%"))
       (let [empty? (or (nil? value) (str/blank? (str value)))]
         [typography
@@ -343,7 +347,18 @@
                      :autoFocus true
                      :error (boolean error)
                      :helperText error
-                     :onChange (fn [e] (on-change (.. e -target -value)))}
+                     :onChange (fn [e] (on-change (.. e -target -value)))
+                     :InputProps
+                     (when (seq (str value))
+                       {:endAdornment
+                        (r/as-element
+                         [input-adornment {:position "end"}
+                          [icon-button
+                           {:size "small"
+                            :edge "end"
+                            :on-click #(on-change "")
+                            :sx {:color "text.secondary"}}
+                           [close {:fontSize "small"}]]])})}
                     text-field-props)]))])
 
 (defn editable-autocomplete-field
