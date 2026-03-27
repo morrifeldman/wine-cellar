@@ -191,65 +191,15 @@
           "Cancel"]]]])]))
 
 (defn- spirit-detail
-  "Inline-edit detail view for a spirit, mirroring wine detail's pattern."
+  "Inline-edit detail view for a spirit."
   [_app-state]
-  (let [show-camera? (r/atom false)
-        label-image (r/atom nil)]
-    (fn [app-state]
-      (let [bar (get @app-state :bar)
-            editing-id (:editing-spirit-id bar)
-            spirit (first (filter #(= (:id %) editing-id) (:spirits bar)))
-            analyzing? (:analyzing-spirit-label? @app-state)]
-        (when spirit
-          [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
-           ;; Label scanning
-           (when @show-camera?
-             [camera-capture
-              (fn [captured]
-                (reset! show-camera? false)
-                (reset! label-image (:label_image captured)))
-              #(reset! show-camera? false)])
-           [box {:sx {:mb 2 :display "flex" :gap 1 :alignItems "center"}}
-            [button
-             {:variant "outlined"
-              :size "small"
-              :on-click #(reset! show-camera? true)
-              :start-icon (r/as-element [auto-awesome])} "Scan Label"]
-            (when @label-image
-              [button
-               {:variant "contained"
-                :color "secondary"
-                :size "small"
-                :disabled analyzing?
-                :on-click
-                (fn []
-                  (-> (api/analyze-spirit-label app-state @label-image)
-                      (.then
-                       (fn [result]
-                         (let [fields (select-keys result
-                                                   [:name :category :subcategory
-                                                    :distillery :country :region
-                                                    :age_statement :proof])
-                               updates
-                               (into {} (filter (fn [[_ v]] (some? v))) fields)]
-                           (when (seq updates)
-                             (api/update-spirit app-state
-                                                (:id spirit)
-                                                updates)))))
-                      (.catch (fn [err]
-                                (swap! app-state assoc
-                                  :error
-                                  (str "Failed to analyze label: " err))))))
-                :start-icon (when-not analyzing? (r/as-element [auto-awesome]))}
-               (if analyzing?
-                 [box {:sx {:display "flex" :alignItems "center"}}
-                  [circular-progress {:size 16 :sx {:mr 0.5}}] "Analyzing..."]
-                 "Analyze Label")])
-            (when @label-image
-              [provider-toggle-button app-state
-               {:mobile-min-width "auto"
-                :sx {:minWidth "auto" :px 1 :py 0.25}}])]
-           ;; Identity row
+  (fn [app-state]
+    (let [bar (get @app-state :bar)
+          editing-id (:editing-spirit-id bar)
+          spirit (first (filter #(= (:id %) editing-id) (:spirits bar)))]
+      (when spirit
+        [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
+         ;; Identity row
            [box {:sx {:mb 3}}
             [dot-separated-row
              [editable-text-field
@@ -385,11 +335,11 @@
              {:variant "contained"
               :on-click
               #(swap! app-state assoc-in [:bar :editing-spirit-id] nil)}
-             "Done"]]])))))
+             "Done"]]]))))
 
 (defn- spirit-meta
   [spirit]
-  (->> [(:category spirit) (:subcategory spirit) (:country spirit)
+  (->> [(:subcategory spirit) (:country spirit)
         (when (:age_statement spirit) (:age_statement spirit))
         (when (:proof spirit) (str (:proof spirit) " proof"))]
        (filter identity)
@@ -403,9 +353,9 @@
     :on-click
     #(swap! app-state assoc-in [:bar :editing-spirit-id] (:id spirit))}
    [typography {:variant "body1" :sx {:fontWeight 600 :lineHeight 1.2}}
-    (if (seq (:distillery spirit))
-      (str (:distillery spirit) " · " (:name spirit))
-      (:name spirit))]
+    (->> [(:distillery spirit) (:name spirit) (:category spirit)]
+         (filter seq)
+         (str/join " · "))]
    [typography
     {:variant "body2" :sx {:color "text.secondary" :fontSize "0.8rem" :mt 0.25}}
     (spirit-meta spirit)]
