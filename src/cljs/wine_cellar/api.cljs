@@ -318,10 +318,21 @@
     (let [result (<! (GET "/api/wines/list" "Failed to fetch wines"))]
       (if (:success result)
         (do (js/console.log "Success! Wines count:" (count (:data result)))
-            (swap! app-state assoc
-              :wines (:data result)
-              :loading? false
-              :error nil))
+            (swap! app-state
+              (fn [state]
+                (let [existing-by-id (into {}
+                                      (map (juxt :id identity))
+                                      (:wines state))
+                      merged-wines (mapv (fn [wine]
+                                          (if-let [existing (get existing-by-id
+                                                              (:id wine))]
+                                            (merge wine existing)
+                                            wine))
+                                    (:data result))]
+                  (assoc state
+                    :wines merged-wines
+                    :loading? false
+                    :error nil)))))
         (do (js/console.log "Error fetching wines:" (:error result))
             (swap! app-state assoc :error (:error result) :loading? false)))))))
 
@@ -340,11 +351,13 @@
            (swap! app-state update
              :wines
              (fn [wines]
-               (map #(if (= (:id %) wine-id)
-                       ;; Keep the latest_rating
-                       (merge % wine-with-details)
-                       %)
-                    wines)))
+               (let [updated (map #(if (= (:id %) wine-id)
+                                     (merge % wine-with-details)
+                                     %)
+                                  wines)]
+                 (if (some #(= (:id %) wine-id) wines)
+                   updated
+                   (conj (vec updated) wine-with-details)))))
            ;; Set as selected wine
            (swap! app-state assoc :selected-wine-id wine-id)
            (put! result-chan {:success true :data wine-with-details}))
