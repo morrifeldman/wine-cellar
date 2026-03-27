@@ -183,6 +183,13 @@
            [box {:sx {:mb 3}}
             [dot-separated-row
              [editable-text-field
+              {:value (:distillery spirit)
+               :on-save
+               #(api/update-spirit app-state (:id spirit) {:distillery %})
+               :empty-text "Add distillery"
+               :inline? true
+               :display-sx {:fontSize "1.2rem" :fontWeight 500}}]
+             [editable-text-field
               {:value (:name spirit)
                :on-save #(api/update-spirit app-state (:id spirit) {:name %})
                :empty-text "Add name"
@@ -204,12 +211,6 @@
                :on-save
                #(api/update-spirit app-state (:id spirit) {:subcategory %})
                :empty-text "Add subcategory"
-               :inline? true}]
-             [editable-text-field
-              {:value (:distillery spirit)
-               :on-save
-               #(api/update-spirit app-state (:id spirit) {:distillery %})
-               :empty-text "Add distillery"
                :inline? true}]]]
            ;; Origin section
            [box
@@ -383,7 +384,6 @@
               :on-click
               #(swap! app-state assoc-in [:bar :show-spirit-form?] true)}
              "Add Spirit"])] (when show-form? [spirit-create-form app-state])
-         (when editing-id [spirit-detail app-state])
          (when (and (seq spirits) (not loading?))
            [mui-text-field/text-field
             {:label "Search spirits"
@@ -402,4 +402,7 @@
               {:sx {:color "text.secondary" :textAlign "center" :py 4}}
               "No spirits yet. Add your first bottle!"]
              (for [spirit filtered]
-               ^{:key (:id spirit)} [spirit-card app-state spirit])))]))))
+               ^{:key (:id spirit)}
+               (if (= (:id spirit) editing-id)
+                 [spirit-detail app-state]
+                 [spirit-card app-state spirit]))))]))))
