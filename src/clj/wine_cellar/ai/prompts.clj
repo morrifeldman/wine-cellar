@@ -538,18 +538,21 @@
                              ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal"
                               "brandy" "liqueur" "other"])]
     (str
-     "You are a spirits expert extracting information from bottle label images. "
-     "Analyze the label and extract the following fields as JSON:\n\n"
-     "- name: The full spirit name (brand + expression, e.g. \"Johnnie Walker Black Label\")\n"
-     "- category: Spirit type. Must be one of: " categories
-     "\n"
+     "You are a spirits expert identifying bottles from label images. "
+     "First, identify the spirit from the label. Then use BOTH what you can read on the label "
+     "AND your expert knowledge about this specific product to fill in every field. "
+     "For well-known spirits, you should know the distillery, country, region, proof, "
+     "and subcategory even if not all are clearly visible on the label.\n\n"
+     "Extract the following fields as JSON:\n\n"
+     "- name: The expression/product name (e.g. \"Black Label 12 Year\", \"Small Batch\"), NOT the brand/distillery\n"
+     "- category: Spirit type. Must be one of: " categories "\n"
      "- subcategory: More specific type (e.g. \"bourbon\", \"rye\", \"single malt\", \"reposado\", \"amaro\"), else null\n"
-     "- distillery: Producer or distillery name\n"
+     "- distillery: Producer, brand, or distillery name (e.g. \"Johnnie Walker\", \"Buffalo Trace\")\n"
      "- country: Country of origin\n"
-     "- region: Region of production (e.g. Speyside, Jalisco)\n"
+     "- region: Region of production (e.g. Speyside, Jalisco, Kentucky)\n"
      "- age_statement: Age statement text if present (e.g. \"12 Year\"), else null\n"
-     "- proof: Proof value as an integer (e.g. 80), else null\n\n"
-     "Return ONLY a valid JSON object. Use null for any field not on the label.")))
+     "- proof: Proof value as an integer (e.g. 80). If only ABV% is shown, convert to proof (ABV * 2). Use your knowledge if not on label. Null only if truly unknown.\n\n"
+     "Return ONLY a valid JSON object. Use null only when you genuinely don't know.")))
 
 (defn drinking-window-system-prompt
   []

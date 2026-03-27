@@ -58,67 +58,137 @@
           :lineHeight 1}} label]])
 
 (defn- spirit-create-form
-  "Minimal form: name + category to create a spirit."
+  "Scan-first creation: capture label, analyze with AI, create spirit with all fields."
   [app-state]
   (r/with-let
-   [name-val (r/atom "") category-val (r/atom "") submitting? (r/atom false)]
+   [show-camera? (r/atom true) label-image (r/atom nil)
+    name-val (r/atom "") category-val (r/atom "") submitting? (r/atom false)]
    [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
-    [:form
-     {:on-submit
-      (fn [e]
-        (.preventDefault e)
-        (when (and (seq @name-val) (seq @category-val) (not @submitting?))
-          (reset! submitting? true)
-          (-> (api/create-spirit app-state
-                                 {:name @name-val :category @category-val})
-              (.then
-               (fn [created]
-                 (reset! submitting? false)
-                 (swap! app-state assoc-in [:bar :show-spirit-form?] false)
-                 (swap! app-state assoc-in
-                   [:bar :editing-spirit-id]
-                   (:id created))))
-              (.catch (fn [_] (reset! submitting? false))))))}
-     [box {:sx {:display "flex" :gap 2 :alignItems "flex-end" :flexWrap "wrap"}}
-      [mui-text-field/text-field
-       {:value @name-val
-        :on-change #(reset! name-val (-> %
-                                         .-target
-                                         .-value))
-        :label "Name"
-        :required true
-        :variant "standard"
-        :size "small"
-        :auto-focus true
-        :sx {:flex 1 :minWidth 140}}]
-      [select
-       {:value @category-val
-        :variant "standard"
-        :displayEmpty true
-        :required true
-        :renderValue (fn [v]
-                       (if (str/blank? v) "Category" (get category-labels v v)))
-        :on-change #(reset! category-val (-> %
-                                             .-target
-                                             .-value))
-        :sx {:fontSize "0.875rem"
-             :minWidth 100
-             :color
-             (if (str/blank? @category-val) "text.secondary" "text.primary")}}
-       (for [cat spirit-categories]
-         ^{:key cat} [menu-item {:value cat} (get category-labels cat)])]
-      [button
-       {:type "submit"
-        :variant "contained"
-        :size "small"
-        :disabled @submitting?} (if @submitting? "Creating..." "Add")]
-      [button
-       {:variant "outlined"
-        :size "small"
-        :on-click #(do
-                     (swap! app-state assoc-in [:bar :show-spirit-form?] false)
-                     (swap! app-state assoc-in [:bar :new-spirit] {}))}
-       "Cancel"]]]]))
+    (when @show-camera?
+      [camera-capture
+       (fn [captured]
+         (reset! show-camera? false)
+         (reset! label-image (:label_image captured)))
+       #(reset! show-camera? false)])
+    (when (and @label-image (not @show-camera?))
+      [box {:sx {:display "flex" :gap 1 :mb 2 :alignItems "center"}}
+       [button
+        {:variant "contained"
+         :color "secondary"
+         :size "small"
+         :disabled (:analyzing-spirit-label? @app-state)
+         :on-click
+         (fn []
+           (-> (api/analyze-spirit-label app-state @label-image)
+               (.then
+                (fn [result]
+                  (let [spirit-data
+                        (into {}
+                              (filter (fn [[_ v]] (some? v)))
+                              (select-keys result
+                                           [:name :category :subcategory :distillery
+                                            :country :region :age_statement :proof]))]
+                    (when (and (:name spirit-data) (:category spirit-data))
+                      (reset! submitting? true)
+                      (-> (api/create-spirit app-state spirit-data)
+                          (.then
+                           (fn [created]
+                             (reset! submitting? false)
+                             (swap! app-state assoc-in
+                               [:bar :show-spirit-form?]
+                               false)
+                             (swap! app-state assoc-in
+                               [:bar :editing-spirit-id]
+                               (:id created))))
+                          (.catch (fn [_] (reset! submitting? false))))))))
+               (.catch (fn [err]
+                         (swap! app-state assoc :error
+                           (str "Failed to analyze label: " err))))))
+         :start-icon
+         (when-not (:analyzing-spirit-label? @app-state)
+           (r/as-element [auto-awesome]))}
+        (cond
+          (:analyzing-spirit-label? @app-state)
+          [box {:sx {:display "flex" :alignItems "center"}}
+           [circular-progress {:size 16 :sx {:mr 0.5}}] "Analyzing..."]
+          @submitting? "Creating..."
+          :else "Analyze & Add")]
+       [provider-toggle-button app-state
+        {:mobile-min-width "auto"
+         :sx {:minWidth "auto" :px 1 :py 0.25}}]
+       [button
+        {:variant "outlined"
+         :size "small"
+         :on-click #(do (reset! label-image nil) (reset! show-camera? true))}
+        "Retake"]])
+    ;; Manual fallback
+    (when-not @show-camera?
+      [box {:sx {:mt (if @label-image 0 1)}}
+       (when-not @label-image
+         [box {:sx {:display "flex" :gap 1 :mb 2}}
+          [button
+           {:variant "outlined"
+            :size "small"
+            :start-icon (r/as-element [auto-awesome])
+            :on-click #(reset! show-camera? true)}
+           "Scan Label"]])
+       [:form
+        {:on-submit
+         (fn [e]
+           (.preventDefault e)
+           (when (and (seq @name-val) (seq @category-val) (not @submitting?))
+             (reset! submitting? true)
+             (-> (api/create-spirit app-state
+                                    {:name @name-val :category @category-val})
+                 (.then
+                  (fn [created]
+                    (reset! submitting? false)
+                    (swap! app-state assoc-in [:bar :show-spirit-form?] false)
+                    (swap! app-state assoc-in
+                      [:bar :editing-spirit-id]
+                      (:id created))))
+                 (.catch (fn [_] (reset! submitting? false))))))}
+        [box
+         {:sx {:display "flex" :gap 2 :alignItems "flex-end" :flexWrap "wrap"}}
+         [mui-text-field/text-field
+          {:value @name-val
+           :on-change #(reset! name-val (-> % .-target .-value))
+           :label "Name"
+           :required true
+           :variant "standard"
+           :size "small"
+           :auto-focus true
+           :sx {:flex 1 :minWidth 140}}]
+         [select
+          {:value @category-val
+           :variant "standard"
+           :displayEmpty true
+           :required true
+           :renderValue (fn [v]
+                          (if (str/blank? v)
+                            "Category"
+                            (get category-labels v v)))
+           :on-change #(reset! category-val (-> % .-target .-value))
+           :sx {:fontSize "0.875rem"
+                :minWidth 100
+                :color (if (str/blank? @category-val)
+                         "text.secondary"
+                         "text.primary")}}
+          (for [cat spirit-categories]
+            ^{:key cat} [menu-item {:value cat} (get category-labels cat)])]
+         [button
+          {:type "submit"
+           :variant "contained"
+           :size "small"
+           :disabled @submitting?}
+          (if @submitting? "Creating..." "Add")]
+         [button
+          {:variant "outlined"
+           :size "small"
+           :on-click
+           #(do (swap! app-state assoc-in [:bar :show-spirit-form?] false)
+                (swap! app-state assoc-in [:bar :new-spirit] {}))}
+          "Cancel"]]]])]))
 
 (defn- spirit-detail
   "Inline-edit detail view for a spirit, mirroring wine detail's pattern."
