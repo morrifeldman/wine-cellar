@@ -94,7 +94,12 @@
                              :error "Gemini response contained no text"
                              :response parsed})))
           (if parse-json?
-            (try (json/read-value text-response json-mapper)
+            (try (let [parsed-json (json/read-value text-response json-mapper)]
+                   ;; Gemini schemas can't express nullable fields, so the model
+                   ;; sometimes returns the literal string "null" — strip those.
+                   (if (map? parsed-json)
+                     (into {} (remove (fn [[_ v]] (= v "null"))) parsed-json)
+                     parsed-json))
                  (catch Exception e
                    (tap> ["gemini-json-parse-error" text-response])
                    (throw (ex-info "Failed to parse Gemini response as JSON"

@@ -84,7 +84,7 @@
                 (fn [result]
                   (let [spirit-data
                         (into {}
-                              (filter (fn [[_ v]] (some? v)))
+                              (filter (fn [[_ v]] (and (some? v) (not= v "null"))))
                               (select-keys result
                                            [:name :category :subcategory :distillery
                                             :country :region :age_statement :proof]))]
