@@ -318,8 +318,8 @@
 
 (defn- spirit-meta
   [spirit]
-  (->> [(:category spirit) (:subcategory spirit) (:distillery spirit)
-        (:country spirit) (when (:age_statement spirit) (:age_statement spirit))
+  (->> [(:category spirit) (:subcategory spirit) (:country spirit)
+        (when (:age_statement spirit) (:age_statement spirit))
         (when (:proof spirit) (str (:proof spirit) " proof"))]
        (filter identity)
        (str/join " · ")))
@@ -332,7 +332,9 @@
     :on-click
     #(swap! app-state assoc-in [:bar :editing-spirit-id] (:id spirit))}
    [typography {:variant "body1" :sx {:fontWeight 600 :lineHeight 1.2}}
-    (:name spirit)]
+    (if (seq (:distillery spirit))
+      (str (:distillery spirit) " · " (:name spirit))
+      (:name spirit))]
    [typography
     {:variant "body2" :sx {:color "text.secondary" :fontSize "0.8rem" :mt 0.25}}
     (spirit-meta spirit)]

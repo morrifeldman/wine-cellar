@@ -258,7 +258,8 @@
                          (if error
                            (reset! field-error error)
                            (do (reset! saving true)
-                               (-> (on-save @field-value)
+                               (-> (on-save (cond-> @field-value
+                                               (string? @field-value) str/trim))
                                    (.then #(do (reset! saving false)
                                                (reset! editing false)))
                                    (.catch #(do (reset! saving false)
@@ -291,7 +292,8 @@
                         (if error
                           (reset! field-error error)
                           (do (reset! saving true)
-                              (-> (on-save @field-value)
+                              (-> (on-save (cond-> @field-value
+                                               (string? @field-value) str/trim))
                                   (.then #(do (reset! saving false)
                                               (reset! editing false)))
                                   (.catch #(do (reset! saving false)
