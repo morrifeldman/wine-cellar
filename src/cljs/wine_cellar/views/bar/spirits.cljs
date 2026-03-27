@@ -256,6 +256,7 @@
               {:value (:age_statement spirit)
                :on-save
                #(api/update-spirit app-state (:id spirit) {:age_statement %})
+               :format-fn #(if (re-matches #"\d+" (str %)) (str % " yr") %)
                :empty-text "Add age"
                :inline? true}]
              [editable-text-field
@@ -340,7 +341,9 @@
 (defn- spirit-meta
   [spirit]
   (->> [(:subcategory spirit) (:country spirit)
-        (when (:age_statement spirit) (:age_statement spirit))
+        (when (:age_statement spirit)
+          (let [a (:age_statement spirit)]
+            (if (re-matches #"\d+" a) (str a " yr") a)))
         (when (:proof spirit) (str (:proof spirit) " proof"))]
        (filter identity)
        (str/join " · ")))
