@@ -1438,7 +1438,7 @@
      (go (let [result (<!
                        (POST "/api/spirits" spirit "Failed to create spirit"))]
            (if (:success result)
-             (do (swap! app-state update-in [:bar :spirits] conj (:data result))
+             (do (swap! app-state update-in [:bar :spirits] #(into [(:data result)] %))
                  (resolve (:data result)))
              (do (swap! app-state assoc-in [:bar :error] (:error result))
                  (reject (:error result)))))))))
