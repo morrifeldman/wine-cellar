@@ -183,7 +183,7 @@
       (fn []
         ;; Clear the force edit mode when canceling
         (swap! app-state update :force-edit-ai-summary dissoc (:id wine)))
-      :empty-text "Generate AI wine summary"
+      :empty-text "Add wine summary"
       :text-field-props
       {:multiline true
        :rows 4
@@ -388,7 +388,8 @@
 (defn wine-identity-section
   [app-state wine]
   [box
-   {:sx {:mb 3
+   {:sx {:mt 3
+         :mb 3
          :pb 2
          :borderBottom "1px solid rgba(0,0,0,0.08)"
          :display "flex"
@@ -520,7 +521,7 @@
          :alignItems "center"
          :mb 1.5
          :pb 1
-         :borderBottom "1px solid rgba(255,255,255,0.06)"}}
+         :borderBottom "1px solid rgba(255,255,255,0.15)"}}
    [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
     [icon-component {:fontSize "small"}]]
    [typography
@@ -900,7 +901,7 @@
   (let [generating? (:generating-ai-summary? @app-state)]
     [box
      {:sx {:mt 3 :borderLeft "3px solid rgba(232,195,200,0.7)" :pl 1.5 :pb 2}}
-     [section-header auto-awesome "AI Summary" "rgba(232,195,200,0.7)"]
+     [section-header auto-awesome "Summary" "rgba(232,195,200,0.7)"]
      [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
       [editable-ai-summary app-state wine]
       [box
@@ -1087,17 +1088,12 @@
        [typography
         {:variant "body2" :color "text.secondary" :fontStyle "italic"}
         "No inventory history recorded yet."]
-       [:<>
-        [divider
-         {:sx
-          {:my 1.5 :borderColor "rgba(144,164,174,0.7)" :borderTopWidth "3px"}}]
-        [box {:sx {:overflow-x "auto"}}
-         [table
-          {:size "small" :sx {:width "100%" "& td" {:borderBottom "none"}}}
-          [table-body
-           (for [record history]
-             ^{:key (:id record)}
-             [inventory-history-row app-state (:id wine) record])]]]])]))
+       [box {:sx {:overflow-x "auto"}}
+        [table {:size "small" :sx {:width "100%" "& td" {:borderBottom "none"}}}
+         [table-body
+          (for [record history]
+            ^{:key (:id record)}
+            [inventory-history-row app-state (:id wine) record])]]])]))
 
 (defn wine-tasting-notes-section
   [app-state wine]

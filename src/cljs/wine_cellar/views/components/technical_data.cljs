@@ -97,7 +97,7 @@
               [box
                {:sx {:mb 2
                      :pb 1
-                     :borderBottom "1px solid rgba(255,255,255,0.05)"
+                     :borderBottom "1px solid rgba(255,255,255,0.15)"
                      :cursor "pointer"
                      :px 0.5
                      :mx -0.5
