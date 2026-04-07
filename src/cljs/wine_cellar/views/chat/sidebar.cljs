@@ -1,6 +1,5 @@
 (ns wine-cellar.views.chat.sidebar
-  (:require [clojure.string :as string]
-            [reagent.core :as r]
+  (:require [reagent.core :as r]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.typography :refer [typography]]
@@ -53,7 +52,7 @@
       (if deleting? [circular-progress {:size 16}] [delete])])])
 
 (defn- conversation-row
-  [app-state messages
+  [app-state
    {:keys [active-id deleting-id renaming-id pinning-id on-delete on-rename
            on-pin on-select]} {:keys [id match_count] :as conversation}]
   (let [active? (= id active-id)
@@ -122,8 +121,8 @@
                                     :deleting? deleting?})]]))
 
 (defn- conversations->items
-  [app-state messages opts conversations]
-  (into [] (map #(conversation-row app-state messages opts %) conversations)))
+  [app-state opts conversations]
+  (into [] (map #(conversation-row app-state opts %) conversations)))
 
 (defn- conversation-content
   [status items]
@@ -208,13 +207,12 @@
                 [close {:fontSize "small"}]])]]))}}]]))
 
 (defn conversation-sidebar
-  [app-state messages
+  [app-state
    {:keys [open? conversations loading? active-id deleting-id renaming-id
            pinning-id scroll-ref scroll-requested? on-delete on-rename on-pin
            on-select search-text handle-search]}]
   (if open?
     (let [items (conversations->items app-state
-                                      messages
                                       {:active-id active-id
                                        :deleting-id deleting-id
                                        :renaming-id renaming-id

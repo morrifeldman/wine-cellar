@@ -4,8 +4,6 @@
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.checkbox :refer [checkbox]]
-            [reagent-mui.material.form-control-label :refer
-             [form-control-label]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.text-field :as mui-text-field]
@@ -66,7 +64,7 @@
        :disabled (str/blank? name-val)
        :on-click (fn []
                    (api/create-bar-inventory-item app-state
-                                                  {:name name-val
+                                                  {:name (str/trim name-val)
                                                    :category cat-val})
                    (reset! form-data {})
                    (reset! show-form? false))} "Add"]
@@ -94,8 +92,8 @@
            :sx {:flex 1}
            :on-key-down (fn [e]
                           (when (= (.-key e) "Enter")
-                            (let [n (or @edit-name (:name item))]
-                              (when (seq (str/trim n))
+                            (let [n (str/trim (or @edit-name (:name item)))]
+                              (when (seq n)
                                 (api/update-bar-inventory-item app-state
                                                                (:id item)
                                                                {:name n})))
@@ -108,8 +106,8 @@
           {:size "small"
            :color "primary"
            :on-click (fn []
-                       (let [n (or @edit-name (:name item))]
-                         (when (seq (str/trim n))
+                       (let [n (str/trim (or @edit-name (:name item)))]
+                         (when (seq n)
                            (api/update-bar-inventory-item app-state
                                                           (:id item)
                                                           {:name n})))

@@ -269,7 +269,6 @@
             sidebar
             (chat-sidebar/conversation-sidebar
              app-state
-             messages
              {:open? sidebar-open?
               :conversations conversations
               :loading? conversation-loading?

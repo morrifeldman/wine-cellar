@@ -23,9 +23,9 @@
 (defn- sensor-config-editor
   "Inline editor for sensor labels. Shows discovered addresses from sensor_config
   and allows assigning labels."
-  [device_id sensor_config app-state]
+  [_device_id sensor_config app-state]
   (let [local-config (r/atom (or sensor_config {}))]
-    (fn [device_id sensor_config _app-state]
+    (fn [device_id _sensor_config _app-state]
       (let [addrs (sort (map name (keys @local-config)))]
         (when (seq addrs)
           [box {:sx {:mt 1}} [divider {:sx {:my 1}}]
@@ -56,8 +56,7 @@
             "Save labels"]])))))
 
 (defn device-row
-  [{:keys [device_id status last_seen token_expires_at firmware_version
-           sensor_config]} app-state]
+  [_device app-state]
   (let [claim (r/atom "")]
     (fn [{:keys [device_id status last_seen token_expires_at firmware_version
                  sensor_config]} _app-state]
