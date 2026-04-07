@@ -18,38 +18,6 @@ if [ -n "$files" ]; then
   done
 fi
 
-# Update source code structure in CLAUDE.md
-echo "Updating source code structure in CLAUDE.md..."
-
-# Generate the current source code structure (excluding node_modules and other noise)
-structure=$(tree --gitignore -I 'node_modules|.git|.shadow-cljs|target')
-
-# Define the marker for the source code structure section
-start_marker="## Project Structure"
-end_marker="## Development Commands"
-
-# Create a temporary file
-temp_file=$(mktemp)
-
-# Extract content before the structure section
-sed -n "1,/$start_marker/p" CLAUDE.md > "$temp_file"
-
-# Add the new structure
-echo "" >> "$temp_file"
-echo '```' >> "$temp_file"
-echo "$structure" >> "$temp_file"
-echo '```' >> "$temp_file"
-echo "" >> "$temp_file"
-
-# Add content after the structure section
-sed -n "/$end_marker/,\$p" CLAUDE.md >> "$temp_file"
-
-# Replace the original file with the updated content
-mv "$temp_file" CLAUDE.md
-
-# Stage the updated CLAUDE.md file
-git add CLAUDE.md
-
 # Update version information
 echo "Updating version information..."
 ./scripts/update-version.sh --increment

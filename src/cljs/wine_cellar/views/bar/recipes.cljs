@@ -169,9 +169,7 @@
         (str "Source: " (:source recipe))])
      (when (seq tags)
        [box {:sx {:display "flex" :gap 0.5 :flexWrap "wrap" :mb 1}}
-        (for [tag tags]
-          ^{:key tag}
-          [chip {:label tag :size "small"}])])
+        (for [tag tags] ^{:key tag} [chip {:label tag :size "small"}])])
      (when (seq (:description recipe))
        [typography {:variant "body1" :sx {:mb 1.5 :whiteSpace "pre-wrap"}}
         (:description recipe)])
@@ -180,20 +178,26 @@
         [typography {:variant "subtitle2" :sx {:fontWeight 600 :mb 0.5}}
          "Ingredients"]
         [box {:component "ul" :sx {:mt 0 :mb 1.5 :pl 2.5}}
-         (map-indexed
-          (fn [idx {:keys [amount unit name]}]
-            ^{:key idx}
-            [:li
-             [typography {:variant "body2"}
-              (str/join " " (filter seq [amount unit name]))]])
-          (:ingredients recipe))]])
+         (map-indexed (fn [idx {:keys [amount unit name]}]
+                        ^{:key idx}
+                        [:li
+                         [typography {:variant "body2"}
+                          (str/join " " (filter seq [amount unit name]))]])
+                      (:ingredients recipe))]])
      (when (seq (:instructions recipe))
        [:<>
         [typography {:variant "subtitle2" :sx {:fontWeight 600 :mb 0.5}}
          "Instructions"]
         [typography {:variant "body2" :sx {:mb 1.5 :whiteSpace "pre-wrap"}}
          (:instructions recipe)]])
-     [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end"}}
+     [box {:sx {:display "flex" :gap 1 :alignItems "center" :mt 2}}
+      [button
+       {:variant "outlined"
+        :color "error"
+        :on-click #(when (js/confirm (str "Delete \"" (:name recipe) "\"?"))
+                     (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
+                     (api/delete-cocktail-recipe app-state (:id recipe)))}
+       "Delete"] [box {:sx {:flex 1}}]
       [button
        {:variant "outlined"
         :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
@@ -201,10 +205,10 @@
       [button
        {:variant "contained"
         :color "primary"
-        :on-click (fn []
-                    (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
-                    (swap! app-state assoc-in [:bar :editing-recipe-id]
-                           (:id recipe)))}
+        :on-click
+        (fn []
+          (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
+          (swap! app-state assoc-in [:bar :editing-recipe-id] (:id recipe)))}
        "Edit"]]]))
 
 (defn- recipe-card
@@ -213,10 +217,9 @@
         n-ingredients (count (:ingredients recipe))]
     [paper
      {:elevation 1
-      :sx {:p 1.5 :mb 1 :cursor "pointer"
-           "&:hover" {:bgcolor "action.hover"}}
-      :on-click #(swap! app-state assoc-in
-                        [:bar :viewing-recipe-id] (:id recipe))}
+      :sx {:p 1.5 :mb 1 :cursor "pointer" "&:hover" {:bgcolor "action.hover"}}
+      :on-click
+      #(swap! app-state assoc-in [:bar :viewing-recipe-id] (:id recipe))}
      [box
       {:sx {:display "flex"
             :alignItems "flex-start"
@@ -252,16 +255,7 @@
          [typography
           {:variant "body2"
            :sx {:color "text.secondary" :fontSize "0.8rem" :mt 0.5}}
-          (:description recipe)])]
-      [box {:sx {:display "flex" :gap 0.5 :flexShrink 0}}
-       [icon-button
-        {:size "small"
-         :color "error"
-         :on-click (fn [e]
-                     (.stopPropagation e)
-                     (when (js/confirm (str "Delete \"" (:name recipe) "\"?"))
-                       (api/delete-cocktail-recipe app-state (:id recipe))))}
-        [delete {:fontSize "small"}]]]]]))
+          (:description recipe)])]]]))
 
 (defn save-recipe-dialog
   [_app-state]
@@ -359,7 +353,6 @@
         "No recipes yet. Save your first cocktail!"]
        (for [recipe recipes]
          ^{:key (:id recipe)}
-         (cond
-           (= (:id recipe) viewing-id) [recipe-display app-state recipe]
-           (= (:id recipe) editing-id) nil
-           :else [recipe-card app-state recipe])))]))
+         (cond (= (:id recipe) viewing-id) [recipe-display app-state recipe]
+               (= (:id recipe) editing-id) nil
+               :else [recipe-card app-state recipe])))]))

@@ -1,0 +1,8 @@
+[fix.tools.zprint]
+command = ["zprint", "{:style :community :map {:comma? false} :width 80}"]
+patterns = [
+  "glob:**/*.clj",
+  "glob:**/*.cljs",
+  "glob:**/*.cljc",
+  "glob:**/*.edn",
+]
