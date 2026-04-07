@@ -1489,6 +1489,25 @@
        (swap! app-state update-in [:bar :inventory-items] conj (:data result))
        (swap! app-state assoc-in [:bar :error] (:error result))))))
 
+(defn update-bar-inventory-item
+  [app-state id fields]
+  (go (let [result (<! (PUT (str "/api/bar-inventory/" id)
+                            fields
+                            "Failed to update inventory item"))]
+        (when (:success result)
+          (swap! app-state update-in
+            [:bar :inventory-items]
+            (fn [items] (mapv #(if (= (:id %) id) (:data result) %) items)))))))
+
+(defn delete-bar-inventory-item
+  [app-state id]
+  (go (let [result (<! (DELETE (str "/api/bar-inventory/" id)
+                               "Failed to delete inventory item"))]
+        (when (:success result)
+          (swap! app-state update-in
+            [:bar :inventory-items]
+            (fn [items] (filterv #(not= (:id %) id) items)))))))
+
 (defn create-cocktail-recipe
   [app-state recipe]
   (go (let [result (<! (POST "/api/cocktail-recipes"

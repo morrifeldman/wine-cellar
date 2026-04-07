@@ -1117,7 +1117,9 @@
                  (boolean (:editing-note-id @app-state)))
        :onClose on-close
        :maxWidth "md"
-       :fullWidth true} [tasting-note-form app-state (:id wine) on-close]]]))
+       :fullWidth true}
+      [dialog-content {:sx {:p 0}}
+       [tasting-note-form app-state (:id wine) on-close]]]]))
 
 (defn wine-detail
   [app-state wine]

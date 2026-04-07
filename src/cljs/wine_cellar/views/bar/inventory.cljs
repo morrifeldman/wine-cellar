@@ -7,12 +7,16 @@
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
             [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.select :refer [select]]
             [reagent-mui.material.menu-item :refer [menu-item]]
             [reagent-mui.material.form-control :refer [form-control]]
             [reagent-mui.material.input-label :refer [input-label]]
             [reagent-mui.icons.add :refer [add]]
+            [reagent-mui.icons.delete :refer [delete]]
+            [reagent-mui.icons.check :refer [check]]
+            [reagent-mui.icons.close :refer [close]]
             [wine-cellar.api :as api]))
 
 (def category-labels
@@ -70,8 +74,72 @@
        :on-click #(do (reset! form-data {}) (reset! show-form? false))}
       "Cancel"]]))
 
+(defn- inventory-item
+  [app-state item editing-id]
+  (let [is-editing? (= (:id item) @editing-id)]
+    (if is-editing?
+      (let [edit-name (r/atom (:name item))]
+        (fn [app-state item _editing-id]
+          [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mb 0.5}}
+           [checkbox
+            {:checked (boolean (:have_it item))
+             :size "small"
+             :disabled true}]
+           [mui-text-field/text-field
+            {:value @edit-name
+             :on-change #(reset! edit-name (-> % .-target .-value))
+             :size "small"
+             :auto-focus true
+             :sx {:flex 1}
+             :on-key-down (fn [e]
+                            (when (= (.-key e) "Enter")
+                              (when (seq (str/trim @edit-name))
+                                (api/update-bar-inventory-item
+                                 app-state (:id item) {:name @edit-name}))
+                              (reset! editing-id nil))
+                            (when (= (.-key e) "Escape")
+                              (reset! editing-id nil)))}]
+           [icon-button
+            {:size "small"
+             :color "primary"
+             :on-click (fn []
+                         (when (seq (str/trim @edit-name))
+                           (api/update-bar-inventory-item
+                            app-state (:id item) {:name @edit-name}))
+                         (reset! editing-id nil))}
+            [check {:fontSize "small"}]]
+           [icon-button
+            {:size "small"
+             :on-click #(reset! editing-id nil)}
+            [close {:fontSize "small"}]]]))
+      (fn [app-state item _editing-id]
+        [box {:sx {:display "flex" :alignItems "center" :gap 0}}
+         [checkbox
+          {:checked (boolean (:have_it item))
+           :size "small"
+           :on-change #(api/toggle-bar-inventory-item
+                        app-state
+                        (:id item)
+                        (-> % .-target .-checked))}]
+         [typography
+          {:variant "body2"
+           :on-click #(reset! editing-id (:id item))
+           :sx {:cursor "pointer"
+                :flex 1
+                :fontSize "0.875rem"
+                :color (if (:have_it item) "text.primary" "text.secondary")
+                "&:hover" {:textDecoration "underline"}}}
+          (:name item)]
+         [icon-button
+          {:size "small"
+           :color "error"
+           :on-click #(when (js/confirm (str "Delete \"" (:name item) "\"?"))
+                        (api/delete-bar-inventory-item app-state (:id item)))
+           :sx {:opacity 0.4 "&:hover" {:opacity 1}}}
+          [delete {:sx {:fontSize "0.85rem"}}]]]))))
+
 (defn- category-section
-  [app-state category items]
+  [app-state category items editing-id]
   (let [label (get category-labels category category)
         checked-count (count (filter :have_it items))]
     [box {:sx {:mb 2}}
@@ -87,27 +155,13 @@
      [box {:sx {:display "flex" :flexWrap "wrap" :gap 0}}
       (for [item items]
         ^{:key (:id item)}
-        [form-control-label
-         {:label (:name item)
-          :sx {:mr 0
-               :minWidth "160px"
-               "& .MuiFormControlLabel-label"
-               {:fontSize "0.875rem"
-                :color (if (:have_it item) "text.primary" "text.secondary")}}
-          :control (r/as-element [checkbox
-                                  {:checked (boolean (:have_it item))
-                                   :size "small"
-                                   :on-change #(api/toggle-bar-inventory-item
-                                                app-state
-                                                (:id item)
-                                                (-> %
-                                                    .-target
-                                                    .-checked))}])}])]]))
+        [inventory-item app-state item editing-id])]]))
 
 (defn inventory-tab
   [app-state]
   (let [show-form? (r/atom false)
-        form-data (r/atom {})]
+        form-data (r/atom {})
+        editing-id (r/atom nil)]
     (fn []
       (let [items (get-in @app-state [:bar :inventory-items])
             grouped (group-by :category items)]
@@ -127,8 +181,9 @@
          (for [cat category-order
                :let [cat-items (get grouped cat)]
                :when (seq cat-items)]
-           ^{:key cat} [category-section app-state cat cat-items])
+           ^{:key cat} [category-section app-state cat cat-items editing-id])
          ;; Any categories not in the predefined order
          (for [[cat cat-items] grouped
                :when (not (some #{cat} category-order))]
-           ^{:key cat} [category-section app-state cat cat-items])]))))
+           ^{:key cat}
+           [category-section app-state cat cat-items editing-id])]))))

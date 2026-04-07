@@ -497,6 +497,13 @@
     (try {:status 201 :body (db-api/create-bar-inventory-item! body)}
          (catch Exception e (server-error e)))))
 
+(defn delete-bar-inventory-item
+  [{{{:keys [id]} :path} :parameters}]
+  (try (if (db-api/delete-bar-inventory-item! id)
+         {:status 204 :body nil}
+         (response/not-found {:error "Bar inventory item not found"}))
+       (catch Exception e (server-error e))))
+
 (defn get-cocktail-recipes
   [_]
   (try (response/response (db-api/get-cocktail-recipes))

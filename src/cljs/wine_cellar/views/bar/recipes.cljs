@@ -17,7 +17,6 @@
              [form-control-label]]
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.delete :refer [delete]]
-            [reagent-mui.icons.edit :refer [edit]]
             [wine-cellar.api :as api]))
 
 (defn- text-field
@@ -137,7 +136,7 @@
              "") #(update-field! :tags-input %)]]
        [box {:sx {:flex "3 1 400px"}}
         [text-field "Description" (:description recipe)
-         #(update-field! :description %) :multiline true :rows 2]]]
+         #(update-field! :description %) :multiline true :rows 4]]]
       [typography {:variant "subtitle2" :sx {:mb 1 :mt 0.5 :fontWeight 600}}
        "Ingredients"]
       (map-indexed (fn [idx ingredient]
@@ -158,11 +157,66 @@
        [button {:type "submit" :variant "contained" :color "primary"}
         (if editing-id "Save" "Add")]]]]))
 
+(defn- recipe-display
+  [app-state recipe]
+  (let [tags (:tags recipe)]
+    [paper
+     {:elevation 2 :sx {:p 2 :mb 2 :borderLeft "4px solid rgba(114,47,55,0.5)"}}
+     [typography {:variant "h6" :sx {:mb 1 :color "primary.main"}}
+      (:name recipe)]
+     (when (:source recipe)
+       [typography {:variant "body2" :sx {:color "text.secondary" :mb 1}}
+        (str "Source: " (:source recipe))])
+     (when (seq tags)
+       [box {:sx {:display "flex" :gap 0.5 :flexWrap "wrap" :mb 1}}
+        (for [tag tags]
+          ^{:key tag}
+          [chip {:label tag :size "small"}])])
+     (when (seq (:description recipe))
+       [typography {:variant "body1" :sx {:mb 1.5 :whiteSpace "pre-wrap"}}
+        (:description recipe)])
+     (when (seq (:ingredients recipe))
+       [:<>
+        [typography {:variant "subtitle2" :sx {:fontWeight 600 :mb 0.5}}
+         "Ingredients"]
+        [box {:component "ul" :sx {:mt 0 :mb 1.5 :pl 2.5}}
+         (map-indexed
+          (fn [idx {:keys [amount unit name]}]
+            ^{:key idx}
+            [:li
+             [typography {:variant "body2"}
+              (str/join " " (filter seq [amount unit name]))]])
+          (:ingredients recipe))]])
+     (when (seq (:instructions recipe))
+       [:<>
+        [typography {:variant "subtitle2" :sx {:fontWeight 600 :mb 0.5}}
+         "Instructions"]
+        [typography {:variant "body2" :sx {:mb 1.5 :whiteSpace "pre-wrap"}}
+         (:instructions recipe)]])
+     [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end"}}
+      [button
+       {:variant "outlined"
+        :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
+       "Close"]
+      [button
+       {:variant "contained"
+        :color "primary"
+        :on-click (fn []
+                    (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
+                    (swap! app-state assoc-in [:bar :editing-recipe-id]
+                           (:id recipe)))}
+       "Edit"]]]))
+
 (defn- recipe-card
   [app-state recipe]
   (let [tags (:tags recipe)
         n-ingredients (count (:ingredients recipe))]
-    [paper {:elevation 1 :sx {:p 1.5 :mb 1}}
+    [paper
+     {:elevation 1
+      :sx {:p 1.5 :mb 1 :cursor "pointer"
+           "&:hover" {:bgcolor "action.hover"}}
+      :on-click #(swap! app-state assoc-in
+                        [:bar :viewing-recipe-id] (:id recipe))}
      [box
       {:sx {:display "flex"
             :alignItems "flex-start"
@@ -202,14 +256,11 @@
       [box {:sx {:display "flex" :gap 0.5 :flexShrink 0}}
        [icon-button
         {:size "small"
-         :on-click
-         #(swap! app-state assoc-in [:bar :editing-recipe-id] (:id recipe))}
-        [edit {:fontSize "small"}]]
-       [icon-button
-        {:size "small"
          :color "error"
-         :on-click #(when (js/confirm (str "Delete \"" (:name recipe) "\"?"))
-                      (api/delete-cocktail-recipe app-state (:id recipe)))}
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (when (js/confirm (str "Delete \"" (:name recipe) "\"?"))
+                       (api/delete-cocktail-recipe app-state (:id recipe))))}
         [delete {:fontSize "small"}]]]]]))
 
 (defn save-recipe-dialog
@@ -290,7 +341,8 @@
   (let [bar @(r/cursor app-state [:bar])
         recipes (:recipes bar)
         show-form? (:show-recipe-form? bar)
-        editing-id (:editing-recipe-id bar)]
+        editing-id (:editing-recipe-id bar)
+        viewing-id (:viewing-recipe-id bar)]
     [box
      [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
       [typography {:variant "h6"} (str "Recipes (" (count recipes) ")")]
@@ -306,4 +358,8 @@
        [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
         "No recipes yet. Save your first cocktail!"]
        (for [recipe recipes]
-         ^{:key (:id recipe)} [recipe-card app-state recipe]))]))
+         ^{:key (:id recipe)}
+         (cond
+           (= (:id recipe) viewing-id) [recipe-display app-state recipe]
+           (= (:id recipe) editing-id) nil
+           :else [recipe-card app-state recipe])))]))

@@ -7,7 +7,8 @@
             [wine-cellar.ai.openai :as openai]
             [wine-cellar.ai.prompts :as prompts]
             [wine-cellar.common :as common]
-            [wine-cellar.config-utils :as config-utils]))
+            [wine-cellar.config-utils :as config-utils]
+            [wine-cellar.db.api :as db-api]))
 
 (defstate default-provider
           :start
@@ -74,7 +75,11 @@
 
 (defn analyze-spirit-label
   [provider front-image]
-  (let [system-prompt (prompts/spirit-label-analysis-system-prompt)
+  (let [existing-subcategories (->> (db-api/get-spirits)
+                                    (keep :subcategory)
+                                    distinct)
+        system-prompt (prompts/spirit-label-analysis-system-prompt
+                       existing-subcategories)
         user-content (prompts/label-analysis-user-content front-image nil)
         prompt {:system system-prompt :user-content user-content}]
     (case provider

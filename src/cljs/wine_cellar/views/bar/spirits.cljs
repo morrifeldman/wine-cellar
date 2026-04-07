@@ -10,7 +10,10 @@
     [reagent-mui.material.select :refer [select]]
     [reagent-mui.material.menu-item :refer [menu-item]]
     [reagent-mui.material.circular-progress :refer [circular-progress]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.material.input-adornment :refer [input-adornment]]
     [reagent-mui.icons.add :refer [add]]
+    [reagent-mui.icons.close :refer [close]]
     [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
     [reagent-mui.icons.public :refer [public] :rename {public globe}]
     [reagent-mui.icons.inventory :refer [inventory]]
@@ -409,14 +412,25 @@
              "Add Spirit"])] (when show-form? [spirit-create-form app-state])
          (when (and (seq spirits) (not loading?))
            [mui-text-field/text-field
-            {:label "Search spirits"
-             :value @search-text
-             :on-change #(reset! search-text (-> %
-                                                 .-target
-                                                 .-value))
-             :size "small"
-             :full-width true
-             :sx {:mb 2}}])
+            (cond-> {:label "Search spirits"
+                     :value @search-text
+                     :on-change #(reset! search-text (-> %
+                                                         .-target
+                                                         .-value))
+                     :size "small"
+                     :full-width true
+                     :sx {:mb 2}}
+              (seq @search-text)
+              (assoc :InputProps
+                     {:endAdornment
+                      (r/as-element
+                       [input-adornment {:position "end"}
+                        [icon-button
+                         {:size "small"
+                          :edge "end"
+                          :on-click #(reset! search-text "")
+                          :sx {:color "text.secondary"}}
+                         [close {:fontSize "small"}]]])}))])
          (if loading?
            [box {:sx {:display "flex" :justifyContent "center" :py 4}}
             [circular-progress {:color "primary"}]]

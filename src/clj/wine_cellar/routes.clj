@@ -473,7 +473,10 @@
      :put {:summary "Update bar inventory item (e.g. toggle have_it)"
            :parameters {:body (s/keys :opt-un [::have_it ::name ::sort_order])}
            :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
-           :handler handlers/update-bar-inventory-item}}]
+           :handler handlers/update-bar-inventory-item}
+     :delete {:summary "Delete bar inventory item"
+              :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
+              :handler handlers/delete-bar-inventory-item}}]
    ["/cocktail-recipes"
     {:get {:summary "List all cocktail recipes"
            :responses {200 {:body vector?} 500 {:body map?}}
