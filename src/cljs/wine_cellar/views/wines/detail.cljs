@@ -498,21 +498,19 @@
       (:on-remove zoomed)])
    ;; Front Wine Label Image
    [grid {:item true :xs 6}
-    [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-     [clickable-wine-image (:label_image wine) "front" "Front Wine Label"
-      #(api/update-wine-image app-state (:id wine) %)
-      #(api/update-wine-image
-        app-state
-        (:id wine)
-        (assoc wine :label_image nil :label_thumbnail nil)) app-state]]]
+    [clickable-wine-image (:label_image wine) "front" "Front Wine Label"
+     #(api/update-wine-image app-state (:id wine) %)
+     #(api/update-wine-image app-state
+                             (:id wine)
+                             (assoc wine :label_image nil :label_thumbnail nil))
+     app-state]]
    ;; Back Wine Label Image
    [grid {:item true :xs 6}
-    [paper {:elevation 0 :sx {:p 2 :borderRadius 1}}
-     [clickable-wine-image (:back_label_image wine) "back" "Back Wine Label"
-      #(api/update-wine-image app-state (:id wine) %)
-      #(api/update-wine-image app-state
-                              (:id wine)
-                              (assoc wine :back_label_image nil)) app-state]]]])
+    [clickable-wine-image (:back_label_image wine) "back" "Back Wine Label"
+     #(api/update-wine-image app-state (:id wine) %)
+     #(api/update-wine-image app-state
+                             (:id wine)
+                             (assoc wine :back_label_image nil)) app-state]]])
 
 (defn- section-header
   [icon-component label border-color]
