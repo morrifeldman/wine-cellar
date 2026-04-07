@@ -9,6 +9,7 @@
     [reagent-mui.icons.arrow-back :refer [arrow-back]]
     [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
     [reagent-mui.icons.delete :refer [delete]]
+    [reagent-mui.icons.share :refer [share]]
     [reagent-mui.icons.close :refer [close]]
     [reagent-mui.icons.public :refer [public] :rename {public globe}]
     [reagent-mui.icons.wine-bar :refer [wine-bar]]
@@ -1172,8 +1173,60 @@
       (go (<! (api/delete-wine app-state selected-wine-id))
           (nav/replace-wines!)))))
 
+(defn share-wine-url
+  "Build a shareable URL for the given wine id"
+  [selected-wine-id]
+  (str (.. js/window -location -origin) "/wine/" selected-wine-id))
+
+(defn- wine-share-title
+  [wine]
+  (str/trim (str (or (:producer wine) "")
+                 (when (and (:producer wine) (:name wine)) " ")
+                 (or (:name wine) "")
+                 (when (:vintage wine) (str " " (:vintage wine))))))
+
+(defn- copy-to-clipboard
+  [url on-done]
+  (-> (.writeText (.-clipboard js/navigator) url)
+      (.then #(on-done :copied))
+      (.catch #(on-done :error))))
+
+(defn share-button
+  "Share button with native Web Share API and clipboard fallback.
+   Shows 'Copied!' on the button briefly after a successful copy."
+  [_ _]
+  (let [status (r/atom :idle)]
+    (fn [selected-wine-id selected-wine]
+      (let [url (share-wine-url selected-wine-id)
+            flash! (fn [s]
+                     (reset! status s)
+                     (js/setTimeout #(reset! status :idle) 2000))
+            on-click
+            (fn []
+              (let [nav js/navigator
+                    title (wine-share-title selected-wine)
+                    data (clj->js {:title title :text title :url url})]
+                (if (and (.-share nav) (.canShare nav data))
+                  (-> (.share nav data)
+                      (.catch (fn [_]
+                                (copy-to-clipboard
+                                 url
+                                 #(flash! (if (= % :copied) :copied :error))))))
+                  (copy-to-clipboard url
+                                     #(flash!
+                                       (if (= % :copied) :copied :error))))))
+            label (case @status
+                    :copied "Copied!"
+                    :error "Copy failed"
+                    "Share")]
+        [button
+         {:variant "outlined"
+          :color "primary"
+          :start-icon (r/as-element [share])
+          :onClick on-click} label]))))
+
 (defn wine-action-buttons
-  "Render the back and delete buttons for wine details"
+  "Render the back, share and delete buttons for wine details"
   [app-state selected-wine-id selected-wine]
   [box {:sx {:mt 2 :display "flex" :gap 2 :justifyContent "space-between"}}
    [button
@@ -1181,13 +1234,15 @@
      :color "primary"
      :start-icon (r/as-element [arrow-back])
      :onClick #(.back js/history)} "Back to List"]
-   [button
-    {:variant "outlined"
-     :color "error"
-     :start-icon (r/as-element [delete])
-     :onClick
-     (delete-button-click-handler app-state selected-wine-id selected-wine)}
-    "Delete Wine"]])
+   [box {:sx {:display "flex" :gap 2}}
+    [share-button selected-wine-id selected-wine]
+    [button
+     {:variant "outlined"
+      :color "error"
+      :start-icon (r/as-element [delete])
+      :onClick
+      (delete-button-click-handler app-state selected-wine-id selected-wine)}
+     "Delete Wine"]]])
 
 (defn wine-details-content
   "Render the wine details with action buttons"
