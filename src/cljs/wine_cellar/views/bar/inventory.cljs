@@ -11,7 +11,6 @@
             [reagent-mui.material.menu-item :refer [menu-item]]
             [reagent-mui.material.form-control :refer [form-control]]
             [reagent-mui.material.input-label :refer [input-label]]
-            [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.check :refer [check]]
             [reagent-mui.icons.close :refer [close]]
@@ -30,9 +29,11 @@
   ["fruit" "juice" "soda" "syrup" "bitters" "garnish" "other"])
 
 (defn- add-item-form
-  [app-state show-form? form-data]
+  [app-state form-data]
   (let [name-val (:name @form-data "")
-        cat-val (:category @form-data "other")]
+        cat-val (:category @form-data "other")
+        close-form!
+        #(swap! app-state assoc-in [:bar :show-inventory-form?] false)]
     [box
      {:sx
       {:mt 1.5 :display "flex" :gap 1 :alignItems "flex-end" :flexWrap "wrap"}}
@@ -63,16 +64,15 @@
        :size "small"
        :disabled (str/blank? name-val)
        :on-click (fn []
-                   (api/create-bar-inventory-item app-state
-                                                  {:name (str/trim name-val)
-                                                   :category cat-val})
+                   (api/create-bar-inventory-item
+                    app-state
+                    {:name (str/trim name-val) :category cat-val :have_it true})
                    (reset! form-data {})
-                   (reset! show-form? false))} "Add"]
+                   (close-form!))} "Add"]
      [button
       {:variant "outlined"
        :size "small"
-       :on-click #(do (reset! form-data {}) (reset! show-form? false))}
-      "Cancel"]]))
+       :on-click #(do (reset! form-data {}) (close-form!))} "Cancel"]]))
 
 (defn- inventory-item
   [_app-state _item _editing-id]
@@ -160,25 +160,13 @@
 
 (defn inventory-tab
   [app-state]
-  (let [show-form? (r/atom false)
-        form-data (r/atom {})
+  (let [form-data (r/atom {})
         editing-id (r/atom nil)]
     (fn []
       (let [items (get-in @app-state [:bar :inventory-items])
+            show-form? (get-in @app-state [:bar :show-inventory-form?])
             grouped (group-by :category items)]
-        [box
-         [box
-          {:sx {:display "flex"
-                :justifyContent "space-between"
-                :alignItems "center"
-                :mb 2}} [typography {:variant "h6"} "Mixers & Garnishes"]
-          [button
-           {:variant "outlined"
-            :color "primary"
-            :size "small"
-            :start-icon (r/as-element [add])
-            :on-click #(reset! show-form? true)} "Custom"]]
-         (when @show-form? [add-item-form app-state show-form? form-data])
+        [box (when show-form? [add-item-form app-state form-data])
          (for [cat category-order
                :let [cat-items (get grouped cat)]
                :when (seq cat-items)]

@@ -12,7 +12,6 @@
     [reagent-mui.material.circular-progress :refer [circular-progress]]
     [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.material.input-adornment :refer [input-adornment]]
-    [reagent-mui.icons.add :refer [add]]
     [reagent-mui.icons.close :refer [close]]
     [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
     [reagent-mui.icons.public :refer [public] :rename {public globe}]
@@ -388,22 +387,8 @@
                                (:distillery s) (:country s) (:region s)
                                (:notes s) (:age_statement s)]))
                       spirits)
-              spirits)
-            count-label
-            (if (seq term)
-              (str "Spirits (" (count filtered) "/" (count spirits) ")")
-              (str "Spirits (" (count spirits) ")"))]
-        [box
-         [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-          [typography {:variant "h6"} count-label]
-          (when-not (or show-form? editing-id)
-            [button
-             {:variant "outlined"
-              :color "primary"
-              :start-icon (r/as-element [add])
-              :on-click
-              #(swap! app-state assoc-in [:bar :show-spirit-form?] true)}
-             "Add Spirit"])] (when show-form? [spirit-create-form app-state])
+              spirits)]
+        [box (when show-form? [spirit-create-form app-state])
          (when (and (seq spirits) (not loading?))
            [mui-text-field/text-field
             (cond-> {:label "Search spirits"

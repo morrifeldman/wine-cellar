@@ -1018,7 +1018,9 @@
           :value (:occurred_at @local-state)
           :onChange
           #(swap! local-state assoc :occurred_at (.. % -target -value))
-          :fullWidth true}]
+          :fullWidth true
+          :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
+               {:filter "invert(0.7)" :opacity 0.7}}}]
         [autocomplete
          {:freeSolo true
           :options (sort (vals common/inventory-reasons))

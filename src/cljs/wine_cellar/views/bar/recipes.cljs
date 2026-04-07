@@ -337,17 +337,7 @@
         show-form? (:show-recipe-form? bar)
         editing-id (:editing-recipe-id bar)
         viewing-id (:viewing-recipe-id bar)]
-    [box
-     [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-      [typography {:variant "h6"} (str "Recipes (" (count recipes) ")")]
-      (when-not (or show-form? editing-id)
-        [button
-         {:variant "outlined"
-          :color "primary"
-          :start-icon (r/as-element [add])
-          :on-click #(swap! app-state assoc-in [:bar :show-recipe-form?] true)}
-         "Add Recipe"])]
-     (when (or show-form? editing-id) [recipe-form app-state])
+    [box (when (or show-form? editing-id) [recipe-form app-state])
      (if (empty? recipes)
        [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
         "No recipes yet. Save your first cocktail!"]
