@@ -95,8 +95,9 @@
                              :response parsed})))
           (if parse-json?
             (try (let [parsed-json (json/read-value text-response json-mapper)]
-                   ;; Gemini schemas can't express nullable fields, so the model
-                   ;; sometimes returns the literal string "null" — strip those.
+                   ;; Gemini schemas can't express nullable fields, so the
+                   ;; model sometimes returns the literal string "null" —
+                   ;; strip those.
                    (if (map? parsed-json)
                      (into {} (remove (fn [[_ v]] (= v "null"))) parsed-json)
                      parsed-json))

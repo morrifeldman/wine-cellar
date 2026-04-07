@@ -64,8 +64,8 @@
   "Scan-first creation: capture label, analyze with AI, create spirit with all fields."
   [app-state]
   (r/with-let
-   [show-camera? (r/atom true) label-image (r/atom nil)
-    name-val (r/atom "") category-val (r/atom "") submitting? (r/atom false)]
+   [show-camera? (r/atom true) label-image (r/atom nil) name-val (r/atom "")
+    category-val (r/atom "") submitting? (r/atom false)]
    [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
     (when @show-camera?
       [camera-capture
@@ -85,40 +85,39 @@
            (-> (api/analyze-spirit-label app-state @label-image)
                (.then
                 (fn [result]
-                  (let [spirit-data
-                        (into {}
-                              (filter (fn [[_ v]] (and (some? v) (not= v "null"))))
-                              (select-keys result
-                                           [:name :category :subcategory :distillery
-                                            :country :region :age_statement :proof]))]
+                  (let [spirit-data (into
+                                     {}
+                                     (filter (fn [[_ v]]
+                                               (and (some? v) (not= v "null"))))
+                                     (select-keys result
+                                                  [:name :category :subcategory
+                                                   :distillery :country :region
+                                                   :age_statement :proof]))]
                     (when (and (:name spirit-data) (:category spirit-data))
                       (reset! submitting? true)
                       (-> (api/create-spirit app-state spirit-data)
-                          (.then
-                           (fn [created]
-                             (reset! submitting? false)
-                             (swap! app-state assoc-in
-                               [:bar :show-spirit-form?]
-                               false)
-                             (swap! app-state assoc-in
-                               [:bar :editing-spirit-id]
-                               (:id created))))
+                          (.then (fn [created]
+                                   (reset! submitting? false)
+                                   (swap! app-state assoc-in
+                                     [:bar :show-spirit-form?]
+                                     false)
+                                   (swap! app-state assoc-in
+                                     [:bar :editing-spirit-id]
+                                     (:id created))))
                           (.catch (fn [_] (reset! submitting? false))))))))
                (.catch (fn [err]
-                         (swap! app-state assoc :error
+                         (swap! app-state assoc
+                           :error
                            (str "Failed to analyze label: " err))))))
-         :start-icon
-         (when-not (:analyzing-spirit-label? @app-state)
-           (r/as-element [auto-awesome]))}
-        (cond
-          (:analyzing-spirit-label? @app-state)
-          [box {:sx {:display "flex" :alignItems "center"}}
-           [circular-progress {:size 16 :sx {:mr 0.5}}] "Analyzing..."]
-          @submitting? "Creating..."
-          :else "Analyze & Add")]
+         :start-icon (when-not (:analyzing-spirit-label? @app-state)
+                       (r/as-element [auto-awesome]))}
+        (cond (:analyzing-spirit-label? @app-state)
+              [box {:sx {:display "flex" :alignItems "center"}}
+               [circular-progress {:size 16 :sx {:mr 0.5}}] "Analyzing..."]
+              @submitting? "Creating..."
+              :else "Analyze & Add")]
        [provider-toggle-button app-state
-        {:mobile-min-width "auto"
-         :sx {:minWidth "auto" :px 1 :py 0.25}}]
+        {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]
        [button
         {:variant "outlined"
          :size "small"
@@ -133,8 +132,7 @@
            {:variant "outlined"
             :size "small"
             :start-icon (r/as-element [auto-awesome])
-            :on-click #(reset! show-camera? true)}
-           "Scan Label"]])
+            :on-click #(reset! show-camera? true)} "Scan Label"]])
        [:form
         {:on-submit
          (fn [e]
@@ -155,7 +153,9 @@
          {:sx {:display "flex" :gap 2 :alignItems "flex-end" :flexWrap "wrap"}}
          [mui-text-field/text-field
           {:value @name-val
-           :on-change #(reset! name-val (-> % .-target .-value))
+           :on-change #(reset! name-val (-> %
+                                            .-target
+                                            .-value))
            :label "Name"
            :required true
            :variant "standard"
@@ -167,11 +167,11 @@
            :variant "standard"
            :displayEmpty true
            :required true
-           :renderValue (fn [v]
-                          (if (str/blank? v)
-                            "Category"
-                            (get category-labels v v)))
-           :on-change #(reset! category-val (-> % .-target .-value))
+           :renderValue
+           (fn [v] (if (str/blank? v) "Category" (get category-labels v v)))
+           :on-change #(reset! category-val (-> %
+                                                .-target
+                                                .-value))
            :sx {:fontSize "0.875rem"
                 :minWidth 100
                 :color (if (str/blank? @category-val)
@@ -183,8 +183,7 @@
           {:type "submit"
            :variant "contained"
            :size "small"
-           :disabled @submitting?}
-          (if @submitting? "Creating..." "Add")]
+           :disabled @submitting?} (if @submitting? "Creating..." "Add")]
          [button
           {:variant "outlined"
            :size "small"
@@ -203,143 +202,138 @@
       (when spirit
         [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
          ;; Identity row
-           [box {:sx {:mb 3}}
-            [dot-separated-row
-             [editable-text-field
-              {:value (:distillery spirit)
-               :on-save
-               #(api/update-spirit app-state (:id spirit) {:distillery %})
-               :empty-text "Add distillery"
-               :inline? true
-               :display-sx {:fontSize "1.2rem" :fontWeight 500}}]
-             [editable-text-field
-              {:value (:name spirit)
-               :on-save #(api/update-spirit app-state (:id spirit) {:name %})
-               :empty-text "Add name"
-               :inline? true
-               :display-sx {:fontSize "1.2rem" :fontWeight 500}}]
-             [editable-autocomplete-field
-              {:value (:category spirit)
-               :options spirit-categories
-               :option-label #(get category-labels % %)
-               :on-save
-               #(api/update-spirit app-state (:id spirit) {:category %})
-               :format-fn #(get category-labels % %)
-               :empty-text "Set category"
-               :inline? true}]
-             [editable-autocomplete-field
-              {:value (:subcategory spirit)
-               :options (unique-spirit-values (:spirits bar) :subcategory)
-               :free-solo true
-               :on-save
-               #(api/update-spirit app-state (:id spirit) {:subcategory %})
-               :empty-text "Add subcategory"
-               :inline? true}]]]
-           ;; Origin section
-           [box
-            {:sx
-             {:mt 2 :borderLeft "3px solid rgba(139,195,74,0.7)" :pl 1.5 :pb 2}}
-            [section-header globe "Origin" "rgba(139,195,74,0.7)"]
-            [dot-separated-row
-             [editable-autocomplete-field
-              {:value (:country spirit)
-               :options (unique-spirit-values (:spirits bar) :country)
-               :free-solo true
-               :on-save #(api/update-spirit app-state (:id spirit) {:country %})
-               :empty-text "Add country"
-               :inline? true}]
-             [editable-autocomplete-field
-              {:value (:region spirit)
-               :options (unique-spirit-values (:spirits bar) :region)
-               :free-solo true
-               :on-save #(api/update-spirit app-state (:id spirit) {:region %})
-               :empty-text "Add region"
-               :inline? true}]
-             [editable-text-field
-              {:value (:age_statement spirit)
-               :on-save
-               #(api/update-spirit app-state (:id spirit) {:age_statement %})
-               :format-fn #(if (re-matches #"\d+" (str %)) (str % " yr") %)
-               :empty-text "Add age"
-               :inline? true}]
-             [editable-text-field
-              {:value (when (:proof spirit) (str (:proof spirit)))
-               :on-save (fn [v]
-                          (let [parsed (js/parseInt v)]
-                            (api/update-spirit
-                             app-state
-                             (:id spirit)
-                             {:proof (when-not (js/isNaN parsed) parsed)})))
-               :format-fn #(str % " proof")
-               :empty-text "Add proof"
-               :inline? true}]]]
-           ;; Cellar section
-           [box
-            {:sx {:mt 2
-                  :borderLeft "3px solid rgba(100,181,246,0.7)"
-                  :pl 1.5
-                  :pb 2}}
-            [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
-            [dot-separated-row
-             [editable-text-field
-              {:value (when (:quantity spirit) (str (:quantity spirit)))
-               :on-save (fn [v]
-                          (let [parsed (js/parseInt v)]
-                            (api/update-spirit
-                             app-state
-                             (:id spirit)
-                             {:quantity (when-not (js/isNaN parsed) parsed)})))
-               :format-fn #(str "qty: " %)
-               :empty-text "Add qty"
-               :inline? true}]
-             [editable-text-field
-              {:value (when (:price spirit) (str (:price spirit)))
-               :on-save (fn [v]
-                          (let [parsed (js/parseFloat v)]
-                            (api/update-spirit
-                             app-state
-                             (:id spirit)
-                             {:price (when-not (js/isNaN parsed) parsed)})))
-               :format-fn #(str "$" %)
-               :empty-text "Add price"
-               :inline? true}]
-             [editable-text-field
-              {:value (:purchase_date spirit)
-               :on-save
-               #(api/update-spirit app-state (:id spirit) {:purchase_date %})
-               :empty-text "Add date"
-               :inline? true}]
-             [editable-text-field
-              {:value (:location spirit)
-               :on-save
-               #(api/update-spirit app-state (:id spirit) {:location %})
-               :empty-text "Add location"
-               :inline? true}]]]
-           ;; Notes section
-           [box
-            {:sx
-             {:mt 2 :borderLeft "3px solid rgba(255,213,79,0.7)" :pl 1.5 :pb 1}}
-            [section-header notes-icon "Notes" "rgba(255,213,79,0.7)"]
-            [editable-text-field
-             {:value (:notes spirit)
-              :on-save #(api/update-spirit app-state (:id spirit) {:notes %})
-              :empty-text "Add tasting notes, impressions..."
-              :text-field-props {:multiline true :rows 2}}]]
-           ;; Actions
-           [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end" :mt 2}}
-            [button
-             {:variant "outlined"
-              :color "error"
-              :on-click
-              #(when (js/confirm (str "Delete " (:name spirit) "?"))
-                 (api/delete-spirit app-state (:id spirit))
-                 (swap! app-state assoc-in [:bar :editing-spirit-id] nil))}
-             "Delete"] [box {:sx {:flex 1}}]
-            [button
-             {:variant "contained"
-              :on-click
-              #(swap! app-state assoc-in [:bar :editing-spirit-id] nil)}
-             "Done"]]]))))
+         [box {:sx {:mb 3}}
+          [dot-separated-row
+           [editable-text-field
+            {:value (:distillery spirit)
+             :on-save
+             #(api/update-spirit app-state (:id spirit) {:distillery %})
+             :empty-text "Add distillery"
+             :inline? true
+             :display-sx {:fontSize "1.2rem" :fontWeight 500}}]
+           [editable-text-field
+            {:value (:name spirit)
+             :on-save #(api/update-spirit app-state (:id spirit) {:name %})
+             :empty-text "Add name"
+             :inline? true
+             :display-sx {:fontSize "1.2rem" :fontWeight 500}}]
+           [editable-autocomplete-field
+            {:value (:category spirit)
+             :options spirit-categories
+             :option-label #(get category-labels % %)
+             :on-save #(api/update-spirit app-state (:id spirit) {:category %})
+             :format-fn #(get category-labels % %)
+             :empty-text "Set category"
+             :inline? true}]
+           [editable-autocomplete-field
+            {:value (:subcategory spirit)
+             :options (unique-spirit-values (:spirits bar) :subcategory)
+             :free-solo true
+             :on-save
+             #(api/update-spirit app-state (:id spirit) {:subcategory %})
+             :empty-text "Add subcategory"
+             :inline? true}]]]
+         ;; Origin section
+         [box
+          {:sx
+           {:mt 2 :borderLeft "3px solid rgba(139,195,74,0.7)" :pl 1.5 :pb 2}}
+          [section-header globe "Origin" "rgba(139,195,74,0.7)"]
+          [dot-separated-row
+           [editable-autocomplete-field
+            {:value (:country spirit)
+             :options (unique-spirit-values (:spirits bar) :country)
+             :free-solo true
+             :on-save #(api/update-spirit app-state (:id spirit) {:country %})
+             :empty-text "Add country"
+             :inline? true}]
+           [editable-autocomplete-field
+            {:value (:region spirit)
+             :options (unique-spirit-values (:spirits bar) :region)
+             :free-solo true
+             :on-save #(api/update-spirit app-state (:id spirit) {:region %})
+             :empty-text "Add region"
+             :inline? true}]
+           [editable-text-field
+            {:value (:age_statement spirit)
+             :on-save
+             #(api/update-spirit app-state (:id spirit) {:age_statement %})
+             :format-fn #(if (re-matches #"\d+" (str %)) (str % " yr") %)
+             :empty-text "Add age"
+             :inline? true}]
+           [editable-text-field
+            {:value (when (:proof spirit) (str (:proof spirit)))
+             :on-save (fn [v]
+                        (let [parsed (js/parseInt v)]
+                          (api/update-spirit app-state
+                                             (:id spirit)
+                                             {:proof (when-not (js/isNaN parsed)
+                                                       parsed)})))
+             :format-fn #(str % " proof")
+             :empty-text "Add proof"
+             :inline? true}]]]
+         ;; Cellar section
+         [box
+          {:sx
+           {:mt 2 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
+          [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
+          [dot-separated-row
+           [editable-text-field
+            {:value (when (:quantity spirit) (str (:quantity spirit)))
+             :on-save (fn [v]
+                        (let [parsed (js/parseInt v)]
+                          (api/update-spirit
+                           app-state
+                           (:id spirit)
+                           {:quantity (when-not (js/isNaN parsed) parsed)})))
+             :format-fn #(str "qty: " %)
+             :empty-text "Add qty"
+             :inline? true}]
+           [editable-text-field
+            {:value (when (:price spirit) (str (:price spirit)))
+             :on-save (fn [v]
+                        (let [parsed (js/parseFloat v)]
+                          (api/update-spirit app-state
+                                             (:id spirit)
+                                             {:price (when-not (js/isNaN parsed)
+                                                       parsed)})))
+             :format-fn #(str "$" %)
+             :empty-text "Add price"
+             :inline? true}]
+           [editable-text-field
+            {:value (:purchase_date spirit)
+             :on-save
+             #(api/update-spirit app-state (:id spirit) {:purchase_date %})
+             :empty-text "Add date"
+             :inline? true}]
+           [editable-text-field
+            {:value (:location spirit)
+             :on-save #(api/update-spirit app-state (:id spirit) {:location %})
+             :empty-text "Add location"
+             :inline? true}]]]
+         ;; Notes section
+         [box
+          {:sx
+           {:mt 2 :borderLeft "3px solid rgba(255,213,79,0.7)" :pl 1.5 :pb 1}}
+          [section-header notes-icon "Notes" "rgba(255,213,79,0.7)"]
+          [editable-text-field
+           {:value (:notes spirit)
+            :on-save #(api/update-spirit app-state (:id spirit) {:notes %})
+            :empty-text "Add tasting notes, impressions..."
+            :text-field-props {:multiline true :rows 2}}]]
+         ;; Actions
+         [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end" :mt 2}}
+          [button
+           {:variant "outlined"
+            :color "error"
+            :on-click
+            #(when (js/confirm (str "Delete " (:name spirit) "?"))
+               (api/delete-spirit app-state (:id spirit))
+               (swap! app-state assoc-in [:bar :editing-spirit-id] nil))}
+           "Delete"] [box {:sx {:flex 1}}]
+          [button
+           {:variant "contained"
+            :on-click #(swap! app-state assoc-in [:bar :editing-spirit-id] nil)}
+           "Done"]]]))))
 
 (defn- spirit-meta
   [spirit]
@@ -420,17 +414,16 @@
                      :size "small"
                      :full-width true
                      :sx {:mb 2}}
-              (seq @search-text)
-              (assoc :InputProps
-                     {:endAdornment
-                      (r/as-element
-                       [input-adornment {:position "end"}
-                        [icon-button
-                         {:size "small"
-                          :edge "end"
-                          :on-click #(reset! search-text "")
-                          :sx {:color "text.secondary"}}
-                         [close {:fontSize "small"}]]])}))])
+              (seq @search-text) (assoc :InputProps
+                                        {:endAdornment
+                                         (r/as-element
+                                          [input-adornment {:position "end"}
+                                           [icon-button
+                                            {:size "small"
+                                             :edge "end"
+                                             :on-click #(reset! search-text "")
+                                             :sx {:color "text.secondary"}}
+                                            [close {:fontSize "small"}]]])}))])
          (if loading?
            [box {:sx {:display "flex" :justifyContent "center" :py 4}}
             [circular-progress {:color "primary"}]]

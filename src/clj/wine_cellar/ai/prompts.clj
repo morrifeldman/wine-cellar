@@ -535,14 +535,17 @@
 (defn spirit-label-analysis-system-prompt
   ([] (spirit-label-analysis-system-prompt nil))
   ([existing-subcategories]
-   (let [categories (str/join ", "
-                              ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal"
-                               "brandy" "liqueur" "other"])
-         subcategory-hint
-         (when (seq existing-subcategories)
-           (str " Known subcategories already in use: "
-                (str/join ", " (sort existing-subcategories)) "."
-                " Prefer these when applicable, but you may use a new one if none fit."))]
+   (let
+     [categories (str/join ", "
+                           ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal"
+                            "brandy" "liqueur" "other"])
+      subcategory-hint
+      (when (seq existing-subcategories)
+        (str
+         " Known subcategories already in use: "
+         (str/join ", " (sort existing-subcategories))
+         "."
+         " Prefer these when applicable, but you may use a new one if none fit."))]
      (str
       "You are a spirits expert identifying bottles from label images. "
       "First, identify the spirit from the label. Then use BOTH what you can read on the label "
@@ -551,9 +554,12 @@
       "and subcategory even if not all are clearly visible on the label.\n\n"
       "Extract the following fields as JSON:\n\n"
       "- name: The expression/product name (e.g. \"Black Label 12 Year\", \"Small Batch\"), NOT the brand/distillery\n"
-      "- category: Spirit type. Must be one of: " categories "\n"
+      "- category: Spirit type. Must be one of: "
+      categories
+      "\n"
       "- subcategory: More specific type (e.g. \"bourbon\", \"rye\", \"single malt\", \"reposado\", \"amaro\"), else null."
-      subcategory-hint "\n"
+      subcategory-hint
+      "\n"
       "- distillery: Producer, brand, or distillery name (e.g. \"Johnnie Walker\", \"Buffalo Trace\")\n"
       "- country: Country of origin\n"
       "- region: Region of production (e.g. Speyside, Jalisco, Kentucky)\n"

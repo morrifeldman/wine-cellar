@@ -1152,10 +1152,10 @@
 
 (defn delete-bar-inventory-item!
   [id]
-  (pos? (:next.jdbc/update-count
-         (jdbc/execute-one! ds
-                            (sql/format {:delete-from :bar_inventory_items
-                                         :where [:= :id id]})))))
+  (pos? (:next.jdbc/update-count (jdbc/execute-one!
+                                  ds
+                                  (sql/format {:delete-from :bar_inventory_items
+                                               :where [:= :id id]})))))
 
 ;; Bar: Cocktail Recipes
 (defn- recipe->db-recipe

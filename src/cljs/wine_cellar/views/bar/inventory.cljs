@@ -28,7 +28,8 @@
    "garnish" "Garnishes"
    "other" "Other"})
 
-(def category-order ["fruit" "juice" "soda" "syrup" "bitters" "garnish" "other"])
+(def category-order
+  ["fruit" "juice" "soda" "syrup" "bitters" "garnish" "other"])
 
 (defn- add-item-form
   [app-state show-form? form-data]
@@ -82,12 +83,12 @@
       (if (= (:id item) @editing-id)
         [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mb 0.5}}
          [checkbox
-          {:checked (boolean (:have_it item))
-           :size "small"
-           :disabled true}]
+          {:checked (boolean (:have_it item)) :size "small" :disabled true}]
          [mui-text-field/text-field
           {:value (or @edit-name (:name item))
-           :on-change #(reset! edit-name (-> % .-target .-value))
+           :on-change #(reset! edit-name (-> %
+                                             .-target
+                                             .-value))
            :size "small"
            :auto-focus true
            :sx {:flex 1}
@@ -95,8 +96,9 @@
                           (when (= (.-key e) "Enter")
                             (let [n (or @edit-name (:name item))]
                               (when (seq (str/trim n))
-                                (api/update-bar-inventory-item
-                                 app-state (:id item) {:name n})))
+                                (api/update-bar-inventory-item app-state
+                                                               (:id item)
+                                                               {:name n})))
                             (reset! edit-name nil)
                             (reset! editing-id nil))
                           (when (= (.-key e) "Escape")
@@ -108,24 +110,24 @@
            :on-click (fn []
                        (let [n (or @edit-name (:name item))]
                          (when (seq (str/trim n))
-                           (api/update-bar-inventory-item
-                            app-state (:id item) {:name n})))
+                           (api/update-bar-inventory-item app-state
+                                                          (:id item)
+                                                          {:name n})))
                        (reset! edit-name nil)
-                       (reset! editing-id nil))}
-          [check {:fontSize "small"}]]
+                       (reset! editing-id nil))} [check {:fontSize "small"}]]
          [icon-button
           {:size "small"
-           :on-click #(do (reset! edit-name nil)
-                          (reset! editing-id nil))}
+           :on-click #(do (reset! edit-name nil) (reset! editing-id nil))}
           [close {:fontSize "small"}]]]
         [box {:sx {:display "flex" :alignItems "center" :gap 0}}
          [checkbox
           {:checked (boolean (:have_it item))
            :size "small"
-           :on-change #(api/toggle-bar-inventory-item
-                        app-state
-                        (:id item)
-                        (-> % .-target .-checked))}]
+           :on-change #(api/toggle-bar-inventory-item app-state
+                                                      (:id item)
+                                                      (-> %
+                                                          .-target
+                                                          .-checked))}]
          [typography
           {:variant "body2"
            :on-click #(reset! editing-id (:id item))
@@ -133,8 +135,7 @@
                 :flex 1
                 :fontSize "0.875rem"
                 :color (if (:have_it item) "text.primary" "text.secondary")
-                "&:hover" {:textDecoration "underline"}}}
-          (:name item)]
+                "&:hover" {:textDecoration "underline"}}} (:name item)]
          [icon-button
           {:size "small"
            :color "error"
@@ -154,12 +155,10 @@
             :letterSpacing "0.08em"
             :mb 0.5
             :textTransform "uppercase"
-            :fontSize "0.72rem"}}
-      label]
+            :fontSize "0.72rem"}} label]
      [box {:sx {:display "flex" :flexWrap "wrap" :gap 0}}
       (for [item items]
-        ^{:key (:id item)}
-        [inventory-item app-state item editing-id])]]))
+        ^{:key (:id item)} [inventory-item app-state item editing-id])]]))
 
 (defn inventory-tab
   [app-state]

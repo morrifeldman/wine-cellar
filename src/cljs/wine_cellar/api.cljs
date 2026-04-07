@@ -317,22 +317,19 @@
    (go
     (let [result (<! (GET "/api/wines/list" "Failed to fetch wines"))]
       (if (:success result)
-        (do (js/console.log "Success! Wines count:" (count (:data result)))
-            (swap! app-state
-              (fn [state]
-                (let [existing-by-id (into {}
-                                      (map (juxt :id identity))
-                                      (:wines state))
-                      merged-wines (mapv (fn [wine]
-                                          (if-let [existing (get existing-by-id
-                                                              (:id wine))]
-                                            (merge wine existing)
-                                            wine))
-                                    (:data result))]
-                  (assoc state
-                    :wines merged-wines
-                    :loading? false
-                    :error nil)))))
+        (do
+          (js/console.log "Success! Wines count:" (count (:data result)))
+          (swap! app-state
+            (fn [state]
+              (let [existing-by-id
+                    (into {} (map (juxt :id identity)) (:wines state))
+                    merged-wines (mapv (fn [wine]
+                                         (if-let [existing (get existing-by-id
+                                                                (:id wine))]
+                                           (merge wine existing)
+                                           wine))
+                                       (:data result))]
+                (assoc state :wines merged-wines :loading? false :error nil)))))
         (do (js/console.log "Error fetching wines:" (:error result))
             (swap! app-state assoc :error (:error result) :loading? false)))))))
 
@@ -1438,7 +1435,9 @@
      (go (let [result (<!
                        (POST "/api/spirits" spirit "Failed to create spirit"))]
            (if (:success result)
-             (do (swap! app-state update-in [:bar :spirits] #(into [(:data result)] %))
+             (do (swap! app-state update-in
+                   [:bar :spirits]
+                   #(into [(:data result)] %))
                  (resolve (:data result)))
              (do (swap! app-state assoc-in [:bar :error] (:error result))
                  (reject (:error result)))))))))
