@@ -20,14 +20,15 @@
             [wine-cellar.api :as api]))
 
 (def category-labels
-  {"juice" "Juices"
+  {"fruit" "Fruit"
+   "juice" "Juices"
    "soda" "Sodas"
    "syrup" "Syrups"
    "bitters" "Bitters"
    "garnish" "Garnishes"
    "other" "Other"})
 
-(def category-order ["juice" "soda" "syrup" "bitters" "garnish" "other"])
+(def category-order ["fruit" "juice" "soda" "syrup" "bitters" "garnish" "other"])
 
 (defn- add-item-form
   [app-state show-form? form-data]
@@ -75,44 +76,48 @@
       "Cancel"]]))
 
 (defn- inventory-item
-  [app-state item editing-id]
-  (let [is-editing? (= (:id item) @editing-id)]
-    (if is-editing?
-      (let [edit-name (r/atom (:name item))]
-        (fn [app-state item _editing-id]
-          [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mb 0.5}}
-           [checkbox
-            {:checked (boolean (:have_it item))
-             :size "small"
-             :disabled true}]
-           [mui-text-field/text-field
-            {:value @edit-name
-             :on-change #(reset! edit-name (-> % .-target .-value))
-             :size "small"
-             :auto-focus true
-             :sx {:flex 1}
-             :on-key-down (fn [e]
-                            (when (= (.-key e) "Enter")
-                              (when (seq (str/trim @edit-name))
+  [_app-state _item _editing-id]
+  (let [edit-name (r/atom nil)]
+    (fn [app-state item editing-id]
+      (if (= (:id item) @editing-id)
+        [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mb 0.5}}
+         [checkbox
+          {:checked (boolean (:have_it item))
+           :size "small"
+           :disabled true}]
+         [mui-text-field/text-field
+          {:value (or @edit-name (:name item))
+           :on-change #(reset! edit-name (-> % .-target .-value))
+           :size "small"
+           :auto-focus true
+           :sx {:flex 1}
+           :on-key-down (fn [e]
+                          (when (= (.-key e) "Enter")
+                            (let [n (or @edit-name (:name item))]
+                              (when (seq (str/trim n))
                                 (api/update-bar-inventory-item
-                                 app-state (:id item) {:name @edit-name}))
-                              (reset! editing-id nil))
-                            (when (= (.-key e) "Escape")
-                              (reset! editing-id nil)))}]
-           [icon-button
-            {:size "small"
-             :color "primary"
-             :on-click (fn []
-                         (when (seq (str/trim @edit-name))
+                                 app-state (:id item) {:name n})))
+                            (reset! edit-name nil)
+                            (reset! editing-id nil))
+                          (when (= (.-key e) "Escape")
+                            (reset! edit-name nil)
+                            (reset! editing-id nil)))}]
+         [icon-button
+          {:size "small"
+           :color "primary"
+           :on-click (fn []
+                       (let [n (or @edit-name (:name item))]
+                         (when (seq (str/trim n))
                            (api/update-bar-inventory-item
-                            app-state (:id item) {:name @edit-name}))
-                         (reset! editing-id nil))}
-            [check {:fontSize "small"}]]
-           [icon-button
-            {:size "small"
-             :on-click #(reset! editing-id nil)}
-            [close {:fontSize "small"}]]]))
-      (fn [app-state item _editing-id]
+                            app-state (:id item) {:name n})))
+                       (reset! edit-name nil)
+                       (reset! editing-id nil))}
+          [check {:fontSize "small"}]]
+         [icon-button
+          {:size "small"
+           :on-click #(do (reset! edit-name nil)
+                          (reset! editing-id nil))}
+          [close {:fontSize "small"}]]]
         [box {:sx {:display "flex" :alignItems "center" :gap 0}}
          [checkbox
           {:checked (boolean (:have_it item))
@@ -140,8 +145,7 @@
 
 (defn- category-section
   [app-state category items editing-id]
-  (let [label (get category-labels category category)
-        checked-count (count (filter :have_it items))]
+  (let [label (get category-labels category category)]
     [box {:sx {:mb 2}}
      [typography
       {:variant "subtitle2"
@@ -151,7 +155,7 @@
             :mb 0.5
             :textTransform "uppercase"
             :fontSize "0.72rem"}}
-      (str label " (" checked-count "/" (count items) ")")]
+      label]
      [box {:sx {:display "flex" :flexWrap "wrap" :gap 0}}
       (for [item items]
         ^{:key (:id item)}
