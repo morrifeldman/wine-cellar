@@ -244,6 +244,5 @@
     [:name :varchar [:not nil]] [:description :text]
     [:ingredients :jsonb [:not nil] [:default [:raw "'[]'::jsonb"]]]
     [:instructions :text] [:notes :text] [:tags :varchar :array]
-    [:source :varchar]
-    [:created_at :timestamptz [:default [:now]]]
+    [:source :varchar] [:created_at :timestamptz [:default [:now]]]
     [:updated_at :timestamptz [:default [:now]]]]})

@@ -22,8 +22,8 @@
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.views.components :refer
-             [editable-text-field editable-autocomplete-field
-              search-text-field detail-section]]
+             [editable-text-field editable-autocomplete-field search-text-field
+              detail-section]]
             [wine-cellar.api :as api]))
 
 (defn- recipe-search-text
@@ -168,8 +168,8 @@
         :sx {:mb 2}} "Add Ingredient"]
       [text-field "Instructions" (:instructions recipe)
        #(update-field! :instructions %) :multiline true :rows 4]
-      [text-field "Notes" (:notes recipe) #(update-field! :notes %)
-       :multiline true :rows 3]
+      [text-field "Notes" (:notes recipe) #(update-field! :notes %) :multiline
+       true :rows 3]
       [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end"}}
        [button {:variant "outlined" :on-click cancel!} "Cancel"]
        [button {:type "submit" :variant "contained" :color "primary"}
@@ -203,23 +203,23 @@
              :free-solo true
              :force-edit-mode? true
              :on-save (fn [v]
-                        (-> (save-field! app-state recipe :tags
-                                         (vec (or v [])))
+                        (-> (save-field! app-state recipe :tags (vec (or v [])))
                             (.then #(reset! editing? false))))
              :on-cancel #(reset! editing? false)
              :empty-text ""}]]
-          [box {:sx {:display "flex"
-                     :gap 0.5
-                     :flexWrap "wrap"
-                     :mt 1.25
-                     :alignItems "center"
-                     :cursor "pointer"
-                     :borderRadius 1
-                     :px 0.5
-                     :mx -0.5
-                     :py 0.25
-                     "&:hover" {:bgcolor "action.hover"}}
-                :on-click #(reset! editing? true)}
+          [box
+           {:sx {:display "flex"
+                 :gap 0.5
+                 :flexWrap "wrap"
+                 :mt 1.25
+                 :alignItems "center"
+                 :cursor "pointer"
+                 :borderRadius 1
+                 :px 0.5
+                 :mx -0.5
+                 :py 0.25
+                 "&:hover" {:bgcolor "action.hover"}}
+            :on-click #(reset! editing? true)}
            (if (seq tags)
              (for [tag tags]
                ^{:key tag}
@@ -279,8 +279,7 @@
       (if (seq (:ingredients recipe))
         [ingredients-list recipe]
         [typography
-         {:variant "body2"
-          :sx {:color "text.secondary" :fontStyle "italic"}}
+         {:variant "body2" :sx {:color "text.secondary" :fontStyle "italic"}}
          "No ingredients yet — use Edit to add some."])]
      ;; Instructions section
      [detail-section
@@ -441,11 +440,9 @@
 
 (defn- tag-filter-bar
   [selected-tags all-tags]
-  [box {:sx {:display "flex"
-             :gap 0.5
-             :flexWrap "wrap"
-             :alignItems "center"
-             :mb 1.5}}
+  [box
+   {:sx
+    {:display "flex" :gap 0.5 :flexWrap "wrap" :alignItems "center" :mb 1.5}}
    (for [tag all-tags]
      (let [active? (contains? @selected-tags tag)]
        ^{:key tag}
@@ -458,14 +455,12 @@
          :sx {:height 24
               :fontSize "0.72rem"
               :letterSpacing "0.02em"
-              :bgcolor (if active?
-                         "rgba(232,195,200,0.22)"
-                         "rgba(232,195,200,0.06)")
+              :bgcolor
+              (if active? "rgba(232,195,200,0.22)" "rgba(232,195,200,0.06)")
               :color "rgba(232,195,200,0.95)"
-              :border (str "1px solid "
-                           (if active?
-                             "rgba(232,195,200,0.6)"
-                             "rgba(232,195,200,0.2)"))
+              :border
+              (str "1px solid "
+                   (if active? "rgba(232,195,200,0.6)" "rgba(232,195,200,0.2)"))
               "&:hover" {:bgcolor "rgba(232,195,200,0.18)"}}}]))
    (when (seq @selected-tags)
      [button
@@ -492,19 +487,17 @@
                           vec)
             sel @selected-tags
             filtered (cond->> recipes
-                       (seq term)
-                       (filter #(str/includes? (normalize-text
-                                                (recipe-search-text %))
-                                               term))
-                       (seq sel)
-                       (filter #(every? (set (:tags %)) sel)))]
+                       (seq term) (filter #(str/includes? (normalize-text
+                                                           (recipe-search-text
+                                                            %))
+                                                          term))
+                       (seq sel) (filter #(every? (set (:tags %)) sel)))]
         [box (when (or show-form? editing-id) [recipe-form app-state])
          (when (and (seq recipes) (not (or show-form? editing-id)))
            [:<>
             [search-text-field
              {:search-atom search-text :label "Search recipes"}]
-            (when (seq all-tags)
-              [tag-filter-bar selected-tags all-tags])])
+            (when (seq all-tags) [tag-filter-bar selected-tags all-tags])])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]

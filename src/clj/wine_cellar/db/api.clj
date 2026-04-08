@@ -8,6 +8,17 @@
            [java.time Instant]
            [java.util Base64]))
 
+;; Query helpers — wrap the recurring `(jdbc/execute*! ds (sql/format ...)
+;; db-opts)`
+;; shape so call sites can stay focused on the honeysql map.
+(defn- q-one
+  ([query] (q-one ds query))
+  ([tx-or-ds query] (jdbc/execute-one! tx-or-ds (sql/format query) db-opts)))
+
+(defn- q-many
+  ([query] (q-many ds query))
+  ([tx-or-ds query] (jdbc/execute! tx-or-ds (sql/format query) db-opts)))
+
 ;; Helper functions for SQL generation
 (defn ->pg-array
   "Convert a Clojure collection into a PostgreSQL array literal string.
@@ -166,27 +177,23 @@
 
 (defn get-db-schema
   []
-  (let [rows (jdbc/execute! ds
-                            (sql/format
-                             {:select [:t.table_name :t.table_type
-                                       :c.column_name :c.data_type]
-                              :from [[:information_schema.tables :t]]
-                              :join [[:information_schema.columns :c]
-                                     [:and [:= :t.table_name :c.table_name]
-                                      [:= :t.table_schema :c.table_schema]]]
-                              :where [:and [:= :t.table_schema "public"]
-                                      [:in :t.table_type ["BASE TABLE" "VIEW"]]]
-                              :order-by [:t.table_name :c.ordinal_position]})
-                            db-opts)]
-    (->> rows
-         (group-by (juxt :table_name :table_type))
-         (map (fn [[[table-name table-type] columns]]
-                {:table_name table-name
-                 :table_type table-type
-                 :columns (mapv #(select-keys % [:column_name :data_type])
-                                columns)}))
-         (sort-by :table_name)
-         vec)))
+  (->> (q-many {:select [:t.table_name :t.table_type :c.column_name
+                         :c.data_type]
+                :from [[:information_schema.tables :t]]
+                :join [[:information_schema.columns :c]
+                       [:and [:= :t.table_name :c.table_name]
+                        [:= :t.table_schema :c.table_schema]]]
+                :where [:and [:= :t.table_schema "public"]
+                        [:in :t.table_type ["BASE TABLE" "VIEW"]]]
+                :order-by [:t.table_name :c.ordinal_position]})
+       (group-by (juxt :table_name :table_type))
+       (map (fn [[[table-name table-type] columns]]
+              {:table_name table-name
+               :table_type table-type
+               :columns (mapv #(select-keys % [:column_name :data_type])
+                              columns)}))
+       (sort-by :table_name)
+       vec))
 
 (defn execute-sql-query
   "Executes a raw SQL query string and returns the result."
@@ -202,11 +209,8 @@
 (defn create-wine
   ([wine] (create-wine ds wine))
   ([tx-or-ds wine]
-   (jdbc/execute-one! tx-or-ds
-                      (sql/format {:insert-into :wines
-                                   :values [(wine->db-wine wine)]
-                                   :returning :*})
-                      db-opts)))
+   (q-one tx-or-ds
+          {:insert-into :wines :values [(wine->db-wine wine)] :returning :*})))
 
 (defn create-conversation!
   "Create a new AI conversation row."
@@ -217,11 +221,9 @@
                     (dissoc :user_email)
                     (conversation->db-conversation)
                     (assoc :user_email user_email))]
-     (some-> (jdbc/execute-one! tx-or-ds
-                                (sql/format {:insert-into :ai_conversations
-                                             :values [db-row]
-                                             :returning :*})
-                                db-opts)
+     (some-> (q-one
+              tx-or-ds
+              {:insert-into :ai_conversations :values [db-row] :returning :*})
              db-conversation->conversation))))
 
 (defn list-conversations-for-user
@@ -269,11 +271,8 @@
 
 (defn get-conversation
   [conversation-id]
-  (some-> (jdbc/execute-one! ds
-                             (sql/format {:select :*
-                                          :from :ai_conversations
-                                          :where [:= :id conversation-id]})
-                             db-opts)
+  (some-> (q-one
+           {:select :* :from :ai_conversations :where [:= :id conversation-id]})
           db-conversation->conversation))
 
 (defn append-conversation-message!
@@ -281,23 +280,18 @@
   [{:keys [conversation_id tokens_used] :as message}]
   (jdbc/with-transaction
    [tx ds]
-   (let [inserted (jdbc/execute-one!
-                   tx
-                   (sql/format {:insert-into :ai_conversation_messages
-                                :values [(conversation-message->db-message
-                                          message)]
-                                :returning :*})
-                   db-opts)
+   (let [inserted (q-one tx
+                         {:insert-into :ai_conversation_messages
+                          :values [(conversation-message->db-message message)]
+                          :returning :*})
          token-inc (or tokens_used 0)]
-     (jdbc/execute-one! tx
-                        (sql/format {:update :ai_conversations
-                                     :set {:last_message_at [:now]
-                                           :updated_at [:now]
-                                           :total_tokens_used
-                                           [:+ :total_tokens_used token-inc]}
-                                     :where [:= :id conversation_id]
-                                     :returning :*})
-                        db-opts)
+     (q-one tx
+            {:update :ai_conversations
+             :set {:last_message_at [:now]
+                   :updated_at [:now]
+                   :total_tokens_used [:+ :total_tokens_used token-inc]}
+             :where [:= :id conversation_id]
+             :returning :*})
      (db-conversation-message->message inserted))))
 
 (defn- refresh-conversation-metadata!
@@ -305,22 +299,19 @@
    Returns the updated conversation map."
   [tx conversation-id]
   (let [{:keys [total_tokens last_created_at]}
-        (jdbc/execute-one!
-         tx
-         (sql/format {:select [[[:coalesce [:sum :tokens_used] 0] :total_tokens]
-                               [[:max :created_at] :last_created_at]]
-                      :from :ai_conversation_messages
-                      :where [:= :conversation_id conversation-id]})
-         db-opts)
+        (q-one tx
+               {:select [[[:coalesce [:sum :tokens_used] 0] :total_tokens]
+                         [[:max :created_at] :last_created_at]]
+                :from :ai_conversation_messages
+                :where [:= :conversation_id conversation-id]})
         metadata {:total_tokens_used total_tokens
                   :updated_at [:now]
                   :last_message_at (or last_created_at [:now])}]
-    (some-> (jdbc/execute-one! tx
-                               (sql/format {:update :ai_conversations
-                                            :set metadata
-                                            :where [:= :id conversation-id]
-                                            :returning :*})
-                               db-opts)
+    (some-> (q-one tx
+                   {:update :ai_conversations
+                    :set metadata
+                    :where [:= :id conversation-id]
+                    :returning :*})
             db-conversation->conversation)))
 
 (defn update-conversation-message!
@@ -336,16 +327,12 @@
                    (assoc :image_data (base64->bytes image_data))
                    (contains? opts :tokens_used) (assoc :tokens_used
                                                         tokens_used))
-         updated-row (jdbc/execute-one! tx
-                                        (sql/format
-                                         {:update :ai_conversation_messages
-                                          :set set-map
-                                          :where [:and [:= :id message_id]
-                                                  [:= :conversation_id
-                                                   conversation_id]]
-                                          :returning :*})
-                                        db-opts)
-         updated (some-> updated-row
+         updated (some-> (q-one tx
+                                {:update :ai_conversation_messages
+                                 :set set-map
+                                 :where [:and [:= :id message_id]
+                                         [:= :conversation_id conversation_id]]
+                                 :returning :*})
                          db-conversation-message->message)]
      (when-not updated
        (throw (ex-info "Conversation message not found"
@@ -353,14 +340,11 @@
                         :conversation-id conversation_id
                         :message-id message_id})))
      (let [deleted (when truncate_after?
-                     (jdbc/execute!
-                      tx
-                      (sql/format {:delete-from :ai_conversation_messages
-                                   :where [:and
-                                           [:= :conversation_id conversation_id]
-                                           [:> :id message_id]]
-                                   :returning [:id :tokens_used]})
-                      db-opts))
+                     (q-many tx
+                             {:delete-from :ai_conversation_messages
+                              :where [:and [:= :conversation_id conversation_id]
+                                      [:> :id message_id]]
+                              :returning [:id :tokens_used]}))
            conversation (refresh-conversation-metadata! tx conversation_id)]
        {:message updated
         :deleted-message-ids (vec (map :id deleted))
@@ -368,21 +352,18 @@
 
 (defn list-messages-for-conversation
   [conversation-id]
-  (jdbc/execute! ds
-                 (sql/format {:select :*
-                              :from :ai_conversation_messages
-                              :where [:= :conversation_id conversation-id]
-                              :order-by [[:created_at :asc] [:id :asc]]})
-                 db-opts))
+  (q-many {:select :*
+           :from :ai_conversation_messages
+           :where [:= :conversation_id conversation-id]
+           :order-by [[:created_at :asc] [:id :asc]]}))
 
 (defn delete-conversation!
   ([conversation-id] (delete-conversation! ds conversation-id))
   ([tx-or-ds conversation-id]
-   (jdbc/execute-one! tx-or-ds
-                      (sql/format {:delete-from :ai_conversations
-                                   :where [:= :id conversation-id]
-                                   :returning :id})
-                      db-opts)))
+   (q-one tx-or-ds
+          {:delete-from :ai_conversations
+           :where [:= :id conversation-id]
+           :returning :id})))
 
 (defn update-conversation!
   ([conversation-id updates] (update-conversation! ds conversation-id updates))
@@ -391,22 +372,17 @@
          (-> updates
              (dissoc :id :user_email :created_at :updated_at :last_message_at)
              (conversation->db-conversation))
-         set-map (cond-> sanitized true (assoc :updated_at [:now]))]
+         set-map (assoc sanitized :updated_at [:now])]
      (if (seq sanitized)
-       (some-> (jdbc/execute-one! tx-or-ds
-                                  (sql/format {:update :ai_conversations
-                                               :set set-map
-                                               :where [:= :id conversation-id]
-                                               :returning :*})
-                                  db-opts)
+       (some-> (q-one tx-or-ds
+                      {:update :ai_conversations
+                       :set set-map
+                       :where [:= :id conversation-id]
+                       :returning :*})
                db-conversation->conversation)
        (get-conversation conversation-id)))))
 
-(defn wine-exists?
-  [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:select :id :from :wines :where [:= :id id]})
-                     db-opts))
+(defn wine-exists? [id] (q-one {:select :id :from :wines :where [:= :id id]}))
 
 (def wine-list-fields
   [:id :producer :country :region :appellation :appellation_tier :classification
@@ -418,36 +394,27 @@
 
 (defn get-wines-for-list
   []
-  (let [wines (jdbc/execute! ds
-                             ;; Listing columns explicitly since the only
-                             ;; image we are getting is the label_thumbnail
-                             (sql/format {:select wine-list-fields
-                                          :from :enriched_wines
-                                          :order-by [[:created_at :desc]]})
-                             db-opts)]
-    ;; The :varieties JSON will be automatically parsed by our PgObject
-    ;; extension
-    (mapv db-wine->wine wines)))
+  ;; Listing columns explicitly since the only image we are getting is the
+  ;; label_thumbnail. The :varieties JSON is auto-parsed by our PgObject
+  ;; ext.
+  (mapv db-wine->wine
+        (q-many {:select wine-list-fields
+                 :from :enriched_wines
+                 :order-by [[:created_at :desc]]})))
 
 (defn get-all-metadata-keys
   []
-  (->> (jdbc/execute! ds
-                      (sql/format {:select-distinct [[[:jsonb_object_keys
-                                                       :metadata]]]
-                                   :from :wines
-                                   :where [:not [:= :metadata nil]]})
-                      db-opts)
+  (->> (q-many {:select-distinct [[[:jsonb_object_keys :metadata]]]
+                :from :wines
+                :where [:not [:= :metadata nil]]})
        (map :jsonb_object_keys)
        vec))
 
 (defn get-wine
   [id include-images?]
-  (-> (jdbc/execute-one! ds
-                         (sql/format {:select
-                                      (if include-images? :* wine-list-fields)
-                                      :from :enriched_wines
-                                      :where [:= :id id]})
-                         db-opts)
+  (-> (q-one {:select (if include-images? :* wine-list-fields)
+              :from :enriched_wines
+              :where [:= :id id]})
       db-wine->wine))
 
 (def enriched-wine-fields-for-ai
@@ -457,23 +424,18 @@
   "Get enriched wines with full tasting notes for AI chat context (no images)"
   [wine-ids]
   (when (seq wine-ids)
-    (let [wines (jdbc/execute! ds
-                               (sql/format {:select enriched-wine-fields-for-ai
-                                            :from :enriched_wines
-                                            :where [:in :id wine-ids]
-                                            :order-by [[:created_at :desc]]})
-                               db-opts)]
-      (mapv db-wine->wine wines))))
+    (mapv db-wine->wine
+          (q-many {:select enriched-wine-fields-for-ai
+                   :from :enriched_wines
+                   :where [:in :id wine-ids]
+                   :order-by [[:created_at :desc]]}))))
 
 (defn update-wine!
   [id wine]
-  (-> (jdbc/execute-one! ds
-                         (sql/format
-                          {:update :wines
-                           :set (assoc (wine->db-wine wine) :updated_at [:now])
-                           :where [:= :id id]
-                           :returning :*})
-                         db-opts)
+  (-> (q-one {:update :wines
+              :set (assoc (wine->db-wine wine) :updated_at [:now])
+              :where [:= :id id]
+              :returning :*})
       db-wine->wine))
 
 (defn adjust-quantity
@@ -481,12 +443,10 @@
   ([id adjustment {:keys [reason notes]}]
    (jdbc/with-transaction
     [tx ds]
-    (let [wine (jdbc/execute-one! tx
-                                  (sql/format {:select [:quantity
-                                                        :original_quantity]
-                                               :from :wines
-                                               :where [:= :id id]})
-                                  db-opts)
+    (let [wine (q-one tx
+                      {:select [:quantity :original_quantity]
+                       :from :wines
+                       :where [:= :id id]})
           current-quantity (:quantity wine 0)
           current-original-quantity (:original_quantity wine 0)
           new-quantity (+ current-quantity adjustment)
@@ -499,30 +459,23 @@
                        (assoc :original_quantity
                               [:+ [:coalesce :original_quantity 0]
                                adjustment]))]
-      (jdbc/execute-one! tx
-                         (sql/format {:insert-into :inventory_history
-                                      :values
-                                      [{:wine_id id
-                                        :change_amount adjustment
-                                        :reason actual-reason
-                                        :previous_quantity current-quantity
-                                        :new_quantity new-quantity
-                                        :original_quantity new-original-quantity
-                                        :notes notes}]})
-                         db-opts)
-      (jdbc/execute-one! tx
-                         (sql/format
-                          {:update :wines :set update-map :where [:= :id id]})
-                         db-opts)))))
+      (q-one tx
+             {:insert-into :inventory_history
+              :values [{:wine_id id
+                        :change_amount adjustment
+                        :reason actual-reason
+                        :previous_quantity current-quantity
+                        :new_quantity new-quantity
+                        :original_quantity new-original-quantity
+                        :notes notes}]})
+      (q-one tx {:update :wines :set update-map :where [:= :id id]})))))
 
 (defn get-inventory-history
   [wine-id]
-  (jdbc/execute! ds
-                 (sql/format {:select :*
-                              :from :inventory_history
-                              :where [:= :wine_id wine-id]
-                              :order-by [[:occurred_at :desc] [:id :desc]]})
-                 db-opts))
+  (q-many {:select :*
+           :from :inventory_history
+           :where [:= :wine_id wine-id]
+           :order-by [[:occurred_at :desc] [:id :desc]]}))
 
 (defn update-inventory-history!
   [id updates]
@@ -531,25 +484,16 @@
                   (:occurred_at valid-updates) (update :occurred_at
                                                        ->sql-timestamp))]
     (when (seq set-map)
-      (jdbc/execute-one! ds
-                         (sql/format {:update :inventory_history
-                                      :set set-map
-                                      :where [:= :id id]
-                                      :returning :*})
-                         db-opts))))
+      (q-one {:update :inventory_history
+              :set set-map
+              :where [:= :id id]
+              :returning :*}))))
 
 (defn delete-inventory-history!
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :inventory_history
-                                  :where [:= :id id]})
-                     db-opts))
+  (q-one {:delete-from :inventory_history :where [:= :id id]}))
 
-(defn delete-wine!
-  [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :wines :where [:= :id id]})
-                     db-opts))
+(defn delete-wine! [id] (q-one {:delete-from :wines :where [:= :id id]}))
 
 ;; Classification operations
 (defn create-or-update-classification
@@ -558,253 +502,184 @@
    (jdbc/with-transaction [tx ds]
                           (create-or-update-classification tx classification)))
   ([tx classification]
-   (let [existing-query {:select :*
-                         :from :wine_classifications
-                         :where
-                         [:and [:= :country (:country classification)]
-                          [:= :region (:region classification)]
-                          [:= [:coalesce :appellation ""]
-                           [:coalesce (:appellation classification) ""]]
-                          [:= [:coalesce :appellation_tier ""]
-                           [:coalesce (:appellation_tier classification) ""]]
-                          [:= [:coalesce :classification ""]
-                           [:coalesce (:classification classification) ""]]]}
-         existing (jdbc/execute-one! tx (sql/format existing-query) db-opts)]
-     (if existing
-       existing
-       (jdbc/execute-one! tx
-                          (sql/format {:insert-into :wine_classifications
-                                       :values [classification]
-                                       :returning :*})
-                          db-opts)))))
+   (or (q-one tx
+              {:select :*
+               :from :wine_classifications
+               :where [:and [:= :country (:country classification)]
+                       [:= :region (:region classification)]
+                       [:= [:coalesce :appellation ""]
+                        [:coalesce (:appellation classification) ""]]
+                       [:= [:coalesce :appellation_tier ""]
+                        [:coalesce (:appellation_tier classification) ""]]
+                       [:= [:coalesce :classification ""]
+                        [:coalesce (:classification classification) ""]]]})
+       (q-one tx
+              {:insert-into :wine_classifications
+               :values [classification]
+               :returning :*}))))
 
 (defn get-classifications
   []
-  (jdbc/execute! ds
-                 (sql/format {:select :*
-                              :from :wine_classifications
-                              :order-by [:country :region :appellation]})
-                 db-opts))
+  (q-many {:select :*
+           :from :wine_classifications
+           :order-by [:country :region :appellation]}))
 
 (defn get-classification
   [id]
-  (jdbc/execute-one!
-   ds
-   (sql/format {:select :* :from :wine_classifications :where [:= :id id]})
-   db-opts))
+  (q-one {:select :* :from :wine_classifications :where [:= :id id]}))
 
 (defn update-classification!
   [id classification]
-  (jdbc/execute-one! ds
-                     (sql/format {:update :wine_classifications
-                                  :set classification
-                                  :where [:= :id id]
-                                  :returning :*})
-                     db-opts))
+  (q-one {:update :wine_classifications
+          :set classification
+          :where [:= :id id]
+          :returning :*}))
 
 (defn delete-classification!
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :wine_classifications
-                                  :where [:= :id id]})
-                     db-opts))
+  (q-one {:delete-from :wine_classifications :where [:= :id id]}))
 
 (defn get-regions-by-country
   [country]
-  (jdbc/execute! ds
-                 (sql/format {:select [:distinct :region]
-                              :from :wine_classifications
-                              :where [:= :country country]
-                              :order-by [:region]})
-                 db-opts))
+  (q-many {:select [:distinct :region]
+           :from :wine_classifications
+           :where [:= :country country]
+           :order-by [:region]}))
 
 (defn get-appellations-by-region
   [country region]
-  (jdbc/execute! ds
-                 (sql/format {:select [:distinct :appellation]
-                              :from :wine_classifications
-                              :where [:and [:= :country country]
-                                      [:= :region region]]
-                              :order-by [:appellation]})
-                 db-opts))
+  (q-many {:select [:distinct :appellation]
+           :from :wine_classifications
+           :where [:and [:= :country country] [:= :region region]]
+           :order-by [:appellation]}))
 
 ;; Tasting Notes Operations
 (defn create-tasting-note
   ([note] (create-tasting-note ds note))
   ([ds-or-tx note]
-   (jdbc/execute-one! ds-or-tx
-                      (sql/format {:insert-into :tasting_notes
-                                   :values [(-> note
-                                                tasting-note->db-tasting-note
-                                                (assoc :updated_at [:now]))]
-                                   :returning :*})
-                      db-opts)))
+   (q-one ds-or-tx
+          {:insert-into :tasting_notes
+           :values [(-> note
+                        tasting-note->db-tasting-note
+                        (assoc :updated_at [:now]))]
+           :returning :*})))
 
 (defn update-tasting-note!
   [id note]
   (tap> ["update-tasting-note!" id note])
-  (jdbc/execute-one! ds
-                     (sql/format {:update :tasting_notes
-                                  :set (-> note
-                                           tasting-note->db-tasting-note
-                                           (assoc :updated_at [:now]))
-                                  :where [:= :id id]
-                                  :returning :*})
-                     db-opts))
+  (q-one {:update :tasting_notes
+          :set (-> note
+                   tasting-note->db-tasting-note
+                   (assoc :updated_at [:now]))
+          :where [:= :id id]
+          :returning :*}))
 
 (defn get-tasting-note
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:select :* :from :tasting_notes :where [:= :id id]})
-                     db-opts))
+  (q-one {:select :* :from :tasting_notes :where [:= :id id]}))
 
 (defn get-tasting-notes-by-wine
   [wine-id]
-  (jdbc/execute! ds
-                 (sql/format {:select :*
-                              :from :tasting_notes
-                              :where [:= :wine_id wine-id]
-                              :order-by [[:tasting_date :desc]]})
-                 db-opts))
+  (q-many {:select :*
+           :from :tasting_notes
+           :where [:= :wine_id wine-id]
+           :order-by [[:tasting_date :desc]]}))
 
 (defn delete-tasting-note!
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :tasting_notes
-                                  :where [:= :id id]})
-                     db-opts))
+  (q-one {:delete-from :tasting_notes :where [:= :id id]}))
 
 (defn get-tasting-note-sources
   "Returns a list of unique source names from external tasting notes"
   []
-  (->> (jdbc/execute! ds
-                      (sql/format {:select-distinct [:source]
-                                   :from :tasting_notes
-                                   :where [:and [:= :is_external true]
-                                           [:not [:= :source nil]]
-                                           [:not [:= :source ""]]]
-                                   :order-by [[:source :asc]]})
-                      db-opts)
+  (->> (q-many {:select-distinct [:source]
+                :from :tasting_notes
+                :where [:and [:= :is_external true] [:not [:= :source nil]]
+                        [:not [:= :source ""]]]
+                :order-by [[:source :asc]]})
        (map :source)))
 
 ;; Blind Tasting Operations
 (defn get-blind-tastings
   "Returns all blind tasting notes (both linked and unlinked)"
   []
-  (jdbc/execute! ds
-                 (sql/format
-                  {:select [:tn.* [:w.producer :wine_producer]
-                            [:w.name :wine_name] [:w.vintage :wine_vintage]
-                            [:w.country :wine_country] [:w.region :wine_region]]
-                   :from [[:tasting_notes :tn]]
-                   :left-join [[:wines :w] [:= :tn.wine_id :w.id]]
-                   :where [:or [:= :tn.wine_id nil] [:= :tn.is_blind true]]
-                   :order-by [[:tn.created_at :desc]]})
-                 db-opts))
+  (q-many {:select [:tn.* [:w.producer :wine_producer] [:w.name :wine_name]
+                    [:w.vintage :wine_vintage] [:w.country :wine_country]
+                    [:w.region :wine_region]]
+           :from [[:tasting_notes :tn]]
+           :left-join [[:wines :w] [:= :tn.wine_id :w.id]]
+           :where [:or [:= :tn.wine_id nil] [:= :tn.is_blind true]]
+           :order-by [[:tn.created_at :desc]]}))
 
 (defn create-blind-tasting
   "Create a blind tasting note (no wine_id)"
   [note]
-  (jdbc/execute-one! ds
-                     (sql/format {:insert-into :tasting_notes
-                                  :values [(-> note
-                                               (dissoc :wine_id)
-                                               tasting-note->db-tasting-note
-                                               (assoc :updated_at [:now]))]
-                                  :returning :*})
-                     db-opts))
+  (q-one {:insert-into :tasting_notes
+          :values [(-> note
+                       (dissoc :wine_id)
+                       tasting-note->db-tasting-note
+                       (assoc :updated_at [:now]))]
+          :returning :*}))
 
 (defn link-blind-tasting
   "Link a blind tasting note to a wine and mark it as blind"
   [note-id wine-id]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:update :tasting_notes
-                       :set {:wine_id wine-id :is_blind true :updated_at [:now]}
-                       :where [:and [:= :id note-id] [:= :wine_id nil]]
-                       :returning :*})
-                     db-opts))
+  (q-one {:update :tasting_notes
+          :set {:wine_id wine-id :is_blind true :updated_at [:now]}
+          :where [:and [:= :id note-id] [:= :wine_id nil]]
+          :returning :*}))
 
 ;; Grape Varieties Operations
 (defn create-grape-variety
   [name]
-  (jdbc/execute-one! ds
-                     (sql/format {:insert-into :grape_varieties
-                                  :values [{:name name}]
-                                  :returning :*})
-                     db-opts))
+  (q-one {:insert-into :grape_varieties :values [{:name name}] :returning :*}))
 
 (defn get-all-grape-varieties
   []
-  (jdbc/execute! ds
-                 (sql/format
-                  {:select :* :from :grape_varieties :order-by [:name]})
-                 db-opts))
+  (q-many {:select :* :from :grape_varieties :order-by [:name]}))
 
 (defn get-grape-variety
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:select :* :from :grape_varieties :where [:= :id id]})
-                     db-opts))
+  (q-one {:select :* :from :grape_varieties :where [:= :id id]}))
 
 (defn update-grape-variety!
   [id name]
-  (jdbc/execute-one! ds
-                     (sql/format {:update :grape_varieties
-                                  :set {:name name}
-                                  :where [:= :id id]
-                                  :returning :*})
-                     db-opts))
+  (q-one {:update :grape_varieties
+          :set {:name name}
+          :where [:= :id id]
+          :returning :*}))
 
 (defn delete-grape-variety!
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :grape_varieties
-                                  :where [:= :id id]})
-                     db-opts))
+  (q-one {:delete-from :grape_varieties :where [:= :id id]}))
 
 ;; Wine Grape Varieties Operations
 (defn associate-grape-variety-with-wine
   [wine-id variety-id percentage]
-  (jdbc/execute-one!
-   ds
-   (sql/format
-    {:insert-into :wine_grape_varieties
-     :values [{:wine_id wine-id :variety_id variety-id :percentage percentage}]
-     :on-conflict [:wine_id :variety_id]
-     :do-update-set {:percentage :excluded.percentage}
-     :returning :*})
-   db-opts))
+  (q-one {:insert-into :wine_grape_varieties
+          :values
+          [{:wine_id wine-id :variety_id variety-id :percentage percentage}]
+          :on-conflict [:wine_id :variety_id]
+          :do-update-set {:percentage :excluded.percentage}
+          :returning :*}))
 
 (defn get-wine-grape-varieties
   [wine-id]
-  (jdbc/execute! ds
-                 (sql/format {:select [:wgv.* [:gv.name :variety_name]]
-                              :from [[:wine_grape_varieties :wgv]]
-                              :join [[:grape_varieties :gv]
-                                     [:= :wgv.variety_id :gv.id]]
-                              :where [:= :wgv.wine_id wine-id]
-                              :order-by [:gv.name]})
-                 db-opts))
+  (q-many {:select [:wgv.* [:gv.name :variety_name]]
+           :from [[:wine_grape_varieties :wgv]]
+           :join [[:grape_varieties :gv] [:= :wgv.variety_id :gv.id]]
+           :where [:= :wgv.wine_id wine-id]
+           :order-by [:gv.name]}))
 
 (defn remove-grape-variety-from-wine
   [wine-id variety-id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :wine_grape_varieties
-                                  :where [:and [:= :wine_id wine-id]
-                                          [:= :variety_id variety-id]]})
-                     db-opts))
+  (q-one {:delete-from :wine_grape_varieties
+          :where [:and [:= :wine_id wine-id] [:= :variety_id variety-id]]}))
 
 (defn mark-all-wines-unverified
   "Mark all wines as unverified for inventory verification"
   []
-  (let [result (jdbc/execute-one! ds
-                                  (sql/format {:update :wines
-                                               :set {:verified false}})
-                                  db-opts)]
-    (:next.jdbc/update-count result)))
+  (:next.jdbc/update-count (q-one {:update :wines :set {:verified false}})))
 
 ;; Sensor reading helpers
 
@@ -814,47 +689,40 @@
    (jdbc/with-transaction
     [tx tx-or-ds]
     (let [row (sensor-reading->db-row reading)
-          inserted (some-> (jdbc/execute-one! tx
-                                              (sql/format {:insert-into
-                                                           :sensor_readings
-                                                           :values [row]
-                                                           :returning :*})
-                                              db-opts)
+          inserted (some-> (q-one tx
+                                  {:insert-into :sensor_readings
+                                   :values [row]
+                                   :returning :*})
                            db-sensor-reading->reading)]
       (when-let [temps (:temperatures reading)]
         (let [reading-id (:id inserted)]
           (doseq [[addr temp] temps]
-            (jdbc/execute! tx
-                           (sql/format {:insert-into :sensor_temperatures
-                                        :values [{:reading_id reading-id
-                                                  :sensor_addr (name addr)
-                                                  :temperature_c
-                                                  (Double/parseDouble
-                                                   (str temp))}]})))))
+            (q-one tx
+                   {:insert-into :sensor_temperatures
+                    :values [{:reading_id reading-id
+                              :sensor_addr (name addr)
+                              :temperature_c (Double/parseDouble (str
+                                                                  temp))}]}))))
       inserted))))
 
 (defn list-sensor-readings
   ([] (list-sensor-readings {}))
   ([{:keys [device_id limit]}]
-   (let [limit (min (or limit 100) 500)
-         query (cond-> {:select :*
-                        :from :sensor_readings
-                        :order-by [[:measured_at :desc]]
-                        :limit limit}
-                 device_id (assoc :where [:= :device_id device_id]))]
-     (->> (jdbc/execute! ds (sql/format query) db-opts)
-          (map db-sensor-reading->reading)
-          vec))))
+   (->> (q-many (cond-> {:select :*
+                         :from :sensor_readings
+                         :order-by [[:measured_at :desc]]
+                         :limit (min (or limit 100) 500)}
+                  device_id (assoc :where [:= :device_id device_id])))
+        (map db-sensor-reading->reading)
+        vec)))
 
 (defn latest-sensor-reading
   [device-id]
-  (some-> (jdbc/execute-one! ds
-                             (sql/format {:select :*
-                                          :from :sensor_readings
-                                          :where [:= :device_id device-id]
-                                          :order-by [[:measured_at :desc]]
-                                          :limit 1})
-                             db-opts)
+  (some-> (q-one {:select :*
+                  :from :sensor_readings
+                  :where [:= :device_id device-id]
+                  :order-by [[:measured_at :desc]]
+                  :limit 1})
           db-sensor-reading->reading))
 
 (defn latest-sensor-readings
@@ -863,15 +731,18 @@
   ([] (latest-sensor-readings nil))
   ([device-id]
    (let
-     [sql-params
+     [rows
       (if device-id
-        (sql/format {:select :*
-                     :from :sensor_readings
-                     :where [:= :device_id device-id]
-                     :order-by [[:measured_at :desc]]
-                     :limit 1})
-        ["SELECT DISTINCT ON (device_id) * FROM sensor_readings WHERE device_id IS NOT NULL ORDER BY device_id ASC, measured_at DESC"])]
-     (->> (jdbc/execute! ds sql-params db-opts)
+        (q-many {:select :*
+                 :from :sensor_readings
+                 :where [:= :device_id device-id]
+                 :order-by [[:measured_at :desc]]
+                 :limit 1})
+        (jdbc/execute!
+         ds
+         ["SELECT DISTINCT ON (device_id) * FROM sensor_readings WHERE device_id IS NOT NULL ORDER BY device_id ASC, measured_at DESC"]
+         db-opts))]
+     (->> rows
           (map db-sensor-reading->reading)
           vec))))
 
@@ -969,21 +840,14 @@
 ;; Device provisioning helpers
 (defn get-device
   [device-id]
-  (some-> (jdbc/execute-one! ds
-                             (sql/format {:select :*
-                                          :from :devices
-                                          :where [:= :device_id device-id]})
-                             db-opts)
+  (some-> (q-one {:select :* :from :devices :where [:= :device_id device-id]})
           db-device->device))
 
 (defn list-devices
   []
-  (->> (jdbc/execute! ds
-                      (sql/format {:select :*
-                                   :from :devices
-                                   :order-by [[:updated_at :desc]
-                                              [:created_at :desc]]})
-                      db-opts)
+  (->> (q-many {:select :*
+                :from :devices
+                :order-by [[:updated_at :desc] [:created_at :desc]]})
        (map db-device->device)
        vec))
 
@@ -991,49 +855,39 @@
   [{:keys [device_id claim_code_hash firmware_version capabilities]}]
   (jdbc/with-transaction
    [tx ds]
-   (let [existing (jdbc/execute-one! tx
-                                     (sql/format {:select :*
-                                                  :from :devices
-                                                  :where [:= :device_id
-                                                          device_id]
-                                                  :for [:update]})
-                                     db-opts)
+   (let [existing (q-one tx
+                         {:select :*
+                          :from :devices
+                          :where [:= :device_id device_id]
+                          :for [:update]})
          base-row (device->db-device {:device_id device_id
                                       :claim_code_hash claim_code_hash
                                       :firmware_version firmware_version
                                       :capabilities capabilities})
          result (cond (nil? existing)
-                      (jdbc/execute-one!
-                       tx
-                       (sql/format {:insert-into :devices
-                                    :values [(assoc base-row :status "pending")]
-                                    :returning :*})
-                       db-opts)
-                      (= "blocked" (:status existing)) existing
-                      (= "active" (:status existing)) existing
-                      :else (jdbc/execute-one!
-                             tx
-                             (sql/format {:update :devices
-                                          :set (merge base-row
-                                                      {:status "pending"
-                                                       :refresh_token_hash nil
-                                                       :token_expires_at nil
-                                                       :updated_at [:now]})
-                                          :where [:= :device_id device_id]
-                                          :returning :*})
-                             db-opts))]
+                      (q-one tx
+                             {:insert-into :devices
+                              :values [(assoc base-row :status "pending")]
+                              :returning :*})
+                      (#{"blocked" "active"} (:status existing)) existing
+                      :else (q-one tx
+                                   {:update :devices
+                                    :set (merge base-row
+                                                {:status "pending"
+                                                 :refresh_token_hash nil
+                                                 :token_expires_at nil
+                                                 :updated_at [:now]})
+                                    :where [:= :device_id device_id]
+                                    :returning :*}))]
      (db-device->device result))))
 
 (defn update-device!
   "Generic device update by device_id. Accepts already-cleaned fields."
   [device-id fields]
-  (some-> (jdbc/execute-one! ds
-                             (sql/format {:update :devices
-                                          :set (merge (device->db-device fields)
-                                                      {:updated_at [:now]})
-                                          :where [:= :device_id device-id]
-                                          :returning :*})
-                             db-opts)
+  (some-> (q-one {:update :devices
+                  :set (merge (device->db-device fields) {:updated_at [:now]})
+                  :where [:= :device_id device-id]
+                  :returning :*})
           db-device->device))
 
 (defn activate-device!
@@ -1065,10 +919,7 @@
 
 (defn delete-device!
   [device-id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :devices
-                                  :where [:= :device_id device-id]})
-                     db-opts))
+  (q-one {:delete-from :devices :where [:= :device_id device-id]}))
 
 (defn touch-device!
   "Update last_seen and optionally token_expires_at (when a new access token is
@@ -1086,76 +937,48 @@
 
 (defn get-spirits
   []
-  (jdbc/execute! ds
-                 (sql/format
-                  {:select :* :from :spirits :order-by [[:created_at :desc]]})
-                 db-opts))
+  (q-many {:select :* :from :spirits :order-by [[:created_at :desc]]}))
 
-(defn get-spirit
-  [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:select :* :from :spirits :where [:= :id id]})
-                     db-opts))
+(defn get-spirit [id] (q-one {:select :* :from :spirits :where [:= :id id]}))
 
 (defn create-spirit!
   [spirit]
-  (jdbc/execute-one! ds
-                     (sql/format {:insert-into :spirits
-                                  :values [(spirit->db-spirit spirit)]
-                                  :returning :*})
-                     db-opts))
+  (q-one
+   {:insert-into :spirits :values [(spirit->db-spirit spirit)] :returning :*}))
 
 (defn update-spirit!
   [id spirit]
-  (jdbc/execute-one!
-   ds
-   (sql/format {:update :spirits
-                :set (assoc (spirit->db-spirit spirit) :updated_at [:now])
-                :where [:= :id id]
-                :returning :*})
-   db-opts))
+  (q-one {:update :spirits
+          :set (assoc (spirit->db-spirit spirit) :updated_at [:now])
+          :where [:= :id id]
+          :returning :*}))
 
-(defn delete-spirit!
-  [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :spirits :where [:= :id id]})
-                     db-opts))
+(defn delete-spirit! [id] (q-one {:delete-from :spirits :where [:= :id id]}))
 
 ;; Bar: Inventory Items
 (defn get-bar-inventory-items
   []
-  (jdbc/execute! ds
-                 (sql/format {:select :*
-                              :from :bar_inventory_items
-                              :order-by [:category :sort_order :name]})
-                 db-opts))
+  (q-many {:select :*
+           :from :bar_inventory_items
+           :order-by [:category :sort_order :name]}))
 
 (defn update-bar-inventory-item!
   [id fields]
-  (jdbc/execute-one!
-   ds
-   (sql/format {:update :bar_inventory_items
-                :set (select-keys fields [:have_it :name :category :sort_order])
-                :where [:= :id id]
-                :returning :*})
-   db-opts))
+  (q-one {:update :bar_inventory_items
+          :set (select-keys fields [:have_it :name :category :sort_order])
+          :where [:= :id id]
+          :returning :*}))
 
 (defn create-bar-inventory-item!
   [item]
-  (jdbc/execute-one! ds
-                     (sql/format {:insert-into :bar_inventory_items
-                                  :values [(select-keys item
-                                                        [:name :category
-                                                         :sort_order :have_it])]
-                                  :returning :*})
-                     db-opts))
+  (q-one {:insert-into :bar_inventory_items
+          :values [(select-keys item [:name :category :sort_order :have_it])]
+          :returning :*}))
 
 (defn delete-bar-inventory-item!
   [id]
-  (pos? (:next.jdbc/update-count (jdbc/execute-one!
-                                  ds
-                                  (sql/format {:delete-from :bar_inventory_items
-                                               :where [:= :id id]})))))
+  (pos? (:next.jdbc/update-count (q-one {:delete-from :bar_inventory_items
+                                         :where [:= :id id]}))))
 
 ;; Bar: Cocktail Recipes
 (defn- recipe->db-recipe
@@ -1167,40 +990,25 @@
 
 (defn get-cocktail-recipes
   []
-  (jdbc/execute! ds
-                 (sql/format {:select :*
-                              :from :cocktail_recipes
-                              :order-by [[:created_at :desc]]})
-                 db-opts))
+  (q-many {:select :* :from :cocktail_recipes :order-by [[:created_at :desc]]}))
 
 (defn get-cocktail-recipe
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:select :* :from :cocktail_recipes :where [:= :id id]})
-                     db-opts))
+  (q-one {:select :* :from :cocktail_recipes :where [:= :id id]}))
 
 (defn create-cocktail-recipe!
   [recipe]
-  (jdbc/execute-one! ds
-                     (sql/format {:insert-into :cocktail_recipes
-                                  :values [(recipe->db-recipe recipe)]
-                                  :returning :*})
-                     db-opts))
+  (q-one {:insert-into :cocktail_recipes
+          :values [(recipe->db-recipe recipe)]
+          :returning :*}))
 
 (defn update-cocktail-recipe!
   [id recipe]
-  (jdbc/execute-one!
-   ds
-   (sql/format {:update :cocktail_recipes
-                :set (assoc (recipe->db-recipe recipe) :updated_at [:now])
-                :where [:= :id id]
-                :returning :*})
-   db-opts))
+  (q-one {:update :cocktail_recipes
+          :set (assoc (recipe->db-recipe recipe) :updated_at [:now])
+          :where [:= :id id]
+          :returning :*}))
 
 (defn delete-cocktail-recipe!
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format {:delete-from :cocktail_recipes
-                                  :where [:= :id id]})
-                     db-opts))
+  (q-one {:delete-from :cocktail_recipes :where [:= :id id]}))

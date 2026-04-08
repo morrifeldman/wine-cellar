@@ -362,11 +362,9 @@
   [selected-categories spirits]
   (let [present (set (map :category spirits))
         cats (filter present spirit-categories)]
-    [box {:sx {:display "flex"
-               :gap 0.5
-               :flexWrap "wrap"
-               :alignItems "center"
-               :mb 1.5}}
+    [box
+     {:sx
+      {:display "flex" :gap 0.5 :flexWrap "wrap" :alignItems "center" :mb 1.5}}
      (for [cat cats]
        (let [active? (contains? @selected-categories cat)]
          ^{:key cat}
@@ -374,15 +372,14 @@
           {:label (get category-labels cat cat)
            :size "small"
            :clickable true
-           :on-click #(swap! selected-categories
-                        (fn [s]
-                          (if (contains? s cat) (disj s cat) (conj s cat))))
+           :on-click
+           #(swap! selected-categories
+              (fn [s] (if (contains? s cat) (disj s cat) (conj s cat))))
            :sx {:height 24
                 :fontSize "0.72rem"
                 :letterSpacing "0.02em"
-                :bgcolor (if active?
-                           "rgba(232,195,200,0.22)"
-                           "rgba(232,195,200,0.06)")
+                :bgcolor
+                (if active? "rgba(232,195,200,0.22)" "rgba(232,195,200,0.06)")
                 :color "rgba(232,195,200,0.95)"
                 :border (str "1px solid "
                              (if active?
@@ -407,13 +404,12 @@
             loading? (:loading? bar)
             term (normalize-text @search-text)
             sel-cats @selected-categories
-            filtered (cond->> spirits
-                       (seq term)
-                       (filter #(str/includes? (normalize-text
-                                                (spirit-search-text %))
-                                               term))
-                       (seq sel-cats)
-                       (filter #(contains? sel-cats (:category %))))]
+            filtered
+            (cond->> spirits
+              (seq term) (filter #(str/includes? (normalize-text
+                                                  (spirit-search-text %))
+                                                 term))
+              (seq sel-cats) (filter #(contains? sel-cats (:category %))))]
         [box (when show-form? [spirit-create-form app-state])
          (when (and (seq spirits) (not loading?))
            [:<>

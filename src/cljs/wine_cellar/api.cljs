@@ -1517,8 +1517,8 @@
   (js/Promise.
    (fn [resolve reject]
      (go (let [result (<! (PUT (str "/api/cocktail-recipes/" id)
-                                recipe
-                                "Failed to update recipe"))]
+                               recipe
+                               "Failed to update recipe"))]
            (if (:success result)
              (do (swap! app-state update-in
                    [:bar :recipes]

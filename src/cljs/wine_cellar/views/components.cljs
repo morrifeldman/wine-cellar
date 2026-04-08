@@ -60,8 +60,7 @@
   "Bordered, icon-headed section block. Children render below the header."
   [{:keys [icon label color]} & children]
   [box {:sx {:mt 2 :borderLeft (str "3px solid " color) :pl 1.5 :pb 2}}
-   [section-header icon label color]
-   (into [:<>] children)])
+   [section-header icon label color] (into [:<>] children)])
 
 ;; Shared styles
 (def form-field-style

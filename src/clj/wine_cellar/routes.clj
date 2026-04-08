@@ -199,8 +199,9 @@
           :opt-un [::description ::instructions ::notes ::tags ::source]))
 
 (def cocktail-recipe-update-schema
-  (s/keys :opt-un [::name ::ingredients ::description ::instructions ::notes
-                   ::tags ::source]))
+  (s/keys :opt-un
+          [::name ::ingredients ::description ::instructions ::notes ::tags
+           ::source]))
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
