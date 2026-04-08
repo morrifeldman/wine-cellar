@@ -15,8 +15,11 @@
             [reagent-mui.material.checkbox :refer [checkbox]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
+            [reagent-mui.material.input-adornment :refer [input-adornment]]
             [reagent-mui.icons.add :refer [add]]
+            [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.delete :refer [delete]]
+            [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.api :as api]))
 
 (defn- text-field
@@ -331,18 +334,51 @@
              "Save to Recipes")]]]))))
 
 (defn recipes-tab
-  [app-state]
-  (let [bar @(r/cursor app-state [:bar])
-        recipes (:recipes bar)
-        show-form? (:show-recipe-form? bar)
-        editing-id (:editing-recipe-id bar)
-        viewing-id (:viewing-recipe-id bar)]
-    [box (when (or show-form? editing-id) [recipe-form app-state])
-     (if (empty? recipes)
-       [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
-        "No recipes yet. Save your first cocktail!"]
-       (for [recipe recipes]
-         ^{:key (:id recipe)}
-         (cond (= (:id recipe) viewing-id) [recipe-display app-state recipe]
-               (= (:id recipe) editing-id) nil
-               :else [recipe-card app-state recipe])))]))
+  [_app-state]
+  (let [search-text (r/atom "")]
+    (fn [app-state]
+      (let [bar @(r/cursor app-state [:bar])
+            recipes (:recipes bar)
+            show-form? (:show-recipe-form? bar)
+            editing-id (:editing-recipe-id bar)
+            viewing-id (:viewing-recipe-id bar)
+            term (normalize-text @search-text)
+            filtered
+            (if (seq term)
+              (filter (fn [r]
+                        (some #(when % (str/includes? (normalize-text %) term))
+                              (concat [(:name r) (:source r) (:description r)
+                                       (:instructions r)]
+                                      (:tags r)
+                                      (map :name (:ingredients r)))))
+                      recipes)
+              recipes)]
+        [box (when (or show-form? editing-id) [recipe-form app-state])
+         (when (and (seq recipes) (not (or show-form? editing-id)))
+           [mui-text-field/text-field
+            (cond-> {:label "Search recipes"
+                     :value @search-text
+                     :on-change #(reset! search-text (-> %
+                                                         .-target
+                                                         .-value))
+                     :size "small"
+                     :full-width true
+                     :sx {:mb 2}}
+              (seq @search-text) (assoc :InputProps
+                                        {:endAdornment
+                                         (r/as-element
+                                          [input-adornment {:position "end"}
+                                           [icon-button
+                                            {:size "small"
+                                             :edge "end"
+                                             :on-click #(reset! search-text "")
+                                             :sx {:color "text.secondary"}}
+                                            [close {:fontSize "small"}]]])}))])
+         (if (empty? recipes)
+           [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
+            "No recipes yet. Save your first cocktail!"]
+           (for [recipe filtered]
+             ^{:key (:id recipe)}
+             (cond (= (:id recipe) viewing-id) [recipe-display app-state recipe]
+                   (= (:id recipe) editing-id) nil
+                   :else [recipe-card app-state recipe])))]))))

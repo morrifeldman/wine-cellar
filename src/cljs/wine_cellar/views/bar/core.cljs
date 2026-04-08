@@ -2,7 +2,6 @@
   (:require [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.tabs :refer [tabs]]
             [reagent-mui.material.tab :refer [tab]]
-            [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.icons.add :refer [add]]
             [wine-cellar.nav :as nav]
@@ -26,10 +25,8 @@
         tab-index (get tab-values active-tab 0)]
     [box
      [box
-      {:sx {:display "flex"
-            :justifyContent "space-between"
-            :alignItems "center"
-            :mb 2}} [typography {:variant "h5"} "Bar"]
+      {:sx
+       {:display "flex" :justifyContent "flex-end" :alignItems "center" :mb 2}}
       [button {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
        "Wine Cellar"]]
      [box
