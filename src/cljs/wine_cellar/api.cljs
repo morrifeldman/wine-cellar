@@ -179,40 +179,35 @@
               (fetch-devices app-state))
           (swap! app-state assoc :devices/approve-error (:error result))))))
 
-(defn block-device
-  [app-state device-id]
+(defn- run-device-action!
+  [app-state request-fn]
   (swap! app-state assoc :devices/action? true)
-  (go (let [result (<! (POST (str "/api/admin/devices/" device-id "/block")
-                             {}
-                             "Failed to block device"))]
+  (go (let [result (<! (request-fn))]
         (swap! app-state assoc :devices/action? false)
         (if (:success result)
           (do (swap! app-state assoc :devices/approve-error nil)
               (fetch-devices app-state))
           (swap! app-state assoc :devices/approve-error (:error result))))))
+
+(defn block-device
+  [app-state device-id]
+  (run-device-action! app-state
+                      #(POST (str "/api/admin/devices/" device-id "/block")
+                             {}
+                             "Failed to block device")))
 
 (defn unblock-device
   [app-state device-id]
-  (swap! app-state assoc :devices/action? true)
-  (go (let [result (<! (POST (str "/api/admin/devices/" device-id "/unblock")
+  (run-device-action! app-state
+                      #(POST (str "/api/admin/devices/" device-id "/unblock")
                              {}
-                             "Failed to unblock device"))]
-        (swap! app-state assoc :devices/action? false)
-        (if (:success result)
-          (do (swap! app-state assoc :devices/approve-error nil)
-              (fetch-devices app-state))
-          (swap! app-state assoc :devices/approve-error (:error result))))))
+                             "Failed to unblock device")))
 
 (defn delete-device
   [app-state device-id]
-  (swap! app-state assoc :devices/action? true)
-  (go (let [result (<! (DELETE (str "/api/admin/devices/" device-id "/delete")
-                               "Failed to delete device"))]
-        (swap! app-state assoc :devices/action? false)
-        (if (:success result)
-          (do (swap! app-state assoc :devices/approve-error nil)
-              (fetch-devices app-state))
-          (swap! app-state assoc :devices/approve-error (:error result))))))
+  (run-device-action! app-state
+                      #(DELETE (str "/api/admin/devices/" device-id "/delete")
+                               "Failed to delete device")))
 
 (defn update-device-sensor-config
   [app-state device-id sensor-config]
@@ -589,68 +584,64 @@
                 (map #(if (= (:id %) wine-id) updated-wine %) wines))))
           (swap! app-state assoc :error (:error result))))))
 
+(defn- promise-from-channel
+  "Wraps an api-request result channel in a JS Promise.
+   Resolves with `:data` on success; on failure sets `:error` in app-state and rejects.
+   When `:loading-key` is provided, clears that flag in app-state on completion."
+  [app-state ch & {:keys [loading-key]}]
+  (js/Promise. (fn [resolve reject]
+                 (go (let [result (<! ch)]
+                       (when loading-key
+                         (swap! app-state assoc loading-key false))
+                       (if (:success result)
+                         (resolve (:data result))
+                         (do (swap! app-state assoc :error (:error result))
+                             (reject (:error result)))))))))
+
 (defn analyze-wine-label
   [app-state image-data]
   (swap! app-state assoc :analyzing-label? true)
   (let [provider (get-in @app-state [:ai :provider])
         payload (assoc image-data :provider provider)]
-    (js/Promise. (fn [resolve reject]
-                   (go (let [result (<! (POST "/api/wines/analyze-label"
-                                              payload
-                                              "Failed to analyze wine label"))]
-                         (swap! app-state assoc :analyzing-label? false)
-                         (if (:success result)
-                           (resolve (:data result))
-                           (do (swap! app-state assoc :error (:error result))
-                               (reject (:error result))))))))))
+    (promise-from-channel
+     app-state
+     (POST "/api/wines/analyze-label" payload "Failed to analyze wine label")
+     :loading-key
+     :analyzing-label?)))
 
 (defn analyze-spirit-label
   [app-state label-image]
   (swap! app-state assoc :analyzing-spirit-label? true)
   (let [provider (get-in @app-state [:ai :provider])
         payload {:label_image label-image :provider provider}]
-    (js/Promise. (fn [resolve reject]
-                   (go (let [result (<! (POST
-                                         "/api/spirits/analyze-label"
-                                         payload
-                                         "Failed to analyze spirit label"))]
-                         (swap! app-state assoc :analyzing-spirit-label? false)
-                         (if (:success result)
-                           (resolve (:data result))
-                           (do (swap! app-state assoc :error (:error result))
-                               (reject (:error result))))))))))
+    (promise-from-channel app-state
+                          (POST "/api/spirits/analyze-label"
+                                payload
+                                "Failed to analyze spirit label")
+                          :loading-key
+                          :analyzing-spirit-label?)))
 
 (defn suggest-drinking-window
   [app-state wine]
   (swap! app-state assoc :suggesting-drinking-window? true)
-  (js/Promise. (fn [resolve reject]
-                 (go
-                  (let [provider (get-in @app-state [:ai :provider])
-                        payload {:wine wine :provider provider}
-                        result (<! (POST "/api/wines/suggest-drinking-window"
-                                         payload
-                                         "Failed to suggest drinking window"))]
-                    (swap! app-state assoc :suggesting-drinking-window? false)
-                    (if (:success result)
-                      (resolve (:data result))
-                      (do (swap! app-state assoc :error (:error result))
-                          (reject (:error result)))))))))
+  (let [provider (get-in @app-state [:ai :provider])
+        payload {:wine wine :provider provider}]
+    (promise-from-channel app-state
+                          (POST "/api/wines/suggest-drinking-window"
+                                payload
+                                "Failed to suggest drinking window")
+                          :loading-key
+                          :suggesting-drinking-window?)))
 
 (defn generate-wine-summary
   [app-state wine]
-  (js/Promise.
-   (fn [resolve reject]
-     (go (let [result (<! (POST "/api/wines/generate-summary"
-                                (let [provider (some-> (get-in @app-state
-                                                               [:ai :provider])
-                                                       name)]
-                                  (cond-> {:wine wine}
-                                    provider (assoc :provider provider)))
-                                "Failed to generate wine summary"))]
-           (if (:success result)
-             (resolve (:data result))
-             (do (swap! app-state assoc :error (:error result))
-                 (reject (:error result)))))))))
+  (let [provider (some-> (get-in @app-state [:ai :provider])
+                         name)
+        payload (cond-> {:wine wine} provider (assoc :provider provider))]
+    (promise-from-channel app-state
+                          (POST "/api/wines/generate-summary"
+                                payload
+                                "Failed to generate wine summary"))))
 
 (defn fetch-grape-varieties
   [app-state]

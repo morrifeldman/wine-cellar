@@ -238,62 +238,56 @@
     :inline? true
     :display-sx {:fontSize "1.2rem" :fontWeight 500}}])
 
+(defn- autocomplete-editor
+  [app-state wine field {:keys [options empty-text validate-fn free-solo?]}]
+  [editable-autocomplete-field
+   {:value (get wine field)
+    :tooltip (get common/field-descriptions field)
+    :options options
+    :free-solo (boolean free-solo?)
+    :on-save #(api/update-wine app-state (:id wine) {field %})
+    :validate-fn validate-fn
+    :empty-text empty-text
+    :compact? true
+    :inline? true}])
+
 (defn editable-designation
   [app-state wine]
-  [editable-autocomplete-field
-   {:value (:designation wine)
-    :tooltip (:designation common/field-descriptions)
-    :options (vec (sort common/wine-designations))
-    :free-solo false
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:designation new-value}))
-    :empty-text "Add designation"
-    :compact? true
+  [autocomplete-editor app-state wine :designation
+   {:options (vec (sort common/wine-designations))
+    :empty-text "Add designation"}])
+
+(defn- classification-editor
+  [app-state wine field {:keys [empty-text validate-fn compact?]}]
+  [editable-classification-field
+   {:value (get wine field)
+    :field-type field
+    :tooltip (get common/field-descriptions field)
+    :app-state app-state
+    :wine wine
+    :classifications (:classifications @app-state)
+    :on-save #(api/update-wine app-state (:id wine) {field %})
+    :validate-fn validate-fn
+    :empty-text empty-text
+    :compact? compact?
     :inline? true}])
 
 (defn editable-country
   [app-state wine]
-  [editable-classification-field
-   {:value (:country wine)
-    :field-type :country
-    :app-state app-state
-    :wine wine
-    :classifications (:classifications @app-state)
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:country new-value}))
-    :validate-fn (fn [value]
-                   (when (str/blank? value) "Country cannot be empty"))
-    :empty-text "Add country"
-    :inline? true}])
+  [classification-editor app-state wine :country
+   {:empty-text "Add country"
+    :validate-fn #(when (str/blank? %) "Country cannot be empty")}])
 
 (defn editable-region
   [app-state wine]
-  [editable-classification-field
-   {:value (:region wine)
-    :field-type :region
-    :tooltip (:region common/field-descriptions)
-    :app-state app-state
-    :wine wine
-    :classifications (:classifications @app-state)
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:region new-value}))
-    :validate-fn (fn [value] (when (str/blank? value) "Region cannot be empty"))
-    :empty-text "Add region"
-    :inline? true}])
+  [classification-editor app-state wine :region
+   {:empty-text "Add region"
+    :validate-fn #(when (str/blank? %) "Region cannot be empty")}])
 
 (defn editable-appellation
   [app-state wine]
-  [editable-classification-field
-   {:value (:appellation wine)
-    :field-type :appellation
-    :tooltip (:appellation common/field-descriptions)
-    :app-state app-state
-    :wine wine
-    :classifications (:classifications @app-state)
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:appellation new-value}))
-    :empty-text "Add Appellation"
-    :inline? true}])
+  [classification-editor app-state wine :appellation
+   {:empty-text "Add Appellation"}])
 
 (defn editable-appellation-tier
   [app-state wine]
@@ -316,72 +310,30 @@
 
 (defn editable-vineyard
   [app-state wine]
-  [editable-classification-field
-   {:value (:vineyard wine)
-    :field-type :vineyard
-    :tooltip (:vineyard common/field-descriptions)
-    :app-state app-state
-    :wine wine
-    :classifications (:classifications @app-state)
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:vineyard new-value}))
-    :empty-text "Add vineyard"
-    :compact? true
-    :inline? true}])
+  [classification-editor app-state wine :vineyard
+   {:empty-text "Add vineyard" :compact? true}])
 
 (defn editable-classification
   [app-state wine]
-  [editable-classification-field
-   {:value (:classification wine)
-    :field-type :classification
-    :tooltip (:classification common/field-descriptions)
-    :app-state app-state
-    :wine wine
-    :classifications (:classifications @app-state)
-    :on-save
-    (fn [new-value]
-      (api/update-wine app-state (:id wine) {:classification new-value}))
-    :empty-text "Add classification"
-    :compact? true
-    :inline? true}])
+  [classification-editor app-state wine :classification
+   {:empty-text "Add classification" :compact? true}])
 
 (defn editable-styles
   [app-state wine]
-  [editable-autocomplete-field
-   {:value (:style wine)
-    :options (vec (sort common/wine-styles))
-    :free-solo false
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:style new-value}))
-    :validate-fn (fn [value] (when (str/blank? value) "Style must be provided"))
+  [autocomplete-editor app-state wine :style
+   {:options (vec (sort common/wine-styles))
     :empty-text "Add style"
-    :compact? true
-    :inline? true}])
+    :validate-fn #(when (str/blank? %) "Style must be provided")}])
 
 (defn editable-closure-type
   [app-state wine]
-  [editable-autocomplete-field
-   {:value (:closure_type wine)
-    :options common/closure-type-options
-    :free-solo false
-    :on-save (fn [new-value]
-               (api/update-wine app-state (:id wine) {:closure_type new-value}))
-    :empty-text "Select closure type"
-    :compact? true
-    :inline? true}])
+  [autocomplete-editor app-state wine :closure_type
+   {:options common/closure-type-options :empty-text "Select closure type"}])
 
 (defn editable-bottle-format
   [app-state wine]
-  [editable-autocomplete-field
-   {:value (:bottle_format wine)
-    :options common/bottle-formats
-    :free-solo false
-    :on-save
-    (fn [new-value]
-      (api/update-wine app-state (:id wine) {:bottle_format new-value}))
-    :empty-text "Select format"
-    :compact? true
-    :inline? true}])
+  [autocomplete-editor app-state wine :bottle_format
+   {:options common/bottle-formats :empty-text "Select format"}])
 
 
 

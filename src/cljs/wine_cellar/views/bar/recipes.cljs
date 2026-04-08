@@ -15,12 +15,19 @@
             [reagent-mui.material.checkbox :refer [checkbox]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
-            [reagent-mui.material.input-adornment :refer [input-adornment]]
             [reagent-mui.icons.add :refer [add]]
-            [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.delete :refer [delete]]
             [wine-cellar.utils.filters :refer [normalize-text]]
+            [wine-cellar.views.components :refer [search-text-field]]
             [wine-cellar.api :as api]))
+
+(defn- recipe-search-text
+  [r]
+  (->> (concat [(:name r) (:source r) (:description r) (:instructions r)]
+               (:tags r)
+               (map :name (:ingredients r)))
+       (filter some?)
+       (str/join " ")))
 
 (defn- text-field
   [label value on-change & {:keys [type multiline rows]}]
@@ -343,37 +350,16 @@
             editing-id (:editing-recipe-id bar)
             viewing-id (:viewing-recipe-id bar)
             term (normalize-text @search-text)
-            filtered
-            (if (seq term)
-              (filter (fn [r]
-                        (some #(when % (str/includes? (normalize-text %) term))
-                              (concat [(:name r) (:source r) (:description r)
-                                       (:instructions r)]
-                                      (:tags r)
-                                      (map :name (:ingredients r)))))
-                      recipes)
-              recipes)]
+            filtered (if (seq term)
+                       (filter #(str/includes? (normalize-text
+                                                (recipe-search-text %))
+                                               term)
+                               recipes)
+                       recipes)]
         [box (when (or show-form? editing-id) [recipe-form app-state])
          (when (and (seq recipes) (not (or show-form? editing-id)))
-           [mui-text-field/text-field
-            (cond-> {:label "Search recipes"
-                     :value @search-text
-                     :on-change #(reset! search-text (-> %
-                                                         .-target
-                                                         .-value))
-                     :size "small"
-                     :full-width true
-                     :sx {:mb 2}}
-              (seq @search-text) (assoc :InputProps
-                                        {:endAdornment
-                                         (r/as-element
-                                          [input-adornment {:position "end"}
-                                           [icon-button
-                                            {:size "small"
-                                             :edge "end"
-                                             :on-click #(reset! search-text "")
-                                             :sx {:color "text.secondary"}}
-                                            [close {:fontSize "small"}]]])}))])
+           [search-text-field
+            {:search-atom search-text :label "Search recipes"}])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]

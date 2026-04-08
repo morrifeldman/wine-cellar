@@ -1,29 +1,27 @@
 (ns wine-cellar.views.bar.spirits
-  (:require
-    [clojure.string :as str]
-    [reagent.core :as r]
-    [reagent-mui.material.box :refer [box]]
-    [reagent-mui.material.paper :refer [paper]]
-    [reagent-mui.material.typography :refer [typography]]
-    [reagent-mui.material.button :refer [button]]
-    [reagent-mui.material.text-field :as mui-text-field]
-    [reagent-mui.material.select :refer [select]]
-    [reagent-mui.material.menu-item :refer [menu-item]]
-    [reagent-mui.material.circular-progress :refer [circular-progress]]
-    [reagent-mui.material.icon-button :refer [icon-button]]
-    [reagent-mui.material.input-adornment :refer [input-adornment]]
-    [reagent-mui.icons.close :refer [close]]
-    [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
-    [reagent-mui.icons.public :refer [public] :rename {public globe}]
-    [reagent-mui.icons.inventory :refer [inventory]]
-    [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
-    [wine-cellar.utils.filters :refer [normalize-text]]
-    [wine-cellar.api :as api]
-    [wine-cellar.views.components :refer
-     [dot-separated-row editable-text-field editable-autocomplete-field]]
-    [wine-cellar.views.components.ai-provider-toggle :refer
-     [provider-toggle-button]]
-    [wine-cellar.views.components.image-upload :refer [camera-capture]]))
+  (:require [clojure.string :as str]
+            [reagent.core :as r]
+            [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.paper :refer [paper]]
+            [reagent-mui.material.typography :refer [typography]]
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.text-field :as mui-text-field]
+            [reagent-mui.material.select :refer [select]]
+            [reagent-mui.material.menu-item :refer [menu-item]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
+            [reagent-mui.icons.public :refer [public] :rename {public globe}]
+            [reagent-mui.icons.inventory :refer [inventory]]
+            [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
+            [wine-cellar.utils.filters :refer [normalize-text]]
+            [wine-cellar.api :as api]
+            [wine-cellar.views.components :refer
+             [dot-separated-row editable-text-field editable-autocomplete-field
+              search-text-field]]
+            [wine-cellar.views.components.ai-provider-toggle :refer
+             [provider-toggle-button]]
+            [wine-cellar.views.components.image-upload :refer
+             [camera-capture]]))
 
 (def spirit-categories
   ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur" "other"])
@@ -32,6 +30,13 @@
   (into {}
         (map (fn [c] [c (str (str/upper-case (subs c 0 1)) (subs c 1))])
              spirit-categories)))
+
+(defn- spirit-search-text
+  [s]
+  (->> [(:name s) (:category s) (:subcategory s) (:distillery s) (:country s)
+        (:region s) (:notes s) (:age_statement s)]
+       (filter some?)
+       (str/join " ")))
 
 (defn- unique-spirit-values
   [spirits k]
@@ -379,36 +384,16 @@
             editing-id (:editing-spirit-id bar)
             loading? (:loading? bar)
             term (normalize-text @search-text)
-            filtered
-            (if (seq term)
-              (filter (fn [s]
-                        (some #(when % (str/includes? (normalize-text %) term))
-                              [(:name s) (:category s) (:subcategory s)
-                               (:distillery s) (:country s) (:region s)
-                               (:notes s) (:age_statement s)]))
-                      spirits)
-              spirits)]
+            filtered (if (seq term)
+                       (filter #(str/includes? (normalize-text
+                                                (spirit-search-text %))
+                                               term)
+                               spirits)
+                       spirits)]
         [box (when show-form? [spirit-create-form app-state])
          (when (and (seq spirits) (not loading?))
-           [mui-text-field/text-field
-            (cond-> {:label "Search spirits"
-                     :value @search-text
-                     :on-change #(reset! search-text (-> %
-                                                         .-target
-                                                         .-value))
-                     :size "small"
-                     :full-width true
-                     :sx {:mb 2}}
-              (seq @search-text) (assoc :InputProps
-                                        {:endAdornment
-                                         (r/as-element
-                                          [input-adornment {:position "end"}
-                                           [icon-button
-                                            {:size "small"
-                                             :edge "end"
-                                             :on-click #(reset! search-text "")
-                                             :sx {:color "text.secondary"}}
-                                            [close {:fontSize "small"}]]])}))])
+           [search-text-field
+            {:search-atom search-text :label "Search spirits"}])
          (if loading?
            [box {:sx {:display "flex" :justifyContent "center" :py 4}}
             [circular-progress {:color "primary"}]]

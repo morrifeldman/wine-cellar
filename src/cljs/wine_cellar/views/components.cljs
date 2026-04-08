@@ -441,6 +441,28 @@
             :free-solo true
             :value (if (nil? (:value props)) "" (:value props)))]))
   ;; Utility functions
+(defn search-text-field
+  "Search input bound to a ratom, with a clear button when non-empty."
+  [{:keys [search-atom label sx]}]
+  [text-field
+   (cond-> {:label label
+            :value @search-atom
+            :on-change #(reset! search-atom (-> %
+                                                .-target
+                                                .-value))
+            :size "small"
+            :full-width true
+            :sx (or sx {:mb 2})}
+     (seq @search-atom)
+     (assoc :InputProps
+            {:endAdornment (r/as-element [input-adornment {:position "end"}
+                                          [icon-button
+                                           {:size "small"
+                                            :edge "end"
+                                            :on-click #(reset! search-atom "")
+                                            :sx {:color "text.secondary"}}
+                                           [close {:fontSize "small"}]]])}))])
+
 (defn format-label
   "Convert a keyword like :producer or :wine-type to a human-readable label"
   [k]
