@@ -5,6 +5,7 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.select :refer [select]]
             [reagent-mui.material.menu-item :refer [menu-item]]
@@ -357,9 +358,47 @@
             :textOverflow "ellipsis"
             :whiteSpace "nowrap"}} (:notes spirit)])])
 
+(defn- category-filter-bar
+  [selected-categories spirits]
+  (let [present (set (map :category spirits))
+        cats (filter present spirit-categories)]
+    [box {:sx {:display "flex"
+               :gap 0.5
+               :flexWrap "wrap"
+               :alignItems "center"
+               :mb 1.5}}
+     (for [cat cats]
+       (let [active? (contains? @selected-categories cat)]
+         ^{:key cat}
+         [chip
+          {:label (get category-labels cat cat)
+           :size "small"
+           :clickable true
+           :on-click #(swap! selected-categories
+                        (fn [s]
+                          (if (contains? s cat) (disj s cat) (conj s cat))))
+           :sx {:height 24
+                :fontSize "0.72rem"
+                :letterSpacing "0.02em"
+                :bgcolor (if active?
+                           "rgba(232,195,200,0.22)"
+                           "rgba(232,195,200,0.06)")
+                :color "rgba(232,195,200,0.95)"
+                :border (str "1px solid "
+                             (if active?
+                               "rgba(232,195,200,0.6)"
+                               "rgba(232,195,200,0.2)"))
+                "&:hover" {:bgcolor "rgba(232,195,200,0.18)"}}}]))
+     (when (seq @selected-categories)
+       [button
+        {:size "small"
+         :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+         :on-click #(reset! selected-categories #{})} "clear"])]))
+
 (defn spirits-tab
   [_app-state]
-  (let [search-text (r/atom "")]
+  (let [search-text (r/atom "")
+        selected-categories (r/atom #{})]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             spirits (:spirits bar)
@@ -367,16 +406,20 @@
             editing-id (:editing-spirit-id bar)
             loading? (:loading? bar)
             term (normalize-text @search-text)
-            filtered (if (seq term)
+            sel-cats @selected-categories
+            filtered (cond->> spirits
+                       (seq term)
                        (filter #(str/includes? (normalize-text
                                                 (spirit-search-text %))
-                                               term)
-                               spirits)
-                       spirits)]
+                                               term))
+                       (seq sel-cats)
+                       (filter #(contains? sel-cats (:category %))))]
         [box (when show-form? [spirit-create-form app-state])
          (when (and (seq spirits) (not loading?))
-           [search-text-field
-            {:search-atom search-text :label "Search spirits"}])
+           [:<>
+            [search-text-field
+             {:search-atom search-text :label "Search spirits"}]
+            [category-filter-bar selected-categories spirits]])
          (if loading?
            [box {:sx {:display "flex" :justifyContent "center" :py 4}}
             [circular-progress {:color "primary"}]]
