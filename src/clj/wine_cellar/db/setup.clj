@@ -81,6 +81,13 @@
       "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='spirits' AND column_name='subcategory') THEN "
       "ALTER TABLE spirits ADD COLUMN subcategory varchar; "
       "END IF; END $$;"]})
+   (sql-execute-helper
+    tx
+    {:raw
+     ["DO $$ BEGIN "
+      "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cocktail_recipes' AND column_name='notes') THEN "
+      "ALTER TABLE cocktail_recipes ADD COLUMN notes text; "
+      "END IF; END $$;"]})
    ;; Indexes
    (sql-execute-helper
     tx

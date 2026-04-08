@@ -38,6 +38,31 @@
    (for [[i child] (map-indexed vector children)]
      ^{:key i} [:<> (when (pos? i) [dot-sep]) child])])
 
+(defn section-header
+  "Icon + label header used in detail views (spirits, recipes, etc)."
+  [icon-component label border-color]
+  [box
+   {:sx {:display "flex"
+         :alignItems "center"
+         :mb 1.5
+         :pb 1
+         :borderBottom "1px solid rgba(255,255,255,0.06)"}}
+   [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
+    [icon-component {:fontSize "small"}]]
+   [typography
+    {:variant "overline"
+     :sx {:fontWeight 700
+          :letterSpacing "0.1em"
+          :color "text.secondary"
+          :lineHeight 1}} label]])
+
+(defn detail-section
+  "Bordered, icon-headed section block. Children render below the header."
+  [{:keys [icon label color]} & children]
+  [box {:sx {:mt 2 :borderLeft (str "3px solid " color) :pl 1.5 :pb 2}}
+   [section-header icon label color]
+   (into [:<>] children)])
+
 ;; Shared styles
 (def form-field-style
   {:min-width "180px" :width "75%" :backgroundColor "container.main"})

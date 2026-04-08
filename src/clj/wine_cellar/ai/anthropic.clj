@@ -229,6 +229,11 @@
                   :description (str "Spirit type. Must be one of: "
                                     (str/join ", " categories)
                                     ". " null-note)}
+       :subcategory {:type ["string" "null"]
+                     :description
+                     (str "More specific type (e.g. \"bourbon\", \"rye\", "
+                          "\"single malt\", \"reposado\", \"amaro\"). "
+                          null-note)}
        :distillery {:type ["string" "null"]
                     :description (str "Producer or distillery name. "
                                       null-note)}
@@ -245,8 +250,8 @@
        :proof {:type ["integer" "null"]
                :description (str "Proof value as an integer (e.g. 80). "
                                  null-note)}}
-      :required [:name :category :distillery :country :region :age_statement
-                 :proof]
+      :required [:name :category :subcategory :distillery :country :region
+                 :age_statement :proof]
       :additionalProperties false}}))
 
 (defn analyze-spirit-label

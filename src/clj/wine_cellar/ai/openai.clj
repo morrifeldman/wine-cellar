@@ -232,13 +232,14 @@
      :properties {:name {:type ["string" "null"]}
                   :category {:type ["string" "null"]
                              :enum (conj (vec categories) nil)}
+                  :subcategory {:type ["string" "null"]}
                   :distillery {:type ["string" "null"]}
                   :country {:type ["string" "null"]}
                   :region {:type ["string" "null"]}
                   :age_statement {:type ["string" "null"]}
                   :proof {:type ["integer" "null"]}}
-     :required [:name :category :distillery :country :region :age_statement
-                :proof]
+     :required [:name :category :subcategory :distillery :country :region
+                :age_statement :proof]
      :additionalProperties false}))
 
 (defn analyze-spirit-label

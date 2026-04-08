@@ -17,13 +17,19 @@
              [form-control-label]]
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.delete :refer [delete]]
+            [reagent-mui.icons.local-bar :refer [local-bar]]
+            [reagent-mui.icons.menu-book :refer [menu-book]]
+            [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
-            [wine-cellar.views.components :refer [search-text-field]]
+            [wine-cellar.views.components :refer
+             [editable-text-field editable-autocomplete-field
+              search-text-field detail-section]]
             [wine-cellar.api :as api]))
 
 (defn- recipe-search-text
   [r]
-  (->> (concat [(:name r) (:source r) (:description r) (:instructions r)]
+  (->> (concat [(:name r) (:source r) (:description r) (:instructions r)
+                (:notes r)]
                (:tags r)
                (map :name (:ingredients r)))
        (filter some?)
@@ -162,44 +168,137 @@
         :sx {:mb 2}} "Add Ingredient"]
       [text-field "Instructions" (:instructions recipe)
        #(update-field! :instructions %) :multiline true :rows 4]
+      [text-field "Notes" (:notes recipe) #(update-field! :notes %)
+       :multiline true :rows 3]
       [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end"}}
        [button {:variant "outlined" :on-click cancel!} "Cancel"]
        [button {:type "submit" :variant "contained" :color "primary"}
         (if editing-id "Save" "Add")]]]]))
 
+(defn- save-field!
+  [app-state recipe field value]
+  (api/update-cocktail-recipe app-state (:id recipe) {field value}))
+
+(defn- ingredients-list
+  [recipe]
+  [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5}}
+   (map-indexed (fn [idx {:keys [amount unit name]}]
+                  ^{:key idx}
+                  [:li
+                   [typography {:variant "body2"}
+                    (str/join " " (filter seq [amount unit name]))]])
+                (:ingredients recipe))])
+
+(defn- tags-editor
+  [_app-state _recipe _all-tags]
+  (let [editing? (r/atom false)]
+    (fn [app-state recipe all-tags]
+      (let [tags (:tags recipe)]
+        (if @editing?
+          [box {:sx {:mt 1}}
+           [editable-autocomplete-field
+            {:value (when (seq tags) tags)
+             :options all-tags
+             :multiple true
+             :free-solo true
+             :force-edit-mode? true
+             :on-save (fn [v]
+                        (-> (save-field! app-state recipe :tags
+                                         (vec (or v [])))
+                            (.then #(reset! editing? false))))
+             :on-cancel #(reset! editing? false)
+             :empty-text ""}]]
+          [box {:sx {:display "flex"
+                     :gap 0.5
+                     :flexWrap "wrap"
+                     :mt 1.25
+                     :alignItems "center"
+                     :cursor "pointer"
+                     :borderRadius 1
+                     :px 0.5
+                     :mx -0.5
+                     :py 0.25
+                     "&:hover" {:bgcolor "action.hover"}}
+                :on-click #(reset! editing? true)}
+           (if (seq tags)
+             (for [tag tags]
+               ^{:key tag}
+               [chip
+                {:label tag
+                 :size "small"
+                 :sx {:bgcolor "rgba(232,195,200,0.10)"
+                      :color "rgba(232,195,200,0.95)"
+                      :border "1px solid rgba(232,195,200,0.25)"
+                      :height 22
+                      :fontSize "0.72rem"
+                      :letterSpacing "0.02em"
+                      :cursor "pointer"}}])
+             [typography
+              {:variant "body2"
+               :sx {:color "text.secondary"
+                    :fontSize "0.78rem"
+                    :fontStyle "italic"}} "+ Add tags"])])))))
+
 (defn- recipe-display
   [app-state recipe]
-  (let [tags (:tags recipe)]
-    [paper
-     {:elevation 2 :sx {:p 2 :mb 2 :borderLeft "4px solid rgba(114,47,55,0.5)"}}
-     [typography {:variant "h6" :sx {:mb 1 :color "primary.main"}}
-      (:name recipe)]
-     (when (:source recipe)
-       [typography {:variant "body2" :sx {:color "text.secondary" :mb 1}}
-        (str "Source: " (:source recipe))])
-     (when (seq tags)
-       [box {:sx {:display "flex" :gap 0.5 :flexWrap "wrap" :mb 1}}
-        (for [tag tags] ^{:key tag} [chip {:label tag :size "small"}])])
-     (when (seq (:description recipe))
-       [typography {:variant "body1" :sx {:mb 1.5 :whiteSpace "pre-wrap"}}
-        (:description recipe)])
-     (when (seq (:ingredients recipe))
-       [:<>
-        [typography {:variant "subtitle2" :sx {:fontWeight 600 :mb 0.5}}
-         "Ingredients"]
-        [box {:component "ul" :sx {:mt 0 :mb 1.5 :pl 2.5}}
-         (map-indexed (fn [idx {:keys [amount unit name]}]
-                        ^{:key idx}
-                        [:li
-                         [typography {:variant "body2"}
-                          (str/join " " (filter seq [amount unit name]))]])
-                      (:ingredients recipe))]])
-     (when (seq (:instructions recipe))
-       [:<>
-        [typography {:variant "subtitle2" :sx {:fontWeight 600 :mb 0.5}}
-         "Instructions"]
-        [typography {:variant "body2" :sx {:mb 1.5 :whiteSpace "pre-wrap"}}
-         (:instructions recipe)]])
+  (let [all-tags (->> (get-in @app-state [:bar :recipes])
+                      (mapcat :tags)
+                      (remove str/blank?)
+                      distinct
+                      sort
+                      vec)]
+    [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
+     ;; Identity row
+     [box {:sx {:mb 2}}
+      [editable-text-field
+       {:value (:name recipe)
+        :on-save #(save-field! app-state recipe :name %)
+        :empty-text "Add name"
+        :inline? true
+        :display-sx
+        {:fontSize "1.35rem" :fontWeight 600 :color "primary.main"}}]
+      [box {:sx {:mt 0.5}}
+       [editable-text-field
+        {:value (:source recipe)
+         :on-save #(save-field! app-state recipe :source %)
+         :empty-text "Add source"
+         :inline? true
+         :display-sx {:color "text.secondary" :fontSize "0.85rem"}}]]
+      [tags-editor app-state recipe all-tags]]
+     ;; Description (inline editable, no section header — sits as the lede)
+     [box {:sx {:mb 1}}
+      [editable-text-field
+       {:value (:description recipe)
+        :on-save #(save-field! app-state recipe :description %)
+        :empty-text "Add a short description..."
+        :text-field-props {:multiline true :rows 2}
+        :display-sx {:fontStyle "italic" :color "text.secondary"}}]]
+     ;; Ingredients section
+     [detail-section
+      {:icon local-bar :label "Ingredients" :color "rgba(139,195,74,0.7)"}
+      (if (seq (:ingredients recipe))
+        [ingredients-list recipe]
+        [typography
+         {:variant "body2"
+          :sx {:color "text.secondary" :fontStyle "italic"}}
+         "No ingredients yet — use Edit to add some."])]
+     ;; Instructions section
+     [detail-section
+      {:icon menu-book :label "Instructions" :color "rgba(100,181,246,0.7)"}
+      [editable-text-field
+       {:value (:instructions recipe)
+        :on-save #(save-field! app-state recipe :instructions %)
+        :empty-text "Add preparation steps..."
+        :text-field-props {:multiline true :rows 3}}]]
+     ;; Notes section
+     [detail-section
+      {:icon notes-icon :label "Notes" :color "rgba(255,213,79,0.7)"}
+      [editable-text-field
+       {:value (:notes recipe)
+        :on-save #(save-field! app-state recipe :notes %)
+        :empty-text "Add tasting notes, tweaks, occasions..."
+        :text-field-props {:multiline true :rows 3}}]]
+     ;; Actions
      [box {:sx {:display "flex" :gap 1 :alignItems "center" :mt 2}}
       [button
        {:variant "outlined"
@@ -210,16 +309,16 @@
        "Delete"] [box {:sx {:flex 1}}]
       [button
        {:variant "outlined"
-        :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
-       "Close"]
-      [button
-       {:variant "contained"
-        :color "primary"
         :on-click
         (fn []
           (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
           (swap! app-state assoc-in [:bar :editing-recipe-id] (:id recipe)))}
-       "Edit"]]]))
+       "Edit Ingredients"]
+      [button
+       {:variant "contained"
+        :color "primary"
+        :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
+       "Done"]]]))
 
 (defn- recipe-card
   [app-state recipe]
@@ -340,9 +439,44 @@
              (str "Save Selected (" (count sel) ")")
              "Save to Recipes")]]]))))
 
+(defn- tag-filter-bar
+  [selected-tags all-tags]
+  [box {:sx {:display "flex"
+             :gap 0.5
+             :flexWrap "wrap"
+             :alignItems "center"
+             :mb 1.5}}
+   (for [tag all-tags]
+     (let [active? (contains? @selected-tags tag)]
+       ^{:key tag}
+       [chip
+        {:label tag
+         :size "small"
+         :clickable true
+         :on-click #(swap! selected-tags
+                      (fn [s] (if (contains? s tag) (disj s tag) (conj s tag))))
+         :sx {:height 24
+              :fontSize "0.72rem"
+              :letterSpacing "0.02em"
+              :bgcolor (if active?
+                         "rgba(232,195,200,0.22)"
+                         "rgba(232,195,200,0.06)")
+              :color "rgba(232,195,200,0.95)"
+              :border (str "1px solid "
+                           (if active?
+                             "rgba(232,195,200,0.6)"
+                             "rgba(232,195,200,0.2)"))
+              "&:hover" {:bgcolor "rgba(232,195,200,0.18)"}}}]))
+   (when (seq @selected-tags)
+     [button
+      {:size "small"
+       :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+       :on-click #(reset! selected-tags #{})} "clear"])])
+
 (defn recipes-tab
   [_app-state]
-  (let [search-text (r/atom "")]
+  (let [search-text (r/atom "")
+        selected-tags (r/atom #{})]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             recipes (:recipes bar)
@@ -350,16 +484,27 @@
             editing-id (:editing-recipe-id bar)
             viewing-id (:viewing-recipe-id bar)
             term (normalize-text @search-text)
-            filtered (if (seq term)
+            all-tags (->> recipes
+                          (mapcat :tags)
+                          (remove str/blank?)
+                          distinct
+                          sort
+                          vec)
+            sel @selected-tags
+            filtered (cond->> recipes
+                       (seq term)
                        (filter #(str/includes? (normalize-text
                                                 (recipe-search-text %))
-                                               term)
-                               recipes)
-                       recipes)]
+                                               term))
+                       (seq sel)
+                       (filter #(every? (set (:tags %)) sel)))]
         [box (when (or show-form? editing-id) [recipe-form app-state])
          (when (and (seq recipes) (not (or show-form? editing-id)))
-           [search-text-field
-            {:search-atom search-text :label "Search recipes"}])
+           [:<>
+            [search-text-field
+             {:search-atom search-text :label "Search recipes"}]
+            (when (seq all-tags)
+              [tag-filter-bar selected-tags all-tags])])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]

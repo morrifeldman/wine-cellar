@@ -176,6 +176,7 @@
     {:type "OBJECT"
      :properties {:name {:type "STRING"}
                   :category {:type "STRING" :enum (vec categories)}
+                  :subcategory {:type "STRING"}
                   :distillery {:type "STRING"}
                   :country {:type "STRING"}
                   :region {:type "STRING"}

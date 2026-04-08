@@ -1514,16 +1514,20 @@
 
 (defn update-cocktail-recipe
   [app-state id recipe]
-  (go (let [result (<! (PUT (str "/api/cocktail-recipes/" id)
-                            recipe
-                            "Failed to update recipe"))]
-        (if (:success result)
-          (do (swap! app-state update-in
-                [:bar :recipes]
-                (fn [recipes]
-                  (mapv #(if (= (:id %) id) (:data result) %) recipes)))
-              (swap! app-state assoc-in [:bar :editing-recipe-id] nil))
-          (swap! app-state assoc-in [:bar :error] (:error result))))))
+  (js/Promise.
+   (fn [resolve reject]
+     (go (let [result (<! (PUT (str "/api/cocktail-recipes/" id)
+                                recipe
+                                "Failed to update recipe"))]
+           (if (:success result)
+             (do (swap! app-state update-in
+                   [:bar :recipes]
+                   (fn [recipes]
+                     (mapv #(if (= (:id %) id) (:data result) %) recipes)))
+                 (swap! app-state assoc-in [:bar :editing-recipe-id] nil)
+                 (resolve (:data result)))
+             (do (swap! app-state assoc-in [:bar :error] (:error result))
+                 (reject (:error result)))))))))
 
 (defn delete-cocktail-recipe
   [app-state id]

@@ -17,7 +17,7 @@
             [wine-cellar.api :as api]
             [wine-cellar.views.components :refer
              [dot-separated-row editable-text-field editable-autocomplete-field
-              search-text-field]]
+              search-text-field section-header]]
             [wine-cellar.views.components.ai-provider-toggle :refer
              [provider-toggle-button]]
             [wine-cellar.views.components.image-upload :refer
@@ -46,23 +46,6 @@
        distinct
        sort
        vec))
-
-(defn- section-header
-  [icon-component label border-color]
-  [box
-   {:sx {:display "flex"
-         :alignItems "center"
-         :mb 1.5
-         :pb 1
-         :borderBottom "1px solid rgba(255,255,255,0.06)"}}
-   [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
-    [icon-component {:fontSize "small"}]]
-   [typography
-    {:variant "overline"
-     :sx {:fontWeight 700
-          :letterSpacing "0.1em"
-          :color "text.secondary"
-          :lineHeight 1}} label]])
 
 (defn- spirit-create-form
   "Scan-first creation: capture label, analyze with AI, create spirit with all fields."
