@@ -14,6 +14,13 @@
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.check :refer [check]]
             [reagent-mui.icons.close :refer [close]]
+            [reagent-mui.icons.filter-vintage :refer [filter-vintage]]
+            [reagent-mui.icons.local-drink :refer [local-drink]]
+            [reagent-mui.icons.sports-bar :refer [sports-bar]]
+            [reagent-mui.icons.opacity :refer [opacity]]
+            [reagent-mui.icons.science :refer [science]]
+            [reagent-mui.icons.local-florist :refer [local-florist]]
+            [reagent-mui.icons.more-horiz :refer [more-horiz]]
             [wine-cellar.api :as api]))
 
 (def category-labels
@@ -27,6 +34,32 @@
 
 (def category-order
   ["fruit" "juice" "soda" "syrup" "bitters" "garnish" "other"])
+
+(def category-meta
+  {"fruit" {:icon filter-vintage :color "rgba(255,152,0,0.7)"}
+   "juice" {:icon local-drink :color "rgba(255,213,79,0.7)"}
+   "soda" {:icon sports-bar :color "rgba(100,181,246,0.7)"}
+   "syrup" {:icon opacity :color "rgba(240,98,146,0.7)"}
+   "bitters" {:icon science :color "rgba(128,203,196,0.7)"}
+   "garnish" {:icon local-florist :color "rgba(139,195,74,0.7)"}
+   "other" {:icon more-horiz :color "rgba(144,164,174,0.7)"}})
+
+(defn- section-header
+  [icon-component label border-color]
+  [box
+   {:sx {:display "flex"
+         :alignItems "center"
+         :mb 1
+         :pb 1
+         :borderBottom "1px solid rgba(255,255,255,0.06)"}}
+   [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
+    [icon-component {:fontSize "small"}]]
+   [typography
+    {:variant "overline"
+     :sx {:fontWeight 700
+          :letterSpacing "0.1em"
+          :color "text.secondary"
+          :lineHeight 1}} label]])
 
 (defn- add-item-form
   [app-state form-data]
@@ -144,16 +177,13 @@
 
 (defn- category-section
   [app-state category items editing-id]
-  (let [label (get category-labels category category)]
-    [box {:sx {:mb 2}}
-     [typography
-      {:variant "subtitle2"
-       :sx {:color "text.secondary"
-            :fontWeight 600
-            :letterSpacing "0.08em"
-            :mb 0.5
-            :textTransform "uppercase"
-            :fontSize "0.72rem"}} label]
+  (let [label (get category-labels category category)
+        {:keys [icon color]} (get category-meta
+                                  category
+                                  {:icon more-horiz
+                                   :color "rgba(144,164,174,0.7)"})]
+    [box {:sx {:mt 3 :borderLeft (str "3px solid " color) :pl 1.5 :pb 1}}
+     [section-header icon label color]
      [box {:sx {:display "flex" :flexWrap "wrap" :gap 0}}
       (for [item items]
         ^{:key (:id item)} [inventory-item app-state item editing-id])]]))
