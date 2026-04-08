@@ -49,6 +49,48 @@
   (boolean (and (exists? js/navigator)
                 (pos? (or (.-maxTouchPoints js/navigator) 0)))))
 
+(defn- dismissable-banner
+  [{:keys [text severity on-dismiss aria-label]}]
+  (let [bg (str severity ".light")
+        fg (str severity ".dark")]
+    [paper
+     {:elevation 3 :sx {:p 2 :mb 3 :bgcolor bg :color fg :position "relative"}}
+     [box {:sx {:display "flex" :alignItems "flex-start"}}
+      [typography {:variant "body1" :sx {:flex 1 :pr 2}} text]
+      [icon-button
+       {:aria-label aria-label
+        :size "small"
+        :onClick on-dismiss
+        :sx {:color fg}} [close {:fontSize "small"}]]]]))
+
+(defn- back-to-wine-list-button
+  []
+  [button {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
+   "Back to Wine List"])
+
+(defn- page-with-back-button
+  [{:keys [title content]}]
+  [:div
+   [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
+    (when title [typography {:variant "h5"} title]) [back-to-wine-list-button]]
+   content])
+
+(defn- regenerate-menu-item
+  [app-state close-menu! {:keys [flag api-fn label running-label noun]}]
+  [menu-item
+   {:disabled (get @app-state flag)
+    :on-click
+    (fn []
+      (close-menu!)
+      (let [filtered-count
+            (count (wine-cellar.utils.filters/filtered-sorted-wines app-state))]
+        (when (js/confirm (str "Regenerate " noun
+                               " for " filtered-count
+                               " currently visible wines? This may take several"
+                               " minutes and will use AI API credits."))
+          (api-fn app-state))))}
+   (if (get @app-state flag) running-label label)])
+
 (defn- job-progress-card
   [state {:keys [flag job-type running-text starting-text]}]
   (let [running? (get state flag)
@@ -170,42 +212,18 @@
           "Mark all wines as unverified? This will require you to verify them individually.")
          (api/mark-all-wines-unverified app-state)))}
     "Mark All Wines Unverified"]
-   [menu-item
-    {:on-click
-     (fn []
-       (close-menu!)
-       (let [filtered-count (count
-                             (wine-cellar.utils.filters/filtered-sorted-wines
-                              app-state))]
-         (when
-           (js/confirm
-            (str
-             "Regenerate drinking windows for "
-             filtered-count
-             " currently visible wines? This may take several minutes and will use AI API credits."))
-           (api/regenerate-filtered-drinking-windows app-state))))
-     :disabled (:regenerating-drinking-windows? @app-state)}
-    (if (:regenerating-drinking-windows? @app-state)
-      "Regenerating Drinking Windows..."
-      "Regenerate Filtered Drinking Windows")]
-   [menu-item
-    {:on-click
-     (fn []
-       (close-menu!)
-       (let [filtered-count (count
-                             (wine-cellar.utils.filters/filtered-sorted-wines
-                              app-state))]
-         (when
-           (js/confirm
-            (str
-             "Regenerate wine summaries for "
-             filtered-count
-             " currently visible wines? This may take several minutes and will use AI API credits."))
-           (api/regenerate-filtered-wine-summaries app-state))))
-     :disabled (:regenerating-wine-summaries? @app-state)}
-    (if (:regenerating-wine-summaries? @app-state)
-      "Regenerating Wine Summaries..."
-      "Regenerate Filtered Wine Summaries")]
+   [regenerate-menu-item app-state close-menu!
+    {:flag :regenerating-drinking-windows?
+     :api-fn api/regenerate-filtered-drinking-windows
+     :noun "drinking windows"
+     :label "Regenerate Filtered Drinking Windows"
+     :running-label "Regenerating Drinking Windows..."}]
+   [regenerate-menu-item app-state close-menu!
+    {:flag :regenerating-wine-summaries?
+     :api-fn api/regenerate-filtered-wine-summaries
+     :noun "wine summaries"
+     :label "Regenerate Filtered Wine Summaries"
+     :running-label "Regenerating Wine Summaries..."}]
    [menu-item
     {:on-click (fn [] (close-menu!) (api/logout)) :sx {:color "secondary.main"}}
     "Logout"]
@@ -382,51 +400,27 @@
             :onClick #(swap! app-state dissoc :update-available)}
            "Remind Me Later"]]]])
      (when-let [error (:error state)]
-       [paper
-        {:elevation 3
-         :sx {:p 2
-              :mb 3
-              :bgcolor "error.light"
-              :color "error.dark"
-              :position "relative"}}
-        [box {:sx {:display "flex" :alignItems "flex-start"}}
-         [typography {:variant "body1" :sx {:flex 1 :pr 2}} error]
-         [icon-button
-          {:aria-label "Dismiss error"
-           :size "small"
-           :onClick #(swap! app-state dissoc :error)
-           :sx {:color "error.dark"}} [close {:fontSize "small"}]]]])
+       [dismissable-banner
+        {:text error
+         :severity "error"
+         :aria-label "Dismiss error"
+         :on-dismiss #(swap! app-state dissoc :error)}])
      (when-let [success (:success state)]
-       [paper
-        {:elevation 3
-         :sx {:p 2
-              :mb 3
-              :bgcolor "success.light"
-              :color "success.dark"
-              :position "relative"}}
-        [box {:sx {:display "flex" :alignItems "flex-start"}}
-         [typography {:variant "body1" :sx {:flex 1 :pr 2}} success]
-         [icon-button
-          {:aria-label "Dismiss success"
-           :size "small"
-           :onClick #(swap! app-state dissoc :success)
-           :sx {:color "success.dark"}} [close {:fontSize "small"}]]]])
-     (when-let [card (job-progress-card
-                      state
-                      {:flag :regenerating-drinking-windows?
-                       :job-type :drinking-window
-                       :running-text "🍷 Regenerating drinking windows..."
-                       :starting-text
-                       "🍷 Starting drinking window regeneration..."})]
-       card)
-     (when-let [card (job-progress-card
-                      state
-                      {:flag :regenerating-wine-summaries?
-                       :job-type :wine-summary
-                       :running-text "📝 Regenerating wine summaries..."
-                       :starting-text
-                       "📝 Starting wine summary regeneration..."})]
-       card)
+       [dismissable-banner
+        {:text success
+         :severity "success"
+         :aria-label "Dismiss success"
+         :on-dismiss #(swap! app-state dissoc :success)}])
+     [job-progress-card state
+      {:flag :regenerating-drinking-windows?
+       :job-type :drinking-window
+       :running-text "🍷 Regenerating drinking windows..."
+       :starting-text "🍷 Starting drinking window regeneration..."}]
+     [job-progress-card state
+      {:flag :regenerating-wine-summaries?
+       :job-type :wine-summary
+       :running-text "📝 Regenerating wine summaries..."
+       :starting-text "📝 Starting wine summary regeneration..."}]
      (cond (= (:view state) :bar) [bar-page app-state]
            (= (:view state) :grape-varieties)
            [:div [grape-varieties-page app-state]
@@ -437,32 +431,16 @@
               :sx {:mt 2}} "Back to Wine List"]]
            (= (:view state) :classifications) [classifications-page app-state]
            (= (:view state) :sensor-readings)
-           [:div
-            [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-             [typography {:variant "h5"} "Sensors"]
-             [button
-              {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
-              "Back to Wine List"]] [sensor-readings-panel app-state]]
-           (= (:view state) :devices)
-           [:div
-            [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-             [typography {:variant "h5"} "Devices"]
-             [button
-              {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
-              "Back to Wine List"]] [devices-page app-state]]
-           (= (:view state) :sql)
-           [:div
-            [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-             [typography {:variant "h5"} "Admin: SQL"]
-             [button
-              {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
-              "Back to Wine List"]] [sql-page]]
+           [page-with-back-button
+            {:title "Sensors" :content [sensor-readings-panel app-state]}]
+           (= (:view state) :devices) [page-with-back-button
+                                       {:title "Devices"
+                                        :content [devices-page app-state]}]
+           (= (:view state) :sql) [page-with-back-button
+                                   {:title "Admin: SQL" :content [sql-page]}]
            (= (:view state) :blind-tastings)
            [:div
-            [box {:sx {:display "flex" :justifyContent "space-between" :mb 2}}
-             [button
-              {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
-              "Back to Wine List"]] [blind-tastings-page app-state]
+            [page-with-back-button {:content [blind-tastings-page app-state]}]
             [blind-tasting-form-dialog app-state]
             [link-blind-tasting-dialog app-state]]
            ;; Wine views

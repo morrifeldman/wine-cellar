@@ -775,6 +775,14 @@
   (let [without (remove #(= (:id %) (:id conversation)) conversations)]
     (sort-conversations (cons conversation without))))
 
+(defn- chat-error!
+  "Handle a failed chat API result: tap, set :chat :error, optional callback."
+  ([app-state tap-label result] (chat-error! app-state tap-label result nil))
+  ([app-state tap-label result callback]
+   (tap> [tap-label (:error result)])
+   (swap! app-state assoc-in [:chat :error] (:error result))
+   (when callback (callback {:success false :error (:error result)}))))
+
 (defn- apply-conversation-update!
   [state conversation]
   (let [chat (:chat state)
@@ -829,13 +837,14 @@
                                                     (keyword (:provider
                                                               active))))
                         (assoc-in [:chat :error] nil))))))
-            (do (tap> ["conversations-load-error" (:error result)])
-                (swap! app-state
-                  (fn [state]
-                    (-> state
-                        (assoc-in [:chat :conversation-loading?] false)
-                        (assoc-in [:chat :conversations-loaded?] true)
-                        (assoc-in [:chat :error] (:error result)))))))))))))
+            (do
+              (swap! app-state (fn [state]
+                                 (-> state
+                                     (assoc-in [:chat :conversation-loading?]
+                                               false)
+                                     (assoc-in [:chat :conversations-loaded?]
+                                               true))))
+              (chat-error! app-state "conversations-load-error" result)))))))))
 
 (defn create-conversation!
   ([app-state payload] (create-conversation! app-state payload nil))
@@ -862,10 +871,7 @@
                   (assoc-in [:chat :conversations-loaded?] true)
                   (assoc-in [:chat :error] nil))))
           (when callback (callback {:success true :conversation conversation})))
-        (do (tap> ["conversation-create-error" (:error result)])
-            (swap! app-state assoc-in [:chat :error] (:error result))
-            (when callback
-              (callback {:success false :error (:error result)}))))))))
+        (chat-error! app-state "conversation-create-error" result callback))))))
 
 (defn rename-conversation!
   ([app-state conversation-id title]
@@ -885,10 +891,10 @@
                (swap! app-state apply-conversation-update! conversation)
                (when callback
                  (callback {:success true :conversation conversation})))
-             (do (tap> ["conversation-rename-error" (:error result)])
-                 (swap! app-state assoc-in [:chat :error] (:error result))
-                 (when callback
-                   (callback {:success false :error (:error result)})))))))))
+             (chat-error! app-state
+                          "conversation-rename-error"
+                          result
+                          callback)))))))
 
 (defn set-conversation-pinned!
   [app-state conversation-id pinned?]
@@ -904,8 +910,7 @@
                      {:id (:id conversation) :pinned (:pinned conversation)}])
               (swap! app-state apply-conversation-update! conversation)
               (load-conversations! app-state {:force? true}))
-            (do (tap> ["conversation-pin-error" (:error result)])
-                (swap! app-state assoc-in [:chat :error] (:error result))))))))
+            (chat-error! app-state "conversation-pin-error" result))))))
 
 (defn update-conversation-provider!
   [app-state conversation-id provider]
@@ -964,8 +969,7 @@
                      base-state))))
              (tap> ["conversation-deleted" conversation-id])
              (load-conversations! app-state {:force? true}))
-         (do (tap> ["conversation-delete-error" (:error result)])
-             (swap! app-state assoc-in [:chat :error] (:error result))))))))
+         (chat-error! app-state "conversation-delete-error" result))))))
 
 (defn append-conversation-message!
   ([app-state conversation-id message]
@@ -991,10 +995,10 @@
             (when callback
               (callback
                {:success true :message message :conversation conversation})))
-          (do (tap> ["conversation-message-save-error" (:error result)])
-              (swap! app-state assoc-in [:chat :error] (:error result))
-              (when callback
-                (callback {:success false :error (:error result)})))))))))
+          (chat-error! app-state
+                       "conversation-message-save-error"
+                       result
+                       callback)))))))
 
 (defn update-conversation-message!
   ([app-state conversation-id message-id message]
@@ -1026,10 +1030,10 @@
               (swap! app-state apply-conversation-update! conversation))
             (swap! app-state assoc-in [:chat :error] nil)
             (when callback (callback {:success true :data data})))
-          (do (tap> ["conversation-message-update-error" (:error result)])
-              (swap! app-state assoc-in [:chat :error] (:error result))
-              (when callback
-                (callback {:success false :error (:error result)})))))))))
+          (chat-error! app-state
+                       "conversation-message-update-error"
+                       result
+                       callback)))))))
 
 (defn fetch-conversation-messages!
   [app-state conversation-id]
@@ -1053,8 +1057,7 @@
                                        js/Date.)})
                  messages))
          (swap! app-state assoc-in [:chat :error] nil))
-       (do (tap> ["conversation-messages-load-error" (:error result)])
-           (swap! app-state assoc-in [:chat :error] (:error result)))))))
+       (chat-error! app-state "conversation-messages-load-error" result)))))
 
 (defn send-chat-message
   "Send a message to the AI chat endpoint with wine IDs and conversation history.

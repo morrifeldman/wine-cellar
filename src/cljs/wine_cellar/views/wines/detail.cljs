@@ -60,20 +60,39 @@
 
 
 
+(defn- numeric-editor
+  [app-state wine field
+   {:keys [validate-fn display-fn parser round? allow-blank? format-fn
+           empty-text text-field-props]
+    :or {parser js/parseFloat}}]
+  [editable-text-field
+   {:value (when-let [v (get wine field)]
+             (if display-fn (display-fn v) (str v)))
+    :on-save (fn [new-value]
+               (let [trimmed (str/trim (or new-value ""))]
+                 (if (str/blank? trimmed)
+                   (when allow-blank?
+                     (api/update-wine app-state (:id wine) {field nil}))
+                   (let [parsed (parser trimmed)]
+                     (when-not (js/isNaN parsed)
+                       (api/update-wine
+                        app-state
+                        (:id wine)
+                        {field (if round? (js/Math.round parsed) parsed)}))))))
+    :validate-fn validate-fn
+    :format-fn format-fn
+    :empty-text empty-text
+    :compact? true
+    :inline? true
+    :text-field-props text-field-props}])
+
 (defn editable-alcohol-percentage
   [app-state wine]
-  [editable-text-field
-   {:value (when-let [percentage (:alcohol_percentage wine)]
-             (gstring/format "%.1f" percentage))
-    :on-save (fn [new-value]
-               (let [parsed-percentage (js/parseFloat new-value)]
-                 (when-not (js/isNaN parsed-percentage)
-                   (api/update-wine app-state
-                                    (:id wine)
-                                    {:alcohol_percentage parsed-percentage}))))
+  [numeric-editor app-state wine :alcohol_percentage
+   {:display-fn #(gstring/format "%.1f" %)
     :validate-fn (fn [value]
                    (let [parsed (js/parseFloat value)]
-                     (cond (str/blank? value) nil ;; Allow empty value
+                     (cond (str/blank? value) nil
                            (js/isNaN parsed)
                            "Alcohol percentage must be a valid number"
                            (< parsed 0) "Alcohol percentage cannot be negative"
@@ -81,8 +100,6 @@
                            :else nil)))
     :format-fn #(str % "% ABV")
     :empty-text "Add ABV"
-    :compact? true
-    :inline? true
     :text-field-props {:type "number"
                        :step "0.1"
                        :InputProps {:endAdornment "%"}
@@ -90,17 +107,10 @@
 
 (defn editable-dosage
   [app-state wine]
-  [editable-text-field
-   {:value (when-let [dosage (:dosage wine)] (str (js/Math.round dosage)))
-    :on-save (fn [new-value]
-               (let [trimmed (str/trim new-value)]
-                 (if (str/blank? trimmed)
-                   (api/update-wine app-state (:id wine) {:dosage nil})
-                   (let [parsed (js/parseFloat trimmed)]
-                     (when-not (js/isNaN parsed)
-                       (api/update-wine app-state
-                                        (:id wine)
-                                        {:dosage (js/Math.round parsed)}))))))
+  [numeric-editor app-state wine :dosage
+   {:display-fn #(str (js/Math.round %))
+    :round? true
+    :allow-blank? true
     :validate-fn (fn [value]
                    (let [trimmed (str/trim (or value ""))]
                      (cond (str/blank? trimmed) nil
@@ -112,24 +122,17 @@
                                      :else nil)))))
     :format-fn #(str "Dosage " % " g/L")
     :empty-text "Add dosage"
-    :compact? true
-    :inline? true
     :text-field-props
     {:type "number" :step "1" :InputProps {:endAdornment "g/L"}}}])
 
 (defn editable-disgorgement-year
   [app-state wine]
-  [editable-text-field
-   {:value (when-let [year (:disgorgement_year wine)] (str year))
-    :on-save (fn [new-value]
-               (let [parsed-year (when-not (str/blank? new-value)
-                                   (js/parseInt new-value 10))]
-                 (api/update-wine app-state
-                                  (:id wine)
-                                  {:disgorgement_year parsed-year})))
+  [numeric-editor app-state wine :disgorgement_year
+   {:parser #(js/parseInt % 10)
+    :allow-blank? true
     :validate-fn (fn [value]
                    (if (str/blank? value)
-                     nil ;; Allow empty value
+                     nil
                      (let [parsed (js/parseInt value 10)]
                        (cond (js/isNaN parsed) "Year must be a valid number"
                              (< parsed 1900) "Year must be 1900 or later"
@@ -138,8 +141,6 @@
                              :else nil))))
     :format-fn #(str "Disgorged in " %)
     :empty-text "Add disgorgement year"
-    :compact? true
-    :inline? true
     :text-field-props
     {:type "number"
      :helperText "Year when the wine was disgorged (for sparkling wines)"}}])
