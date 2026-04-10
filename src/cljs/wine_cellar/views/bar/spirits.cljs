@@ -28,7 +28,7 @@
              [camera-capture]]))
 
 (def spirit-categories
-  ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur" "other"])
+  ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur" "vermouth" "other"])
 
 (def ^:private category-labels
   (into {}
