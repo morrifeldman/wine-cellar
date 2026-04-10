@@ -9,11 +9,14 @@
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.select :refer [select]]
             [reagent-mui.material.menu-item :refer [menu-item]]
+            [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
             [reagent-mui.icons.public :refer [public] :rename {public globe}]
             [reagent-mui.icons.inventory :refer [inventory]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
+            [reagent-mui.icons.keyboard-arrow-up :refer [keyboard-arrow-up]]
+            [reagent-mui.icons.keyboard-arrow-down :refer [keyboard-arrow-down]]
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.api :as api]
             [wine-cellar.views.components :refer
@@ -265,17 +268,27 @@
            {:mt 2 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
           [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
           [dot-separated-row
-           [editable-text-field
-            {:value (when (:quantity spirit) (str (:quantity spirit)))
-             :on-save (fn [v]
-                        (let [parsed (js/parseInt v)]
-                          (api/update-spirit
-                           app-state
-                           (:id spirit)
-                           {:quantity (when-not (js/isNaN parsed) parsed)})))
-             :format-fn #(str "qty: " %)
-             :empty-text "Add qty"
-             :inline? true}]
+           [box {:sx {:display "inline-flex" :alignItems "center" :gap 0.5}}
+            [typography {:variant "body2"} (str (or (:quantity spirit) 1))]
+            [box {:sx {:display "flex" :flexDirection "column" :ml -0.25}}
+             [icon-button
+              {:size "small"
+               :color "inherit"
+               :sx {:p 0}
+               :on-click #(api/update-spirit app-state
+                                             (:id spirit)
+                                             {:quantity
+                                              (inc (or (:quantity spirit) 1))})}
+              [keyboard-arrow-up {:sx {:fontSize 16}}]]
+             [icon-button
+              {:size "small"
+               :color "inherit"
+               :sx {:p 0}
+               :disabled (<= (or (:quantity spirit) 1) 0)
+               :on-click
+               #(let [q (max 0 (dec (or (:quantity spirit) 1)))]
+                  (api/update-spirit app-state (:id spirit) {:quantity q}))}
+              [keyboard-arrow-down {:sx {:fontSize 16}}]]]]
            [editable-text-field
             {:value (when (:price spirit) (str (:price spirit)))
              :on-save (fn [v]
@@ -335,28 +348,34 @@
 
 (defn spirit-card
   [app-state spirit]
-  [paper
-   {:elevation 1
-    :sx {:p 1.5 :mb 1 :cursor "pointer" "&:hover" {:bgcolor "action.hover"}}
-    :on-click
-    #(swap! app-state assoc-in [:bar :editing-spirit-id] (:id spirit))}
-   [typography {:variant "body1" :sx {:fontWeight 600 :lineHeight 1.2}}
-    (->> [(:distillery spirit) (:name spirit) (:category spirit)]
-         (filter seq)
-         (str/join " · "))]
-   [typography
-    {:variant "body2" :sx {:color "text.secondary" :fontSize "0.8rem" :mt 0.25}}
-    (spirit-meta spirit)]
-   (when (and (:notes spirit) (not= (:notes spirit) ""))
+  (let [finished? (zero? (or (:quantity spirit) 1))]
+    [paper
+     {:elevation (if finished? 0 1)
+      :sx {:p 1.5
+           :mb 1
+           :cursor "pointer"
+           :opacity (if finished? 0.45 1)
+           "&:hover" {:bgcolor "action.hover"}}
+      :on-click
+      #(swap! app-state assoc-in [:bar :editing-spirit-id] (:id spirit))}
+     [typography {:variant "body1" :sx {:fontWeight 600 :lineHeight 1.2}}
+      (->> [(:distillery spirit) (:name spirit) (:category spirit)]
+           (filter seq)
+           (str/join " · "))]
      [typography
       {:variant "body2"
-       :sx {:color "text.secondary"
-            :fontSize "0.75rem"
-            :mt 0.5
-            :fontStyle "italic"
-            :overflow "hidden"
-            :textOverflow "ellipsis"
-            :whiteSpace "nowrap"}} (:notes spirit)])])
+       :sx {:color "text.secondary" :fontSize "0.8rem" :mt 0.25}}
+      (spirit-meta spirit)]
+     (when (and (:notes spirit) (not= (:notes spirit) ""))
+       [typography
+        {:variant "body2"
+         :sx {:color "text.secondary"
+              :fontSize "0.75rem"
+              :mt 0.5
+              :fontStyle "italic"
+              :overflow "hidden"
+              :textOverflow "ellipsis"
+              :whiteSpace "nowrap"}} (:notes spirit)])]))
 
 (defn- category-filter-bar
   [selected-categories spirits]
@@ -409,7 +428,8 @@
               (seq term) (filter #(str/includes? (normalize-text
                                                   (spirit-search-text %))
                                                  term))
-              (seq sel-cats) (filter #(contains? sel-cats (:category %))))]
+              (seq sel-cats) (filter #(contains? sel-cats (:category %)))
+              true (sort-by #(if (pos? (or (:quantity %) 1)) 0 1)))]
         [box (when show-form? [spirit-create-form app-state])
          (when (and (seq spirits) (not loading?))
            [:<>
