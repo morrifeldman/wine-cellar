@@ -3,7 +3,6 @@
             [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.checkbox :refer [checkbox]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.text-field :as mui-text-field]
@@ -108,72 +107,94 @@
        :on-click #(do (reset! form-data {}) (close-form!))} "Cancel"]]))
 
 (defn- inventory-item
-  [_app-state _item _editing-id]
+  [_app-state _item _editing-id _cat-color]
   (let [edit-name (r/atom nil)]
-    (fn [app-state item editing-id]
-      (if (= (:id item) @editing-id)
-        [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mb 0.5}}
-         [checkbox
-          {:checked (boolean (:have_it item)) :size "small" :disabled true}]
-         [mui-text-field/text-field
-          {:value (or @edit-name (:name item))
-           :on-change #(reset! edit-name (-> %
-                                             .-target
-                                             .-value))
-           :size "small"
-           :auto-focus true
-           :sx {:flex 1}
-           :on-key-down (fn [e]
-                          (when (= (.-key e) "Enter")
-                            (let [n (str/trim (or @edit-name (:name item)))]
-                              (when (seq n)
-                                (api/update-bar-inventory-item app-state
-                                                               (:id item)
-                                                               {:name n})))
-                            (reset! edit-name nil)
-                            (reset! editing-id nil))
-                          (when (= (.-key e) "Escape")
-                            (reset! edit-name nil)
-                            (reset! editing-id nil)))}]
-         [icon-button
-          {:size "small"
-           :color "primary"
-           :on-click (fn []
-                       (let [n (str/trim (or @edit-name (:name item)))]
-                         (when (seq n)
-                           (api/update-bar-inventory-item app-state
-                                                          (:id item)
-                                                          {:name n})))
-                       (reset! edit-name nil)
-                       (reset! editing-id nil))} [check {:fontSize "small"}]]
-         [icon-button
-          {:size "small"
-           :on-click #(do (reset! edit-name nil) (reset! editing-id nil))}
-          [close {:fontSize "small"}]]]
-        [box {:sx {:display "flex" :alignItems "center" :gap 0}}
-         [checkbox
-          {:checked (boolean (:have_it item))
-           :size "small"
-           :on-change #(api/toggle-bar-inventory-item app-state
-                                                      (:id item)
-                                                      (-> %
-                                                          .-target
-                                                          .-checked))}]
-         [typography
-          {:variant "body2"
-           :on-click #(reset! editing-id (:id item))
-           :sx {:cursor "pointer"
-                :flex 1
-                :fontSize "0.875rem"
-                :color (if (:have_it item) "text.primary" "text.secondary")
-                "&:hover" {:textDecoration "underline"}}} (:name item)]
-         [icon-button
-          {:size "small"
-           :color "error"
-           :on-click #(when (js/confirm (str "Delete \"" (:name item) "\"?"))
-                        (api/delete-bar-inventory-item app-state (:id item)))
-           :sx {:opacity 0.4 "&:hover" {:opacity 1}}}
-          [delete {:sx {:fontSize "0.85rem"}}]]]))))
+    (fn [app-state item editing-id cat-color]
+      (let [have? (boolean (:have_it item))]
+        (if (= (:id item) @editing-id)
+          [box
+           {:sx {:display "flex"
+                 :alignItems "center"
+                 :gap 0.5
+                 :p 1
+                 :borderRadius 2
+                 :border "1px solid rgba(255,255,255,0.15)"
+                 :bgcolor "rgba(255,255,255,0.04)"}}
+           [mui-text-field/text-field
+            {:value (or @edit-name (:name item))
+             :on-change #(reset! edit-name (-> %
+                                               .-target
+                                               .-value))
+             :size "small"
+             :auto-focus true
+             :sx {:flex 1}
+             :on-key-down (fn [e]
+                            (when (= (.-key e) "Enter")
+                              (let [n (str/trim (or @edit-name (:name item)))]
+                                (when (seq n)
+                                  (api/update-bar-inventory-item app-state
+                                                                 (:id item)
+                                                                 {:name n})))
+                              (reset! edit-name nil)
+                              (reset! editing-id nil))
+                            (when (= (.-key e) "Escape")
+                              (reset! edit-name nil)
+                              (reset! editing-id nil)))}]
+           [icon-button
+            {:size "small"
+             :color "primary"
+             :on-click (fn []
+                         (let [n (str/trim (or @edit-name (:name item)))]
+                           (when (seq n)
+                             (api/update-bar-inventory-item app-state
+                                                            (:id item)
+                                                            {:name n})))
+                         (reset! edit-name nil)
+                         (reset! editing-id nil))} [check {:fontSize "small"}]]
+           [icon-button
+            {:size "small"
+             :color "error"
+             :on-click #(do (api/delete-bar-inventory-item app-state (:id item))
+                            (reset! editing-id nil))}
+            [delete {:fontSize "small"}]]
+           [icon-button
+            {:size "small"
+             :on-click #(do (reset! edit-name nil) (reset! editing-id nil))}
+            [close {:fontSize "small"}]]]
+          [box
+           {:on-click
+            #(api/toggle-bar-inventory-item app-state (:id item) (not have?))
+            :on-double-click
+            (fn [e] (.stopPropagation e) (reset! editing-id (:id item)))
+            :sx {:display "inline-flex"
+                 :alignItems "center"
+                 :px 1.5
+                 :py 0.6
+                 :borderRadius 2
+                 :cursor "pointer"
+                 :userSelect "none"
+                 :transition "all 0.15s ease"
+                 :border (if have?
+                           (str "1px solid " cat-color)
+                           "1px solid rgba(255,255,255,0.1)")
+                 :bgcolor (if have?
+                            (str (subs cat-color 0 (- (count cat-color) 4))
+                                 "0.15)")
+                            "transparent")
+                 "&:hover"
+                 {:bgcolor (if have?
+                             (str (subs cat-color 0 (- (count cat-color) 4))
+                                  "0.25)")
+                             "rgba(255,255,255,0.05)")
+                  :borderColor (if have? cat-color "rgba(255,255,255,0.2)")}
+                 "&:active" {:transform "scale(0.96)"}}}
+           [typography
+            {:variant "body2"
+             :sx {:fontSize "0.85rem"
+                  :fontWeight (if have? 500 400)
+                  :color (if have? "text.primary" "text.secondary")
+                  :opacity (if have? 1 0.6)}} (:name item)]])))))
+
 
 (defn- category-section
   [app-state category items editing-id]
@@ -184,9 +205,9 @@
                                    :color "rgba(144,164,174,0.7)"})]
     [box {:sx {:mt 3 :borderLeft (str "3px solid " color) :pl 1.5 :pb 1}}
      [section-header icon label color]
-     [box {:sx {:display "flex" :flexWrap "wrap" :gap 0}}
+     [box {:sx {:display "flex" :flexWrap "wrap" :gap 1}}
       (for [item items]
-        ^{:key (:id item)} [inventory-item app-state item editing-id])]]))
+        ^{:key (:id item)} [inventory-item app-state item editing-id color])]]))
 
 (defn inventory-tab
   [app-state]

@@ -155,8 +155,9 @@
             :white-space "pre-wrap"
             :border-radius 2
             :position "relative"} ; Map literal.
-       :on-click #(on-edit id text)} ; This is a function literal, not a
-                                     ; string.
+       :on-click (fn [_]
+                   (when (string/blank? (.toString (.getSelection js/window)))
+                     (on-edit id text)))}
       [typography ; Vector literal.
        {:variant "body2"
         :sx {:color "inherit"
