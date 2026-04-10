@@ -6,6 +6,7 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.chip :refer [chip]]
+            [reagent-mui.material.divider :refer [divider]]
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.select :refer [select]]
             [reagent-mui.material.menu-item :refer [menu-item]]
@@ -28,12 +29,25 @@
              [camera-capture]]))
 
 (def spirit-categories
-  ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur" "vermouth" "other"])
+  ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur"
+   "vermouth" "other"])
 
 (def ^:private category-labels
   (into {}
         (map (fn [c] [c (str (str/upper-case (subs c 0 1)) (subs c 1))])
              spirit-categories)))
+
+(def ^:private category-colors
+  {"whiskey" {:base "180,120,60" :text "#e8c890"}
+   "gin" {:base "120,180,120" :text "#b0d8b0"}
+   "rum" {:base "200,140,80" :text "#e8c090"}
+   "vodka" {:base "160,180,200" :text "#c8d8e8"}
+   "tequila" {:base "180,200,100" :text "#d0e080"}
+   "mezcal" {:base "160,180,80" :text "#c0d070"}
+   "brandy" {:base "180,100,80" :text "#d8a080"}
+   "liqueur" {:base "200,120,160" :text "#e8a0c0"}
+   "vermouth" {:base "200,180,80" :text "#e8d070"}
+   "other" {:base "160,160,160" :text "#c0c0c0"}})
 
 (defn- spirit-search-text
   [s]
@@ -385,7 +399,9 @@
      {:sx
       {:display "flex" :gap 0.5 :flexWrap "wrap" :alignItems "center" :mb 1.5}}
      (for [cat cats]
-       (let [active? (contains? @selected-categories cat)]
+       (let [active? (contains? @selected-categories cat)
+             {:keys [base text]}
+             (get category-colors cat {:base "160,160,160" :text "#c0c0c0"})]
          ^{:key cat}
          [chip
           {:label (get category-labels cat cat)
@@ -397,24 +413,81 @@
            :sx {:height 24
                 :fontSize "0.72rem"
                 :letterSpacing "0.02em"
-                :bgcolor
-                (if active? "rgba(232,195,200,0.22)" "rgba(232,195,200,0.06)")
-                :color "rgba(232,195,200,0.95)"
-                :border (str "1px solid "
-                             (if active?
-                               "rgba(232,195,200,0.6)"
-                               "rgba(232,195,200,0.2)"))
-                "&:hover" {:bgcolor "rgba(232,195,200,0.18)"}}}]))
+                :bgcolor (str "rgba(" base "," (if active? "0.22" "0.06") ")")
+                :color text
+                :border
+                (str "1px solid rgba(" base "," (if active? "0.6" "0.2") ")")
+                "&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}]))
      (when (seq @selected-categories)
        [button
         {:size "small"
          :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
          :on-click #(reset! selected-categories #{})} "clear"])]))
 
+(defn- subcategory-filter-bar
+  [selected-subcategories spirits]
+  (let [cat-order (into {} (map-indexed (fn [i c] [c i]) spirit-categories))
+        subcat-pairs (->> spirits
+                          (filter #(not (str/blank? (:subcategory %))))
+                          (map (fn [s]
+                                 {:subcat (:subcategory s) :cat (:category s)}))
+                          distinct)
+        sorted-pairs (sort-by (fn [{:keys [cat subcat]}] [(get cat-order cat 99)
+                                                          subcat])
+                              subcat-pairs)]
+    (when (seq sorted-pairs)
+      [:<> [divider {:sx {:mb 1 :borderColor "rgba(232,195,200,0.35)"}}]
+       [box
+        {:sx {:display "flex"
+              :gap 0.5
+              :flexWrap "wrap"
+              :alignItems "center"
+              :mb 1.5
+              :ml 1}}
+        (let [indexed (map-indexed vector sorted-pairs)]
+          (for [[i {:keys [subcat cat]}] indexed]
+            (let [active? (contains? @selected-subcategories subcat)
+                  {:keys [base text]} (get category-colors
+                                           cat
+                                           {:base "160,160,160"
+                                            :text "#c0c0c0"})
+                  prev-cat (when (pos? i) (:cat (nth sorted-pairs (dec i))))]
+              ^{:key subcat}
+              [:<>
+               (when (and prev-cat (not= prev-cat cat))
+                 [divider
+                  {:orientation "vertical"
+                   :flexItem true
+                   :sx {:mx 0.5 :borderColor "rgba(232,195,200,0.5)"}}])
+               [chip
+                {:label subcat
+                 :size "small"
+                 :clickable true
+                 :on-click
+                 #(swap! selected-subcategories (fn [s]
+                                                  (if (contains? s subcat)
+                                                    (disj s subcat)
+                                                    (conj s subcat))))
+                 :sx
+                 {:height 22
+                  :fontSize "0.7rem"
+                  :letterSpacing "0.02em"
+                  :bgcolor (str "rgba(" base "," (if active? "0.22" "0.06") ")")
+                  :color text
+                  :border
+                  (str "1px solid rgba(" base "," (if active? "0.6" "0.2") ")")
+                  "&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}]])))
+        (when (seq @selected-subcategories)
+          [button
+           {:size "small"
+            :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+            :on-click #(reset! selected-subcategories #{})} "clear"])]])))
+
 (defn spirits-tab
   [_app-state]
   (let [search-text (r/atom "")
-        selected-categories (r/atom #{})]
+        selected-categories (r/atom #{})
+        selected-subcategories (r/atom #{})]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             spirits (:spirits bar)
@@ -423,19 +496,25 @@
             loading? (:loading? bar)
             term (normalize-text @search-text)
             sel-cats @selected-categories
-            filtered
+            sel-subcats @selected-subcategories
+            cat-filtered
             (cond->> spirits
               (seq term) (filter #(str/includes? (normalize-text
                                                   (spirit-search-text %))
                                                  term))
-              (seq sel-cats) (filter #(contains? sel-cats (:category %)))
-              true (sort-by #(if (pos? (or (:quantity %) 1)) 0 1)))]
+              (seq sel-cats) (filter #(contains? sel-cats (:category %))))
+            filtered (cond->> cat-filtered
+                       (seq sel-subcats) (filter #(contains? sel-subcats
+                                                             (:subcategory %)))
+                       true (sort-by #(if (pos? (or (:quantity %) 1)) 0 1)))]
         [box (when show-form? [spirit-create-form app-state])
          (when (and (seq spirits) (not loading?))
            [:<>
             [search-text-field
              {:search-atom search-text :label "Search spirits"}]
-            [category-filter-bar selected-categories spirits]])
+            [category-filter-bar selected-categories spirits]
+            (when (seq sel-cats)
+              [subcategory-filter-bar selected-subcategories cat-filtered])])
          (if loading?
            [box {:sx {:display "flex" :justifyContent "center" :py 4}}
             [circular-progress {:color "primary"}]]

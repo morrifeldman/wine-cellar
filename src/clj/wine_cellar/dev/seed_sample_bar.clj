@@ -9,6 +9,7 @@
 (def sample-spirits
   [{:name "Hendrick's Gin"
     :category "gin"
+    :subcategory "London Dry"
     :distillery "William Grant & Sons"
     :country "Scotland"
     :proof 83
@@ -16,18 +17,76 @@
     :price 38.00M}
    {:name "Campari"
     :category "liqueur"
+    :subcategory "Bitter"
     :distillery "Campari Group"
     :country "Italy"
     :proof 48
     :quantity 1
     :price 32.00M}
    {:name "Carpano Antica Formula"
-    :category "other"
+    :category "vermouth"
+    :subcategory "Sweet"
     :distillery "Fratelli Branca"
     :country "Italy"
     :proof 33
     :quantity 1
-    :price 28.00M}])
+    :price 28.00M}
+   {:name "Dolin Dry"
+    :category "vermouth"
+    :subcategory "Dry"
+    :distillery "Dolin"
+    :country "France"
+    :proof 36
+    :quantity 1
+    :price 15.00M}
+   {:name "Cocchi Americano"
+    :category "vermouth"
+    :subcategory "Bianco"
+    :distillery "Cocchi"
+    :country "Italy"
+    :proof 33
+    :quantity 1
+    :price 22.00M}
+   {:name "Appleton Estate 12 Year"
+    :category "rum"
+    :subcategory "Aged"
+    :distillery "Appleton Estate"
+    :country "Jamaica"
+    :proof 86
+    :quantity 1
+    :price 35.00M}
+   {:name "Plantation OFTD"
+    :category "rum"
+    :subcategory "Overproof"
+    :distillery "Plantation"
+    :country "Barbados"
+    :proof 138
+    :quantity 1
+    :price 28.00M}
+   {:name "Clément VSOP"
+    :category "rum"
+    :subcategory "Rhum Agricole"
+    :distillery "Habitation Clément"
+    :country "Martinique"
+    :proof 80
+    :quantity 1
+    :price 40.00M}
+   {:name "Pernod Absinthe"
+    :category "other"
+    :subcategory "Absinthe"
+    :distillery "Pernod"
+    :country "France"
+    :proof 136
+    :quantity 1
+    :price 45.00M}
+   {:name "Nardini Grappa"
+    :category "brandy"
+    :subcategory "Grappa"
+    :distillery "Nardini"
+    :country "Italy"
+    :proof 100
+    :quantity 1
+    :price 35.00M}])
 
 (def negroni-recipe
   {:name "Negroni"
