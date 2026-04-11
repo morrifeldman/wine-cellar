@@ -332,13 +332,11 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
         status_len = snprintf(line_network, sizeof(line_network), "%s ", esp_err_to_name(status->post_err));
     }
 
-    if (status_len < 0 || status_len >= (int)sizeof(line_network)) {
-        status_len = sizeof(line_network) - 1;
-    }
-
     const char *ip = status->ip_address[0] ? status->ip_address : "0.0.0.0";
 
-    snprintf(line_network + status_len, sizeof(line_network) - status_len, "%s", ip);
+    if (status_len >= 0 && status_len < (int)sizeof(line_network)) {
+        snprintf(line_network + status_len, sizeof(line_network) - status_len, "%s", ip);
+    }
 
     if (status->status_line[0]) {
         snprintf(line_status, sizeof(line_status), "%s", status->status_line);
