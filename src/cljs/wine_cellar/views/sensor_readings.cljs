@@ -170,7 +170,9 @@
         decimals (or decimals 1)
         chart-data (->> data
                         (map (fn [row]
-                               (cond-> row
+                               (cond-> (assoc row :bucket_ts
+                                              (.getTime (js/Date.
+                                                         (:bucket_start row))))
                                  (some? (metric row)) (update metric
                                                               convert-value))))
                         vec)
@@ -188,7 +190,10 @@
       [:> CartesianGrid
        {:strokeDasharray "3 3" :stroke "rgba(255,255,255,0.12)"}]
       [:> XAxis
-       {:dataKey "bucket_start"
+       {:dataKey "bucket_ts"
+        :type "number"
+        :scale "time"
+        :domain #js ["dataMin" "dataMax"]
         :tick {:fill "#f4f0eb"}
         :axisLine {:stroke "#f4f0eb"}
         :tickFormatter (fn [value]
@@ -308,7 +313,9 @@
                                   (if (some? v)
                                     (assoc r (str "temp_" sk) (fahrenheit v))
                                     r)))
-                              (select-keys row [:bucket_start :device_id])
+                              (assoc (select-keys row [:bucket_start :device_id])
+                                     :bucket_ts
+                                     (.getTime (js/Date. (:bucket_start row))))
                               sensor-keys))))
              vec)]
     [:> ResponsiveContainer {:width "100%" :height 280}
@@ -317,7 +324,10 @@
       [:> CartesianGrid
        {:strokeDasharray "3 3" :stroke "rgba(255,255,255,0.12)"}]
       [:> XAxis
-       {:dataKey "bucket_start"
+       {:dataKey "bucket_ts"
+        :type "number"
+        :scale "time"
+        :domain #js ["dataMin" "dataMax"]
         :tick {:fill "#f4f0eb"}
         :axisLine {:stroke "#f4f0eb"}
         :tickFormatter (fn [value]
