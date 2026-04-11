@@ -15,6 +15,7 @@
 #include "esp_netif_sntp.h"
 #include "esp_sntp.h"
 #include "esp_system.h"
+#include "esp_task_wdt.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -70,7 +71,8 @@
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
-#define WIFI_MAXIMUM_RETRY 5
+#define WIFI_STARTUP_MAX_RETRY 5
+#define MAX_CONSECUTIVE_POST_FAILURES 20
 #ifndef POST_INTERVAL_MS
 #define POST_INTERVAL_MS (30 * 1000)
 #endif
@@ -78,6 +80,7 @@
 static const char *TAG = "sentinel";
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
+static bool s_wifi_ever_connected = false;
 
 // i2c_bus handle (wrapper)
 static i2c_bus_handle_t s_i2c_bus_handle = NULL;
@@ -180,11 +183,10 @@ static void wifi_event_handler(void *arg,
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (s_retry_num < WIFI_MAXIMUM_RETRY) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGW(TAG, "Retrying Wi-Fi connection (%d/%d)", s_retry_num, WIFI_MAXIMUM_RETRY);
-        } else {
+        esp_wifi_connect();
+        s_retry_num++;
+        ESP_LOGW(TAG, "Wi-Fi disconnected, reconnecting (attempt %d)", s_retry_num);
+        if (!s_wifi_ever_connected && s_retry_num >= WIFI_STARTUP_MAX_RETRY) {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
@@ -192,6 +194,7 @@ static void wifi_event_handler(void *arg,
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
         esp_ip4addr_ntoa(&event->ip_info.ip, s_ip_str, sizeof(s_ip_str));
         s_retry_num = 0;
+        s_wifi_ever_connected = true;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
@@ -239,9 +242,12 @@ static void wifi_init_sta(void) {
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "Connected to SSID:%s", WIFI_SSID);
     } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGE(TAG, "Failed to connect to SSID:%s", WIFI_SSID);
+        ESP_LOGE(TAG, "Failed to connect to SSID:%s; rebooting in 30s", WIFI_SSID);
+        vTaskDelay(pdMS_TO_TICKS(30000));
+        esp_restart();
     } else {
-        ESP_LOGE(TAG, "Unexpected event while waiting for Wi-Fi");
+        ESP_LOGE(TAG, "Unexpected event while waiting for Wi-Fi; rebooting");
+        esp_restart();
     }
 }
 
@@ -634,14 +640,26 @@ void app_main(void) {
     // Allow sensors to settle
     vTaskDelay(pdMS_TO_TICKS(2000));
 
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+
+    int consecutive_failures = 0;
     while (true) {
+        esp_task_wdt_reset();
         esp_err_t err = post_sensor_reading();
         if (err == ESP_ERR_NOT_ALLOWED) {
             ESP_LOGW(TAG, "Auth rejected, retrying claim immediately");
-            vTaskDelay(pdMS_TO_TICKS(2000));  // Brief pause before re-claim
+            vTaskDelay(pdMS_TO_TICKS(2000));
         } else {
             if (err != ESP_OK) {
-                ESP_LOGW(TAG, "Telemetry send failed, will retry after delay");
+                consecutive_failures++;
+                ESP_LOGW(TAG, "Telemetry send failed (%d/%d)",
+                         consecutive_failures, MAX_CONSECUTIVE_POST_FAILURES);
+                if (consecutive_failures >= MAX_CONSECUTIVE_POST_FAILURES) {
+                    ESP_LOGE(TAG, "Too many consecutive failures; rebooting");
+                    esp_restart();
+                }
+            } else {
+                consecutive_failures = 0;
             }
             vTaskDelay(pdMS_TO_TICKS(POST_INTERVAL_MS));
         }
