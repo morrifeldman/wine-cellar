@@ -261,10 +261,9 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
 
     char line_temp[32];
     char line_label[32];
-    char line_ip[32];
+    char line_network[32];
     char line_mid[32]; // Pressure or Humidity
     char line_lux[32];
-    char line_post[32];
     char line_status[32] = {0};
 
     // Page mapping: each temperature sensor gets 2 pages (pressure, humidity)
@@ -325,20 +324,26 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
         line_lux[0] = '\0';
     }
 
-    const char *ip = status->ip_address[0] ? status->ip_address : "0.0.0.0";
-    snprintf(line_ip, sizeof(line_ip), "IP %s", ip);
+    int status_len;
 
     if (status->post_err == ESP_OK) {
-        snprintf(line_post, sizeof(line_post), "POST %d", status->http_status);
+        status_len = snprintf(line_network, sizeof(line_network), "%d ", status->http_status);
     } else {
-        snprintf(line_post, sizeof(line_post), "POST %s", esp_err_to_name(status->post_err));
+        status_len = snprintf(line_network, sizeof(line_network), "%s ", esp_err_to_name(status->post_err));
     }
+
+    if (status_len < 0 || status_len >= (int)sizeof(line_network)) {
+        status_len = sizeof(line_network) - 1;
+    }
+
+    const char *ip = status->ip_address[0] ? status->ip_address : "0.0.0.0";
+
+    snprintf(line_network + status_len, sizeof(line_network) - status_len, "%s", ip);
 
     if (status->status_line[0]) {
         snprintf(line_status, sizeof(line_status), "%s", status->status_line);
         draw_text_scaled(0, 0, line_status, 2, false);
-        draw_text_line(6, line_ip, false);
-        draw_text_line(7, line_post, false);
+        draw_text_line(7, line_network, false);
     } else {
         // Row 0-1 (pages 0-1): Temperature (2x scale = 14px)
         draw_text_scaled(0, 0, line_temp, 2, false);
@@ -348,12 +353,10 @@ static void render_status_page(const cellar_display_status_t *status, int page) 
         }
         // Row 3-4 (pages 3-4): Pressure or Humidity (2x scale)
         draw_text_scaled(0, 24, line_mid, 2, false);
-        // Row 5: Lux (1x)
-        draw_text_line(5, line_lux, false);
-        // Row 6: IP
-        draw_text_line(6, line_ip, false);
-        // Row 7: POST status
-        draw_text_line(7, line_post, false);
+        // Row 5-6: Lux (1x)
+        draw_text_scaled(0, 40, line_lux, 2, false);
+        // Row 7: Networking
+        draw_text_line(7, line_network, false);
     }
     flush_display();
 }
