@@ -168,14 +168,14 @@
                             js/Number
                             convert))
         decimals (or decimals 1)
-        chart-data (->> data
-                        (map (fn [row]
-                               (cond-> (assoc row :bucket_ts
-                                              (.getTime (js/Date.
-                                                         (:bucket_start row))))
-                                 (some? (metric row)) (update metric
-                                                              convert-value))))
-                        vec)
+        chart-data
+        (->> data
+             (map (fn [row]
+                    (cond-> (assoc row
+                                   :bucket_ts
+                                   (.getTime (js/Date. (:bucket_start row))))
+                      (some? (metric row)) (update metric convert-value))))
+             vec)
         devices (->> chart-data
                      (map :device_id)
                      (remove nil?)
@@ -307,30 +307,26 @@
         palette ["#8be9fd" "#ff79c6" "#f1fa8c" "#50fa7b" "#ffb86c" "#bd93f9"
                  "#ff5555" "#9aedfe"]
         multi-device? (> (count (distinct (map first pairs))) 1)
-        line-name (fn [device sk]
-                    (let [label (sensor-label
-                                 (get device-sensor-configs device) sk)]
-                      (if multi-device?
-                        (str (abbreviate-rom device) " · " label)
-                        label)))
+        line-name
+        (fn [device sk]
+          (let [label (sensor-label (get device-sensor-configs device) sk)]
+            (if multi-device? (str (abbreviate-rom device) " · " label) label)))
         chart-data
         (->> series
              (map (fn [row]
                     (let [temps (:avg_temperatures row)
                           device (:device_id row)
-                          base (assoc (select-keys row
-                                                   [:bucket_start :device_id])
-                                      :bucket_ts
-                                      (.getTime (js/Date.
-                                                 (:bucket_start row))))]
-                      (reduce-kv (fn [r sk v]
-                                   (if (some? v)
-                                     (assoc r
-                                       (pair-key device (name sk))
-                                       (fahrenheit v))
-                                     r))
-                                 base
-                                 temps))))
+                          base (assoc
+                                (select-keys row [:bucket_start :device_id])
+                                :bucket_ts
+                                (.getTime (js/Date. (:bucket_start row))))]
+                      (reduce-kv
+                       (fn [r sk v]
+                         (if (some? v)
+                           (assoc r (pair-key device (name sk)) (fahrenheit v))
+                           r))
+                       base
+                       temps))))
              vec)]
     [:> ResponsiveContainer {:width "100%" :height 280}
      [:> LineChart
@@ -378,8 +374,7 @@
   [paper {:elevation 3 :sx {:p 2}}
    [stack {:direction "column" :spacing 2}
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Temperature (°F)"]
-    [temp-chart {:series series
-                 :device-sensor-configs device-sensor-configs}]
+    [temp-chart {:series series :device-sensor-configs device-sensor-configs}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Humidity"]
     [chart {:data series :metric :avg_humidity_pct :unit "%" :autoscale? true}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Pressure (inHg)"]
