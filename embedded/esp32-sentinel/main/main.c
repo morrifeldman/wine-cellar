@@ -640,6 +640,12 @@ void app_main(void) {
     // Allow sensors to settle
     vTaskDelay(pdMS_TO_TICKS(2000));
 
+    esp_task_wdt_config_t wdt_cfg = {
+        .timeout_ms = 900 * 1000,
+        .idle_core_mask = 0,
+        .trigger_panic = true,
+    };
+    ESP_ERROR_CHECK(esp_task_wdt_init(&wdt_cfg));
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
 
     int consecutive_failures = 0;
