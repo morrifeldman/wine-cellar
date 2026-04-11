@@ -287,36 +287,50 @@
      ^{:key (str (:device_id reading) (:measured_at reading))}
      [latest-card reading (get device-sensor-configs (:device_id reading))])])
 
-(defn- collect-sensor-keys
-  "Gather all distinct sensor keys from avg_temperatures across all series rows."
+(defn- collect-device-sensor-pairs
+  "Distinct [device_id sensor_key] pairs across all series rows."
   [series]
   (->> series
-       (mapcat #(keys (:avg_temperatures %)))
-       (map name)
+       (mapcat (fn [row]
+                 (for [sk (keys (:avg_temperatures row))]
+                   [(:device_id row) (name sk)])))
        distinct
-       sort
+       (sort-by (fn [[d s]] [(str d) s]))
        vec))
 
+(defn- pair-key [device sk] (str "temp_" device "_" sk))
+
 (defn- temp-chart
-  "Temperature chart with one line per sensor address (across all devices)."
-  [{:keys [series sensor-config]}]
-  (let [sensor-keys (collect-sensor-keys series)
+  "Temperature chart with one line per (device, sensor) pair."
+  [{:keys [series device-sensor-configs]}]
+  (let [pairs (collect-device-sensor-pairs series)
         palette ["#8be9fd" "#ff79c6" "#f1fa8c" "#50fa7b" "#ffb86c" "#bd93f9"
                  "#ff5555" "#9aedfe"]
-        ;; Flatten avg_temperatures into top-level keys like "temp_ADDR"
+        multi-device? (> (count (distinct (map first pairs))) 1)
+        line-name (fn [device sk]
+                    (let [label (sensor-label
+                                 (get device-sensor-configs device) sk)]
+                      (if multi-device?
+                        (str (abbreviate-rom device) " · " label)
+                        label)))
         chart-data
         (->> series
              (map (fn [row]
-                    (let [temps (:avg_temperatures row)]
-                      (reduce (fn [r sk]
-                                (let [v (get temps (keyword sk))]
-                                  (if (some? v)
-                                    (assoc r (str "temp_" sk) (fahrenheit v))
-                                    r)))
-                              (assoc (select-keys row [:bucket_start :device_id])
-                                     :bucket_ts
-                                     (.getTime (js/Date. (:bucket_start row))))
-                              sensor-keys))))
+                    (let [temps (:avg_temperatures row)
+                          device (:device_id row)
+                          base (assoc (select-keys row
+                                                   [:bucket_start :device_id])
+                                      :bucket_ts
+                                      (.getTime (js/Date.
+                                                 (:bucket_start row))))]
+                      (reduce-kv (fn [r sk v]
+                                   (if (some? v)
+                                     (assoc r
+                                       (pair-key device (name sk))
+                                       (fahrenheit v))
+                                     r))
+                                 base
+                                 temps))))
              vec)]
     [:> ResponsiveContainer {:width "100%" :height 280}
      [:> LineChart
@@ -348,23 +362,24 @@
         :itemStyle #js {:color "#f4f0eb"}
         :labelFormatter (fn [value] (or (format-bucket-ts value) value))}]
       [:> Legend {:wrapperStyle #js {:color "#f4f0eb"}}]
-      (for [[idx sk] (map-indexed vector sensor-keys)]
-        ^{:key sk}
+      (for [[idx [device sk]] (map-indexed vector pairs)]
+        ^{:key (str device "_" sk)}
         [:> Line
          {:type "monotone"
-          :dataKey (str "temp_" sk)
-          :name (sensor-label sensor-config sk)
+          :dataKey (pair-key device sk)
+          :name (line-name device sk)
           :stroke (nth palette (mod idx (count palette)))
           :dot false
           :connectNulls true
           :isAnimationActive false}])]]))
 
 (defn- charts-panel
-  [series sensor-config]
+  [series device-sensor-configs]
   [paper {:elevation 3 :sx {:p 2}}
    [stack {:direction "column" :spacing 2}
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Temperature (°F)"]
-    [temp-chart {:series series :sensor-config sensor-config}]
+    [temp-chart {:series series
+                 :device-sensor-configs device-sensor-configs}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Humidity"]
     [chart {:data series :metric :avg_humidity_pct :unit "%" :autoscale? true}]
     [typography {:variant "h6" :sx {:color "#f4f0eb"}} "Pressure (inHg)"]
@@ -392,11 +407,6 @@
               :when sensor_config]
           [device_id sensor_config])))
 
-(defn- merged-sensor-config
-  "Merge all device sensor_configs into a single lookup map for chart labels."
-  [devices-list]
-  (reduce merge {} (map :sensor_config (filter :sensor_config devices-list))))
-
 (defn sensor-readings-panel
   [app-state]
   (let [state (:sensor-readings @app-state)
@@ -405,13 +415,12 @@
         devices (device-options latest)
         devices-list (or (:devices/list @app-state) [])
         dev-sensor-cfgs (device-sensor-configs devices-list)
-        all-sensor-cfg (merged-sensor-config devices-list)
         loading? (or (:loading-latest? state) (:loading-series? state))]
     (r/with-let
      [_ (do (load-sensor-data! app-state) (api/fetch-devices app-state))]
      [box {:sx {:display "flex" :flexDirection "column" :gap 2}}
       [filters-row app-state state devices loading?]
       (when (seq latest) [latest-grid latest dev-sensor-cfgs])
-      (when (seq series) [charts-panel series all-sensor-cfg])
+      (when (seq series) [charts-panel series dev-sensor-cfgs])
       (when (and (empty? latest) (empty? series) (not loading?))
         [empty-state])])))
