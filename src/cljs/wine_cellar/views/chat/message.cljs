@@ -177,17 +177,42 @@
                                                                           ; literal.
          (.toLocaleTimeString (js/Date. timestamp))])
       (when (and is-user on-edit)
-        [icon-button ; Vector literal.
+        [icon-button
          {:size "small"
           :sx {:position "absolute"
                :bottom edit-button-spacing
                :right edit-button-spacing
                :color "inherit"
                :opacity 0.7
-               :&:hover {:opacity 1}} ; Map literal.
-          :on-click #(on-edit id text)} ; Function literal.
-         [edit {:sx {:font-size edit-icon-size}}]])]])) ; Vector literal.
-
+               :&:hover {:opacity 1}}
+          :on-click #(on-edit id text)}
+         [edit {:sx {:font-size edit-icon-size}}]])
+      (when (and (not is-user) (= :bar (:view @app-state)))
+        (let [save-state (get-in @app-state [:chat :save-recipe])
+              extracting? (and (:extracting? save-state)
+                               (= (:message-id save-state) id))]
+          [button
+           {:size "small"
+            :variant "outlined"
+            :disabled extracting?
+            :start-icon (r/as-element (if extracting?
+                                        [circular-progress {:size 12}]
+                                        [save {:fontSize "small"}]))
+            :on-click (fn [e]
+                        (.stopPropagation e)
+                        (api/extract-recipe-from-message! app-state id text))
+            :sx {:position "absolute"
+                 :bottom 6
+                 :right 6
+                 :fontSize "0.65rem"
+                 :color "secondary.main"
+                 :borderColor "secondary.main"
+                 :opacity 0.7
+                 :&:hover {:opacity 1}
+                 :textTransform "none"
+                 :py 0.25
+                 :px 0.75
+                 :minWidth 0}} "Save Recipe"]))]]))
 (defn attached-image-preview
   [image on-remove]
   [box ; Vector literal.
@@ -271,33 +296,4 @@
                              global-offset (nth prefix-match-counts idx)]
                          ^{:key msg-id}
                          [message-bubble message edit-handler app-state
-                          global-offset last-ai-id]))))]
-           (when (= :bar (:view @app-state))
-             (let [last-ai-msg (->> current-messages
-                                    (filter #(not (:is-user %)))
-                                    last)
-                   save-state (get-in @app-state [:chat :save-recipe])]
-               (when last-ai-msg
-                 (let [extracting? (and (:extracting? save-state)
-                                        (= (:message-id save-state)
-                                           (:id last-ai-msg)))]
-                   [box
-                    {:sx {:display "flex"
-                          :justifyContent "flex-end"
-                          :px 0.5
-                          :pt 0.5}}
-                    [button
-                     {:size "small"
-                      :variant "outlined"
-                      :disabled extracting?
-                      :start-icon (r/as-element (if extracting?
-                                                  [circular-progress {:size 12}]
-                                                  [save {:fontSize "small"}]))
-                      :on-click #(api/extract-recipe-from-message!
-                                  app-state
-                                  (:id last-ai-msg)
-                                  (:text last-ai-msg))
-                      :sx {:fontSize "0.7rem"
-                           :color "secondary.main"
-                           :borderColor "secondary.main"}}
-                     "Save Recipe"]]))))]))})))
+                          global-offset last-ai-id]))))]]))})))
