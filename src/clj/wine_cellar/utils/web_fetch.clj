@@ -57,33 +57,43 @@
                        (when (seq tags) (str "Tags: " (str/join " " tags)))
                        (when notes (str "Notes: " notes))]))))
 
-(defn fetch-shopify-products
-  "Attempts to fetch structured product data from a Shopify store's public API.
-   products-url is the full URL to products.json (with any query params).
-   Returns a formatted string on success, or nil on failure."
-  [products-url]
-  (try (let [url products-url
-             {:keys [status body error]} @(http/get url
+(defn- fetch-shopify-json
+  [url]
+  (try (let [{:keys [status body error]} @(http/get url
                                                     {:timeout fetch-timeout-ms
                                                      :headers {"User-Agent"
                                                                user-agent}
                                                      :follow-redirects true})]
          (when (and (nil? error) (= 200 status) body)
-           (let [data (json/read-value body json/keyword-keys-object-mapper)
-                 products (:products data)]
-             (when (seq products)
-               (->> products
-                    (map (fn [p]
-                           (let [variant (first (:variants p))
-                                 price (some-> variant
-                                               :price)]
-                             (format-shopify-product {:title (:title p)
-                                                      :vendor (:vendor p)
-                                                      :price price
-                                                      :body_html (:body_html p)
-                                                      :tags (:tags p)}))))
-                    (str/join "\n"))))))
+           (json/read-value body json/keyword-keys-object-mapper)))
        (catch Exception _ nil)))
+
+(defn- format-products [products]
+  (when (seq products)
+    (->> products
+         (map (fn [p]
+                (let [variant (first (:variants p))
+                      price (some-> variant :price)]
+                  (format-shopify-product {:title (:title p)
+                                           :vendor (:vendor p)
+                                           :price price
+                                           :body_html (:body_html p)
+                                           :tags (:tags p)}))))
+         (str/join "\n"))))
+
+(defn fetch-shopify-products
+  "Attempts to fetch structured product data from a Shopify store's public API.
+   products-url is the full URL to products.json (with any query params).
+   Returns a formatted string on success, or nil on failure."
+  [products-url]
+  (some-> (fetch-shopify-json products-url) :products format-products))
+
+(defn fetch-shopify-product
+  "Attempts to fetch a single product from a Shopify store's public API.
+   product-url is the full URL to products/<handle>.json.
+   Returns a formatted string on success, or nil on failure."
+  [product-url]
+  (some-> (fetch-shopify-json product-url) :product vector format-products))
 
 (defn strip-html
   "Removes HTML tags and decodes common entities, returning plain text."
@@ -120,13 +130,20 @@
                            (.getHost uri)
                            (let [port (.getPort uri)]
                              (if (pos? port) (str ":" port) "")))
-               ;; Use URL as-is when it targets products.json, else probe
-               ;; with limit=1
-               products-url (if (str/includes? (.getPath uri) "products.json")
-                              url
-                              (str origin "/products.json?limit=1"))]
+               path (.getPath uri)
+               shopify-handle (second (re-matches #"/products/([^/.]+)" path))]
            ;; 1. Try Shopify API
-           (if-let [shopify-text (fetch-shopify-products products-url)]
+           (if-let [shopify-text
+                    (cond
+                      ;; Specific product page — fetch /products/<handle>.json
+                      shopify-handle
+                      (fetch-shopify-product (str origin "/products/" shopify-handle ".json"))
+                      ;; Already targeting products.json — use as-is
+                      (str/includes? path "products.json")
+                      (fetch-shopify-products url)
+                      ;; Unknown URL — probe store's current offers
+                      :else
+                      (fetch-shopify-products (str origin "/products.json?limit=1")))]
              {:ok shopify-text}
              ;; 2. Fall back to raw HTML
              (let [{:keys [status body error]}
