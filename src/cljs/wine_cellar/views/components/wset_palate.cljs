@@ -71,8 +71,8 @@
             :value (:acidity palate)
             :options (get-in wset-lexicon [:enums :acidity])
             :on-change #(update-field :acidity %)}]]
-         ;; Tannin (only for reds)
-         (when (= "RED" (:wset-style style-info))
+         ;; Tannin (for red-palette wines: reds + fortified)
+         (when (= :red (:palette style-info))
            [grid {:item true :xs 12 :sm 6}
             [radio-group-field
              {:label "Tannin"
