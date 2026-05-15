@@ -245,7 +245,7 @@
   "A dropdown select field with autocomplete"
   [{:keys [label value options required on-change multiple disabled free-solo
            helper-text on-blur is-option-equal-to-value sx clear-on-blur
-           on-input-change input-value tooltip get-option-label]
+           on-input-change input-value tooltip get-option-label suppress-keyboard?]
     :or {multiple false
          disabled false
          free-solo false
@@ -273,8 +273,12 @@
                                          :else (str option))))
            :render-input
            (fn [props]
-             (let [text-field-el [mui-text-field/text-field
-                                  (merge (safe-js-props props)
+             (let [converted (cond-> (safe-js-props props)
+                               suppress-keyboard?
+                               (update :inputProps
+                                       #(assoc (or % {}) :inputMode "none")))
+                   text-field-el [mui-text-field/text-field
+                                  (merge converted
                                          {:label label
                                           :variant "outlined"
                                           :size "small"

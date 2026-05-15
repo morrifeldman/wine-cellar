@@ -536,8 +536,13 @@
                            name)
                    "created_at")
          direction (or (:direction sort-state) :asc)
-         styles (let [raw (:styles (:filters state))]
-                  (if (seq raw) (str/join ", " raw) "All Styles"))]
+         raw-styles (let [raw (:styles (:filters state))
+                          legacy (:style (:filters state))]
+                      (cond (sequential? raw) (vec raw)
+                            (some? legacy) [(str legacy)]
+                            :else []))
+         selected-styles-set (set raw-styles)
+         styles (if (seq raw-styles) (str/join ", " raw-styles) "All Styles")]
      [box {:sx {:display "flex" :alignItems "center"}}
       [box
        {:sx {:display "flex"
@@ -574,43 +579,43 @@
         :onClose #(reset! sort-anchor nil)
         :anchorOrigin {:vertical "bottom" :horizontal "left"}
         :transformOrigin {:vertical "top" :horizontal "left"}}
-       [box
-        {:sx
-         {:p 2 :display "flex" :flexDirection "column" :gap 2 :minWidth 240}}
-        [form-control {:variant "outlined" :size "small" :fullWidth true}
-         [select
-          {:value field
-           :size "small"
-           :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
-           :onChange #(swap! app-state update
-                        :sort
-                        (fn [s]
-                          (let [new-field (keyword (.. % -target -value))]
-                            (if (= new-field (:field s))
-                              s
-                              {:field new-field :direction :asc}))))}
-          [menu-item {:value "location"} "Location"]
-          [menu-item {:value "producer"} "Producer"]
-          [menu-item {:value "name"} "Name"]
-          [menu-item {:value "vintage"} "Vintage"]
-          [menu-item {:value "region"} "Region"]
-          [menu-item {:value "latest_internal_rating"} "Internal Rating"]
-          [menu-item {:value "average_external_rating"} "External Rating"]
-          [menu-item {:value "quantity"} "Quantity"]
-          [menu-item {:value "price"} "Price"]
-          [menu-item {:value "alcohol_percentage"} "Alcohol Percentage"]
-          [menu-item {:value "drink_from_year"} "Drinking Window Open"]
-          [menu-item {:value "drink_until_year"} "Drinking Window Close"]
-          [menu-item {:value "created_at"} "Date Added"]
-          [menu-item {:value "updated_at"} "Last Updated"]]]]]
+       [box {:sx {:py 1 :minWidth 200}}
+        (for [[value label] sort-labels]
+          ^{:key value}
+          [menu-item
+           {:selected (= field value)
+            :onClick #(do (swap! app-state update :sort
+                            (fn [s]
+                              (let [new-field (keyword value)]
+                                (if (= new-field (:field s))
+                                  s
+                                  {:field new-field :direction :asc}))))
+                          (reset! sort-anchor nil))}
+           label])]]
       [popover
        {:open (boolean @style-anchor)
         :anchorEl @style-anchor
         :onClose #(reset! style-anchor nil)
         :anchorOrigin {:vertical "bottom" :horizontal "left"}
         :transformOrigin {:vertical "top" :horizontal "left"}}
-       [box {:sx {:p 2 :minWidth 200}}
-        [style-selector app-state {:fullWidth true}]]]])))
+       [box {:sx {:py 1 :minWidth 180}}
+        [menu-item
+         {:onClick #(swap! app-state assoc-in [:filters :styles] [])}
+         [typography {:variant "body2" :sx {:fontStyle "italic"}} "All Styles"]]
+        (for [style common/wine-styles]
+          ^{:key style}
+          [menu-item
+           {:onClick #(swap! app-state update-in [:filters :styles]
+                        (fn [s]
+                          (let [current (set (or s []))]
+                            (vec (if (contains? current style)
+                                   (disj current style)
+                                   (conj current style))))))}
+           [checkbox
+            {:checked (contains? selected-styles-set style)
+             :size "small"
+             :sx {:mr 1 :p 0}}]
+           [list-item-text {:primary style}]])]]])))
 
 (defn filter-bar
   ([app-state] (filter-bar app-state nil))

@@ -230,14 +230,15 @@
        :disabled @disabled?
        :on-key-down
        (fn [e]
-         (when (and (= (.-key e) "Enter") (not (.-shiftKey e)))
-           (.preventDefault e)
-           (when @message-ref
-             (let [msg (.-value @message-ref)]
-               (when (or (seq (str msg)) @attached-image)
-                 (on-send msg)
-                 (set! (.-value @message-ref) "")
-                 (swap! app-state update :chat dissoc :draft-message))))))
+         (let [is-mobile? (> js/navigator.maxTouchPoints 0)]
+           (when (and (= (.-key e) "Enter") (not (.-shiftKey e)) (not is-mobile?))
+             (.preventDefault e)
+             (when @message-ref
+               (let [msg (.-value @message-ref)]
+                 (when (or (seq (str msg)) @attached-image)
+                   (on-send msg)
+                   (set! (.-value @message-ref) "")
+                   (swap! app-state update :chat dissoc :draft-message)))))))
        :on-change
        #(swap! app-state assoc-in [:chat :draft-message] (.. % -target -value))
        :on-paste #(handle-paste-event % attached-image)}]

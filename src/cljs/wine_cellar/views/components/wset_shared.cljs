@@ -176,14 +176,10 @@
                    :multiple true
                    :free-solo true
                    :required false
+                   :suppress-keyboard? true
                    :on-change #(do (register-new-options %)
-                                   ;; Update the parent state
                                    (on-change %))
-                   :on-blur #(let [input-value (-> %
-                                                   .-target
-                                                   .-value)]
-                               ;; Register any new option that was typed in
-                               ;; the input field
+                   :on-blur #(let [input-value (-> % .-target .-value)]
                                (register-new-options [input-value]))
                    :sx {"& .MuiAutocomplete-endAdornment .MuiSvgIcon-root"
                         {:color "text.primary"}}}]])))

@@ -75,57 +75,64 @@
         old-wine-id (:selected-wine-id @app-state)
         new-wine-id (:selected-wine-id nav-state)
         old-view (:view @app-state)
-        new-view (:view nav-state)]
+        new-view (:view nav-state)
+        note-form-open? (:show-tasting-note-form? @app-state)
+        saved-note (:new-tasting-note @app-state)
+        note-dirty? (and note-form-open? (seq (dissoc saved-note :wine-id)))]
     (when (and old-wine-id (not= old-wine-id new-wine-id))
       (api/exit-wine-detail-page app-state))
-    (swap! app-state (fn [s]
-                       (-> s
-                           (dissoc :zoomed-image
-                                   :show-collection-stats?
-                                   :show-tasting-note-form?
-                                   :editing-note-id
-                                   :new-tasting-note
-                                   :show-selected-wines?
-                                   :selected-wine-ids
-                                   :return-to-report?)
-                           (merge nav-state))))
-    (let [chat-modal-open? (gobj/get (.-state js/history) "chatModalOpen")
-          chat-open? (gobj/get (.-state js/history) "chatOpen")]
-      (when (and (not= old-view new-view)
-                 (not chat-open?)
-                 (not chat-modal-open?))
+    (if (and note-dirty?
+             (not (js/confirm "Discard your in-progress tasting note?")))
+      ;; User chose to stay — re-push the history entry so back still works
+      (.pushState js/history nil "" (.-pathname js/location))
+      (do
         (swap! app-state (fn [s]
                            (-> s
-                               (assoc-in [:chat :open?] false)
-                               (assoc-in [:chat :conversations-loaded?] false)
-                               (assoc-in [:chat :active-conversation-id] nil)
-                               (assoc-in [:chat :messages] [])))))
-      ;; Back button pressed while on same page — close the chat
-      (when (and (= old-view new-view)
-                 (get-in @app-state [:chat :open?])
-                 (not chat-modal-open?))
-        (swap! app-state assoc-in [:chat :open?] false))
-      ;; Returning via wine-link chatOpen back-nav — reopen chat
-      (when chat-open?
-        (.replaceState js/history #js {} "" (.-pathname js/location))
-        (swap! app-state assoc-in [:chat :open?] true)
-        (api/load-conversations! app-state {:force? true}))
-      ;; Returning via chatModalOpen (e.g. Wine Cellar → back) — reopen
-      ;; chat
-      (when (and chat-modal-open? (not (get-in @app-state [:chat :open?])))
-        (swap! app-state assoc-in [:chat :open?] true)
-        (api/load-conversations! app-state {:force? true})))
-    (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
-    (when (and (:show-report? nav-state) (not (:report @app-state)))
-      (api/fetch-latest-report app-state
-                               {:provider (get-in @app-state [:ai :provider])}))
-    (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
-    (when (= :sensor-readings (:view nav-state))
-      (api/fetch-latest-sensor-readings app-state {}))
-    (when (= :bar (:view nav-state)) (api/fetch-bar-data app-state))
-    (when-let [scroll-y (gobj/get (.-state js/history) "scrollY")]
-      (.replaceState js/history #js {} "" (.-pathname js/location))
-      (swap! app-state assoc :restore-scroll scroll-y))))
+                               (dissoc :zoomed-image
+                                       :show-collection-stats?
+                                       :show-tasting-note-form?
+                                       :editing-note-id
+                                       :new-tasting-note
+                                       :show-selected-wines?
+                                       :selected-wine-ids
+                                       :return-to-report?)
+                               (merge nav-state))))
+        (let [chat-modal-open? (gobj/get (.-state js/history) "chatModalOpen")
+              chat-open? (gobj/get (.-state js/history) "chatOpen")]
+          (when (and (not= old-view new-view)
+                     (not chat-open?)
+                     (not chat-modal-open?))
+            (swap! app-state (fn [s]
+                               (-> s
+                                   (assoc-in [:chat :open?] false)
+                                   (assoc-in [:chat :conversations-loaded?] false)
+                                   (assoc-in [:chat :active-conversation-id] nil)
+                                   (assoc-in [:chat :messages] [])))))
+          ;; Back button pressed while on same page — close the chat
+          (when (and (= old-view new-view)
+                     (get-in @app-state [:chat :open?])
+                     (not chat-modal-open?))
+            (swap! app-state assoc-in [:chat :open?] false))
+          ;; Returning via wine-link chatOpen back-nav — reopen chat
+          (when chat-open?
+            (.replaceState js/history #js {} "" (.-pathname js/location))
+            (swap! app-state assoc-in [:chat :open?] true)
+            (api/load-conversations! app-state {:force? true}))
+          ;; Returning via chatModalOpen (e.g. Wine Cellar → back) — reopen chat
+          (when (and chat-modal-open? (not (get-in @app-state [:chat :open?])))
+            (swap! app-state assoc-in [:chat :open?] true)
+            (api/load-conversations! app-state {:force? true})))
+        (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
+        (when (and (:show-report? nav-state) (not (:report @app-state)))
+          (api/fetch-latest-report app-state
+                                   {:provider (get-in @app-state [:ai :provider])}))
+        (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
+        (when (= :sensor-readings (:view nav-state))
+          (api/fetch-latest-sensor-readings app-state {}))
+        (when (= :bar (:view nav-state)) (api/fetch-bar-data app-state))
+        (when-let [scroll-y (gobj/get (.-state js/history) "scrollY")]
+          (.replaceState js/history #js {} "" (.-pathname js/location))
+          (swap! app-state assoc :restore-scroll scroll-y))))))
 
 (defonce root (atom nil))
 
