@@ -245,7 +245,8 @@
   "A dropdown select field with autocomplete"
   [{:keys [label value options required on-change multiple disabled free-solo
            helper-text on-blur is-option-equal-to-value sx clear-on-blur
-           on-input-change input-value tooltip get-option-label suppress-keyboard?]
+           on-input-change input-value tooltip get-option-label
+           suppress-keyboard?]
     :or {multiple false
          disabled false
          free-solo false

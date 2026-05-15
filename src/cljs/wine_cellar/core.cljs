@@ -103,11 +103,12 @@
                      (not chat-open?)
                      (not chat-modal-open?))
             (swap! app-state (fn [s]
-                               (-> s
-                                   (assoc-in [:chat :open?] false)
-                                   (assoc-in [:chat :conversations-loaded?] false)
-                                   (assoc-in [:chat :active-conversation-id] nil)
-                                   (assoc-in [:chat :messages] [])))))
+                               (->
+                                 s
+                                 (assoc-in [:chat :open?] false)
+                                 (assoc-in [:chat :conversations-loaded?] false)
+                                 (assoc-in [:chat :active-conversation-id] nil)
+                                 (assoc-in [:chat :messages] [])))))
           ;; Back button pressed while on same page — close the chat
           (when (and (= old-view new-view)
                      (get-in @app-state [:chat :open?])
@@ -118,14 +119,16 @@
             (.replaceState js/history #js {} "" (.-pathname js/location))
             (swap! app-state assoc-in [:chat :open?] true)
             (api/load-conversations! app-state {:force? true}))
-          ;; Returning via chatModalOpen (e.g. Wine Cellar → back) — reopen chat
+          ;; Returning via chatModalOpen (e.g. Wine Cellar → back) — reopen
+          ;; chat
           (when (and chat-modal-open? (not (get-in @app-state [:chat :open?])))
             (swap! app-state assoc-in [:chat :open?] true)
             (api/load-conversations! app-state {:force? true})))
         (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
         (when (and (:show-report? nav-state) (not (:report @app-state)))
           (api/fetch-latest-report app-state
-                                   {:provider (get-in @app-state [:ai :provider])}))
+                                   {:provider (get-in @app-state
+                                                      [:ai :provider])}))
         (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
         (when (= :sensor-readings (:view nav-state))
           (api/fetch-latest-sensor-readings app-state {}))

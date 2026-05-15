@@ -584,14 +584,14 @@
           ^{:key value}
           [menu-item
            {:selected (= field value)
-            :onClick #(do (swap! app-state update :sort
+            :onClick #(do (swap! app-state update
+                            :sort
                             (fn [s]
                               (let [new-field (keyword value)]
                                 (if (= new-field (:field s))
                                   s
                                   {:field new-field :direction :asc}))))
-                          (reset! sort-anchor nil))}
-           label])]]
+                          (reset! sort-anchor nil))} label])]]
       [popover
        {:open (boolean @style-anchor)
         :anchorEl @style-anchor
@@ -599,13 +599,13 @@
         :anchorOrigin {:vertical "bottom" :horizontal "left"}
         :transformOrigin {:vertical "top" :horizontal "left"}}
        [box {:sx {:py 1 :minWidth 180}}
-        [menu-item
-         {:onClick #(swap! app-state assoc-in [:filters :styles] [])}
+        [menu-item {:onClick #(swap! app-state assoc-in [:filters :styles] [])}
          [typography {:variant "body2" :sx {:fontStyle "italic"}} "All Styles"]]
         (for [style common/wine-styles]
           ^{:key style}
           [menu-item
-           {:onClick #(swap! app-state update-in [:filters :styles]
+           {:onClick #(swap! app-state update-in
+                        [:filters :styles]
                         (fn [s]
                           (let [current (set (or s []))]
                             (vec (if (contains? current style)
@@ -614,8 +614,7 @@
            [checkbox
             {:checked (contains? selected-styles-set style)
              :size "small"
-             :sx {:mr 1 :p 0}}]
-           [list-item-text {:primary style}]])]]])))
+             :sx {:mr 1 :p 0}}] [list-item-text {:primary style}]])]]])))
 
 (defn filter-bar
   ([app-state] (filter-bar app-state nil))

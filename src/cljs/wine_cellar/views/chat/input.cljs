@@ -231,7 +231,9 @@
        :on-key-down
        (fn [e]
          (let [is-mobile? (> js/navigator.maxTouchPoints 0)]
-           (when (and (= (.-key e) "Enter") (not (.-shiftKey e)) (not is-mobile?))
+           (when (and (= (.-key e) "Enter")
+                      (not (.-shiftKey e))
+                      (not is-mobile?))
              (.preventDefault e)
              (when @message-ref
                (let [msg (.-value @message-ref)]
