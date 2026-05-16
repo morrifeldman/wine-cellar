@@ -461,7 +461,8 @@
               :border
               (str "1px solid "
                    (if active? "rgba(232,195,200,0.6)" "rgba(232,195,200,0.2)"))
-              "&:hover" {:bgcolor "rgba(232,195,200,0.18)"}}}]))
+              "@media (hover: hover)" {"&:hover"
+                                       {:bgcolor "rgba(232,195,200,0.18)"}}}}]))
    (when (seq @selected-tags)
      [button
       {:size "small"
