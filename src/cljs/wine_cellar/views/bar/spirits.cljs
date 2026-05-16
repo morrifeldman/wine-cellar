@@ -417,7 +417,8 @@
                 :color text
                 :border
                 (str "1px solid rgba(" base "," (if active? "0.6" "0.2") ")")
-                "&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}]))
+                "@media (hover: hover)"
+                {"&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}}]))
      (when (seq @selected-categories)
        [button
         {:size "small"
@@ -476,7 +477,8 @@
                   :color text
                   :border
                   (str "1px solid rgba(" base "," (if active? "0.6" "0.2") ")")
-                  "&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}]])))
+                  "@media (hover: hover)"
+                  {"&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}}]])))
         (when (seq @selected-subcategories)
           [button
            {:size "small"
