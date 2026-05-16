@@ -56,4 +56,6 @@ embedded/esp32-sentinel/main/config.h
 scripts/ui_check.js
 search_failure.png
 backup.sql
+.playwright-mcp
+
 

@@ -2,9 +2,11 @@
 
 (defn get-api-base-url
   []
-  (let [host (.. js/window -location -hostname)
-        protocol (.. js/window -location -protocol)]
-    (if (= host "localhost")
-      (str protocol "//" host ":3000") ;; Local development - backend on
-                                       ;; port 3000
+  (let [loc (.. js/window -location)
+        host (.-hostname loc)
+        protocol (.-protocol loc)
+        port (.-port loc)]
+    (if (or (= host "localhost") (seq port))
+      (str protocol "//" host ":3000") ;; Local dev (desktop or LAN/phone)
+                                       ;; - backend on port 3000
       (str protocol "//" host)))) ;; ngrok or production - same host

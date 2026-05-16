@@ -420,7 +420,7 @@
                              [box {:sx {:width "100%"}} text-field-el]]
                             text-field-el))))
         :onChange (fn [_event new-value] (on-change new-value))
-        :on-input-change (when free-solo
+        :on-input-change (when (and free-solo (not multiple))
                            (fn [_event new-value reason]
                              (when (= reason "input") (on-change new-value))))
         :clearOnBlur true
