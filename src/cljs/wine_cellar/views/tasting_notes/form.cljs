@@ -253,6 +253,4 @@
               (api/delete-tasting-note app-state wine-id editing-note-id)
               (swap! app-state assoc :editing-note-id nil :new-tasting-note {})
               (when on-close (on-close))))
-          :on-cancel
-          #(do (swap! app-state assoc :editing-note-id nil :new-tasting-note {})
-               (when on-close (on-close)))}]]))))
+          :on-cancel #(when on-close (on-close))}]]))))

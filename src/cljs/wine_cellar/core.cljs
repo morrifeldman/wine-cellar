@@ -76,9 +76,13 @@
         new-wine-id (:selected-wine-id nav-state)
         old-view (:view @app-state)
         new-view (:view nav-state)
-        note-form-open? (:show-tasting-note-form? @app-state)
+        note-form-open? (or (:show-tasting-note-form? @app-state)
+                            (boolean (:editing-note-id @app-state)))
         saved-note (:new-tasting-note @app-state)
-        note-dirty? (and note-form-open? (seq (dissoc saved-note :wine-id)))]
+        submitting-note? (:submitting-note? @app-state)
+        note-dirty? (and note-form-open?
+                         (not submitting-note?)
+                         (seq (dissoc saved-note :wine-id)))]
     (when (and old-wine-id (not= old-wine-id new-wine-id))
       (api/exit-wine-detail-page app-state))
     (if (and note-dirty?
