@@ -96,8 +96,55 @@
                   (reset! recipient "")
                   (on-close))} "Gift"]]]))
 
+(defn oz-input-field
+  "Whole-oz pour input. Native up/down arrows step by 1, min 1.
+  Takes a reagent atom holding the current value as a string."
+  [oz-atom {:keys [auto-focus? helper-text]}]
+  [text-field
+   {:value @oz-atom
+    :type "number"
+    :label "Pour size"
+    :fullWidth true
+    :autoFocus (boolean auto-focus?)
+    :helperText helper-text
+    :InputProps {:endAdornment (r/as-element [input-adornment {:position "end"}
+                                              "oz"])
+                 :inputProps {:step "1" :min "1"}}
+    :onChange (fn [e] (reset! oz-atom (.. e -target -value)))}])
+
+(defn- coravin-pour-dialog
+  [app-state wine-id open? on-close]
+  (r/with-let
+   [oz (r/atom "2") notes (r/atom "")]
+   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
+    [dialog-title "Coravin Pour"]
+    [dialog-content
+     [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
+      [oz-input-field oz {:auto-focus? true}]
+      [text-field
+       {:value @notes
+        :label "Notes (optional)"
+        :fullWidth true
+        :multiline true
+        :rows 2
+        :onChange (fn [e] (reset! notes (.. e -target -value)))}]]]
+    [dialog-actions [button {:onClick on-close} "Cancel"]
+     [button
+      {:variant "contained"
+       :onClick (fn []
+                  (let [amount (js/parseFloat @oz)]
+                    (when (and (not (js/isNaN amount)) (pos? amount))
+                      (api/coravin-pour app-state
+                                        wine-id
+                                        amount
+                                        {:notes (when-not (str/blank? @notes)
+                                                  (str/trim @notes))})
+                      (reset! oz "2")
+                      (reset! notes "")
+                      (on-close))))} "Pour"]]]))
+
 (defn- minus-menu
-  [app-state wine-id anchor-el options on-gift]
+  [app-state wine-id anchor-el options on-gift on-coravin-pour]
   [menu
    {:anchorEl @anchor-el
     :open (boolean @anchor-el)
@@ -109,6 +156,9 @@
          (reset! anchor-el nil)
          (api/adjust-wine-quantity app-state wine-id -1 {:reason "drunk"}))}
       "Drink"])
+   (when (:coravin-pour options)
+     [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-coravin-pour))}
+      "Coravin pour"])
    (when (:gift options)
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-gift))} "Gift"])
    (when (:broken options)
@@ -198,12 +248,13 @@
   ([app-state wine-id quantity display-text original-quantity opts]
    (let [mode (:mode opts :detail) ;; :card or :detail
          show-plus? (not= mode :card)
-         minus-options
-         (if (= mode :card) #{:drink :gift} #{:drink :gift :broken :correction})
+         minus-options (if (= mode :card)
+                         #{:drink :coravin-pour :gift}
+                         #{:drink :coravin-pour :gift :broken :correction})
          minus-icon (:minus-icon opts [arrow-drop-down {:fontSize "small"}])]
      (r/with-let
       [anchor-el-add (r/atom nil) anchor-el-sub (r/atom nil) gift-open?
-       (r/atom false) restock-open? (r/atom false)]
+       (r/atom false) restock-open? (r/atom false) coravin-open? (r/atom false)]
       [box {:display "flex" :alignItems "center"}
        [box
         {:component "span"
@@ -237,12 +288,15 @@
           [plus-menu app-state wine-id anchor-el-add
            #(reset! restock-open? true)])
         [minus-menu app-state wine-id anchor-el-sub minus-options
-         #(reset! gift-open? true)]
+         #(reset! gift-open? true) #(reset! coravin-open? true)]
         (when @gift-open?
           [gift-dialog app-state wine-id gift-open? #(reset! gift-open? false)])
         (when @restock-open?
           [restock-dialog app-state wine-id restock-open?
-           #(reset! restock-open? false)])]]))))
+           #(reset! restock-open? false)])
+        (when @coravin-open?
+          [coravin-pour-dialog app-state wine-id coravin-open?
+           #(reset! coravin-open? false)])]]))))
 
 (defn editable-field-wrapper
   "A generic wrapper for making any field editable.

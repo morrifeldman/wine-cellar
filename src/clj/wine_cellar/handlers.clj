@@ -185,6 +185,21 @@
    #(response/response
      (db-api/adjust-quantity id adjustment {:reason reason :notes notes}))))
 
+(defn coravin-pour
+  [{{{:keys [id]} :path {:keys [oz notes]} :body} :parameters}]
+  (if-wine id
+           #(try (response/response (db-api/coravin-pour id oz {:notes notes}))
+                 (catch clojure.lang.ExceptionInfo e
+                   {:status 400 :body {:error (.getMessage e)}})
+                 (catch Exception e (server-error e)))))
+
+(defn finish-open-bottle
+  [{{{:keys [id]} :path {:keys [notes]} :body} :parameters}]
+  (if-wine id
+           #(if-let [wine (db-api/finish-open-bottle id {:notes notes})]
+              (response/response wine)
+              {:status 400 :body {:error "No open bottle to finish"}})))
+
 (defn get-inventory-history
   [{{{:keys [id]} :path} :parameters}]
   (if-wine id #(response/response (db-api/get-inventory-history id))))

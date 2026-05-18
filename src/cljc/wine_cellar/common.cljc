@@ -176,6 +176,24 @@
    "Jeroboam (3L)" "Double Magnum (3L)" "Imperial (6L)" "Salmanazar (9L)"
    "Balthazar (12L)" "Nebuchadnezzar (15L)"])
 
+(def ^:private ml-per-oz 29.5735)
+
+(defn bottle-format->oz
+  "Parse bottle volume from a bottle-format string like \"Standard (750ml)\" or
+  \"Magnum (1.5L)\" and return oz. Defaults to 25.36 (standard 750ml) when
+  format is nil or unparseable."
+  [bottle-format]
+  (let [s (or bottle-format "")
+        m (re-find #"(?i)\((\d+(?:\.\d+)?)\s*(ml|l)\)" s)]
+    (if m
+      (let [[_ n unit] m
+            ml (* (#?(:clj Double/parseDouble
+                      :cljs js/parseFloat)
+                   n)
+                  (if (= (str/lower-case unit) "l") 1000 1))]
+        (/ ml ml-per-oz))
+      (/ 750 ml-per-oz))))
+
 (def closure-type-options
   ["Natural cork" "Technical cork" "Micro-agglomerated cork" "Colmated cork"
    "Agglomerated cork" "Cork (unspecified)" "Screw cap"
@@ -261,4 +279,5 @@
    "restock" "Restock"
    "correction" "Correction"
    "return" "Return to Cellar"
-   "broken" "Broken"})
+   "broken" "Broken"
+   "coravin_pour" "Coravin pour"})

@@ -11,6 +11,7 @@
             [reagent-mui.icons.wine-bar :refer [wine-bar]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
+            [wine-cellar.common :as common]
             [wine-cellar.utils.vintage :refer
              [tasting-window-status tasting-window-color]]
             [wine-cellar.views.components :refer [quantity-control]]
@@ -256,14 +257,39 @@
     :label "Verified"
     :sx {:ml 0 :mr 1}}])
 
+(defn open-bottle-badge
+  "Small badge showing estimated oz remaining in the Coravin-open bottle."
+  [wine]
+  (when (:open_bottle_opened_at wine)
+    (let [bottle-oz (common/bottle-format->oz (:bottle_format wine))
+          poured (or (some-> (:open_bottle_oz_poured wine)
+                             js/parseFloat)
+                     0)
+          remaining (max 0 (js/Math.round (- bottle-oz poured)))]
+      [box
+       {:sx {:display "flex"
+             :alignItems "center"
+             :gap 0.25
+             :px 0.75
+             :py 0.25
+             :borderRadius 1
+             :border "1px solid rgba(232, 195, 200, 0.4)"
+             :color "primary.light"
+             :fontSize "0.75rem"
+             :whiteSpace "nowrap"}} [wine-bar {:sx {:fontSize "0.9rem"}}]
+       [box {:component "span"} (str "~" remaining "oz left")]])))
+
 (defn wine-quantity-display
   [app-state wine]
   (let [quantity (:quantity wine)
         original-quantity (:original_quantity wine)
+        open? (boolean (:open_bottle_opened_at wine))
+        full-count (max 0 (- quantity (if open? 1 0)))
         display-text (if original-quantity
-                       (str quantity "/" original-quantity)
-                       (str quantity))]
+                       (str full-count "/" original-quantity)
+                       (str full-count))]
     [box {:sx {:display "flex" :alignItems "center" :gap 1}}
+     (when open? [open-bottle-badge wine])
      [quantity-control app-state (:id wine) quantity display-text
       original-quantity
       {:mode :card :minus-icon [wine-bar {:fontSize "small"}]}]]))

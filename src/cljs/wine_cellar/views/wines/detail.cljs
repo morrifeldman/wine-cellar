@@ -48,7 +48,8 @@
     [wine-cellar.utils.vintage :as vintage]
     [wine-cellar.views.components :refer
      [dot-separated-row editable-autocomplete-field
-      editable-classification-field editable-text-field quantity-control]]
+      editable-classification-field editable-text-field oz-input-field
+      quantity-control]]
     [wine-cellar.views.components.image-upload :refer [image-upload]]
     [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
     [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
@@ -515,7 +516,8 @@
 
 (defn- cellar-summary
   [wine]
-  (let [qty (:quantity wine)
+  (let [open? (boolean (:open_bottle_opened_at wine))
+        qty (max 0 (- (:quantity wine) (if open? 1 0)))
         original (:original_quantity wine)
         location (when-not (str/blank? (:location wine)) (:location wine))]
     (cond (and original location) (str qty " of " original " · " location)
@@ -533,8 +535,10 @@
     [dialog-title "Cellar Stock"]
     [dialog-content
      [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
-      [quantity-control app-state (:id wine) (:quantity wine)
-       (str (:quantity wine)) (:original_quantity wine)]
+      (let [open? (boolean (:open_bottle_opened_at wine))
+            full (max 0 (- (:quantity wine) (if open? 1 0)))]
+        [quantity-control app-state (:id wine) (:quantity wine) (str full)
+         (:original_quantity wine)])
       [box {:sx {:borderTop "1px solid rgba(255,255,255,0.08)" :mt 0.5}}]
       [text-field
        {:value (or @laid-down-val "")
@@ -929,23 +933,101 @@
                            reason-key)]
     [table-cell display-label]))
 
+(defn- enrich-history-with-display-balance
+  "Walk history chronologically, track open-bottle state, and attach
+  :display_prev_quantity / :display_new_quantity to each row. The display values
+  subtract 1 for an in-progress open bottle so the inventory-history balance cell
+  matches the 'full bottles' count shown elsewhere (wine card, etc).
+
+  Returns the records re-sorted in the original descending order."
+  [history]
+  (let [ascending (sort-by (juxt :occurred_at :id) history)
+        enriched
+        (reduce
+         (fn [{:keys [is-open rows]} row]
+           (let [open-before is-open
+                 open-after (cond (= "coravin_pour" (:reason row)) true
+                                  (and is-open (= "drunk" (:reason row))) false
+                                  :else is-open)
+                 dp (- (or (:previous_quantity row) 0) (if open-before 1 0))
+                 dn (- (or (:new_quantity row) 0) (if open-after 1 0))]
+             {:is-open open-after
+              :rows (conj rows
+                          (assoc row
+                                 :display_prev_quantity dp
+                                 :display_new_quantity dn))}))
+         {:is-open false :rows []}
+         ascending)]
+    (reverse (:rows enriched))))
+
 (defn history-balance-cell
   [record]
-  [table-cell {:sx {:whiteSpace "nowrap"}}
-   (if-let [oq (:original_quantity record)]
-     (if (= (str/lower-case (or (:reason record) "")) "restock")
-       (let [prev-oq (- oq (:change_amount record))]
-         (str (:previous_quantity record)
-              " / " prev-oq
-              " → " (:new_quantity record)
-              " / " oq))
-       (str (:previous_quantity record)
-            " / " oq
-            " → " (:new_quantity record)
-            " / " oq))
-     (str (:previous_quantity record) " → " (:new_quantity record)))])
+  (let [prev (or (:display_prev_quantity record) (:previous_quantity record))
+        new (or (:display_new_quantity record) (:new_quantity record))]
+    [table-cell {:sx {:whiteSpace "nowrap"}}
+     (if-let [oq (:original_quantity record)]
+       (if (= (str/lower-case (or (:reason record) "")) "restock")
+         (let [prev-oq (- oq (:change_amount record))]
+           (str prev " / " prev-oq " → " new " / " oq))
+         (str prev " / " oq " → " new " / " oq))
+       (str prev " → " new))]))
 
 (defn history-notes-cell [record] [table-cell (:notes record)])
+
+(defn coravin-pour-edit-dialog
+  [app-state wine-id record open? on-close]
+  (r/with-let
+   [oz-atom (r/atom (str (js/Math.round (js/parseFloat (or (:oz record) "0")))))
+    other-state
+    (r/atom {:occurred_at (format-date-iso (:occurred_at record))
+             :notes (or (:notes record) "")})]
+   [dialog {:open @open? :onClose on-close :maxWidth "sm" :fullWidth true}
+    [dialog-title "Edit Coravin Pour"]
+    [dialog-content
+     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
+      [oz-input-field oz-atom
+       {:helper-text "Editing this updates the open bottle's running total."}]
+      [text-field
+       {:type "date"
+        :label "Date"
+        :value (:occurred_at @other-state)
+        :onChange #(swap! other-state assoc :occurred_at (.. % -target -value))
+        :fullWidth true
+        :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
+             {:filter "invert(0.7)" :opacity 0.7}}}]
+      [text-field
+       {:label "Notes"
+        :value (:notes @other-state)
+        :onChange #(swap! other-state assoc :notes (.. % -target -value))
+        :multiline true
+        :rows 3
+        :fullWidth true
+        :variant "outlined"}]]]
+    [dialog-actions
+     [button
+      {:color "error"
+       :sx {:mr "auto"}
+       :onClick
+       (fn []
+         (when
+           (js/confirm
+            "Delete this pour? The open bottle's running total will adjust.")
+           (api/delete-inventory-history app-state wine-id (:id record))
+           (on-close)))} "Delete"] [button {:onClick on-close} "Cancel"]
+     [button
+      {:variant "contained"
+       :onClick (fn []
+                  (let [amount (js/parseFloat @oz-atom)]
+                    (when (and (not (js/isNaN amount)) (pos? amount))
+                      (api/update-inventory-history
+                       app-state
+                       wine-id
+                       (:id record)
+                       {:oz amount
+                        :occurred_at (:occurred_at @other-state)
+                        :notes (when-not (str/blank? (:notes @other-state))
+                                 (str/trim (:notes @other-state)))})
+                      (on-close))))} "Save"]]]))
 
 (defn history-edit-dialog
   [app-state wine-id record open? on-close]
@@ -1017,23 +1099,105 @@
                     (on-close))} "Save Changes"]]])))
 
 
+(defn- pour-notes-text
+  "Combined oz + user notes string for a coravin_pour history row."
+  [record]
+  (let [oz (:oz record)
+        notes (:notes record)
+        oz-str (when oz (str (gstring/format "%.1f" (js/parseFloat oz)) " oz"))]
+    (cond (and oz-str (seq notes)) (str oz-str " — " notes)
+          oz-str oz-str
+          :else (or notes ""))))
+
+(defn- coravin-pour-notes-cell [record] [table-cell (pour-notes-text record)])
+
 (defn inventory-history-row
+  [app-state wine-id record]
+  (r/with-let [edit-open? (r/atom false)]
+              (let [coravin? (= "coravin_pour" (:reason record))]
+                [:<>
+                 (when @edit-open?
+                   (if coravin?
+                     [coravin-pour-edit-dialog app-state wine-id record
+                      edit-open? #(reset! edit-open? false)]
+                     [history-edit-dialog app-state wine-id record edit-open?
+                      #(reset! edit-open? false)]))
+                 [table-row
+                  {:onClick #(reset! edit-open? true)
+                   :sx {:cursor "pointer" "&:hover" {:bgcolor "action.hover"}}}
+                  [history-date-cell record] [history-change-cell record]
+                  [history-reason-cell record] [history-balance-cell record]
+                  (if coravin?
+                    [coravin-pour-notes-cell record]
+                    [history-notes-cell record])]])))
+
+(defn- open-bottle-pour-row
   [app-state wine-id record]
   (r/with-let [edit-open? (r/atom false)]
               [:<>
                (when @edit-open?
-                 [history-edit-dialog app-state wine-id record edit-open?
+                 [coravin-pour-edit-dialog app-state wine-id record edit-open?
                   #(reset! edit-open? false)])
                [table-row
                 {:onClick #(reset! edit-open? true)
                  :sx {:cursor "pointer" "&:hover" {:bgcolor "action.hover"}}}
-                [history-date-cell record] [history-change-cell record]
-                [history-reason-cell record] [history-balance-cell record]
-                [history-notes-cell record]]]))
+                [table-cell {:sx {:whiteSpace "nowrap" :color "text.secondary"}}
+                 (format-date-iso (:occurred_at record))]
+                [table-cell {:sx {:whiteSpace "nowrap"}}
+                 (pour-notes-text record)]]]))
+
+(defn open-bottle-section
+  [app-state wine]
+  (when (:open_bottle_opened_at wine)
+    (let [bottle-oz (common/bottle-format->oz (:bottle_format wine))
+          poured (or (some-> (:open_bottle_oz_poured wine)
+                             js/parseFloat)
+                     0)
+          remaining (max 0 (js/Math.round (- bottle-oz poured)))
+          history (get-in @app-state [:inventory-history (:id wine)])
+          ;; coravin_pour rows since the most recent drunk row (or all if
+          ;; none)
+          last-drunk-id (->> history
+                             (filter #(= (:reason %) "drunk"))
+                             (map :id)
+                             (apply max 0))
+          pours (->> history
+                     (filter #(and (= (:reason %) "coravin_pour")
+                                   (> (:id %) last-drunk-id)))
+                     (sort-by :id))]
+      [box
+       {:sx {:mt 3 :borderLeft "3px solid rgba(232,195,200,0.7)" :pl 1.5 :pb 2}}
+       [section-header wine-bar "Open Bottle" "rgba(232,195,200,0.7)"]
+       [box
+        {:sx {:display "flex" :alignItems "baseline" :gap 2 :flexWrap "wrap"}}
+        [typography {:variant "body2" :color "text.secondary"}
+         (str "Opened " (format-date-iso (:open_bottle_opened_at wine)))]
+        [typography {:variant "body2"}
+         (str "~"
+              remaining
+              " oz left "
+              "(of "
+              (js/Math.round bottle-oz)
+              " oz)")]]
+       (when (seq pours)
+         [box {:sx {:mt 1.5 :overflow-x "auto"}}
+          [table
+           {:size "small" :sx {:width "100%" "& td" {:borderBottom "none"}}}
+           [table-body
+            (for [p pours]
+              ^{:key (:id p)} [open-bottle-pour-row app-state (:id wine) p])]]])
+       [box {:sx {:mt 1.5}}
+        [button
+         {:size "small"
+          :variant "outlined"
+          :color "primary"
+          :onClick #(api/finish-open-bottle app-state (:id wine))}
+         "Finish bottle"]]])))
 
 (defn inventory-history-section
   [app-state wine]
-  (let [history (get-in @app-state [:inventory-history (:id wine)])]
+  (let [raw-history (get-in @app-state [:inventory-history (:id wine)])
+        history (enrich-history-with-display-balance raw-history)]
     [box
      {:sx {:mt 3 :borderLeft "3px solid rgba(144,164,174,0.7)" :pl 1.5 :pb 2}}
      [section-header history-icon "Inventory History" "rgba(144,164,174,0.7)"]
@@ -1092,6 +1256,7 @@
    [wine-tasting-window-section app-state wine]
    [wine-ai-summary-section app-state wine]
    [wine-technical-notes-section app-state wine]
+   [open-bottle-section app-state wine]
    [inventory-history-section app-state wine]
    [wine-tasting-notes-section app-state wine]])
 

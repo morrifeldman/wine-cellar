@@ -516,7 +516,8 @@
                             updates
                             "Failed to update history record"))]
         (if (:success result)
-          (fetch-inventory-history app-state wine-id)
+          (do (fetch-inventory-history app-state wine-id)
+              (fetch-wine-details app-state wine-id :include-images false))
           (swap! app-state assoc :error (:error result))))))
 
 (defn delete-inventory-history
@@ -524,7 +525,8 @@
   (go (let [result (<! (DELETE (str "/api/wines/history/" history-id)
                                "Failed to delete history record"))]
         (if (:success result)
-          (fetch-inventory-history app-state wine-id)
+          (do (fetch-inventory-history app-state wine-id)
+              (fetch-wine-details app-state wine-id :include-images false))
           (swap! app-state assoc :error (:error result))))))
 
 (defn adjust-wine-quantity
@@ -549,6 +551,44 @@
                         %)
                      wines))))
         (swap! app-state assoc :error (:error result)))))))
+
+(defn- merge-wine-update!
+  "Merge the open-bottle fields from a server response into the wine in app-state."
+  [app-state wine-id updated]
+  (swap! app-state update
+    :wines
+    (fn [wines]
+      (map #(if (= (:id %) wine-id)
+              (merge %
+                     (select-keys updated
+                                  [:quantity :original_quantity
+                                   :open_bottle_opened_at
+                                   :open_bottle_oz_poured]))
+              %)
+           wines))))
+
+(defn coravin-pour
+  ([app-state wine-id oz] (coravin-pour app-state wine-id oz {}))
+  ([app-state wine-id oz {:keys [notes]}]
+   (go (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/coravin-pour")
+                              (cond-> {:oz oz} notes (assoc :notes notes))
+                              "Failed to record Coravin pour"))]
+         (if (:success result)
+           (do (fetch-inventory-history app-state wine-id)
+               (merge-wine-update! app-state wine-id (:data result)))
+           (swap! app-state assoc :error (:error result)))))))
+
+(defn finish-open-bottle
+  ([app-state wine-id] (finish-open-bottle app-state wine-id {}))
+  ([app-state wine-id {:keys [notes]}]
+   (go (let [result (<! (POST
+                         (str "/api/wines/by-id/" wine-id "/finish-open-bottle")
+                         (cond-> {} notes (assoc :notes notes))
+                         "Failed to finish open bottle"))]
+         (if (:success result)
+           (do (fetch-inventory-history app-state wine-id)
+               (merge-wine-update! app-state wine-id (:data result)))
+           (swap! app-state assoc :error (:error result)))))))
 
 (defn update-wine
   [app-state id updates]

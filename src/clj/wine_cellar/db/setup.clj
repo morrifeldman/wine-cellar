@@ -88,6 +88,25 @@
       "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cocktail_recipes' AND column_name='notes') THEN "
       "ALTER TABLE cocktail_recipes ADD COLUMN notes text; "
       "END IF; END $$;"]})
+   (sql-execute-helper
+    tx
+    {:raw
+     ["DO $$ BEGIN "
+      "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='wines' AND column_name='open_bottle_opened_at') THEN "
+      "ALTER TABLE wines ADD COLUMN open_bottle_opened_at timestamptz; "
+      "ALTER TABLE wines ADD COLUMN open_bottle_oz_poured numeric(5,2); "
+      "END IF; END $$;"]})
+   (sql-execute-helper
+    tx
+    {:raw
+     ["DO $$ BEGIN "
+      "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_history' AND column_name='oz') THEN "
+      "ALTER TABLE inventory_history ADD COLUMN oz numeric(5,2); "
+      "UPDATE inventory_history "
+      "SET oz = substring(notes from '([0-9]+\\.?[0-9]*)\\s*oz')::numeric, "
+      "    notes = NULLIF(trim(BOTH ' —' FROM regexp_replace(notes, '^[0-9]+\\.?[0-9]*\\s*oz\\s*—?\\s*', '')), '') "
+      "WHERE reason = 'coravin_pour' AND notes ~ '[0-9]+\\.?[0-9]*\\s*oz'; "
+      "END IF; END $$;"]})
    ;; Indexes
    (sql-execute-helper
     tx

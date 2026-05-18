@@ -135,6 +135,7 @@
 (s/def ::leak_detected (s/nilable boolean?))
 (s/def ::notes (s/nilable string?))
 (s/def ::reason (s/nilable string?))
+(s/def ::oz (s/and number? pos?))
 (s/def ::bucket #{"15m" "1h" "6h" "1d"})
 (s/def ::from ::measured_at)
 (s/def ::to ::measured_at)
@@ -666,7 +667,7 @@
      {:parameters {:path {:history-id int?}}
       :put {:summary "Update inventory history record"
             :parameters {:body (s/keys :opt-un
-                                       [::occurred_at ::reason ::notes])}
+                                       [::occurred_at ::reason ::notes ::oz])}
             :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
             :handler handlers/update-inventory-history}
       :delete {:summary "Delete inventory history record"
@@ -694,6 +695,20 @@
                                          :opt-un [::reason ::notes])}
               :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
               :handler handlers/adjust-quantity}}]
+     ["/coravin-pour"
+      {:post
+       {:summary "Record a Coravin pour from an open or new bottle"
+        :parameters {:body (s/keys :req-un [::oz] :opt-un [::notes])}
+        :responses
+        {200 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
+        :handler handlers/coravin-pour}}]
+     ["/finish-open-bottle"
+      {:post
+       {:summary "Mark the currently open bottle as finished"
+        :parameters {:body (s/keys :opt-un [::notes])}
+        :responses
+        {200 {:body map?} 400 {:body map?} 404 {:body map?} 500 {:body map?}}
+        :handler handlers/finish-open-bottle}}]
      ["/history"
       {:get {:summary "Get inventory history for a wine"
              :responses {200 {:body vector?} 404 {:body map?} 500 {:body map?}}

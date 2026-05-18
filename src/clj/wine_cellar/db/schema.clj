@@ -40,6 +40,8 @@
     [:tasting_window_commentary :text] [:verified :boolean [:default false]]
     [:ai_summary :text] [:label_image :bytea] [:label_thumbnail :bytea]
     [:back_label_image :bytea] [:metadata :jsonb]
+    [:open_bottle_opened_at :timestamptz]
+    [:open_bottle_oz_poured :numeric [5 2]]
     [[:constraint :valid_tasting_window]
      [:check
       [:or [:= :drink_from_year] [:= :drink_until_year]
@@ -170,6 +172,7 @@
     [:new_quantity :integer] [:original_quantity :integer]
     [:occurred_at :timestamp [:default [:now]]]
     [:created_at :timestamp [:default [:now]]] [:notes :text]
+    [:oz :numeric [5 2]]
     [[:foreign-key :wine_id] :references [:wines :id] :on-delete :cascade]]})
 
 (def cellar-reports-table-schema
