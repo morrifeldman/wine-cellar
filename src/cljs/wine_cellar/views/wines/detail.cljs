@@ -21,6 +21,7 @@
     [reagent-mui.icons.rate-review :refer [rate-review]]
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.button :refer [button]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.material.circular-progress :refer [circular-progress]]
     [reagent-mui.material.grid :refer [grid]]
     [reagent-mui.material.paper :refer [paper]]
@@ -47,9 +48,9 @@
     [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
     [wine-cellar.utils.vintage :as vintage]
     [wine-cellar.views.components :refer
-     [dot-separated-row editable-autocomplete-field
-      editable-classification-field editable-text-field oz-input-field
-      quantity-control]]
+     [coravin-pour-dialog dot-separated-row editable-autocomplete-field
+      editable-classification-field editable-text-field gift-dialog minus-menu
+      oz-input-field quantity-control]]
     [wine-cellar.views.components.image-upload :refer [image-upload]]
     [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
     [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
@@ -525,6 +526,21 @@
           location (str qty " bottles · " location)
           :else (str qty " bottles"))))
 
+(defn- open-bottle-level
+  "Inline '~N of M oz left' display for a Coravin-opened bottle."
+  [wine]
+  (let [bottle-oz (common/bottle-format->oz (:bottle_format wine))
+        poured (or (some-> (:open_bottle_oz_poured wine)
+                           js/parseFloat)
+                   0)
+        remaining (max 0 (js/Math.round (- bottle-oz poured)))]
+    [typography {:variant "body2" :color "text.secondary" :sx {:mt 0.5}}
+     (str "Includes 1 Coravin-open bottle (~"
+          remaining
+          " of "
+          (js/Math.round bottle-oz)
+          " oz left)")]))
+
 (defn- cellar-edit-modal
   [app-state wine open?]
   (r/with-let
@@ -537,8 +553,9 @@
      [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
       (let [open? (boolean (:open_bottle_opened_at wine))
             full (max 0 (- (:quantity wine) (if open? 1 0)))]
-        [quantity-control app-state (:id wine) (:quantity wine) (str full)
-         (:original_quantity wine)])
+        [box {:sx {:display "flex" :flexDirection "column"}}
+         [quantity-control app-state (:id wine) (:quantity wine) (str full)
+          (:original_quantity wine)] (when open? [open-bottle-level wine])])
       [box {:sx {:borderTop "1px solid rgba(255,255,255,0.08)" :mt 0.5}}]
       [text-field
        {:value (or @laid-down-val "")
@@ -581,19 +598,42 @@
 (defn wine-cellar-section
   [app-state wine]
   (r/with-let
-   [open? (r/atom false)]
-   [box
-    {:sx {:mt 3 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
-    [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
-    [box
-     {:sx {:cursor "pointer"
-           :borderRadius 1
-           :px 0.5
-           :mx -0.5
-           "&:hover" {:bgcolor "action.hover"}}
-      :onClick #(reset! open? true)}
-     [typography {:variant "body1"} (cellar-summary wine)]]
-    (when @open? [cellar-edit-modal app-state wine open?])]))
+   [modal-open? (r/atom false) anchor-el (r/atom nil) gift-open? (r/atom false)
+    coravin-open? (r/atom false)]
+   (let [wine-id (:id wine)
+         qty (:quantity wine)
+         bottle-open? (boolean (:open_bottle_opened_at wine))]
+     [box
+      {:sx {:mt 3 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
+      [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
+      [box {:sx {:display "flex" :alignItems "center" :gap 1}}
+       [box
+        {:sx {:flex 1
+              :cursor "pointer"
+              :borderRadius 1
+              :px 0.5
+              :mx -0.5
+              "&:hover" {:bgcolor "action.hover"}}
+         :onClick #(reset! modal-open? true)}
+        [typography {:variant "body1"} (cellar-summary wine)]]
+       [tooltip {:title "Bottle actions" :arrow true}
+        [:span
+         [icon-button
+          {:size "small"
+           :disabled (zero? qty)
+           :sx {:color "text.secondary"}
+           :onClick
+           (fn [e] (.stopPropagation e) (reset! anchor-el (.-currentTarget e)))}
+          [wine-bar {:fontSize "small"}]]]]
+       [minus-menu app-state wine-id anchor-el #{:drink :coravin-pour :gift}
+        #(reset! gift-open? true) #(reset! coravin-open? true)]]
+      (when bottle-open? [open-bottle-level wine])
+      (when @modal-open? [cellar-edit-modal app-state wine modal-open?])
+      (when @gift-open?
+        [gift-dialog app-state wine-id gift-open? #(reset! gift-open? false)])
+      (when @coravin-open?
+        [coravin-pour-dialog app-state wine-id coravin-open?
+         #(reset! coravin-open? false)])])))
 
 (defn- provenance-summary
   [wine]

@@ -5,6 +5,7 @@
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.menu :refer [menu]]
             [reagent-mui.material.menu-item :refer [menu-item]]
+            [reagent-mui.material.list-item-icon :refer [list-item-icon]]
             [reagent-mui.material.dialog :refer [dialog]]
             [reagent-mui.material.dialog-title :refer [dialog-title]]
             [reagent-mui.material.dialog-content :refer [dialog-content]]
@@ -16,6 +17,8 @@
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.icons.save :refer [save]]
             [reagent-mui.icons.cancel :refer [cancel]]
+            [reagent-mui.icons.wine-bar :refer [wine-bar]]
+            [reagent-mui.icons.opacity :refer [opacity]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.material.input-adornment :refer [input-adornment]]
@@ -68,7 +71,7 @@
 
 ;; Helper components for quantity control
 
-(defn- gift-dialog
+(defn gift-dialog
   [app-state wine-id open? on-close]
   (r/with-let
    [recipient (r/atom "")]
@@ -112,7 +115,7 @@
                  :inputProps {:step "1" :min "1"}}
     :onChange (fn [e] (reset! oz-atom (.. e -target -value)))}])
 
-(defn- coravin-pour-dialog
+(defn coravin-pour-dialog
   [app-state wine-id open? on-close]
   (r/with-let
    [oz (r/atom "2") notes (r/atom "")]
@@ -143,7 +146,7 @@
                       (reset! notes "")
                       (on-close))))} "Pour"]]]))
 
-(defn- minus-menu
+(defn minus-menu
   [app-state wine-id anchor-el options on-gift on-coravin-pour]
   [menu
    {:anchorEl @anchor-el
@@ -155,10 +158,10 @@
        (fn []
          (reset! anchor-el nil)
          (api/adjust-wine-quantity app-state wine-id -1 {:reason "drunk"}))}
-      "Drink"])
+      [list-item-icon [wine-bar {:fontSize "small"}]] "Drink"])
    (when (:coravin-pour options)
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-coravin-pour))}
-      "Coravin pour"])
+      [list-item-icon [opacity {:fontSize "small"}]] "Coravin pour"])
    (when (:gift options)
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-gift))} "Gift"])
    (when (:broken options)
