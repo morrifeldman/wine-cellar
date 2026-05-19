@@ -620,11 +620,11 @@
         [:span
          [icon-button
           {:size "small"
+           :color "inherit"
            :disabled (zero? qty)
-           :sx {:color "text.secondary"}
            :onClick
            (fn [e] (.stopPropagation e) (reset! anchor-el (.-currentTarget e)))}
-          [wine-bar {:fontSize "small"}]]]]
+          [wine-bar {:fontSize "small" :color "primary"}]]]]
        [minus-menu app-state wine-id anchor-el #{:drink :coravin-pour :gift}
         #(reset! gift-open? true) #(reset! coravin-open? true)]]
       (when bottle-open? [open-bottle-level wine])

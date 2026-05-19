@@ -158,10 +158,11 @@
        (fn []
          (reset! anchor-el nil)
          (api/adjust-wine-quantity app-state wine-id -1 {:reason "drunk"}))}
-      [list-item-icon [wine-bar {:fontSize "small"}]] "Drink"])
+      [list-item-icon [wine-bar {:fontSize "small" :color "primary"}]] "Drink"])
    (when (:coravin-pour options)
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-coravin-pour))}
-      [list-item-icon [opacity {:fontSize "small"}]] "Coravin pour"])
+      [list-item-icon [opacity {:fontSize "small" :color "primary"}]]
+      "Coravin pour"])
    (when (:gift options)
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-gift))} "Gift"])
    (when (:broken options)
