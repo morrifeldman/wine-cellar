@@ -265,13 +265,17 @@
     [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
      ;; Identity row
      [box {:sx {:mb 2}}
-      [editable-text-field
-       {:value (:name recipe)
-        :on-save #(save-field! app-state recipe :name %)
-        :empty-text "Add name"
-        :inline? true
-        :display-sx
-        {:fontSize "1.35rem" :fontWeight 600 :color "primary.main"}}]
+      [box
+       {:sx {:cursor "pointer"
+             :borderRadius 1
+             :mx -0.5
+             :px 0.5
+             :py 0.25
+             "&:hover" {:bgcolor "action.hover"}}
+        :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
+       [typography
+        {:sx {:fontSize "1.35rem" :fontWeight 600 :color "primary.main"}}
+        (:name recipe)]]
       [box {:sx {:mt 0.5}}
        [editable-text-field
         {:value (:source recipe)
@@ -332,7 +336,7 @@
         (fn []
           (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
           (swap! app-state assoc-in [:bar :editing-recipe-id] (:id recipe)))}
-       "Edit Ingredients"]
+       "Edit"]
       [button
        {:variant "contained"
         :color "primary"
@@ -341,8 +345,7 @@
 
 (defn- recipe-card
   [app-state recipe]
-  (let [tags (:tags recipe)
-        n-ingredients (count (:ingredients recipe))]
+  (let [tags (:tags recipe)]
     [paper
      {:elevation 1
       :sx {:p 1.5 :mb 1 :cursor "pointer" "&:hover" {:bgcolor "action.hover"}}
@@ -358,30 +361,17 @@
         [typography {:variant "body1" :sx {:fontWeight 600}} (:name recipe)]
         (when (:rating recipe)
           [recipe-rating {:value (:rating recipe) :read-only? true}])]
-       [box
-        {:sx {:display "flex"
-              :alignItems "center"
-              :gap 0.5
-              :flexWrap "wrap"
-              :color "text.secondary"
-              :fontSize "0.8rem"}}
-        [typography
-         {:variant "body2"
-          :component "span"
-          :sx {:color "text.secondary" :fontSize "0.8rem"}}
-         (str n-ingredients " ingredient" (when (not= n-ingredients 1) "s"))]
-        (when (seq tags)
-          [:<>
-           [typography
-            {:variant "body2"
-             :component "span"
-             :sx {:color "text.secondary" :fontSize "0.8rem"}} "·"]
-           (for [tag tags]
-             ^{:key tag}
-             [chip
-              {:label tag
-               :size "small"
-               :sx {:height 18 :fontSize "0.7rem"}}])])]
+       (when (seq tags)
+         [box
+          {:sx {:display "flex"
+                :alignItems "center"
+                :gap 0.5
+                :flexWrap "wrap"
+                :mt 0.25}}
+          (for [tag tags]
+            ^{:key tag}
+            [chip
+             {:label tag :size "small" :sx {:height 18 :fontSize "0.7rem"}}])])
        (when (:description recipe)
          [typography
           {:variant "body2"
@@ -518,8 +508,8 @@
                        (seq sel) (filter #(every? (set (:tags %)) sel))
                        :always (sort-by (juxt #(if (:rating %) 0 1)
                                               #(- (or (:rating %) 0)))))]
-        [box (when (or show-form? editing-id) [recipe-form app-state])
-         (when (and (seq recipes) (not (or show-form? editing-id)))
+        [box (when show-form? [recipe-form app-state])
+         (when (and (seq recipes) (not show-form?))
            [:<>
             [search-text-field
              {:search-atom search-text :label "Search recipes"}]
@@ -529,6 +519,6 @@
             "No recipes yet. Save your first cocktail!"]
            (for [recipe filtered]
              ^{:key (:id recipe)}
-             (cond (= (:id recipe) viewing-id) [recipe-display app-state recipe]
-                   (= (:id recipe) editing-id) nil
+             (cond (= (:id recipe) editing-id) [recipe-form app-state]
+                   (= (:id recipe) viewing-id) [recipe-display app-state recipe]
                    :else [recipe-card app-state recipe])))]))))
