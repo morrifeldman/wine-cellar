@@ -190,7 +190,7 @@
     :read-only (boolean read-only?)
     :sx {"& .MuiRating-iconFilled" {:color "#FFD54F"}
          "& .MuiRating-iconHover" {:color "#FFE082"}
-         "& .MuiRating-iconEmpty" {:color "action.disabled"}}
+         "& .MuiRating-iconEmpty" {:color "text.secondary" :opacity 0.55}}
     :on-change (when-not read-only?
                  (fn [_ v] (on-change (when v (int (* v 2))))))}])
 
