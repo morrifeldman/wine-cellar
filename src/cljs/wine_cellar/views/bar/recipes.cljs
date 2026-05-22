@@ -12,6 +12,7 @@
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.chip :refer [chip]]
+            [reagent-mui.material.rating :refer [rating]]
             [reagent-mui.material.checkbox :refer [checkbox]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
@@ -179,6 +180,20 @@
   [app-state recipe field value]
   (api/update-cocktail-recipe app-state (:id recipe) {field value}))
 
+(defn- recipe-rating
+  [{:keys [value on-change read-only? size]}]
+  [rating
+   {:value (when value (/ value 2))
+    :precision 0.5
+    :max 5
+    :size (or size "small")
+    :read-only (boolean read-only?)
+    :sx {"& .MuiRating-iconFilled" {:color "#FFD54F"}
+         "& .MuiRating-iconHover" {:color "#FFE082"}
+         "& .MuiRating-iconEmpty" {:color "action.disabled"}}
+    :on-change (when-not read-only?
+                 (fn [_ v] (on-change (when v (int (* v 2))))))}])
+
 (defn- ingredients-list
   [recipe]
   [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5}}
@@ -264,6 +279,11 @@
          :empty-text "Add source"
          :inline? true
          :display-sx {:color "text.secondary" :fontSize "0.85rem"}}]]
+      [box {:sx {:mt 0.75 :display "flex" :alignItems "center"}}
+       [recipe-rating
+        {:value (:rating recipe)
+         :size "medium"
+         :on-change #(save-field! app-state recipe :rating %)}]]
       [tags-editor app-state recipe all-tags]]
      ;; Description (inline editable, no section header — sits as the lede)
      [box {:sx {:mb 1}}
@@ -334,7 +354,10 @@
             :justifyContent "space-between"
             :gap 1}}
       [box {:sx {:flex 1 :minWidth 0}}
-       [typography {:variant "body1" :sx {:fontWeight 600}} (:name recipe)]
+       [box {:sx {:display "flex" :alignItems "center" :gap 1 :flexWrap "wrap"}}
+        [typography {:variant "body1" :sx {:fontWeight 600}} (:name recipe)]
+        (when (:rating recipe)
+          [recipe-rating {:value (:rating recipe) :read-only? true}])]
        [box
         {:sx {:display "flex"
               :alignItems "center"
@@ -492,7 +515,9 @@
                                                            (recipe-search-text
                                                             %))
                                                           term))
-                       (seq sel) (filter #(every? (set (:tags %)) sel)))]
+                       (seq sel) (filter #(every? (set (:tags %)) sel))
+                       :always (sort-by (juxt #(if (:rating %) 0 1)
+                                              #(- (or (:rating %) 0)))))]
         [box (when (or show-form? editing-id) [recipe-form app-state])
          (when (and (seq recipes) (not (or show-form? editing-id)))
            [:<>

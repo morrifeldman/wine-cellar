@@ -197,12 +197,13 @@
 
 (def cocktail-recipe-schema
   (s/keys :req-un [::name ::ingredients]
-          :opt-un [::description ::instructions ::notes ::tags ::source]))
+          :opt-un [::description ::instructions ::notes ::tags ::source
+                   ::rating]))
 
 (def cocktail-recipe-update-schema
   (s/keys :opt-un
           [::name ::ingredients ::description ::instructions ::notes ::tags
-           ::source]))
+           ::source ::rating]))
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
