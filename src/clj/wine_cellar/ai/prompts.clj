@@ -579,6 +579,12 @@
    "Some wines, especially those acquired through flash sales or closeout deals (e.g., 'Last Bottle'), "
    "may have significantly reduced prices closer to wholesale without reflecting a compromise in quality. "
    "Therefore, assess the wine based on its inherent characteristics rather than solely on its purchase price.\n\n"
+   "STORAGE CONDITIONS: This wine is kept in a passive home cellar that runs about "
+   "56-57°F (13-14°C) in winter and warms to roughly 60°F (~16°C) in summer. "
+   "This is slightly above the 55°F (13°C) storage ideal, with mild seasonal "
+   "variation, which can modestly accelerate maturation. Factor these real-world "
+   "conditions into your drinking-window estimate rather than assuming perfectly "
+   "controlled cold storage.\n\n"
    "The current year is " (current-year)
    ".\n\n" "Return your response in JSON format with the following fields:\n"
    "- drink_from_year: (integer) The year when the wine will reach optimal drinking condition\n"
