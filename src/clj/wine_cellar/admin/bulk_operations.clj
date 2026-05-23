@@ -10,12 +10,16 @@
 
 (defn update-job-status!
   [job-id status & [progress total error]]
-  (swap! active-jobs assoc
+  ;; Merge into the existing entry rather than replacing it, so accumulated
+  ;; keys like :failed-wines and :job-type survive each progress tick.
+  (swap! active-jobs update
     job-id
-    (merge {:status status :updated-at (System/currentTimeMillis)}
-           (when progress {:progress progress})
-           (when total {:total total})
-           (when error {:error error}))))
+    (fn [existing]
+      (merge existing
+             {:status status :updated-at (System/currentTimeMillis)}
+             (when progress {:progress progress})
+             (when total {:total total})
+             (when error {:error error})))))
 
 (defn add-failed-wine!
   [job-id wine-id error-msg]

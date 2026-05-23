@@ -1306,7 +1306,9 @@
                             message (format-success-message job-type
                                                             (or total 0)
                                                             failed-wines)]
-                        (swap! app-state assoc :success message)))
+                        (if (seq failed-wines)
+                          (swap! app-state assoc :error message)
+                          (swap! app-state assoc :success message))))
                   (= job-status "failed")
                   (do (swap! app-state dissoc in-progress-key :job-progress)
                       (swap! app-state assoc
