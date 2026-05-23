@@ -37,10 +37,11 @@
       {:drink_from_year
        {:type "integer"
         :description
-        "Year the wine reaches optimal drinking condition (integer)."}
+        "Year the optimal drinking window opens (the wine first reaches peak quality). May be a past year for already-mature wines; do not clamp to the current year."}
        :drink_until_year
        {:type "integer"
-        :description "Final year the wine remains at peak quality (integer)."}
+        :description
+        "Last year the wine stays at peak quality (not merely drinkable). May be at or before the current year for wines already in decline."}
        :confidence {:type "string" :description confidence-desc}
        :reasoning {:type "string" :description reasoning-desc}}
       :required [:drink_from_year :drink_until_year :confidence :reasoning]
