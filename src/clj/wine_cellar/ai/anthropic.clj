@@ -114,6 +114,11 @@
                  :bottle_format :alcohol_percentage]
       :additionalProperties false}}))
 
+(defn- temperature-supported?
+  "Opus 4.8+ deprecates the temperature parameter and 400s when it is sent."
+  [model-name]
+  (not (and model-name (str/includes? model-name "opus-4-8"))))
+
 (defn- build-request-body
   [{:keys [system messages tools tool_choice max_tokens temperature metadata
            stop_sequences]} model-override]
@@ -122,7 +127,8 @@
       (assoc :messages messages)
       (cond-> (seq tools) (assoc :tools tools))
       (cond-> tool_choice (assoc :tool_choice tool_choice))
-      (cond-> temperature (assoc :temperature temperature))
+      (cond-> (and temperature (temperature-supported? model-override))
+              (assoc :temperature temperature))
       (cond-> metadata (assoc :metadata metadata))
       (cond-> (seq stop_sequences) (assoc :stop_sequences stop_sequences))))
 
@@ -165,7 +171,7 @@
          (throw
           (ex-info "Anthropic API request failed" response-with-parsed error)))
        (when (not= 200 status)
-         (tap> ["anthropic-request-non-200" error])
+         (tap> ["anthropic-request-non-200" {:status status :body parsed}])
          (throw (ex-info "Anthropic API request failed" response-with-parsed)))
        (if parse-json?
          (try (if-let [parsed-response (parse-json-content content)]
