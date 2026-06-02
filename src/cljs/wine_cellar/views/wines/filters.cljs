@@ -59,6 +59,7 @@
       :variant "outlined"
       :size "small"
       :placeholder "Search…"
+      :inputProps {:autoCapitalize "none" :autoCorrect "off" :spellCheck false}
       :value (:search filters)
       :sx {"& .MuiOutlinedInput-root"
            {"& fieldset" {:borderColor "divider" :opacity 0.8}
