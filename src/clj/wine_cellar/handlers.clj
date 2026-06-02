@@ -209,10 +209,12 @@
 
 (defn update-inventory-history
   [{{{:keys [history-id]} :path body :body} :parameters}]
-  (with-server-error
-   (if-let [updated (db-api/update-inventory-history! history-id body)]
-     (response/response updated)
-     (not-found "History record"))))
+  (try (if-let [updated (db-api/update-inventory-history! history-id body)]
+         (response/response updated)
+         (not-found "History record"))
+       (catch clojure.lang.ExceptionInfo e
+         {:status 400 :body {:error (.getMessage e)}})
+       (catch Exception e (server-error e))))
 
 (defn delete-inventory-history
   [{{{:keys [history-id]} :path} :parameters}]

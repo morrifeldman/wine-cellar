@@ -606,22 +606,51 @@
               :where [:= :id wine-id]}))))
 
 (defn update-inventory-history!
+  "Update an inventory_history row. Editing :change_amount adjusts the wine's
+  live quantity by the delta (e.g. correcting a drink from 1 to 2 bottles
+  removes one more bottle) and keeps the row's own balance snapshot consistent.
+  Throws if the adjustment would drive quantity negative."
   [id updates]
-  (let [valid-updates (select-keys updates [:occurred_at :reason :notes :oz])
+  (let [valid-updates
+        (select-keys updates [:occurred_at :reason :notes :oz :change_amount])
         set-map (cond-> valid-updates
                   (:occurred_at valid-updates) (update :occurred_at
                                                        ->sql-timestamp))]
     (when (seq set-map)
-      (jdbc/with-transaction [tx ds]
-                             (let [updated (q-one tx
-                                                  {:update :inventory_history
-                                                   :set set-map
-                                                   :where [:= :id id]
-                                                   :returning :*})]
-                               (when (and updated
-                                          (= "coravin_pour" (:reason updated)))
-                                 (recompute-open-poured! tx (:wine_id updated)))
-                               updated)))))
+      (jdbc/with-transaction
+       [tx ds]
+       (let [existing (q-one tx
+                             {:select [:wine_id :change_amount :new_quantity]
+                              :from :inventory_history
+                              :where [:= :id id]})
+             new-ca (:change_amount valid-updates)
+             delta (when (and new-ca existing)
+                     (- new-ca (:change_amount existing)))
+             set-map (cond-> set-map
+                       (and delta (not (zero? delta)))
+                       (assoc :new_quantity
+                              (+ (:new_quantity existing) delta)))]
+         (when (and delta (not (zero? delta)))
+           (let [wine (q-one tx
+                             {:select [:quantity]
+                              :from :wines
+                              :where [:= :id (:wine_id existing)]})
+                 new-q (+ (:quantity wine) delta)]
+             (when (neg? new-q)
+               (throw (ex-info "Adjustment would make quantity negative"
+                               {:wine-id (:wine_id existing)})))
+             (q-one tx
+                    {:update :wines
+                     :set {:quantity new-q :updated_at [:now]}
+                     :where [:= :id (:wine_id existing)]})))
+         (let [updated (q-one tx
+                              {:update :inventory_history
+                               :set set-map
+                               :where [:= :id id]
+                               :returning :*})]
+           (when (and updated (= "coravin_pour" (:reason updated)))
+             (recompute-open-poured! tx (:wine_id updated)))
+           updated))))))
 
 (defn delete-inventory-history!
   [id]

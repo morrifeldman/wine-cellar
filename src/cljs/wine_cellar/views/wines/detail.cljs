@@ -1088,6 +1088,7 @@
                                                              record))
                               :reason reason-key
                               :reason-display display-label
+                              :bottles (str (abs (:change_amount record)))
                               :notes (:notes record)})))
      [dialog {:open @open? :onClose on-close :maxWidth "sm" :fullWidth true}
       [dialog-title "Edit History Record"]
@@ -1102,6 +1103,14 @@
           :fullWidth true
           :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
                {:filter "invert(0.7)" :opacity 0.7}}}]
+        [text-field
+         {:type "number"
+          :label "Bottles"
+          :value (:bottles @local-state)
+          :onChange #(swap! local-state assoc :bottles (.. % -target -value))
+          :fullWidth true
+          :helperText "Changing this adjusts your cellar quantity"
+          :InputProps {:inputProps {:step "1" :min "1"}}}]
         [autocomplete
          {:freeSolo true
           :options (sort (vals common/inventory-reasons))
@@ -1137,11 +1146,15 @@
        [button
         {:variant "contained"
          :onClick (fn []
-                    (api/update-inventory-history app-state
-                                                  wine-id
-                                                  (:id record)
-                                                  @local-state)
-                    (on-close))} "Save Changes"]]])))
+                    (let [n (js/parseInt (:bottles @local-state) 10)
+                          sign (if (neg? (:change_amount record)) -1 1)]
+                      (when (and (not (js/isNaN n)) (pos? n))
+                        (api/update-inventory-history
+                         app-state
+                         wine-id
+                         (:id record)
+                         (assoc @local-state :change_amount (* sign n)))
+                        (on-close))))} "Save Changes"]]])))
 
 
 (defn- pour-notes-text
