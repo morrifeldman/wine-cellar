@@ -441,7 +441,7 @@
 
 (defn adjust-quantity
   ([id adjustment] (adjust-quantity id adjustment {}))
-  ([id adjustment {:keys [reason notes]}]
+  ([id adjustment {:keys [reason notes occurred_at]}]
    (jdbc/with-transaction
     [tx ds]
     (let [wine (q-one tx
@@ -462,13 +462,15 @@
                                adjustment]))]
       (q-one tx
              {:insert-into :inventory_history
-              :values [{:wine_id id
-                        :change_amount adjustment
-                        :reason actual-reason
-                        :previous_quantity current-quantity
-                        :new_quantity new-quantity
-                        :original_quantity new-original-quantity
-                        :notes notes}]})
+              :values [(cond-> {:wine_id id
+                                :change_amount adjustment
+                                :reason actual-reason
+                                :previous_quantity current-quantity
+                                :new_quantity new-quantity
+                                :original_quantity new-original-quantity
+                                :notes notes}
+                         occurred_at (assoc :occurred_at
+                                            (->sql-timestamp occurred_at)))]})
       (q-one tx {:update :wines :set update-map :where [:= :id id]})))))
 
 (defn coravin-pour

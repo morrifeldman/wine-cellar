@@ -179,11 +179,14 @@
   (if-wine id #(do (db-api/delete-wine! id) (no-content))))
 
 (defn adjust-quantity
-  [{{{:keys [id]} :path {:keys [adjustment reason notes]} :body} :parameters}]
-  (if-wine
-   id
-   #(response/response
-     (db-api/adjust-quantity id adjustment {:reason reason :notes notes}))))
+  [{{{:keys [id]} :path {:keys [adjustment reason notes occurred_at]} :body}
+    :parameters}]
+  (if-wine id
+           #(response/response
+             (db-api/adjust-quantity
+              id
+              adjustment
+              {:reason reason :notes notes :occurred_at occurred_at}))))
 
 (defn coravin-pour
   [{{{:keys [id]} :path {:keys [oz notes]} :body} :parameters}]

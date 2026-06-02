@@ -48,9 +48,10 @@
     [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
     [wine-cellar.utils.vintage :as vintage]
     [wine-cellar.views.components :refer
-     [coravin-pour-dialog dot-separated-row editable-autocomplete-field
-      editable-classification-field editable-text-field gift-dialog minus-menu
-      oz-input-field quantity-control]]
+     [coravin-pour-dialog drink-dialog dot-separated-row
+      editable-autocomplete-field editable-classification-field
+      editable-text-field gift-dialog minus-menu oz-input-field
+      quantity-control]]
     [wine-cellar.views.components.image-upload :refer [image-upload]]
     [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
     [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
@@ -599,7 +600,7 @@
   [app-state wine]
   (r/with-let
    [modal-open? (r/atom false) anchor-el (r/atom nil) gift-open? (r/atom false)
-    coravin-open? (r/atom false)]
+    coravin-open? (r/atom false) drink-open? (r/atom false)]
    (let [wine-id (:id wine)
          qty (:quantity wine)
          bottle-open? (boolean (:open_bottle_opened_at wine))]
@@ -626,9 +627,13 @@
            (fn [e] (.stopPropagation e) (reset! anchor-el (.-currentTarget e)))}
           [wine-bar {:fontSize "small" :color "primary"}]]]]
        [minus-menu app-state wine-id anchor-el #{:drink :coravin-pour :gift}
-        #(reset! gift-open? true) #(reset! coravin-open? true)]]
+        #(reset! gift-open? true) #(reset! coravin-open? true)
+        #(reset! drink-open? true)]]
       (when bottle-open? [open-bottle-level wine])
       (when @modal-open? [cellar-edit-modal app-state wine modal-open?])
+      (when @drink-open?
+        [drink-dialog app-state wine-id qty drink-open?
+         #(reset! drink-open? false)])
       (when @gift-open?
         [gift-dialog app-state wine-id gift-open? #(reset! gift-open? false)])
       (when @coravin-open?

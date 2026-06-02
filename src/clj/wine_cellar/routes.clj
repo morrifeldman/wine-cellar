@@ -693,7 +693,8 @@
      ["/adjust-quantity"
       {:post {:summary "Adjust wine quantity"
               :parameters {:body (s/keys :req-un [::adjustment]
-                                         :opt-un [::reason ::notes])}
+                                         :opt-un [::reason ::notes
+                                                  ::occurred_at])}
               :responses {200 {:body map?} 404 {:body map?} 500 {:body map?}}
               :handler handlers/adjust-quantity}}]
      ["/coravin-pour"

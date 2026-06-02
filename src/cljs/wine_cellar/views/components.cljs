@@ -146,8 +146,60 @@
                       (reset! notes "")
                       (on-close))))} "Pour"]]]))
 
+(defn drink-dialog
+  "Full drink-recording modal: backdate the drink, record multiple bottles
+  (e.g. at a party), and add a note."
+  [app-state wine-id quantity open? on-close]
+  (r/with-let
+   [bottles (r/atom "1") date
+    (r/atom (formatting/format-date-iso (.toISOString (js/Date.)))) notes
+    (r/atom "")]
+   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
+    [dialog-title "Record Drink"]
+    [dialog-content
+     [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
+      [text-field
+       {:value @bottles
+        :type "number"
+        :label "Bottles"
+        :fullWidth true
+        :autoFocus true
+        :helperText (str "Up to " quantity " available")
+        :InputProps {:inputProps {:step "1" :min "1" :max quantity}}
+        :onChange (fn [e] (reset! bottles (.. e -target -value)))}]
+      [text-field
+       {:value @date
+        :type "date"
+        :label "Date"
+        :fullWidth true
+        :onChange (fn [e] (reset! date (.. e -target -value)))
+        :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
+             {:filter "invert(0.7)" :opacity 0.7}}}]
+      [text-field
+       {:value @notes
+        :label "Notes (optional)"
+        :fullWidth true
+        :multiline true
+        :rows 2
+        :onChange (fn [e] (reset! notes (.. e -target -value)))}]]]
+    [dialog-actions [button {:onClick on-close} "Cancel"]
+     [button
+      {:variant "contained"
+       :onClick (fn []
+                  (let [n (js/parseInt @bottles 10)]
+                    (when (and (not (js/isNaN n)) (pos? n) (<= n quantity))
+                      (api/adjust-wine-quantity app-state
+                                                wine-id
+                                                (- n)
+                                                {:reason "drunk"
+                                                 :occurred_at @date
+                                                 :notes (when-not (str/blank?
+                                                                   @notes)
+                                                          (str/trim @notes))})
+                      (on-close))))} "Drink"]]]))
+
 (defn minus-menu
-  [app-state wine-id anchor-el options on-gift on-coravin-pour]
+  [app-state wine-id anchor-el options on-gift on-coravin-pour on-drink]
   [menu
    {:anchorEl @anchor-el
     :open (boolean @anchor-el)
@@ -159,6 +211,10 @@
          (reset! anchor-el nil)
          (api/adjust-wine-quantity app-state wine-id -1 {:reason "drunk"}))}
       [list-item-icon [wine-bar {:fontSize "small" :color "primary"}]] "Drink"])
+   (when (:drink options)
+     [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-drink))}
+      [list-item-icon [wine-bar {:fontSize "small" :color "primary"}]]
+      "Drink (details)…"])
    (when (:coravin-pour options)
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-coravin-pour))}
       [list-item-icon [opacity {:fontSize "small" :color "primary"}]]
@@ -258,7 +314,8 @@
          minus-icon (:minus-icon opts [arrow-drop-down {:fontSize "small"}])]
      (r/with-let
       [anchor-el-add (r/atom nil) anchor-el-sub (r/atom nil) gift-open?
-       (r/atom false) restock-open? (r/atom false) coravin-open? (r/atom false)]
+       (r/atom false) restock-open? (r/atom false) coravin-open? (r/atom false)
+       drink-open? (r/atom false)]
       [box {:display "flex" :alignItems "center"}
        [box
         {:component "span"
@@ -292,7 +349,11 @@
           [plus-menu app-state wine-id anchor-el-add
            #(reset! restock-open? true)])
         [minus-menu app-state wine-id anchor-el-sub minus-options
-         #(reset! gift-open? true) #(reset! coravin-open? true)]
+         #(reset! gift-open? true) #(reset! coravin-open? true)
+         #(reset! drink-open? true)]
+        (when @drink-open?
+          [drink-dialog app-state wine-id quantity drink-open?
+           #(reset! drink-open? false)])
         (when @gift-open?
           [gift-dialog app-state wine-id gift-open? #(reset! gift-open? false)])
         (when @restock-open?

@@ -532,12 +532,13 @@
 (defn adjust-wine-quantity
   ([app-state wine-id adjustment]
    (adjust-wine-quantity app-state wine-id adjustment {}))
-  ([app-state wine-id adjustment {:keys [reason notes]}]
+  ([app-state wine-id adjustment {:keys [reason notes occurred_at]}]
    (go
     (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/adjust-quantity")
                            (cond-> {:adjustment adjustment}
                              reason (assoc :reason reason)
-                             notes (assoc :notes notes))
+                             notes (assoc :notes notes)
+                             occurred_at (assoc :occurred_at occurred_at))
                            "Failed to update wine quantity"))]
       (if (:success result)
         (do (fetch-inventory-history app-state wine-id) ;; Refresh history
