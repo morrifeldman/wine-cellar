@@ -1,6 +1,8 @@
 const VERSION_URL = '/version.json';
 const CACHE_PREFIX = 'wine-cellar-assets-';
-const SHELL_URL = '/';
+// Use /index.html (a direct 200) rather than '/', which 302-redirects to it.
+// Redirected responses cannot be cached or returned for a navigation request.
+const SHELL_URL = '/index.html';
 const CORE_ASSETS = [SHELL_URL, '/js/main.js'];
 
 let activeVersion = null;
@@ -206,16 +208,14 @@ const serveShell = async (event, request) => {
     return cached;
   }
 
-  // No cached shell yet — fetch the live navigation and seed the cache.
-  const response = await fetch(request);
-  if (response && response.ok) {
-    try {
-      await cache.put(SHELL_URL, response.clone());
-    } catch (error) {
-      // Ignore caching failures; still return the network response.
-    }
+  // No cached shell yet — seed it from the non-redirecting shell resource so
+  // we never hand a redirected response back for a navigation request.
+  try {
+    return await fetchAndStore(cache, new Request(SHELL_URL, { cache: 'no-store' }));
+  } catch (error) {
+    // Offline with no cached shell: fall back to the live navigation.
+    return fetch(request);
   }
-  return response;
 };
 
 self.addEventListener('fetch', (event) => {
