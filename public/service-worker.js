@@ -1,6 +1,7 @@
 const VERSION_URL = '/version.json';
 const CACHE_PREFIX = 'wine-cellar-assets-';
-const CORE_ASSETS = ['/js/main.js'];
+const SHELL_URL = '/';
+const CORE_ASSETS = [SHELL_URL, '/js/main.js'];
 
 let activeVersion = null;
 let activeCacheName = null;
@@ -185,6 +186,38 @@ const serveJsAsset = async (event, request) => {
   }
 };
 
+const serveShell = async (event, request) => {
+  const cacheKey = await ensureActiveCache();
+  const cache = await caches.open(cacheKey);
+  const cached = await cache.match(SHELL_URL);
+
+  if (cached) {
+    // Serve the cached shell instantly so launch/resume never shows a blank
+    // frame, then refresh it in the background (stale-while-revalidate).
+    event.waitUntil(
+      (async () => {
+        try {
+          await fetchAndStore(cache, new Request(SHELL_URL, { cache: 'no-store' }));
+        } catch (error) {
+          // Keep the cached shell if the refresh fails (offline/slow network).
+        }
+      })()
+    );
+    return cached;
+  }
+
+  // No cached shell yet — fetch the live navigation and seed the cache.
+  const response = await fetch(request);
+  if (response && response.ok) {
+    try {
+      await cache.put(SHELL_URL, response.clone());
+    } catch (error) {
+      // Ignore caching failures; still return the network response.
+    }
+  }
+  return response;
+};
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') {
@@ -193,6 +226,15 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  if (request.mode === 'navigate') {
+    // Let the server handle auth redirects and API navigations directly.
+    if (url.pathname.startsWith('/auth') || url.pathname.startsWith('/api')) {
+      return;
+    }
+    event.respondWith(serveShell(event, request));
     return;
   }
 
