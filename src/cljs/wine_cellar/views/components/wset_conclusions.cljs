@@ -74,5 +74,6 @@
             :rows 4
             :helper-text
             "Overall assessment, drinking window, food pairing suggestions, etc."
-            :reset-key (str "conclusions-comments-" (hash conclusions))
+            :reset-key (str "conclusions-comments-"
+                            (hash (:final_comments conclusions)))
             :input-ref final-comments-ref}]]]]]])))

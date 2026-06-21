@@ -85,5 +85,5 @@
             :initial-value (:other_observations nose)
             :rows 2
             :helper-text "Additional notes about the nose"
-            :reset-key (str "nose-obs-" (hash nose))
+            :reset-key (str "nose-obs-" (hash (:other_observations nose)))
             :input-ref other-observations-ref}]]]]]])))

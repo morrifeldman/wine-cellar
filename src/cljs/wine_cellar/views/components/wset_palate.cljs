@@ -126,7 +126,7 @@
             :initial-value (:other_observations palate)
             :rows 3
             :helper-text "Additional notes about the palate"
-            :reset-key (str "palate-obs-" (hash palate))
+            :reset-key (str "palate-obs-" (hash (:other_observations palate)))
             :input-ref other-observations-ref}]]
          ;; Finish
          [grid {:item true :xs 12 :sm 6}

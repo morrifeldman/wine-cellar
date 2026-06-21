@@ -1,17 +1,19 @@
 (ns wine-cellar.views.components.wset-shared
-  (:require [reagent.core :as r]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.chip :refer [chip]]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.collapse :refer [collapse]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.icons.expand-more :refer [expand-more]]
-            [clojure.string :as str]
-            [wine-cellar.common :refer [wset-lexicon]]
-            [wine-cellar.views.components.form :refer [select-field]]
-            [wine-cellar.views.components.wine-color :refer
-             [wine-color-display]]))
+  (:require
+    [reagent.core :as r]
+    [reagent-mui.material.box :refer [box]]
+    [reagent-mui.material.chip :refer [chip]]
+    [reagent-mui.material.grid :refer [grid]]
+    [reagent-mui.material.typography :refer [typography]]
+    [reagent-mui.material.collapse :refer [collapse]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.material.switch :refer [switch]]
+    [reagent-mui.material.form-control-label :refer [form-control-label]]
+    [reagent-mui.icons.expand-more :refer [expand-more]]
+    [clojure.string :as str]
+    [wine-cellar.common :refer [wset-lexicon]]
+    [wine-cellar.views.components.form :refer [select-field]]
+    [wine-cellar.views.components.wine-color :refer [wine-color-display]]))
 
 (defn normalize-characteristics
   "Flatten and clean a WSET characteristics section (primary/secondary/tertiary)."
@@ -158,7 +160,7 @@
 
 (defn- category-dropdown
   "Individual category dropdown with free-form input support"
-  [{:keys [label options all-values on-change]}]
+  [{:keys [label options all-values on-change suppress-keyboard?]}]
   (r/with-let [dynamic-options (r/atom (set options))]
               (let [register-new-options (fn [values]
                                            ;; Add any new custom values to
@@ -176,7 +178,7 @@
                    :multiple true
                    :free-solo true
                    :required false
-                   :suppress-keyboard? true
+                   :suppress-keyboard? suppress-keyboard?
                    :on-change #(do (register-new-options %) (on-change %))
                    :on-blur #(let [input-value (-> %
                                                    .-target
@@ -215,12 +217,25 @@
   [{:keys [value on-change section-title]}]
   (r/with-let
    [primary-expanded? (r/atom false) secondary-expanded? (r/atom false)
-    tertiary-expanded? (r/atom false)]
+    tertiary-expanded? (r/atom false) keyboard? (r/atom false)]
    (let [expanded-atoms {"Primary" primary-expanded?
                          "Secondary" secondary-expanded?
                          "Tertiary" tertiary-expanded?}]
      [grid {:item true :xs 12}
-      [typography {:variant "subtitle2" :gutterBottom true} section-title]
+      [box
+       {:sx
+        {:display "flex" :alignItems "center" :justifyContent "space-between"}}
+       [typography {:variant "subtitle2" :gutterBottom true} section-title]
+       [form-control-label
+        {:sx {:m 0}
+         :labelPlacement "start"
+         :control (r/as-element [switch
+                                 {:size "small"
+                                  :checked @keyboard?
+                                  :onChange #(swap! keyboard? not)}])
+         :label (r/as-element
+                 [typography {:variant "caption" :sx {:color "text.secondary"}}
+                  "Type custom"])}]]
       (doall
        (for [{:keys [section categories]} category-definitions]
          (let [expanded? (get expanded-atoms section)]
@@ -247,4 +262,5 @@
                  {:label label
                   :options (get-in wset-lexicon path)
                   :all-values (get-in value path)
+                  :suppress-keyboard? (not @keyboard?)
                   :on-change #(on-change (assoc-in value path %))}])]]])))])))

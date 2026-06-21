@@ -79,5 +79,6 @@
             :initial-value (:other_observations appearance)
             :rows 2
             :helper-text "e.g. legs/tears, deposit, pétillance, bubbles"
-            :reset-key (str "other-obs-" (hash appearance))
+            :reset-key (str "other-obs-"
+                            (hash (:other_observations appearance)))
             :input-ref other-observations-ref}]]]]]])))
