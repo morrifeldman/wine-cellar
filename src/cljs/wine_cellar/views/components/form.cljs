@@ -310,10 +310,19 @@
            :blur-on-select "touch"
            :on-blur (fn [event]
                       (when (and free-solo on-change)
-                        (let [input-text (.-value (.-target event))]
-                          (when (and (seq input-text)
-                                     (not= input-text (or (str value) "")))
-                            (on-change input-text))))
+                        (let [input-text (.. event -target -value)
+                              trimmed (when input-text (.trim input-text))]
+                          (when (seq trimmed)
+                            (if multiple
+                              ;; Append the typed text as a single token
+                              ;; rather than passing a bare string (which a
+                              ;; multiple on-change would explode into
+                              ;; characters).
+                              (let [current (vec (or value []))]
+                                (when-not (some #(= % trimmed) current)
+                                  (on-change (conj current trimmed))))
+                              (when (not= trimmed (or (str value) ""))
+                                (on-change trimmed))))))
                       (when on-blur (on-blur event)))}
           on-input-change-handler (assoc :on-input-change
                                          on-input-change-handler)
