@@ -495,8 +495,9 @@
 (defn extract-cocktail-recipe
   [request]
   (with-server-error
-   (let [message-text (get-in request [:parameters :body :message-text])]
-     (if-let [recipe (ai/extract-cocktail-recipe message-text)]
+   (let [message-text (get-in request [:parameters :body :message-text])
+         existing-tags (db-api/distinct-recipe-tags)]
+     (if-let [recipe (ai/extract-cocktail-recipe message-text existing-tags)]
        (response/response recipe)
        {:status 422 :body {:error "Could not extract recipe from text"}}))))
 

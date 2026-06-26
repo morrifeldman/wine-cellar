@@ -111,9 +111,12 @@
       :gemini (gemini/generate-report-commentary prompt))))
 
 (defn extract-cocktail-recipe
-  "Extracts structured cocktail recipe data from text. Always uses Anthropic."
-  [text]
-  (try (anthropic/extract-cocktail-recipe text) (catch Exception _ nil)))
+  "Extracts structured cocktail recipe data from text. Always uses Anthropic.
+   existing-tags nudges the model to reuse the current tag vocabulary."
+  ([text] (extract-cocktail-recipe text nil))
+  ([text existing-tags]
+   (try (anthropic/extract-cocktail-recipe text existing-tags)
+        (catch Exception _ nil))))
 
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"

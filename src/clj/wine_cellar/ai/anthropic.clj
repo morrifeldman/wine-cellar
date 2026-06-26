@@ -364,14 +364,22 @@
                                 "not 'negroni variation').")}}}}}}})
 
 (defn extract-cocktail-recipe
-  "Extracts structured cocktail recipe data from a plain-text message."
-  [text]
-  {:pre [(string? text)]}
-  (let [request {:messages [{:role "user"
-                             :content (str "Extract all cocktail recipes from"
-                                           " this text:\n\n"
-                                           text)}]
-                 :tools [extract-recipe-tool]
-                 :tool_choice {:type "tool" :name extract-recipe-tool-name}
-                 :max_tokens 2000}]
-    (call-anthropic-api request true)))
+  "Extracts structured cocktail recipe data from a plain-text message. When
+   existing-tags are supplied, nudges the model to reuse that vocabulary."
+  ([text] (extract-cocktail-recipe text nil))
+  ([text existing-tags]
+   {:pre [(string? text)]}
+   (let [tag-hint
+         (when (seq existing-tags)
+           (str "\n\nTags already in use (reuse these exact strings when one "
+                "applies; only add a new tag if none fit): "
+                (str/join ", " existing-tags)))
+         request {:messages [{:role "user"
+                              :content (str "Extract all cocktail recipes from"
+                                            " this text:\n\n"
+                                            text
+                                            tag-hint)}]
+                  :tools [extract-recipe-tool]
+                  :tool_choice {:type "tool" :name extract-recipe-tool-name}
+                  :max_tokens 2000}]
+     (call-anthropic-api request true))))

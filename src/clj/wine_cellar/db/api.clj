@@ -1168,6 +1168,20 @@
   [id]
   (q-one {:select :* :from :cocktail_recipes :where [:= :id id]}))
 
+(defn distinct-recipe-tags
+  "Distinct, lowercased recipe tags currently in use, sorted. Used to nudge the
+  AI extractor toward reusing the existing tag vocabulary."
+  []
+  (->>
+    (jdbc/execute!
+     ds
+     ["SELECT DISTINCT lower(btrim(t)) AS tag
+                        FROM cocktail_recipes, unnest(tags) AS t
+                        WHERE btrim(t) <> ''
+                        ORDER BY tag"]
+     db-opts)
+    (mapv :tag)))
+
 (defn create-cocktail-recipe!
   [recipe]
   (q-one {:insert-into :cocktail_recipes
