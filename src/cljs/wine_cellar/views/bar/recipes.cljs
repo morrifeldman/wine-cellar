@@ -22,6 +22,7 @@
             [reagent-mui.icons.menu-book :refer [menu-book]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
+            [wine-cellar.views.bar.spirits :refer [category-filter-bar]]
             [wine-cellar.views.components :refer
              [editable-text-field editable-autocomplete-field search-text-field
               detail-section]]
@@ -35,6 +36,32 @@
                (map :name (:ingredients r)))
        (filter some?)
        (str/join " ")))
+
+;; Map a cocktail ingredient to a Spirits-tab category (reuses that taxonomy so
+;; the recipe spirit filter shares chip styling with the Spirits tab). Ordered;
+;; first matching bucket wins.
+(def ^:private spirit-aliases
+  [["gin" ["gin"]] ["whiskey" ["whiskey" "whisky" "bourbon" "rye" "scotch"]]
+   ["rum" ["rum" "rhum" "cachaca" "cachaça"]] ["tequila" ["tequila"]]
+   ["mezcal" ["mezcal"]] ["vodka" ["vodka"]]
+   ["brandy" ["brandy" "cognac" "armagnac" "calvados" "applejack" "pisco"]]])
+
+(defn- ingredient-spirit-category
+  "Canonical spirit category for an ingredient name, or nil. Word-boundary
+  matched so e.g. \"gin\" does not match \"ginger\"."
+  [name]
+  (when name
+    (let [lc (str/lower-case name)]
+      (some (fn [[category aliases]]
+              (when (some #(re-find (re-pattern (str "\\b" % "\\b")) lc)
+                          aliases)
+                category))
+            spirit-aliases))))
+
+(defn- recipe-spirit-categories
+  "Set of spirit categories present in a recipe's ingredients."
+  [r]
+  (into #{} (keep (comp ingredient-spirit-category :name)) (:ingredients r)))
 
 (defn- text-field
   [label value on-change & {:keys [type multiline rows]}]
@@ -485,7 +512,8 @@
 (defn recipes-tab
   [_app-state]
   (let [search-text (r/atom "")
-        selected-tags (r/atom #{})]
+        selected-tags (r/atom #{})
+        selected-spirits (r/atom #{})]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             recipes (:recipes bar)
@@ -499,13 +527,17 @@
                           distinct
                           sort
                           vec)
+            present-spirits (into #{} (mapcat recipe-spirit-categories) recipes)
             sel @selected-tags
+            sel-spirits @selected-spirits
             filtered (cond->> recipes
                        (seq term) (filter #(str/includes? (normalize-text
                                                            (recipe-search-text
                                                             %))
                                                           term))
                        (seq sel) (filter #(every? (set (:tags %)) sel))
+                       (seq sel-spirits)
+                       (filter #(some (recipe-spirit-categories %) sel-spirits))
                        :always (sort-by (juxt #(if (:rating %) 0 1)
                                               #(- (or (:rating %) 0)))))]
         [box (when show-form? [recipe-form app-state])
@@ -513,6 +545,8 @@
            [:<>
             [search-text-field
              {:search-atom search-text :label "Search recipes"}]
+            (when (seq present-spirits)
+              [category-filter-bar selected-spirits present-spirits])
             (when (seq all-tags) [tag-filter-bar selected-tags all-tags])])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}

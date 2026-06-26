@@ -391,9 +391,11 @@
               :textOverflow "ellipsis"
               :whiteSpace "nowrap"}} (:notes spirit)])]))
 
-(defn- category-filter-bar
-  [selected-categories spirits]
-  (let [present (set (map :category spirits))
+(defn category-filter-bar
+  "Chip row for filtering by spirit category. `present-categories` is the set of
+  categories to show (in canonical `spirit-categories` order)."
+  [selected-categories present-categories]
+  (let [present (set present-categories)
         cats (filter present spirit-categories)]
     [box
      {:sx
@@ -514,7 +516,7 @@
            [:<>
             [search-text-field
              {:search-atom search-text :label "Search spirits"}]
-            [category-filter-bar selected-categories spirits]
+            [category-filter-bar selected-categories (map :category spirits)]
             (when (seq sel-cats)
               [subcategory-filter-bar selected-subcategories cat-filtered])])
          (if loading?

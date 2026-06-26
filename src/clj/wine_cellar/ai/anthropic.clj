@@ -330,20 +330,38 @@
     :required ["recipes"]
     :properties {:recipes
                  {:type "array"
-                  :items {:type "object"
-                          :required ["name" "ingredients"]
-                          :properties
-                          {:name {:type "string"}
-                           :description {:type "string"}
-                           :ingredients {:type "array"
-                                         :items {:type "object"
-                                                 :required ["name"]
-                                                 :properties
-                                                 {:name {:type "string"}
-                                                  :amount {:type "string"}
-                                                  :unit {:type "string"}}}}
-                           :instructions {:type "string"}
-                           :tags {:type "array" :items {:type "string"}}}}}}}})
+                  :items
+                  {:type "object"
+                   :required ["name" "ingredients"]
+                   :properties
+                   {:name {:type "string"}
+                    :description {:type "string"}
+                    :ingredients {:type "array"
+                                  :items {:type "object"
+                                          :required ["name"]
+                                          :properties {:name {:type "string"}
+                                                       :amount {:type "string"}
+                                                       :unit {:type "string"}}}}
+                    :instructions {:type "string"}
+                    :tags {:type "array"
+                           :maxItems 4
+                           :items {:type "string"}
+                           :description
+                           (str "1-3 short, lowercase tags for filtering. "
+                                "Choose only high-signal, reusable tags from "
+                                "these categories: drink family (e.g. sour, "
+                                "old-fashioned, negroni, martini, highball, "
+                                "spritz, tiki, flip) and technique (shaken, "
+                                "stirred, built). Do NOT include the base "
+                                "spirit (gin, bourbon, rum, etc.) — spirits "
+                                "are derived separately from the ingredients. "
+                                "Do NOT include subjective descriptors "
+                                "(elegant, refreshing, classic, simple), "
+                                "ratios (2:1), individual ingredients (aperol, "
+                                "egg white, simple syrup), or 'variation'/"
+                                "'-style' qualifiers. Prefer the canonical "
+                                "family name over a variant (use 'negroni', "
+                                "not 'negroni variation').")}}}}}}})
 
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from a plain-text message."
