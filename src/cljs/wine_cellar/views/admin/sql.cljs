@@ -1,11 +1,13 @@
 (ns wine-cellar.views.admin.sql
-  (:require [reagent.core :as r]
+  (:require [clojure.string :as str]
+            [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.text-field :refer [text-field]]
             [reagent-mui.material.alert :refer [alert]]
+            [reagent-mui.icons.content-copy :refer [content-copy]]
             [reagent-mui.material.table :refer [table]]
             [reagent-mui.material.table-body :refer [table-body]]
             [reagent-mui.material.table-cell :refer [table-cell]]
@@ -15,6 +17,15 @@
             [cljs.core.async :refer [<!]]
             [wine-cellar.api :as api])
   (:require-macros [cljs.core.async.macros :refer [go]]))
+
+(defn- result->tsv
+  "Tab-separated header + rows, suitable for pasting into a spreadsheet."
+  [data]
+  (let [headers (keys (first data))]
+    (->> (cons (map name headers)
+               (map (fn [row] (map #(str (get row %)) headers)) data))
+         (map #(str/join "\t" %))
+         (str/join "\n"))))
 
 (defn- result-table
   [data]
@@ -81,8 +92,15 @@
         result (r/atom nil)
         error (r/atom nil)
         loading? (r/atom false)
+        copied? (r/atom false)
         schema (r/atom nil)
         expanded-tables (r/atom #{})
+        copy-result
+        (fn []
+          (-> (.writeText js/navigator.clipboard (result->tsv @result))
+              (.then (fn []
+                       (reset! copied? true)
+                       (js/setTimeout #(reset! copied? false) 1500)))))
         load-schema (fn []
                       (go (let [resp (<! (api/fetch-db-schema))]
                             (when (:success resp)
@@ -102,58 +120,65 @@
                              (reset! result (:data resp))
                              (reset! error (:error resp))))))]
     (load-schema)
-    (fn [] [box
-            {:sx {:display "flex" :gap 2 :p 2 :height "calc(100vh - 100px)"}}
-            ;; Schema Sidebar
-            [paper
-             {:sx {:width 280
-                   :p 2
-                   :flexShrink 0
-                   :overflow "auto"
-                   :display "flex"
-                   :flexDirection "column"}}
-             [typography {:variant "h6" :sx {:mb 2}} "Schema"]
-             (if @schema
-               [box {:sx {:flexGrow 1 :overflow "auto"}}
-                (doall
-                 (for [table @schema]
-                   ^{:key (:table_name table)}
-                   [table-schema-item
-                    {:table table
-                     :expanded? (contains? @expanded-tables (:table_name table))
-                     :on-toggle toggle-table
-                     :on-select-all
-                     #(reset! query (str "SELECT * FROM " % " LIMIT 100;"))}]))]
-               [typography {:variant "body2" :color "text.secondary"}
-                "Loading schema..."])]
-            ;; Main Query Area
-            [box
-             {:sx {:flexGrow 1
-                   :display "flex"
-                   :flexDirection "column"
-                   :overflow "hidden"}}
-             [typography {:variant "h5" :sx {:mb 2}} "Run SQL Query"]
-             [paper {:sx {:p 2 :mb 2}}
-              [text-field
-               {:label "SQL Query"
-                :multiline true
-                :rows 4
-                :fullWidth true
-                :value @query
-                :on-change #(reset! query (.. % -target -value))
-                :sx {:mb 2 :fontFamily "monospace"}}]
+    (fn []
+      [box {:sx {:display "flex" :gap 2 :p 2 :height "calc(100vh - 100px)"}}
+       ;; Schema Sidebar
+       [paper
+        {:sx {:width 280
+              :p 2
+              :flexShrink 0
+              :overflow "auto"
+              :display "flex"
+              :flexDirection "column"}}
+        [typography {:variant "h6" :sx {:mb 2}} "Schema"]
+        (if @schema
+          [box {:sx {:flexGrow 1 :overflow "auto"}}
+           (doall
+            (for [table @schema]
+              ^{:key (:table_name table)}
+              [table-schema-item
+               {:table table
+                :expanded? (contains? @expanded-tables (:table_name table))
+                :on-toggle toggle-table
+                :on-select-all
+                #(reset! query (str "SELECT * FROM " % " LIMIT 100;"))}]))]
+          [typography {:variant "body2" :color "text.secondary"}
+           "Loading schema..."])]
+       ;; Main Query Area
+       [box
+        {:sx {:flexGrow 1
+              :display "flex"
+              :flexDirection "column"
+              :overflow "hidden"}}
+        [typography {:variant "h5" :sx {:mb 2}} "Run SQL Query"]
+        [paper {:sx {:p 2 :mb 2}}
+         [text-field
+          {:label "SQL Query"
+           :multiline true
+           :rows 4
+           :fullWidth true
+           :value @query
+           :on-change #(reset! query (.. % -target -value))
+           :sx {:mb 2 :fontFamily "monospace"}}]
+         [button
+          {:variant "contained"
+           :color "primary"
+           :disabled (or @loading? (empty? @query))
+           :on-click handle-run} (if @loading? "Running..." "Run Query")]]
+        (when @error [alert {:severity "error" :sx {:mb 2}} (str @error)])
+        (when @result
+          [box
+           {:sx {:flexGrow 1
+                 :overflow "hidden"
+                 :display "flex"
+                 :flexDirection "column"}}
+           [box {:sx {:display "flex" :alignItems "center" :gap 1 :mb 1}}
+            [typography {:variant "subtitle2"}
+             (str "Result (" (count @result) " rows)")]
+            (when (seq @result)
               [button
-               {:variant "contained"
-                :color "primary"
-                :disabled (or @loading? (empty? @query))
-                :on-click handle-run} (if @loading? "Running..." "Run Query")]]
-             (when @error [alert {:severity "error" :sx {:mb 2}} (str @error)])
-             (when @result
-               [box
-                {:sx {:flexGrow 1
-                      :overflow "hidden"
-                      :display "flex"
-                      :flexDirection "column"}}
-                [typography {:variant "subtitle2" :sx {:mb 1}}
-                 (str "Result (" (count @result) " rows)")]
-                [result-table @result]])]])))
+               {:size "small"
+                :variant "outlined"
+                :start-icon (r/as-element [content-copy {:fontSize "small"}])
+                :on-click copy-result} (if @copied? "Copied!" "Copy TSV")])]
+           [result-table @result]])]])))
