@@ -44,7 +44,12 @@
   [["gin" ["gin"]] ["whiskey" ["whiskey" "whisky" "bourbon" "rye" "scotch"]]
    ["rum" ["rum" "rhum" "cachaca" "cachaça"]] ["tequila" ["tequila"]]
    ["mezcal" ["mezcal"]] ["vodka" ["vodka"]]
-   ["brandy" ["brandy" "cognac" "armagnac" "calvados" "applejack" "pisco"]]])
+   ["brandy" ["brandy" "cognac" "armagnac" "calvados" "applejack" "pisco"]]
+   ;; Catch-all for less common spirituous bases (kept last so the specific
+   ;; spirits above win). Maps to the Spirits-tab "other" category.
+   ["other"
+    ["shochu" "soju" "sake" "aquavit" "akvavit" "absinthe" "pastis" "baijiu"
+     "arak" "raki" "ouzo"]]])
 
 (defn- ingredient-spirit-category
   "Canonical spirit category for an ingredient name, or nil. Word-boundary
