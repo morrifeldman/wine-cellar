@@ -160,8 +160,11 @@
         available-colors (get-base-colors info wine-style)
         default-color (or (:default-color info) (first available-colors))
         default-intensity (or (:default-intensity info) :medium)
-        current-color (or selected-color default-color)
-        current-intensity (or selected-intensity default-intensity)
+        ;; Saved notes load :colour/:intensity as strings; coerce to
+        ;; keywords so indexOf and hex lookup match (keyword is identity
+        ;; for keywords and nil-safe).
+        current-color (keyword (or selected-color default-color))
+        current-intensity (keyword (or selected-intensity default-intensity))
         color-index (when current-color
                       (.indexOf available-colors current-color))
         intensity-index (when current-intensity
