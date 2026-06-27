@@ -243,7 +243,7 @@
           suffix (when truncated? "\n... and more wines")]
       (str header "\n" body suffix))))
 
-(defn- bar-context-text
+(defn bar-context-text
   "Renders bar inventory (spirits, mixers/garnishes, recipes) as a text summary."
   [{:keys [spirits inventory-items recipes]}]
   (when (or (seq spirits) (seq inventory-items) (seq recipes))

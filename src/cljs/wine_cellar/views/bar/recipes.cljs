@@ -22,7 +22,8 @@
             [reagent-mui.icons.menu-book :refer [menu-book]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
-            [wine-cellar.views.bar.spirits :refer [category-filter-bar]]
+            [wine-cellar.views.bar.spirits :refer
+             [category-filter-bar subcategory-filter-bar]]
             [wine-cellar.views.components :refer
              [editable-text-field editable-autocomplete-field search-text-field
               detail-section]]
@@ -67,6 +68,27 @@
   "Set of spirit categories present in a recipe's ingredients."
   [r]
   (into #{} (keep (comp ingredient-spirit-category :name)) (:ingredients r)))
+
+(defn- recipe-spirit-cats
+  "Spirit categories for a recipe: from AI-assigned :spirit_tags when present,
+  otherwise the ingredient-name heuristic (manual/pre-backfill recipes)."
+  [r]
+  (if (seq (:spirit_tags r))
+    (into #{} (keep :category) (:spirit_tags r))
+    (recipe-spirit-categories r)))
+
+(defn- recipe-spirit-subcats
+  "Set of subcategory strings from a recipe's stored :spirit_tags."
+  [r]
+  (into #{} (keep :subcategory) (:spirit_tags r)))
+
+(defn- recipe-subpairs
+  "{:subcat :cat} pairs from a recipe's stored :spirit_tags (subcategory only)."
+  [r]
+  (into []
+        (comp (filter :subcategory)
+              (map (fn [p] {:subcat (:subcategory p) :cat (:category p)})))
+        (:spirit_tags r)))
 
 (defn- text-field
   [label value on-change & {:keys [type multiline rows]}]
@@ -518,7 +540,8 @@
   [_app-state]
   (let [search-text (r/atom "")
         selected-tags (r/atom #{})
-        selected-spirits (r/atom #{})]
+        selected-spirits (r/atom #{})
+        selected-subspirits (r/atom #{})]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             recipes (:recipes bar)
@@ -532,17 +555,21 @@
                           distinct
                           sort
                           vec)
-            present-spirits (into #{} (mapcat recipe-spirit-categories) recipes)
+            present-spirits (into #{} (mapcat recipe-spirit-cats) recipes)
+            present-subpairs (into #{} (mapcat recipe-subpairs) recipes)
             sel @selected-tags
             sel-spirits @selected-spirits
+            sel-subspirits @selected-subspirits
             filtered (cond->> recipes
                        (seq term) (filter #(str/includes? (normalize-text
                                                            (recipe-search-text
                                                             %))
                                                           term))
                        (seq sel) (filter #(every? (set (:tags %)) sel))
-                       (seq sel-spirits)
-                       (filter #(some (recipe-spirit-categories %) sel-spirits))
+                       (seq sel-spirits) (filter #(some (recipe-spirit-cats %)
+                                                        sel-spirits))
+                       (seq sel-subspirits)
+                       (filter #(some (recipe-spirit-subcats %) sel-subspirits))
                        :always (sort-by (juxt #(if (:rating %) 0 1)
                                               #(- (or (:rating %) 0)))))]
         [box (when show-form? [recipe-form app-state])
@@ -552,6 +579,11 @@
              {:search-atom search-text :label "Search recipes"}]
             (when (seq present-spirits)
               [category-filter-bar selected-spirits present-spirits])
+            (when (seq sel-spirits)
+              (let [sub (filter #(contains? sel-spirits (:cat %))
+                                present-subpairs)]
+                (when (seq sub)
+                  [subcategory-filter-bar selected-subspirits sub])))
             (when (seq all-tags) [tag-filter-bar selected-tags all-tags])])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}

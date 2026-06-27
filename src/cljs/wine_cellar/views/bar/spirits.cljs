@@ -427,17 +427,16 @@
          :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
          :on-click #(reset! selected-categories #{})} "clear"])]))
 
-(defn- subcategory-filter-bar
-  [selected-subcategories spirits]
+(defn subcategory-filter-bar
+  "Chip row for filtering by subcategory. `subcat-pairs` is a seq of
+  {:subcat :cat} maps (cat drives the chip color); deduped and sorted here."
+  [selected-subcategories subcat-pairs]
   (let [cat-order (into {} (map-indexed (fn [i c] [c i]) spirit-categories))
-        subcat-pairs (->> spirits
-                          (filter #(not (str/blank? (:subcategory %))))
-                          (map (fn [s]
-                                 {:subcat (:subcategory s) :cat (:category s)}))
-                          distinct)
-        sorted-pairs (sort-by (fn [{:keys [cat subcat]}] [(get cat-order cat 99)
-                                                          subcat])
-                              subcat-pairs)]
+        sorted-pairs (->> subcat-pairs
+                          (remove #(str/blank? (:subcat %)))
+                          distinct
+                          (sort-by (fn [{:keys [cat subcat]}]
+                                     [(get cat-order cat 99) subcat])))]
     (when (seq sorted-pairs)
       [:<> [divider {:sx {:mb 1 :borderColor "rgba(232,195,200,0.35)"}}]
        [box
@@ -518,7 +517,9 @@
              {:search-atom search-text :label "Search spirits"}]
             [category-filter-bar selected-categories (map :category spirits)]
             (when (seq sel-cats)
-              [subcategory-filter-bar selected-subcategories cat-filtered])])
+              [subcategory-filter-bar selected-subcategories
+               (map (fn [s] {:subcat (:subcategory s) :cat (:category s)})
+                    cat-filtered)])])
          (if loading?
            [box {:sx {:display "flex" :justifyContent "center" :py 4}}
             [circular-progress {:color "primary"}]]

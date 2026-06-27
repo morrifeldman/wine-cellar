@@ -4,7 +4,8 @@
             [mount.core :refer [defstate]]
             [org.httpkit.client :as http]
             [wine-cellar.common :as common]
-            [wine-cellar.config-utils :as config-utils]))
+            [wine-cellar.config-utils :as config-utils]
+            [wine-cellar.ai.prompts :as prompts]))
 
 (def api-url "https://api.anthropic.com/v1/messages")
 
@@ -322,63 +323,102 @@
 
 (def extract-recipe-tool-name "save_cocktail_recipe")
 
+;; Mirrors wine-cellar.views.bar.spirits/spirit-categories so spirit_tags hold
+;; even when the user has no spirits in inventory yet.
+(def spirit-categories
+  ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur"
+   "vermouth" "other"])
+
 (def extract-recipe-tool
   {:name extract-recipe-tool-name
    :description "Extracts structured cocktail recipe data from text."
    :input_schema
    {:type "object"
     :required ["recipes"]
-    :properties {:recipes
+    :properties
+    {:recipes {:type "array"
+               :items
+               {:type "object"
+                :required ["name" "ingredients"]
+                :properties
+                {:name {:type "string"}
+                 :description {:type "string"}
+                 :ingredients {:type "array"
+                               :items {:type "object"
+                                       :required ["name"]
+                                       :properties {:name {:type "string"}
+                                                    :amount {:type "string"}
+                                                    :unit {:type "string"}}}}
+                 :instructions {:type "string"}
+                 :spirit_tags
                  {:type "array"
-                  :items
-                  {:type "object"
-                   :required ["name" "ingredients"]
-                   :properties
-                   {:name {:type "string"}
-                    :description {:type "string"}
-                    :ingredients {:type "array"
-                                  :items {:type "object"
-                                          :required ["name"]
-                                          :properties {:name {:type "string"}
-                                                       :amount {:type "string"}
-                                                       :unit {:type "string"}}}}
-                    :instructions {:type "string"}
-                    :tags {:type "array"
-                           :maxItems 4
-                           :items {:type "string"}
-                           :description
-                           (str "1-3 short, lowercase tags for filtering. "
-                                "Choose only high-signal, reusable tags from "
-                                "these categories: drink family (e.g. sour, "
-                                "old-fashioned, negroni, martini, highball, "
-                                "spritz, tiki, flip) and technique (shaken, "
-                                "stirred, built). Do NOT include the base "
-                                "spirit (gin, bourbon, rum, etc.) — spirits "
-                                "are derived separately from the ingredients. "
-                                "Do NOT include subjective descriptors "
-                                "(elegant, refreshing, classic, simple), "
-                                "ratios (2:1), individual ingredients (aperol, "
-                                "egg white, simple syrup), or 'variation'/"
-                                "'-style' qualifiers. Prefer the canonical "
-                                "family name over a variant (use 'negroni', "
-                                "not 'negroni variation').")}}}}}}})
+                  :items {:type "object"
+                          :required ["category"]
+                          :properties {:category {:type "string"
+                                                  :enum spirit-categories}
+                                       :subcategory {:type "string"}}}
+                  :description
+                  (str "One entry per spirit/modifier ingredient — the base "
+                       "spirit, any spirituous modifiers, and any rinse/wash "
+                       "(e.g. absinthe rinse). category MUST be one of the "
+                       "listed values. Include subcategory only when it "
+                       "matches a subcategory shown in the bar inventory "
+                       "(e.g. {category: liqueur, subcategory: bitter} for "
+                       "Campari, {category: other, subcategory: Absinthe}). "
+                       "Reuse the inventory's exact subcategory strings, "
+                       "matching their capitalization.")}
+                 :tags {:type "array"
+                        :maxItems 4
+                        :items {:type "string"}
+                        :description
+                        (str "1-3 short, lowercase tags for filtering. "
+                             "Choose only high-signal, reusable tags from "
+                             "these categories: drink family (e.g. sour, "
+                             "old-fashioned, negroni, martini, highball, "
+                             "spritz, tiki, flip) and technique (shaken, "
+                             "stirred, built). Do NOT include the base "
+                             "spirit (gin, bourbon, rum, etc.) — spirits "
+                             "are derived separately from the ingredients. "
+                             "Do NOT include subjective descriptors "
+                             "(elegant, refreshing, classic, simple), "
+                             "ratios (2:1), individual ingredients (aperol, "
+                             "egg white, simple syrup), or 'variation'/"
+                             "'-style' qualifiers. Prefer the canonical "
+                             "family name over a variant (use 'negroni', "
+                             "not 'negroni variation').")}}}}}}})
 
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from a plain-text message. When
-   existing-tags are supplied, nudges the model to reuse that vocabulary."
-  ([text] (extract-cocktail-recipe text nil))
-  ([text existing-tags]
+   existing-tags are supplied, nudges the model to reuse that vocabulary. When
+   bar (a map of :spirits/:inventory-items) is supplied, feeds the user's real
+   inventory so the model can assign accurate spirit_tags and normalize
+   ingredient/garnish names to the existing vocabulary."
+  ([text] (extract-cocktail-recipe text nil nil))
+  ([text existing-tags] (extract-cocktail-recipe text existing-tags nil))
+  ([text existing-tags bar]
    {:pre [(string? text)]}
    (let [tag-hint
          (when (seq existing-tags)
            (str "\n\nTags already in use (reuse these exact strings when one "
                 "applies; only add a new tag if none fit): "
                 (str/join ", " existing-tags)))
+         bar-text (prompts/bar-context-text bar)
+         bar-hint
+         (when bar-text
+           (str "\n\nThe user's bar inventory is below. Use it to (1) assign "
+                "spirit_tags by reusing the exact categories and subcategory "
+                "strings shown (match the subcategory capitalization), and "
+                "(2) normalize ingredient and garnish "
+                "names to match the Mixers & Garnishes names when an item "
+                "clearly corresponds (e.g. prefer 'lime juice', 'Angostura "
+                "bitters'); otherwise keep the recipe's own wording.\n\n"
+                "=== Bar Inventory ===\n" bar-text))
          request {:messages [{:role "user"
                               :content (str "Extract all cocktail recipes from"
                                             " this text:\n\n"
                                             text
-                                            tag-hint)}]
+                                            tag-hint
+                                            bar-hint)}]
                   :tools [extract-recipe-tool]
                   :tool_choice {:type "tool" :name extract-recipe-tool-name}
                   :max_tokens 2000}]

@@ -112,10 +112,13 @@
 
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from text. Always uses Anthropic.
-   existing-tags nudges the model to reuse the current tag vocabulary."
-  ([text] (extract-cocktail-recipe text nil))
-  ([text existing-tags]
-   (try (anthropic/extract-cocktail-recipe text existing-tags)
+   existing-tags nudges the model to reuse the current tag vocabulary; bar (a
+   map of :spirits/:inventory-items) feeds the user's inventory for accurate
+   spirit_tags and ingredient/garnish name normalization."
+  ([text] (extract-cocktail-recipe text nil nil))
+  ([text existing-tags] (extract-cocktail-recipe text existing-tags nil))
+  ([text existing-tags bar]
+   (try (anthropic/extract-cocktail-recipe text existing-tags bar)
         (catch Exception _ nil))))
 
 (defn get-model-info
