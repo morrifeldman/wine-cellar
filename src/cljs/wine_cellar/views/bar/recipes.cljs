@@ -228,19 +228,18 @@
 
 (defn- ingredients-list
   [recipe statuses]
-  [box
-   {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
-   (map-indexed
-    (fn [idx {:keys [amount unit name]}]
-      (let [{:keys [glyph color]} (ingredient-mark (get statuses name))]
-        ^{:key idx}
-        [:li
-         [typography {:variant "body2"}
-          [box
-           {:component "span"
-            :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}} glyph]
-          (str/join " " (filter seq [amount unit name]))]]))
-    (:ingredients recipe))])
+  [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
+   (map-indexed (fn [idx {:keys [amount unit name]}]
+                  (let [{:keys [glyph color]} (ingredient-mark (get statuses
+                                                                    name))]
+                    ^{:key idx}
+                    [:li
+                     [typography {:variant "body2"}
+                      [box
+                       {:component "span"
+                        :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}}
+                       glyph] (str/join " " (filter seq [amount unit name]))]]))
+                (:ingredients recipe))])
 
 (defn- tags-editor
   [_app-state _recipe _all-tags]
@@ -370,34 +369,25 @@
    soft garnish note appended when otherwise makeable."
   [{:keys [makeable? missing missing-garnishes]}]
   [box
-   {:sx {:display "inline-flex"
-         :alignItems "center"
-         :flexWrap "wrap"
-         :gap 0.75}}
+   {:sx
+    {:display "inline-flex" :alignItems "center" :flexWrap "wrap" :gap 0.75}}
    [chip
-    {:label (if makeable?
-              "Ready to make"
-              (str "Missing: " (str/join ", " missing)))
+    {:label
+     (if makeable? "Ready to make" (str "Missing: " (str/join ", " missing)))
      :size "small"
      :sx {:height 24
           :fontSize "0.72rem"
           :letterSpacing "0.02em"
-          :bgcolor (if makeable?
-                     "rgba(139,195,74,0.16)"
-                     "rgba(255,167,38,0.14)")
-          :color (if makeable?
-                   "rgba(174,213,129,0.95)"
-                   "rgba(255,183,77,0.95)")
-          :border (str "1px solid "
-                       (if makeable?
-                         "rgba(139,195,74,0.4)"
-                         "rgba(255,167,38,0.4)"))}}]
+          :bgcolor
+          (if makeable? "rgba(139,195,74,0.16)" "rgba(255,167,38,0.14)")
+          :color (if makeable? "rgba(174,213,129,0.95)" "rgba(255,183,77,0.95)")
+          :border
+          (str "1px solid "
+               (if makeable? "rgba(139,195,74,0.4)" "rgba(255,167,38,0.4)"))}}]
    (when (and makeable? (seq missing-garnishes))
      [typography
       {:variant "body2"
-       :sx {:color "text.secondary"
-            :fontSize "0.72rem"
-            :fontStyle "italic"}}
+       :sx {:color "text.secondary" :fontSize "0.72rem" :fontStyle "italic"}}
       (str "no garnish: " (str/join ", " missing-garnishes))])])
 
 (defn- recipe-display
@@ -412,7 +402,10 @@
         report (matching/recipe-match-report recipe
                                              (:spirits bar)
                                              (:inventory-items bar))]
-    [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
+    [paper
+     {:elevation 0
+      :id (str "recipe-" (:id recipe))
+      :sx {:p 2 :mb 2 :bgcolor "transparent"}}
      ;; Identity row
      [box {:sx {:mb 2}}
       [box
@@ -650,10 +643,9 @@
            :mb 1.5
            :bgcolor (if active? "rgba(139,195,74,0.22)" "rgba(139,195,74,0.06)")
            :color "rgba(174,213,129,0.95)"
-           :border (str "1px solid "
-                        (if active?
-                          "rgba(139,195,74,0.6)"
-                          "rgba(139,195,74,0.25)"))
+           :border (str
+                    "1px solid "
+                    (if active? "rgba(139,195,74,0.6)" "rgba(139,195,74,0.25)"))
            "@media (hover: hover)" {"&:hover" {:bgcolor
                                                "rgba(139,195,74,0.18)"}}}}]))
 
@@ -679,32 +671,27 @@
                           distinct
                           sort
                           vec)
-            present-spirits (into #{}
-                                  (mapcat matching/recipe-spirit-cats)
-                                  recipes)
-            present-subpairs (into #{}
-                                   (mapcat matching/recipe-subpairs)
-                                   recipes)
+            present-spirits
+            (into #{} (mapcat matching/recipe-spirit-cats) recipes)
+            present-subpairs
+            (into #{} (mapcat matching/recipe-subpairs) recipes)
             sel @selected-tags
             sel-spirits @selected-spirits
             sel-subspirits @selected-subspirits
             mk @makeable-only?
-            filtered (cond->> recipes
-                       (seq term) (filter #(str/includes? (normalize-text
-                                                           (recipe-search-text
-                                                            %))
-                                                          term))
-                       (seq sel) (filter #(every? (set (:tags %)) sel))
-                       (seq sel-spirits)
-                       (filter #(some (matching/recipe-spirit-cats %)
-                                      sel-spirits))
-                       (seq sel-subspirits)
-                       (filter #(some (matching/recipe-spirit-subcats %)
-                                      sel-subspirits))
-                       mk (filter #(matching/recipe-makeable? % spirits
-                                                              inventory-items))
-                       :always (sort-by (juxt #(if (:rating %) 0 1)
-                                              #(- (or (:rating %) 0)))))]
+            filtered
+            (cond->> recipes
+              (seq term) (filter #(str/includes? (normalize-text
+                                                  (recipe-search-text %))
+                                                 term))
+              (seq sel) (filter #(every? (set (:tags %)) sel))
+              (seq sel-spirits) (filter #(some (matching/recipe-spirit-cats %)
+                                               sel-spirits))
+              (seq sel-subspirits)
+              (filter #(some (matching/recipe-spirit-subcats %) sel-subspirits))
+              mk (filter #(matching/recipe-makeable? % spirits inventory-items))
+              :always (sort-by (juxt #(if (:rating %) 0 1)
+                                     #(- (or (:rating %) 0)))))]
         [box (when show-form? [recipe-form app-state])
          (when (and (seq recipes) (not show-form?))
            [:<>

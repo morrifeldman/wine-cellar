@@ -216,7 +216,15 @@
   (swap! app-state #(-> %
                         (assoc-in [:bar :editing-spirit-id] nil)
                         (assoc-in [:bar :active-tab] :recipes)
-                        (assoc-in [:bar :viewing-recipe-id] recipe-id))))
+                        (assoc-in [:bar :viewing-recipe-id] recipe-id)))
+  (js/setTimeout
+   (fn []
+     (when-let [el (.getElementById js/document (str "recipe-" recipe-id))]
+       (let [top (-> (.. el getBoundingClientRect -top)
+                     (+ (.-pageYOffset js/window))
+                     (- 16))]
+         (.scrollTo js/window #js {:top top :behavior "smooth"}))))
+   100))
 
 (defn- spirit-detail
   "Inline-edit detail view for a spirit."
@@ -373,9 +381,8 @@
                   {:label (:name r)
                    :size "small"
                    :clickable true
-                   :on-click #(view-recipe-from-spirit! app-state
-                                                        (:id spirit)
-                                                        (:id r))
+                   :on-click
+                   #(view-recipe-from-spirit! app-state (:id spirit) (:id r))
                    :sx {:height 24
                         :fontSize "0.72rem"
                         :letterSpacing "0.02em"
