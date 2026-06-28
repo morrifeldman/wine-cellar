@@ -15,10 +15,12 @@
             [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
             [reagent-mui.icons.public :refer [public] :rename {public globe}]
             [reagent-mui.icons.inventory :refer [inventory]]
+            [reagent-mui.icons.local-bar :refer [local-bar]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [reagent-mui.icons.keyboard-arrow-up :refer [keyboard-arrow-up]]
             [reagent-mui.icons.keyboard-arrow-down :refer [keyboard-arrow-down]]
             [wine-cellar.utils.filters :refer [normalize-text]]
+            [wine-cellar.views.bar.matching :as matching]
             [wine-cellar.api :as api]
             [wine-cellar.views.components :refer
              [dot-separated-row editable-text-field editable-autocomplete-field
@@ -197,6 +199,25 @@
                 (swap! app-state assoc-in [:bar :new-spirit] {}))}
           "Cancel"]]]])]))
 
+(defn- view-recipe-from-spirit!
+  "Switch to the Recipes tab with `recipe-id` open, pushing a history entry so
+   the browser Back button returns to the spirit that was open."
+  [app-state spirit-id recipe-id]
+  (.replaceState js/history
+                 #js {:barNav #js {:activeTab "spirits"
+                                   :editingSpiritId spirit-id}}
+                 ""
+                 (.-pathname js/location))
+  (.pushState js/history
+              #js {:barNav #js {:activeTab "recipes"
+                                :viewingRecipeId recipe-id}}
+              ""
+              (.-pathname js/location))
+  (swap! app-state #(-> %
+                        (assoc-in [:bar :editing-spirit-id] nil)
+                        (assoc-in [:bar :active-tab] :recipes)
+                        (assoc-in [:bar :viewing-recipe-id] recipe-id))))
+
 (defn- spirit-detail
   "Inline-edit detail view for a spirit."
   [_app-state]
@@ -335,6 +356,34 @@
             :on-save #(api/update-spirit app-state (:id spirit) {:notes %})
             :empty-text "Add tasting notes, impressions..."
             :text-field-props {:multiline true :rows 2}}]]
+         ;; Used-in section — recipes that call for this spirit
+         (let [used-in (filter #(matching/recipe-matches-spirit? % spirit)
+                               (:recipes bar))]
+           (when (seq used-in)
+             [box
+              {:sx {:mt 2
+                    :borderLeft "3px solid rgba(232,195,200,0.7)"
+                    :pl 1.5
+                    :pb 1}}
+              [section-header local-bar "Used in" "rgba(232,195,200,0.7)"]
+              [box {:sx {:display "flex" :flexWrap "wrap" :gap 0.75}}
+               (for [r used-in]
+                 ^{:key (:id r)}
+                 [chip
+                  {:label (:name r)
+                   :size "small"
+                   :clickable true
+                   :on-click #(view-recipe-from-spirit! app-state
+                                                        (:id spirit)
+                                                        (:id r))
+                   :sx {:height 24
+                        :fontSize "0.72rem"
+                        :letterSpacing "0.02em"
+                        :bgcolor "rgba(232,195,200,0.08)"
+                        :color "rgba(232,195,200,0.95)"
+                        :border "1px solid rgba(232,195,200,0.22)"
+                        "@media (hover: hover)"
+                        {"&:hover" {:bgcolor "rgba(232,195,200,0.16)"}}}}])]]))
          ;; Actions
          [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end" :mt 2}}
           [button

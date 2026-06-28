@@ -23,6 +23,7 @@
             [reagent-mui.icons.menu-book :refer [menu-book]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
+            [wine-cellar.views.bar.matching :as matching]
             [wine-cellar.views.bar.spirits :refer
              [category-filter-bar subcategory-filter-bar category-colors
               category-labels spirit-categories]]
@@ -39,73 +40,6 @@
                (map :name (:ingredients r)))
        (filter some?)
        (str/join " ")))
-
-;; Map a cocktail ingredient to a Spirits-tab category (reuses that taxonomy so
-;; the recipe spirit filter shares chip styling with the Spirits tab). Ordered;
-;; first matching bucket wins.
-(def ^:private spirit-aliases
-  [["gin" ["gin"]] ["whiskey" ["whiskey" "whisky" "bourbon" "rye" "scotch"]]
-   ["rum" ["rum" "rhum" "cachaca" "cachaça"]] ["tequila" ["tequila"]]
-   ["mezcal" ["mezcal"]] ["vodka" ["vodka"]]
-   ["brandy" ["brandy" "cognac" "armagnac" "calvados" "applejack" "pisco"]]
-   ;; Catch-all for less common spirituous bases (kept last so the specific
-   ;; spirits above win). Maps to the Spirits-tab "other" category.
-   ["other"
-    ["shochu" "soju" "sake" "aquavit" "akvavit" "absinthe" "pastis" "baijiu"
-     "arak" "raki" "ouzo"]]])
-
-(defn- ingredient-spirit-category
-  "Canonical spirit category for an ingredient name, or nil. Word-boundary
-  matched so e.g. \"gin\" does not match \"ginger\"."
-  [name]
-  (when name
-    (let [lc (str/lower-case name)]
-      (some (fn [[category aliases]]
-              (when (some #(re-find (re-pattern (str "\\b" % "\\b")) lc)
-                          aliases)
-                category))
-            spirit-aliases))))
-
-(defn- recipe-spirit-categories
-  "Set of spirit categories present in a recipe's ingredients."
-  [r]
-  (into #{} (keep (comp ingredient-spirit-category :name)) (:ingredients r)))
-
-(defn- recipe-spirit-cats
-  "Spirit categories for a recipe: from AI-assigned :spirit_tags when present,
-  otherwise the ingredient-name heuristic (manual/pre-backfill recipes)."
-  [r]
-  (if (seq (:spirit_tags r))
-    (into #{} (keep :category) (:spirit_tags r))
-    (recipe-spirit-categories r)))
-
-(defn- recipe-spirit-subcats
-  "Set of subcategory strings from a recipe's stored :spirit_tags."
-  [r]
-  (into #{} (keep :subcategory) (:spirit_tags r)))
-
-(defn- recipe-subpairs
-  "{:subcat :cat} pairs from a recipe's stored :spirit_tags (subcategory only)."
-  [r]
-  (into []
-        (comp (filter :subcategory)
-              (map (fn [p] {:subcat (:subcategory p) :cat (:category p)})))
-        (:spirit_tags r)))
-
-(defn- bottles-for-tag
-  "Owned (quantity>0) bottles for a recipe spirit tag.
-   :exact = same category (+ same subcategory when the tag names one);
-   :alts  = other subcategories of the category, only when no exact match."
-  [spirits {:keys [category subcategory]}]
-  (let [in-cat (filter #(and (= (:category %) category)
-                             (pos? (or (:quantity %) 1)))
-                       spirits)]
-    (if (str/blank? subcategory)
-      {:exact in-cat :alts []}
-      (let [exact (filter #(= (:subcategory %) subcategory) in-cat)]
-        {:exact exact
-         :alts (when (empty? exact)
-                 (remove #(= (:subcategory %) subcategory) in-cat))}))))
 
 (defn- view-spirit-from-recipe!
   "Switch to the Spirits tab with `spirit-id` open, pushing a history entry so
@@ -284,15 +218,29 @@
     :on-change (when-not read-only?
                  (fn [_ v] (on-change (when v (int (* v 2))))))}])
 
+(defn- ingredient-mark
+  "Glyph + color for an ingredient's makeability status."
+  [status]
+  (case status
+    :missing {:glyph "✗" :color "rgba(255,167,38,0.95)"}
+    :missing-garnish {:glyph "~" :color "text.secondary"}
+    {:glyph "✓" :color "rgba(139,195,74,0.85)"}))
+
 (defn- ingredients-list
-  [recipe]
-  [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5}}
-   (map-indexed (fn [idx {:keys [amount unit name]}]
-                  ^{:key idx}
-                  [:li
-                   [typography {:variant "body2"}
-                    (str/join " " (filter seq [amount unit name]))]])
-                (:ingredients recipe))])
+  [recipe statuses]
+  [box
+   {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
+   (map-indexed
+    (fn [idx {:keys [amount unit name]}]
+      (let [{:keys [glyph color]} (ingredient-mark (get statuses name))]
+        ^{:key idx}
+        [:li
+         [typography {:variant "body2"}
+          [box
+           {:component "span"
+            :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}} glyph]
+          (str/join " " (filter seq [amount unit name]))]]))
+    (:ingredients recipe))])
 
 (defn- tags-editor
   [_app-state _recipe _all-tags]
@@ -374,7 +322,7 @@
   [app-state recipe-id spirits {:keys [category subcategory] :as tag}]
   (let [{:keys [base text]}
         (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
-        {:keys [exact alts]} (bottles-for-tag spirits tag)]
+        {:keys [exact alts]} (matching/bottles-for-tag spirits tag)]
     [box
      {:sx
       {:display "flex" :flexWrap "wrap" :alignItems "center" :gap 0.75 :mb 1}}
@@ -417,6 +365,41 @@
          ^{:key (str (:category tag) "/" (:subcategory tag))}
          [recipe-spirit-row app-state (:id recipe) spirits tag])])))
 
+(defn- makeable-badge
+  "Green 'Ready to make' / amber 'Missing: …' chip from a match report, with a
+   soft garnish note appended when otherwise makeable."
+  [{:keys [makeable? missing missing-garnishes]}]
+  [box
+   {:sx {:display "inline-flex"
+         :alignItems "center"
+         :flexWrap "wrap"
+         :gap 0.75}}
+   [chip
+    {:label (if makeable?
+              "Ready to make"
+              (str "Missing: " (str/join ", " missing)))
+     :size "small"
+     :sx {:height 24
+          :fontSize "0.72rem"
+          :letterSpacing "0.02em"
+          :bgcolor (if makeable?
+                     "rgba(139,195,74,0.16)"
+                     "rgba(255,167,38,0.14)")
+          :color (if makeable?
+                   "rgba(174,213,129,0.95)"
+                   "rgba(255,183,77,0.95)")
+          :border (str "1px solid "
+                       (if makeable?
+                         "rgba(139,195,74,0.4)"
+                         "rgba(255,167,38,0.4)"))}}]
+   (when (and makeable? (seq missing-garnishes))
+     [typography
+      {:variant "body2"
+       :sx {:color "text.secondary"
+            :fontSize "0.72rem"
+            :fontStyle "italic"}}
+      (str "no garnish: " (str/join ", " missing-garnishes))])])
+
 (defn- recipe-display
   [app-state recipe]
   (let [all-tags (->> (get-in @app-state [:bar :recipes])
@@ -424,7 +407,11 @@
                       (remove str/blank?)
                       distinct
                       sort
-                      vec)]
+                      vec)
+        bar (get @app-state :bar)
+        report (matching/recipe-match-report recipe
+                                             (:spirits bar)
+                                             (:inventory-items bar))]
     [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
      ;; Identity row
      [box {:sx {:mb 2}}
@@ -451,6 +438,8 @@
         {:value (:rating recipe)
          :size "medium"
          :on-change #(save-field! app-state recipe :rating %)}]]
+      (when (seq (:ingredients recipe))
+        [box {:sx {:mt 1}} [makeable-badge report]])
       [tags-editor app-state recipe all-tags]]
      ;; Description (inline editable, no section header — sits as the lede)
      [box {:sx {:mb 1}}
@@ -464,7 +453,7 @@
      [detail-section
       {:icon local-bar :label "Ingredients" :color "rgba(139,195,74,0.7)"}
       (if (seq (:ingredients recipe))
-        [ingredients-list recipe]
+        [ingredients-list recipe (:ingredient-status report)]
         [typography
          {:variant "body2" :sx {:color "text.secondary" :fontStyle "italic"}}
          "No ingredients yet — use Edit to add some."])]
@@ -647,15 +636,39 @@
        :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
        :on-click #(reset! selected-tags #{})} "clear"])])
 
+(defn- makeable-filter-chip
+  [makeable-only?]
+  (let [active? @makeable-only?]
+    [chip
+     {:label "Makeable"
+      :size "small"
+      :clickable true
+      :on-click #(swap! makeable-only? not)
+      :sx {:height 24
+           :fontSize "0.72rem"
+           :letterSpacing "0.02em"
+           :mb 1.5
+           :bgcolor (if active? "rgba(139,195,74,0.22)" "rgba(139,195,74,0.06)")
+           :color "rgba(174,213,129,0.95)"
+           :border (str "1px solid "
+                        (if active?
+                          "rgba(139,195,74,0.6)"
+                          "rgba(139,195,74,0.25)"))
+           "@media (hover: hover)" {"&:hover" {:bgcolor
+                                               "rgba(139,195,74,0.18)"}}}}]))
+
 (defn recipes-tab
   [_app-state]
   (let [search-text (r/atom "")
         selected-tags (r/atom #{})
         selected-spirits (r/atom #{})
-        selected-subspirits (r/atom #{})]
+        selected-subspirits (r/atom #{})
+        makeable-only? (r/atom false)]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             recipes (:recipes bar)
+            spirits (:spirits bar)
+            inventory-items (:inventory-items bar)
             show-form? (:show-recipe-form? bar)
             editing-id (:editing-recipe-id bar)
             viewing-id (:viewing-recipe-id bar)
@@ -666,21 +679,30 @@
                           distinct
                           sort
                           vec)
-            present-spirits (into #{} (mapcat recipe-spirit-cats) recipes)
-            present-subpairs (into #{} (mapcat recipe-subpairs) recipes)
+            present-spirits (into #{}
+                                  (mapcat matching/recipe-spirit-cats)
+                                  recipes)
+            present-subpairs (into #{}
+                                   (mapcat matching/recipe-subpairs)
+                                   recipes)
             sel @selected-tags
             sel-spirits @selected-spirits
             sel-subspirits @selected-subspirits
+            mk @makeable-only?
             filtered (cond->> recipes
                        (seq term) (filter #(str/includes? (normalize-text
                                                            (recipe-search-text
                                                             %))
                                                           term))
                        (seq sel) (filter #(every? (set (:tags %)) sel))
-                       (seq sel-spirits) (filter #(some (recipe-spirit-cats %)
-                                                        sel-spirits))
+                       (seq sel-spirits)
+                       (filter #(some (matching/recipe-spirit-cats %)
+                                      sel-spirits))
                        (seq sel-subspirits)
-                       (filter #(some (recipe-spirit-subcats %) sel-subspirits))
+                       (filter #(some (matching/recipe-spirit-subcats %)
+                                      sel-subspirits))
+                       mk (filter #(matching/recipe-makeable? % spirits
+                                                              inventory-items))
                        :always (sort-by (juxt #(if (:rating %) 0 1)
                                               #(- (or (:rating %) 0)))))]
         [box (when show-form? [recipe-form app-state])
@@ -695,7 +717,8 @@
                                 present-subpairs)]
                 (when (seq sub)
                   [subcategory-filter-bar selected-subspirits sub])))
-            (when (seq all-tags) [tag-filter-bar selected-tags all-tags])])
+            (when (seq all-tags) [tag-filter-bar selected-tags all-tags])
+            [makeable-filter-chip makeable-only?]])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]
