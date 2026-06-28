@@ -19,11 +19,13 @@
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.local-bar :refer [local-bar]]
+            [reagent-mui.icons.inventory :refer [inventory]]
             [reagent-mui.icons.menu-book :refer [menu-book]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.views.bar.spirits :refer
-             [category-filter-bar subcategory-filter-bar]]
+             [category-filter-bar subcategory-filter-bar category-colors
+              category-labels spirit-categories]]
             [wine-cellar.views.components :refer
              [editable-text-field editable-autocomplete-field search-text-field
               detail-section]]
@@ -89,6 +91,40 @@
         (comp (filter :subcategory)
               (map (fn [p] {:subcat (:subcategory p) :cat (:category p)})))
         (:spirit_tags r)))
+
+(defn- bottles-for-tag
+  "Owned (quantity>0) bottles for a recipe spirit tag.
+   :exact = same category (+ same subcategory when the tag names one);
+   :alts  = other subcategories of the category, only when no exact match."
+  [spirits {:keys [category subcategory]}]
+  (let [in-cat (filter #(and (= (:category %) category)
+                             (pos? (or (:quantity %) 1)))
+                       spirits)]
+    (if (str/blank? subcategory)
+      {:exact in-cat :alts []}
+      (let [exact (filter #(= (:subcategory %) subcategory) in-cat)]
+        {:exact exact
+         :alts (when (empty? exact)
+                 (remove #(= (:subcategory %) subcategory) in-cat))}))))
+
+(defn- view-spirit-from-recipe!
+  "Switch to the Spirits tab with `spirit-id` open, pushing a history entry so
+   the browser Back button returns to the recipe that was open."
+  [app-state recipe-id spirit-id]
+  (.replaceState js/history
+                 #js {:barNav #js {:activeTab "recipes"
+                                   :viewingRecipeId recipe-id}}
+                 ""
+                 (.-pathname js/location))
+  (.pushState js/history
+              #js {:barNav #js {:activeTab "spirits"
+                                :editingSpiritId spirit-id}}
+              ""
+              (.-pathname js/location))
+  (swap! app-state #(-> %
+                        (assoc-in [:bar :viewing-recipe-id] nil)
+                        (assoc-in [:bar :active-tab] :spirits)
+                        (assoc-in [:bar :editing-spirit-id] spirit-id))))
 
 (defn- text-field
   [label value on-change & {:keys [type multiline rows]}]
@@ -308,6 +344,79 @@
                     :fontSize "0.78rem"
                     :fontStyle "italic"}} "+ Add tags"])])))))
 
+(defn- bottle-chip
+  "Clickable chip for an owned bottle in the recipe spirits section. `alt?`
+   dims it and prefixes a `~`, appending the subcategory it actually is."
+  [app-state recipe-id spirit alt?]
+  (let [label (str/join " · "
+                        (filter seq [(:distillery spirit) (:name spirit)]))]
+    [chip
+     {:label (if alt?
+               (str "~ "
+                    label
+                    (when (seq (:subcategory spirit))
+                      (str " · " (:subcategory spirit))))
+               label)
+      :size "small"
+      :clickable true
+      :on-click #(view-spirit-from-recipe! app-state recipe-id (:id spirit))
+      :sx {:height 24
+           :fontSize "0.72rem"
+           :letterSpacing "0.02em"
+           :opacity (if alt? 0.55 1)
+           :bgcolor "rgba(232,195,200,0.08)"
+           :color "rgba(232,195,200,0.95)"
+           :border "1px solid rgba(232,195,200,0.22)"
+           "@media (hover: hover)" {"&:hover" {:bgcolor
+                                               "rgba(232,195,200,0.16)"}}}}]))
+
+(defn- recipe-spirit-row
+  [app-state recipe-id spirits {:keys [category subcategory] :as tag}]
+  (let [{:keys [base text]}
+        (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
+        {:keys [exact alts]} (bottles-for-tag spirits tag)]
+    [box
+     {:sx
+      {:display "flex" :flexWrap "wrap" :alignItems "center" :gap 0.75 :mb 1}}
+     [chip
+      {:label (str (get category-labels category category)
+                   (when (seq subcategory) (str " · " subcategory)))
+       :size "small"
+       :sx {:height 24
+            :fontSize "0.72rem"
+            :letterSpacing "0.02em"
+            :bgcolor (str "rgba(" base ",0.14)")
+            :color text
+            :border (str "1px solid rgba(" base ",0.35)")}}]
+     (cond (seq exact) (for [b exact]
+                         ^{:key (:id b)}
+                         [bottle-chip app-state recipe-id b false])
+           (seq alts) (for [b alts]
+                        ^{:key (:id b)}
+                        [bottle-chip app-state recipe-id b true])
+           :else [typography
+                  {:variant "body2"
+                   :sx {:color "text.secondary"
+                        :fontSize "0.78rem"
+                        :fontStyle "italic"}} "none on hand"])]))
+
+(defn- recipe-spirits-section
+  "Per-spirit-tag rows showing which owned bottles satisfy the recipe."
+  [app-state recipe]
+  (let [tags (->> (:spirit_tags recipe)
+                  distinct
+                  (sort-by (fn [{:keys [category subcategory]}]
+                             [(.indexOf (to-array spirit-categories)
+                                        (or category ""))
+                              (or subcategory "")])))
+        spirits (get-in @app-state [:bar :spirits])]
+    (when (seq tags)
+      [detail-section
+       {:icon inventory :label "Your bottles" :color "rgba(232,195,200,0.7)"}
+       (for [tag tags]
+         ^{:key (str (:category tag) "/" (:subcategory tag))}
+         [recipe-spirit-row app-state (:id recipe) spirits tag])])))
+
 (defn- recipe-display
   [app-state recipe]
   (let [all-tags (->> (get-in @app-state [:bar :recipes])
@@ -359,6 +468,8 @@
         [typography
          {:variant "body2" :sx {:color "text.secondary" :fontStyle "italic"}}
          "No ingredients yet — use Edit to add some."])]
+     ;; Your bottles section (omitted when the recipe has no spirit tags)
+     [recipe-spirits-section app-state recipe]
      ;; Instructions section
      [detail-section
       {:icon menu-book :label "Instructions" :color "rgba(100,181,246,0.7)"}

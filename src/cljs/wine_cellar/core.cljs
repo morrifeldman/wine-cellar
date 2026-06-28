@@ -127,7 +127,16 @@
           ;; chat
           (when (and chat-modal-open? (not (get-in @app-state [:chat :open?])))
             (swap! app-state assoc-in [:chat :open?] true)
-            (api/load-conversations! app-state {:force? true})))
+            (api/load-conversations! app-state {:force? true}))
+          ;; Bar cross-tab nav (recipe → bottle, and Back) — restore
+          ;; tab/detail
+          (when-let [bar-nav (gobj/get (.-state js/history) "barNav")]
+            (swap! app-state update
+              :bar
+              merge
+              {:active-tab (keyword (gobj/get bar-nav "activeTab"))
+               :viewing-recipe-id (gobj/get bar-nav "viewingRecipeId")
+               :editing-spirit-id (gobj/get bar-nav "editingSpiritId")})))
         (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
         (when (and (:show-report? nav-state) (not (:report @app-state)))
           (api/fetch-latest-report app-state
@@ -136,7 +145,9 @@
         (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
         (when (= :sensor-readings (:view nav-state))
           (api/fetch-latest-sensor-readings app-state {}))
-        (when (= :bar (:view nav-state)) (api/fetch-bar-data app-state))
+        (when (and (= :bar (:view nav-state))
+                   (not (gobj/get (.-state js/history) "barNav")))
+          (api/fetch-bar-data app-state))
         (when-let [scroll-y (gobj/get (.-state js/history) "scrollY")]
           (.replaceState js/history #js {} "" (.-pathname js/location))
           (swap! app-state assoc :restore-scroll scroll-y))))))

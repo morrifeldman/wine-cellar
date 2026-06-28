@@ -32,12 +32,12 @@
   ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur"
    "vermouth" "other"])
 
-(def ^:private category-labels
+(def category-labels
   (into {}
         (map (fn [c] [c (str (str/upper-case (subs c 0 1)) (subs c 1))])
              spirit-categories)))
 
-(def ^:private category-colors
+(def category-colors
   {"whiskey" {:base "180,120,60" :text "#e8c890"}
    "gin" {:base "120,180,120" :text "#b0d8b0"}
    "rum" {:base "200,140,80" :text "#e8c090"}
