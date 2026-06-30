@@ -1572,6 +1572,48 @@
              (do (swap! app-state assoc-in [:bar :error] (:error result))
                  (reject (:error result)))))))))
 
+(defn refresh-recipe-links
+  "Re-resolves one recipe's spirit/ingredient links against current inventory.
+   Returns a JS Promise resolving to the updated recipe."
+  [app-state id]
+  (js/Promise.
+   (fn [resolve reject]
+     (go (let [result (<! (POST
+                           (str "/api/cocktail-recipes/" id "/refresh-links")
+                           {}
+                           "Failed to refresh recipe links"))]
+           (if (:success result)
+             (do (swap! app-state update-in
+                   [:bar :recipes]
+                   (fn [recipes]
+                     (mapv #(if (= (:id %) id) (:data result) %) recipes)))
+                 (resolve (:data result)))
+             (do (swap! app-state assoc-in [:bar :error] (:error result))
+                 (reject (:error result)))))))))
+
+(defn refresh-all-recipe-links
+  "Sequentially refreshes every recipe's links, updating
+   [:bar :refresh-progress] as it goes. Stops early when :stop? is set; a single
+   recipe's failure is skipped so the batch continues."
+  [app-state]
+  (let [ids (mapv :id (get-in @app-state [:bar :recipes]))]
+    (swap! app-state assoc-in
+      [:bar :refresh-progress]
+      {:running? true :done 0 :total (count ids) :stop? false})
+    (go (loop [[id & more] ids]
+          (if (or (nil? id) (get-in @app-state [:bar :refresh-progress :stop?]))
+            (swap! app-state assoc-in [:bar :refresh-progress :running?] false)
+            (let [result (<! (POST
+                              (str "/api/cocktail-recipes/" id "/refresh-links")
+                              {}
+                              "Failed to refresh recipe links"))]
+              (when (:success result)
+                (swap! app-state update-in
+                  [:bar :recipes]
+                  (fn [rs] (mapv #(if (= (:id %) id) (:data result) %) rs))))
+              (swap! app-state update-in [:bar :refresh-progress :done] inc)
+              (recur more)))))))
+
 (defn delete-cocktail-recipe
   [app-state id]
   (go (let [result (<! (DELETE (str "/api/cocktail-recipes/" id)

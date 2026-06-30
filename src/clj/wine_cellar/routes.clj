@@ -500,6 +500,14 @@
      :delete {:summary "Delete cocktail recipe"
               :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
               :handler handlers/delete-cocktail-recipe}}]
+   ["/cocktail-recipes/:id/refresh-links"
+    {:parameters {:path {:id int?}}
+     :post
+     {:summary
+      "Re-resolve a recipe's spirit/ingredient links to current inventory"
+      :responses
+      {200 {:body map?} 404 {:body map?} 422 {:body map?} 500 {:body map?}}
+      :handler handlers/refresh-recipe-links}}]
    ["/admin"
     ["/model-info"
      {:get {:summary "Get current AI model configuration"

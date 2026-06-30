@@ -336,29 +336,39 @@
    {:type "object"
     :required ["recipes"]
     :properties
-    {:recipes {:type "array"
-               :items
-               {:type "object"
-                :required ["name" "ingredients"]
-                :properties
-                {:name {:type "string"}
-                 :description {:type "string"}
-                 :ingredients {:type "array"
-                               :items {:type "object"
-                                       :required ["name"]
-                                       :properties {:name {:type "string"}
-                                                    :amount {:type "string"}
-                                                    :unit {:type "string"}}}}
-                 :instructions {:type "string"}
-                 :spirit_tags
-                 {:type "array"
-                  :items {:type "object"
-                          :required ["category"]
-                          :properties {:category {:type "string"
-                                                  :enum spirit-categories}
-                                       :subcategory {:type "string"}}}
-                  :description
-                  (str "One entry per spirit/modifier ingredient — the base "
+    {:recipes
+     {:type "array"
+      :items
+      {:type "object"
+       :required ["name" "ingredients"]
+       :properties
+       {:name {:type "string"}
+        :description {:type "string"}
+        :ingredients
+        {:type "array"
+         :items {:type "object"
+                 :required ["name"]
+                 :properties {:name {:type "string"}
+                              :amount {:type "string"}
+                              :unit {:type "string"}
+                              :inventory_item_id {:type ["integer" "null"]}}}
+         :description
+         (str "One entry per ingredient. When an ingredient clearly "
+              "corresponds to one of the user's Mixers & Garnishes "
+              "listed below, set inventory_item_id to that item's #id; "
+              "otherwise omit it. Do not use inventory_item_id for the "
+              "base spirit or spirituous modifiers — those are linked "
+              "via spirit_tags.")}
+        :instructions {:type "string"}
+        :spirit_tags
+        {:type "array"
+         :items {:type "object"
+                 :required ["category"]
+                 :properties {:category {:type "string" :enum spirit-categories}
+                              :subcategory {:type "string"}
+                              :spirit_id {:type ["integer" "null"]}}}
+         :description (str
+                       "One entry per spirit/modifier ingredient — the base "
                        "spirit, any spirituous modifiers, and any rinse/wash "
                        "(e.g. absinthe rinse). category MUST be one of the "
                        "listed values. Include subcategory only when it "
@@ -366,12 +376,16 @@
                        "(e.g. {category: liqueur, subcategory: bitter} for "
                        "Campari, {category: other, subcategory: Absinthe}). "
                        "Reuse the inventory's exact subcategory strings, "
-                       "matching their capitalization.")}
-                 :tags {:type "array"
-                        :maxItems 4
-                        :items {:type "string"}
-                        :description
-                        (str "1-3 short, lowercase tags for filtering. "
+                       "matching their capitalization. When the recipe's "
+                       "spirit clearly corresponds to one of the user's bar "
+                       "spirits listed below, set spirit_id to that spirit's "
+                       "#id; otherwise omit it. Always still set category "
+                       "(and subcategory when it matches).")}
+        :tags {:type "array"
+               :maxItems 4
+               :items {:type "string"}
+               :description (str
+                             "1-3 short, lowercase tags for filtering. "
                              "Choose only high-signal, reusable tags from "
                              "these categories: drink family (e.g. sour, "
                              "old-fashioned, negroni, martini, highball, "

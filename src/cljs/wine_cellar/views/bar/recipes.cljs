@@ -13,6 +13,7 @@
             [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.rating :refer [rating]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.material.checkbox :refer [checkbox]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
@@ -292,25 +293,21 @@
                     :fontStyle "italic"}} "+ Add tags"])])))))
 
 (defn- bottle-chip
-  "Clickable chip for an owned bottle in the recipe spirits section. `alt?`
-   dims it and prefixes a `~`, appending the subcategory it actually is."
-  [app-state recipe-id spirit alt?]
-  (let [label (str/join " · "
-                        (filter seq [(:distillery spirit) (:name spirit)]))]
+  "Clickable chip for a bottle in the recipe spirits section. `:dim?` dims it
+   and prefixes a `~`; `:suffix` appends a ` · <suffix>` note (the actual
+   subcategory for a substitute, or \"out of stock\" for an unavailable link)."
+  [app-state recipe-id spirit {:keys [dim? suffix]}]
+  (let [base (str/join " · "
+                       (filter seq [(:distillery spirit) (:name spirit)]))]
     [chip
-     {:label (if alt?
-               (str "~ "
-                    label
-                    (when (seq (:subcategory spirit))
-                      (str " · " (:subcategory spirit))))
-               label)
+     {:label (str (when dim? "~ ") base (when (seq suffix) (str " · " suffix)))
       :size "small"
       :clickable true
       :on-click #(view-spirit-from-recipe! app-state recipe-id (:id spirit))
       :sx {:height 24
            :fontSize "0.72rem"
            :letterSpacing "0.02em"
-           :opacity (if alt? 0.55 1)
+           :opacity (if dim? 0.55 1)
            :bgcolor "rgba(232,195,200,0.08)"
            :color "rgba(232,195,200,0.95)"
            :border "1px solid rgba(232,195,200,0.22)"
@@ -321,7 +318,19 @@
   [app-state recipe-id spirits {:keys [category subcategory] :as tag}]
   (let [{:keys [base text]}
         (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
-        {:keys [exact alts]} (matching/bottles-for-tag spirits tag)]
+        {:keys [exact sub alts]} (matching/bottles-for-tag spirits tag)
+        owned? (fn [b] (pos? (or (:quantity b) 1)))
+        exact-in (filter owned? exact)
+        exact-out (remove owned? exact)
+        sub-chips (fn [bs]
+                    (for [b bs]
+                      ^{:key (str "s-" (:id b))}
+                      [bottle-chip app-state recipe-id b {}]))
+        alt-chips (fn [bs]
+                    (for [b bs]
+                      ^{:key (str "a-" (:id b))}
+                      [bottle-chip app-state recipe-id b
+                       {:dim? true :suffix (:subcategory b)}]))]
     [box
      {:sx
       {:display "flex" :flexWrap "wrap" :alignItems "center" :gap 0.75 :mb 1}}
@@ -335,17 +344,24 @@
             :bgcolor (str "rgba(" base ",0.14)")
             :color text
             :border (str "1px solid rgba(" base ",0.35)")}}]
-     (cond (seq exact) (for [b exact]
-                         ^{:key (:id b)}
-                         [bottle-chip app-state recipe-id b false])
-           (seq alts) (for [b alts]
-                        ^{:key (:id b)}
-                        [bottle-chip app-state recipe-id b true])
-           :else [typography
-                  {:variant "body2"
-                   :sx {:color "text.secondary"
-                        :fontSize "0.78rem"
-                        :fontStyle "italic"}} "none on hand"])]))
+     (cond
+       ;; In-stock precise link — show it alone.
+       (seq exact-in) (sub-chips exact-in)
+       ;; Out-of-stock precise link — show it dimmed, plus in-stock
+       ;; substitutes.
+       (seq exact-out) (concat (for [b exact-out]
+                                 ^{:key (str "x-" (:id b))}
+                                 [bottle-chip app-state recipe-id b
+                                  {:dim? true :suffix "out of stock"}])
+                               (sub-chips sub)
+                               (alt-chips alts))
+       (seq sub) (sub-chips sub)
+       (seq alts) (alt-chips alts)
+       :else [typography
+              {:variant "body2"
+               :sx {:color "text.secondary"
+                    :fontSize "0.78rem"
+                    :fontStyle "italic"}} "none on hand"])]))
 
 (defn- recipe-spirits-section
   "Per-spirit-tag rows showing which owned bottles satisfy the recipe."
@@ -477,6 +493,21 @@
                      (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
                      (api/delete-cocktail-recipe app-state (:id recipe)))}
        "Delete"] [box {:sx {:flex 1}}]
+      (let [refreshing? (= (:id recipe)
+                           (get-in @app-state [:bar :refreshing-recipe-id]))]
+        [button
+         {:variant "outlined"
+          :disabled refreshing?
+          :start-icon (when refreshing?
+                        (r/as-element [circular-progress {:size 16}]))
+          :on-click
+          (fn []
+            (swap! app-state assoc-in [:bar :refreshing-recipe-id] (:id recipe))
+            (-> (api/refresh-recipe-links app-state (:id recipe))
+                (.finally #(swap! app-state assoc-in
+                             [:bar :refreshing-recipe-id]
+                             nil))))}
+         (if refreshing? "Refreshing…" "Refresh links")])
       [button
        {:variant "outlined"
         :on-click
@@ -649,6 +680,30 @@
            "@media (hover: hover)" {"&:hover" {:bgcolor
                                                "rgba(139,195,74,0.18)"}}}}]))
 
+(defn- refresh-all-bar
+  "Re-resolve every recipe's spirit/ingredient links sequentially, with a live
+   progress count and a stop control."
+  [app-state]
+  (let [{:keys [running? done total]} (get-in @app-state
+                                              [:bar :refresh-progress])]
+    [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mb 1.5}}
+     [button
+      {:variant "text"
+       :size "small"
+       :disabled (boolean running?)
+       :start-icon (when running? (r/as-element [circular-progress {:size 14}]))
+       :on-click #(api/refresh-all-recipe-links app-state)
+       :sx {:color "text.secondary" :textTransform "none" :fontSize "0.78rem"}}
+      (if running? (str "Refreshing… " done "/" total) "Refresh all links")]
+     (when running?
+       [button
+        {:variant "text"
+         :size "small"
+         :color "error"
+         :on-click
+         #(swap! app-state assoc-in [:bar :refresh-progress :stop?] true)
+         :sx {:textTransform "none" :fontSize "0.78rem"}} "Stop"])]))
+
 (defn recipes-tab
   [_app-state]
   (let [search-text (r/atom "")
@@ -705,7 +760,7 @@
                 (when (seq sub)
                   [subcategory-filter-bar selected-subspirits sub])))
             (when (seq all-tags) [tag-filter-bar selected-tags all-tags])
-            [makeable-filter-chip makeable-only?]])
+            [makeable-filter-chip makeable-only?] [refresh-all-bar app-state]])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]

@@ -261,9 +261,10 @@
                        (str/join
                         ", "
                         (map
-                         (fn [{:keys [name subcategory distillery proof
+                         (fn [{:keys [id name subcategory distillery proof
                                       age_statement country region notes]}]
                            (str
+                            (when id (str "#" id " "))
                             name
                             (when subcategory (str " (" subcategory ")"))
                             (when distillery (str " [" distillery "]"))
@@ -275,16 +276,20 @@
                          items))))))))
           inventory-section
           (when (seq inventory-items)
-            (let [have (filter :have_it inventory-items)
-                  by-cat (group-by :category have)]
-              (when (seq have)
-                (str "Mixers & Garnishes available:\n"
-                     (str/join "\n"
-                               (for [[cat items] by-cat
-                                     :let [label (str/capitalize cat)]]
-                                 (str "  " label
-                                      ": " (str/join ", "
-                                                     (map :name items)))))))))
+            (let [by-cat (group-by :category inventory-items)]
+              (str "Mixers & Garnishes:\n"
+                   (str/join "\n"
+                             (for [[cat items] by-cat
+                                   :let [label (str/capitalize cat)]]
+                               (str "  " label
+                                    ": " (str/join
+                                          ", "
+                                          (map (fn [{:keys [id name have_it]}]
+                                                 (str (when id (str "#" id " "))
+                                                      name
+                                                      (when-not have_it
+                                                        " (out of stock)")))
+                                               items))))))))
           recipes-section
           (when (seq recipes)
             (str "Saved Recipes (" (count recipes)
