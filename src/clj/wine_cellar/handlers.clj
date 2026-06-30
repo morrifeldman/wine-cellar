@@ -504,88 +504,42 @@
        (response/response recipe)
        {:status 422 :body {:error "Could not extract recipe from text"}}))))
 
-(defn- recipe->extract-text
-  "Minimal text rendering of a stored recipe for re-extraction: name, one line
-   per ingredient (amount unit name), then instructions."
-  [{:keys [name ingredients instructions]}]
-  (str/join "\n"
-            (remove str/blank?
-                    (concat [name]
-                            (map (fn [{:keys [amount unit name]}]
-                                   (str "- "
-                                        (str/join " "
-                                                  (remove str/blank?
-                                                          [amount unit name]))))
-                                 ingredients)
-                            [instructions]))))
-
-(defn- norm-name
-  [s]
-  (-> (or s "")
-      str/lower-case
-      str/trim))
-
-(defn- merge-spirit-tags
-  "Fresh tags win, but carry over an existing :spirit_id when fresh lacks one for
-   the same [category subcategory] slot, and keep any existing tag carrying a
-   :spirit_id whose slot the fresh set dropped — so no precise link is ever lost."
-  [old-tags fresh-tags]
-  (let [slot (juxt :category :subcategory)
-        old-by-slot (into {} (map (juxt slot identity)) old-tags)
-        fresh-slots (into #{} (map slot) fresh-tags)
-        merged (mapv (fn [t]
-                       (if-let [id (or (:spirit_id t)
-                                       (:spirit_id (old-by-slot (slot t))))]
-                         (assoc t :spirit_id id)
-                         t))
-                     fresh-tags)
-        dropped (filter (fn [t]
-                          (and (:spirit_id t) (not (fresh-slots (slot t)))))
-                        old-tags)]
-    (vec (concat merged dropped))))
-
-(defn- merge-ingredient-links
-  "Preserve each existing ingredient's text; union its inventory item links with
-   the fresh extraction's (matched by normalized name) into :inventory_item_ids —
-   never losing a link or rewriting ingredient text. Dangling ids (item later
-   deleted) are inert downstream, so unioning is safe."
-  [old-ingredients fresh-ingredients]
-  (let [fresh-by-name (into {}
-                            (map (juxt (comp norm-name :name)
-                                       :inventory_item_ids))
-                            fresh-ingredients)]
-    (mapv (fn [ing]
-            (let [ids (distinct (concat (:inventory_item_ids ing)
-                                        (get fresh-by-name
-                                             (norm-name (:name ing)))))]
-              (if (seq ids)
-                (assoc ing :inventory_item_ids (vec ids))
-                (dissoc ing :inventory_item_ids))))
-          old-ingredients)))
-
 (defn refresh-recipe-links
-  "Re-resolves a stored recipe's spirit and ingredient links against current
-   inventory: re-extracts from the recipe's own text, then merges the fresh
-   :spirit_id / :inventory_item_ids links onto the existing recipe (preserving
-   text and never dropping an existing link). Writes only :spirit_tags and
-   :ingredients."
+  "Re-resolves a stored recipe's links against current inventory via an id-keyed
+   resolution call (no re-extraction, so ingredient text is never paraphrased).
+   The fresh run is authoritative: each ingredient's :inventory_item_ids and each
+   spirit tag's :spirit_id are rewritten from the result by index — links the AI
+   no longer makes are cleared. Out-of-stock items and spirits are in the prompt,
+   so they can still be re-linked."
   [{{{:keys [id]} :path} :parameters}]
   (with-server-error
    (if-let [recipe (db-api/get-cocktail-recipe id)]
-     (let [bar {:spirits (db-api/get-spirits)
+     (let [ingredients (:ingredients recipe)
+           spirit-tags (:spirit_tags recipe)
+           bar {:spirits (db-api/get-spirits)
                 :inventory-items (db-api/get-bar-inventory-items)}
-           result (ai/extract-cocktail-recipe (recipe->extract-text recipe)
-                                              (db-api/distinct-recipe-tags)
-                                              bar)
-           fresh (first (:recipes result))]
-       (if fresh
-         (response/response
-          (db-api/update-cocktail-recipe!
-           id
-           {:spirit_tags (merge-spirit-tags (:spirit_tags recipe)
-                                            (:spirit_tags fresh))
-            :ingredients (merge-ingredient-links (:ingredients recipe)
-                                                 (:ingredients fresh))}))
+           result (ai/resolve-recipe-links ingredients spirit-tags bar)]
+       (if result
+         (let [ids-by-idx (into {}
+                                (map (juxt :index :inventory_item_ids))
+                                (:ingredient_links result))
+               spirit-by-idx
+               (into {} (map (juxt :index :spirit_id)) (:spirit_links result))
+               new-ings (vec (map-indexed
+                              (fn [i ing]
+                                (let [ids (get ids-by-idx i)]
+                                  (if (seq ids)
+                                    (assoc ing :inventory_item_ids (vec ids))
+                                    (dissoc ing :inventory_item_ids))))
+                              ingredients))
+               new-tags (vec (map-indexed (fn [i tag]
+                                            (if-let [sid (get spirit-by-idx i)]
+                                              (assoc tag :spirit_id sid)
+                                              (dissoc tag :spirit_id)))
+                                          spirit-tags))]
+           (response/response (db-api/update-cocktail-recipe!
+                               id
+                               {:spirit_tags new-tags :ingredients new-ings})))
          {:status 422 :body {:error "Could not refresh recipe links"}}))
      (not-found "Recipe"))))
 

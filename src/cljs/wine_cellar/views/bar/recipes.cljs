@@ -395,14 +395,14 @@
      (cond
        ;; In-stock precise link — show it alone.
        (seq exact-in) (sub-chips exact-in)
-       ;; Out-of-stock precise link — show it dimmed, plus in-stock
-       ;; substitutes.
-       (seq exact-out) (concat (for [b exact-out]
+       ;; Out-of-stock precise link — show in-stock substitutes first, with
+       ;; the dimmed out-of-stock link pushed to the right.
+       (seq exact-out) (concat (sub-chips sub)
+                               (alt-chips alts)
+                               (for [b exact-out]
                                  ^{:key (str "x-" (:id b))}
                                  [bottle-chip app-state recipe-id b
-                                  {:dim? true :suffix "out of stock"}])
-                               (sub-chips sub)
-                               (alt-chips alts))
+                                  {:dim? true :suffix "out of stock"}]))
        (seq sub) (sub-chips sub)
        (seq alts) (alt-chips alts)
        :else [typography

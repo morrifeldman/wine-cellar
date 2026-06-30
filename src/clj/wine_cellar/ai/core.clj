@@ -121,6 +121,14 @@
    (try (anthropic/extract-cocktail-recipe text existing-tags bar)
         (catch Exception _ nil))))
 
+(defn resolve-recipe-links
+  "Resolves an existing recipe's ingredient/spirit links to the bar by #id,
+   keyed by index. Always uses Anthropic. Returns {:ingredient_links [...]
+   :spirit_links [...]} or nil on failure."
+  [ingredients spirit-tags bar]
+  (try (anthropic/resolve-recipe-links ingredients spirit-tags bar)
+       (catch Exception _ nil)))
+
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"
   []

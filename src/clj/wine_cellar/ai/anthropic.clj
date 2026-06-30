@@ -441,3 +441,80 @@
                   :tool_choice {:type "tool" :name extract-recipe-tool-name}
                   :max_tokens 2000}]
      (call-anthropic-api request true))))
+
+(def resolve-links-tool-name "resolve_recipe_links")
+
+(def resolve-links-tool
+  {:name resolve-links-tool-name
+   :description
+   "Resolve an existing cocktail recipe's ingredient and spirit links to the user's bar inventory by #id, keyed to the indices shown."
+   :input_schema
+   {:type "object"
+    :properties
+    {:ingredient_links
+     {:type "array"
+      :description
+      (str
+       "Exactly one entry per ingredient index shown. inventory_item_ids = "
+       "the #ids of EVERY Mixers & Garnishes item that genuinely satisfies "
+       "that ingredient — link all equivalents, not just one (e.g. both a "
+       "demerara and a white sugar for \"sugar\", both lemon and lime for a "
+       "\"citrus garnish\"). Use an empty array when nothing matches. Do not "
+       "link the base spirit or spirituous modifiers here — those are spirit "
+       "tags.")
+      :items {:type "object"
+              :required ["index" "inventory_item_ids"]
+              :properties {:index {:type "integer"}
+                           :inventory_item_ids {:type "array"
+                                                :items {:type "integer"}}}}}
+     :spirit_links
+     {:type "array"
+      :description
+      (str
+       "Exactly one entry per spirit-tag index shown. spirit_id = the #id of "
+       "the user's bar spirit the recipe specifically calls for at that "
+       "tag's category/subcategory, or null when no specific bottle is named "
+       "(a category/subcategory match alone is enough).")
+      :items {:type "object"
+              :required ["index" "spirit_id"]
+              :properties {:index {:type "integer"}
+                           :spirit_id {:type ["integer" "null"]}}}}}
+    :required ["ingredient_links" "spirit_links"]
+    :additionalProperties false}})
+
+(defn resolve-recipe-links
+  "Resolves an existing recipe's ingredient and spirit links to the user's bar by
+   #id, keyed by index. Takes the recipe's ingredients and spirit_tags (in their
+   stored order) plus bar (:spirits/:inventory-items). Returns a map of
+   {:ingredient_links [{:index :inventory_item_ids}]
+    :spirit_links [{:index :spirit_id}]}.
+   Unlike re-extraction this never paraphrases the recipe — the model only
+   reports ids against the indices we send, so the join back is exact."
+  [ingredients spirit-tags bar]
+  (let [ing-lines (str/join "\n"
+                            (map-indexed (fn [i ing] (str i ". " (:name ing)))
+                                         ingredients))
+        tag-lines (str/join "\n"
+                            (map-indexed (fn [i {:keys [category subcategory]}]
+                                           (str i
+                                                ". "
+                                                category
+                                                (when (seq subcategory)
+                                                  (str " / " subcategory))))
+                                         spirit-tags))
+        bar-text (prompts/bar-context-text
+                  (select-keys bar [:spirits :inventory-items]))
+        content (str
+                 "Resolve this cocktail recipe's links to the user's bar by "
+                 "#id. Return one entry per index shown.\n\n"
+                 "Ingredients (index. name):\n"
+                 ing-lines
+                 "\n\n"
+                 "Spirit tags (index. category / subcategory):\n"
+                 (if (seq tag-lines) tag-lines "(none)")
+                 "\n\n=== Bar Inventory ===\n" bar-text)
+        request {:messages [{:role "user" :content content}]
+                 :tools [resolve-links-tool]
+                 :tool_choice {:type "tool" :name resolve-links-tool-name}
+                 :max_tokens 1500}]
+    (call-anthropic-api request true)))
