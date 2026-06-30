@@ -176,17 +176,23 @@
             (do
               (swap! app-state assoc-in [:bar :show-recipe-form?] false)
               (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []}))))
-        submit! (fn [e]
-                  (.preventDefault e)
-                  (let [tags-raw (get recipe :tags-input "")
-                        tags (when (seq tags-raw)
-                               (mapv str/trim (str/split tags-raw #",")))
-                        payload (-> recipe
-                                    (dissoc :tags-input)
-                                    (assoc :tags tags))]
-                    (if editing-id
-                      (api/update-cocktail-recipe app-state editing-id payload)
-                      (api/create-cocktail-recipe app-state payload))))]
+        submit!
+        (fn [e]
+          (.preventDefault e)
+          (let [tags-raw (get recipe :tags-input "")
+                tags (when (seq tags-raw)
+                       (mapv str/trim (str/split tags-raw #",")))
+                payload (-> recipe
+                            (dissoc :tags-input)
+                            (assoc :tags tags))]
+            (if editing-id
+              (-> (api/update-cocktail-recipe app-state editing-id payload)
+                  ;; keep the recipe open (back to its detail view)
+                  ;; rather than collapsing after a save.
+                  (.then #(swap! app-state assoc-in
+                            [:bar :viewing-recipe-id]
+                            editing-id)))
+              (api/create-cocktail-recipe app-state payload))))]
     [paper
      {:elevation 2 :sx {:p 2 :mb 2 :borderLeft "4px solid rgba(114,47,55,0.5)"}}
      [:form {:on-submit submit!}
@@ -358,8 +364,12 @@
   [app-state recipe-id {:keys [category subcategory]}]
   (let [{:keys [base text]}
         (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
-        label (str (when (seq subcategory) (str subcategory " "))
-                   (get category-labels category category))]
+        ;; "other" is a catch-all; when a subcategory names the spirit
+        ;; (e.g. "Absinthe") show just that rather than "Absinthe Other".
+        label (if (and (= category "other") (seq subcategory))
+                subcategory
+                (str (when (seq subcategory) (str subcategory " "))
+                     (get category-labels category category)))]
     [chip
      {:label label
       :size "small"

@@ -356,7 +356,12 @@
                                                    :items {:type "integer"}}}}
          :description
          (str
-          "One entry per ingredient. Set inventory_item_ids to the #ids "
+          "One entry per ingredient. For name, prefer the generic spirit/"
+          "ingredient term over a specific brand when it still makes sense in "
+          "context (e.g. 'bourbon' rather than 'Buffalo Trace', 'London dry "
+          "gin' rather than 'Tanqueray'); keep a brand only when the recipe "
+          "truly depends on that specific bottle. "
+          "Set inventory_item_ids to the #ids "
           "of EVERY one of the user's Mixers & Garnishes (listed below) "
           "that genuinely satisfies the ingredient — link all equivalents, "
           "not just one (e.g. both a demerara and a white sugar for "
