@@ -524,7 +524,7 @@
                                 (map (juxt :index :inventory_item_ids))
                                 (:ingredient_links result))
                spirit-by-idx
-               (into {} (map (juxt :index :spirit_id)) (:spirit_links result))
+               (into {} (map (juxt :index identity)) (:spirit_links result))
                new-ings (vec (map-indexed
                               (fn [i ing]
                                 (let [ids (get ids-by-idx i)]
@@ -532,11 +532,16 @@
                                     (assoc ing :inventory_item_ids (vec ids))
                                     (dissoc ing :inventory_item_ids))))
                               ingredients))
-               new-tags (vec (map-indexed (fn [i tag]
-                                            (if-let [sid (get spirit-by-idx i)]
-                                              (assoc tag :spirit_id sid)
-                                              (dissoc tag :spirit_id)))
-                                          spirit-tags))]
+               new-tags (vec
+                         (map-indexed
+                          (fn [i tag]
+                            (let [{:keys [spirit_id ingredient_index]}
+                                  (get spirit-by-idx i)]
+                              (cond-> (dissoc tag :spirit_id :ingredient_index)
+                                spirit_id (assoc :spirit_id spirit_id)
+                                (integer? ingredient_index)
+                                (assoc :ingredient_index ingredient_index))))
+                          spirit-tags))]
            (response/response (db-api/update-cocktail-recipe!
                                id
                                {:spirit_tags new-tags :ingredients new-ings})))

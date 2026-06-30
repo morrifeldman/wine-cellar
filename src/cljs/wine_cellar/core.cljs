@@ -131,12 +131,18 @@
           ;; Bar cross-tab nav (recipe → bottle, and Back) — restore
           ;; tab/detail
           (when-let [bar-nav (gobj/get (.-state js/history) "barNav")]
-            (swap! app-state update
-              :bar
-              merge
-              {:active-tab (keyword (gobj/get bar-nav "activeTab"))
-               :viewing-recipe-id (gobj/get bar-nav "viewingRecipeId")
-               :editing-spirit-id (gobj/get bar-nav "editingSpiritId")})))
+            (let [sf (gobj/get bar-nav "spiritsFilter")
+                  sub (and sf (gobj/get sf "subcategory"))]
+              (swap! app-state update
+                :bar
+                merge
+                (cond-> {:active-tab (keyword (gobj/get bar-nav "activeTab"))
+                         :viewing-recipe-id (gobj/get bar-nav "viewingRecipeId")
+                         :editing-spirit-id (gobj/get bar-nav
+                                                      "editingSpiritId")}
+                  sf (assoc :spirits-initial-filter
+                            {:categories #{(gobj/get sf "category")}
+                             :subcategories (if (seq sub) #{sub} #{})}))))))
         (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
         (when (and (:show-report? nav-state) (not (:report @app-state)))
           (api/fetch-latest-report app-state

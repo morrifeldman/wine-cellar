@@ -367,24 +367,27 @@
         :spirit_tags
         {:type "array"
          :items {:type "object"
-                 :required ["category"]
+                 :required ["category" "ingredient_index"]
                  :properties {:category {:type "string" :enum spirit-categories}
                               :subcategory {:type "string"}
-                              :spirit_id {:type ["integer" "null"]}}}
-         :description (str
-                       "One entry per spirit/modifier ingredient — the base "
-                       "spirit, any spirituous modifiers, and any rinse/wash "
-                       "(e.g. absinthe rinse). category MUST be one of the "
-                       "listed values. Include subcategory only when it "
-                       "matches a subcategory shown in the bar inventory "
-                       "(e.g. {category: liqueur, subcategory: bitter} for "
-                       "Campari, {category: other, subcategory: Absinthe}). "
-                       "Reuse the inventory's exact subcategory strings, "
-                       "matching their capitalization. When the recipe's "
-                       "spirit clearly corresponds to one of the user's bar "
-                       "spirits listed below, set spirit_id to that spirit's "
-                       "#id; otherwise omit it. Always still set category "
-                       "(and subcategory when it matches).")}
+                              :spirit_id {:type ["integer" "null"]}
+                              :ingredient_index {:type "integer"}}}
+         :description
+         (str "One entry per spirit/modifier ingredient — the base "
+              "spirit, any spirituous modifiers, and any rinse/wash "
+              "(e.g. absinthe rinse). category MUST be one of the "
+              "listed values. Include subcategory only when it "
+              "matches a subcategory shown in the bar inventory "
+              "(e.g. {category: liqueur, subcategory: bitter} for "
+              "Campari, {category: other, subcategory: Absinthe}). "
+              "Reuse the inventory's exact subcategory strings, "
+              "matching their capitalization. When the recipe's "
+              "spirit clearly corresponds to one of the user's bar "
+              "spirits listed below, set spirit_id to that spirit's "
+              "#id; otherwise omit it. Always still set category "
+              "(and subcategory when it matches). Set ingredient_index "
+              "to the 0-based position of the matching ingredient in "
+              "the ingredients array above.")}
         :tags {:type "array"
                :maxItems 4
                :items {:type "string"}
@@ -474,11 +477,14 @@
        "Exactly one entry per spirit-tag index shown. spirit_id = the #id of "
        "the user's bar spirit the recipe specifically calls for at that "
        "tag's category/subcategory, or null when no specific bottle is named "
-       "(a category/subcategory match alone is enough).")
+       "(a category/subcategory match alone is enough). ingredient_index = the "
+       "index of the ingredient line this spirit tag corresponds to (the base "
+       "spirit, modifier, or rinse it represents), or null if none does.")
       :items {:type "object"
-              :required ["index" "spirit_id"]
+              :required ["index" "spirit_id" "ingredient_index"]
               :properties {:index {:type "integer"}
-                           :spirit_id {:type ["integer" "null"]}}}}}
+                           :spirit_id {:type ["integer" "null"]}
+                           :ingredient_index {:type ["integer" "null"]}}}}}
     :required ["ingredient_links" "spirit_links"]
     :additionalProperties false}})
 

@@ -20,7 +20,6 @@
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.local-bar :refer [local-bar]]
-            [reagent-mui.icons.inventory :refer [inventory]]
             [reagent-mui.icons.menu-book :refer [menu-book]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
@@ -28,7 +27,7 @@
             [wine-cellar.views.bar.inventory :as inv]
             [wine-cellar.views.bar.spirits :refer
              [category-filter-bar subcategory-filter-bar category-colors
-              category-labels spirit-categories]]
+              category-labels]]
             [wine-cellar.views.components :refer
              [editable-text-field editable-autocomplete-field search-text-field
               detail-section]]
@@ -61,6 +60,32 @@
                         (assoc-in [:bar :viewing-recipe-id] nil)
                         (assoc-in [:bar :active-tab] :spirits)
                         (assoc-in [:bar :editing-spirit-id] spirit-id))))
+
+(defn- view-category-from-recipe!
+  "Switch to the Spirits tab filtered to a spirit category/subcategory, pushing a
+   history entry so Back returns to the recipe that was open."
+  [app-state recipe-id category subcategory]
+  (.replaceState js/history
+                 #js {:barNav #js {:activeTab "recipes"
+                                   :viewingRecipeId recipe-id}}
+                 ""
+                 (.-pathname js/location))
+  (.pushState js/history
+              #js {:barNav #js {:activeTab "spirits"
+                                :spiritsFilter #js {:category category
+                                                    :subcategory (or subcategory
+                                                                     "")}}}
+              ""
+              (.-pathname js/location))
+  (swap! app-state #(-> %
+                        (assoc-in [:bar :viewing-recipe-id] nil)
+                        (assoc-in [:bar :active-tab] :spirits)
+                        (assoc-in [:bar :editing-spirit-id] nil)
+                        (assoc-in [:bar :spirits-initial-filter]
+                                  {:categories #{category}
+                                   :subcategories (if (seq subcategory)
+                                                    #{subcategory}
+                                                    #{})}))))
 
 (defn- text-field
   [label value on-change & {:keys [type multiline rows]}]
@@ -274,21 +299,112 @@
                 :color (str "rgba(" rgb ",0.95)")
                 :border (str "1px solid rgba(" rgb ",0.3)")}}])])))
 
+(defn- bottle-chip
+  "Clickable chip for a bottle under a spirit ingredient. `:dim?` dims it and
+   prefixes a `~`; `:suffix` appends a ` · <suffix>` note (the actual subcategory
+   for a substitute, or \"out of stock\" for an unavailable link)."
+  [app-state recipe-id spirit {:keys [dim? suffix]}]
+  (let [base (str/join " · "
+                       (filter seq [(:distillery spirit) (:name spirit)]))]
+    [chip
+     {:label (str (when dim? "~ ") base (when (seq suffix) (str " · " suffix)))
+      :size "small"
+      :clickable true
+      :on-click #(view-spirit-from-recipe! app-state recipe-id (:id spirit))
+      :sx {:height 22
+           :fontSize "0.7rem"
+           :letterSpacing "0.02em"
+           :opacity (if dim? 0.55 1)
+           :bgcolor "rgba(232,195,200,0.08)"
+           :color "rgba(232,195,200,0.95)"
+           :border "1px solid rgba(232,195,200,0.22)"
+           "@media (hover: hover)" {"&:hover" {:bgcolor
+                                               "rgba(232,195,200,0.16)"}}}}]))
+
+(defn- spirit-bottle-chips
+  "Bottle chips for a spirit tag, tiered most-precise first with the out-of-stock
+   precise link pushed to the right. nil when nothing is on hand."
+  [app-state recipe-id spirits tag]
+  (let [{:keys [exact sub alts]} (matching/bottles-for-tag spirits tag)
+        owned? (fn [b] (pos? (or (:quantity b) 1)))
+        exact-in (filter owned? exact)
+        exact-out (remove owned? exact)
+        sub-chips (fn [bs]
+                    (for [b bs]
+                      ^{:key (str "s-" (:id b))}
+                      [bottle-chip app-state recipe-id b {}]))
+        alt-chips (fn [bs]
+                    (for [b bs]
+                      ^{:key (str "a-" (:id b))}
+                      [bottle-chip app-state recipe-id b
+                       {:dim? true :suffix (:subcategory b)}]))]
+    (cond (seq exact-in) (sub-chips exact-in)
+          (seq exact-out) (concat (sub-chips sub)
+                                  (alt-chips alts)
+                                  (for [b exact-out]
+                                    ^{:key (str "x-" (:id b))}
+                                    [bottle-chip app-state recipe-id b
+                                     {:dim? true :suffix "out of stock"}]))
+          (seq sub) (sub-chips sub)
+          (seq alts) (alt-chips alts)
+          :else nil)))
+
+(defn- spirit-category-chip
+  "Clickable taxonomy chip (e.g. \"Dry Gin\") that opens the Spirits tab filtered
+   to that category/subcategory."
+  [app-state recipe-id {:keys [category subcategory]}]
+  (let [{:keys [base text]}
+        (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
+        label (str (when (seq subcategory) (str subcategory " "))
+                   (get category-labels category category))]
+    [chip
+     {:label label
+      :size "small"
+      :clickable true
+      :on-click
+      #(view-category-from-recipe! app-state recipe-id category subcategory)
+      :sx {:height 22
+           :fontSize "0.7rem"
+           :letterSpacing "0.02em"
+           :bgcolor (str "rgba(" base ",0.14)")
+           :color text
+           :border (str "1px solid rgba(" base ",0.35)")
+           "@media (hover: hover)" {"&:hover"
+                                    {:bgcolor (str "rgba(" base ",0.24)")}}}}]))
+
 (defn- ingredients-list
-  [recipe statuses inventory-items]
-  [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
-   (map-indexed (fn [idx {:keys [amount unit name] :as ingredient}]
-                  (let [{:keys [glyph color]} (ingredient-mark (get statuses
-                                                                    name))]
-                    ^{:key idx}
-                    [:li
-                     [typography {:variant "body2"}
-                      [box
-                       {:component "span"
-                        :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}}
-                       glyph] (str/join " " (filter seq [amount unit name]))]
-                     [ingredient-link-chips inventory-items ingredient]]))
-                (:ingredients recipe))])
+  [app-state recipe statuses inventory-items spirits]
+  (let [tag-map (matching/ingredient-tag-map (:ingredients recipe)
+                                             (distinct (:spirit_tags recipe))
+                                             spirits)]
+    [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
+     (map-indexed
+      (fn [idx {:keys [amount unit name] :as ingredient}]
+        (let [{:keys [glyph color]} (ingredient-mark (get statuses name))
+              tag (get tag-map idx)]
+          ^{:key idx}
+          [:li
+           [typography {:variant "body2"}
+            [box
+             {:component "span"
+              :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}} glyph]
+            (str/join " " (filter seq [amount unit name]))]
+           (if tag
+             [box
+              {:sx {:display "flex"
+                    :flexWrap "wrap"
+                    :alignItems "center"
+                    :gap 0.5
+                    :mt 0.25
+                    :mb 0.25}} [spirit-category-chip app-state (:id recipe) tag]
+              (or (spirit-bottle-chips app-state (:id recipe) spirits tag)
+                  [typography
+                   {:variant "body2"
+                    :sx {:color "text.secondary"
+                         :fontSize "0.78rem"
+                         :fontStyle "italic"}} "none on hand"])]
+             [ingredient-link-chips inventory-items ingredient])]))
+      (:ingredients recipe))]))
 
 (defn- tags-editor
   [_app-state _recipe _all-tags]
@@ -339,94 +455,6 @@
                :sx {:color "text.secondary"
                     :fontSize "0.78rem"
                     :fontStyle "italic"}} "+ Add tags"])])))))
-
-(defn- bottle-chip
-  "Clickable chip for a bottle in the recipe spirits section. `:dim?` dims it
-   and prefixes a `~`; `:suffix` appends a ` · <suffix>` note (the actual
-   subcategory for a substitute, or \"out of stock\" for an unavailable link)."
-  [app-state recipe-id spirit {:keys [dim? suffix]}]
-  (let [base (str/join " · "
-                       (filter seq [(:distillery spirit) (:name spirit)]))]
-    [chip
-     {:label (str (when dim? "~ ") base (when (seq suffix) (str " · " suffix)))
-      :size "small"
-      :clickable true
-      :on-click #(view-spirit-from-recipe! app-state recipe-id (:id spirit))
-      :sx {:height 24
-           :fontSize "0.72rem"
-           :letterSpacing "0.02em"
-           :opacity (if dim? 0.55 1)
-           :bgcolor "rgba(232,195,200,0.08)"
-           :color "rgba(232,195,200,0.95)"
-           :border "1px solid rgba(232,195,200,0.22)"
-           "@media (hover: hover)" {"&:hover" {:bgcolor
-                                               "rgba(232,195,200,0.16)"}}}}]))
-
-(defn- recipe-spirit-row
-  [app-state recipe-id spirits {:keys [category subcategory] :as tag}]
-  (let [{:keys [base text]}
-        (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
-        {:keys [exact sub alts]} (matching/bottles-for-tag spirits tag)
-        owned? (fn [b] (pos? (or (:quantity b) 1)))
-        exact-in (filter owned? exact)
-        exact-out (remove owned? exact)
-        sub-chips (fn [bs]
-                    (for [b bs]
-                      ^{:key (str "s-" (:id b))}
-                      [bottle-chip app-state recipe-id b {}]))
-        alt-chips (fn [bs]
-                    (for [b bs]
-                      ^{:key (str "a-" (:id b))}
-                      [bottle-chip app-state recipe-id b
-                       {:dim? true :suffix (:subcategory b)}]))]
-    [box
-     {:sx
-      {:display "flex" :flexWrap "wrap" :alignItems "center" :gap 0.75 :mb 1}}
-     [chip
-      {:label (str (get category-labels category category)
-                   (when (seq subcategory) (str " · " subcategory)))
-       :size "small"
-       :sx {:height 24
-            :fontSize "0.72rem"
-            :letterSpacing "0.02em"
-            :bgcolor (str "rgba(" base ",0.14)")
-            :color text
-            :border (str "1px solid rgba(" base ",0.35)")}}]
-     (cond
-       ;; In-stock precise link — show it alone.
-       (seq exact-in) (sub-chips exact-in)
-       ;; Out-of-stock precise link — show in-stock substitutes first, with
-       ;; the dimmed out-of-stock link pushed to the right.
-       (seq exact-out) (concat (sub-chips sub)
-                               (alt-chips alts)
-                               (for [b exact-out]
-                                 ^{:key (str "x-" (:id b))}
-                                 [bottle-chip app-state recipe-id b
-                                  {:dim? true :suffix "out of stock"}]))
-       (seq sub) (sub-chips sub)
-       (seq alts) (alt-chips alts)
-       :else [typography
-              {:variant "body2"
-               :sx {:color "text.secondary"
-                    :fontSize "0.78rem"
-                    :fontStyle "italic"}} "none on hand"])]))
-
-(defn- recipe-spirits-section
-  "Per-spirit-tag rows showing which owned bottles satisfy the recipe."
-  [app-state recipe]
-  (let [tags (->> (:spirit_tags recipe)
-                  distinct
-                  (sort-by (fn [{:keys [category subcategory]}]
-                             [(.indexOf (to-array spirit-categories)
-                                        (or category ""))
-                              (or subcategory "")])))
-        spirits (get-in @app-state [:bar :spirits])]
-    (when (seq tags)
-      [detail-section
-       {:icon inventory :label "Your bottles" :color "rgba(232,195,200,0.7)"}
-       (for [tag tags]
-         ^{:key (str (:category tag) "/" (:subcategory tag))}
-         [recipe-spirit-row app-state (:id recipe) spirits tag])])))
 
 (defn- makeable-badge
   "Green 'Ready to make' / amber 'Missing: …' chip from a match report, with a
@@ -510,13 +538,11 @@
      [detail-section
       {:icon local-bar :label "Ingredients" :color "rgba(139,195,74,0.7)"}
       (if (seq (:ingredients recipe))
-        [ingredients-list recipe (:ingredient-status report)
-         (:inventory-items bar)]
+        [ingredients-list app-state recipe (:ingredient-status report)
+         (:inventory-items bar) (:spirits bar)]
         [typography
          {:variant "body2" :sx {:color "text.secondary" :fontStyle "italic"}}
          "No ingredients yet — use Edit to add some."])]
-     ;; Your bottles section (omitted when the recipe has no spirit tags)
-     [recipe-spirits-section app-state recipe]
      ;; Instructions section
      [detail-section
       {:icon menu-book :label "Instructions" :color "rgba(100,181,246,0.7)"}

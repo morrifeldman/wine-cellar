@@ -544,9 +544,14 @@
 
 (defn spirits-tab
   [_app-state]
-  (let [search-text (r/atom "")
-        selected-categories (r/atom #{})
-        selected-subcategories (r/atom #{})]
+  ;; Seed filters from a one-shot set by a recipe's category chip, then
+  ;; clear it.
+  (let [init (get-in @_app-state [:bar :spirits-initial-filter])
+        _ (when init
+            (swap! _app-state update :bar dissoc :spirits-initial-filter))
+        search-text (r/atom "")
+        selected-categories (r/atom (or (:categories init) #{}))
+        selected-subcategories (r/atom (or (:subcategories init) #{}))]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             spirits (:spirits bar)

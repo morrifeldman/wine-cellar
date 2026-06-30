@@ -60,6 +60,12 @@
               (map (fn [p] {:subcat (:subcategory p) :cat (:category p)})))
         (:spirit_tags r)))
 
+;; Grab-bag categories whose bottles are NOT interchangeable (Campari ≠ triple
+;; sec ≠ Chartreuse; absinthe ≠ aquavit). For these, a recipe spirit must match
+;; the exact subcategory or precise bottle — owning some other member of the
+;; category does not satisfy it, and we offer no cross-subcategory substitutes.
+(def ^:private specific-categories #{"liqueur" "other"})
+
 (defn bottles-for-tag
   "Bottles for a recipe spirit tag, in precedence tiers — most precise first:
    :exact = the spirit whose :id = the tag's :spirit_id (the precise product
@@ -68,27 +74,31 @@
             when the tag names one);
    :alts  = owned bottles in other subcategories of the category.
    An in-stock :exact link suppresses the lower tiers; an out-of-stock :exact
-   link still lists in-stock substitutes below it."
+   link still lists in-stock substitutes below it. For specific-categories,
+   bottles aren't interchangeable, so a subcategory-less tag matches nothing by
+   category alone and no :alts substitutes are offered."
   [spirits {:keys [category subcategory spirit_id]}]
   (let [owned? (fn [s] (pos? (or (:quantity s) 1)))
-        exact (when spirit_id (filterv #(= (:id %) spirit_id) spirits))]
+        exact (when spirit_id (filterv #(= (:id %) spirit_id) spirits))
+        specific? (specific-categories category)]
     (if (and (seq exact) (some owned? exact))
       {:exact exact :sub [] :alts []}
       (let [in-cat (filter #(and (= (:category %) category) (owned? %)) spirits)
             tiers (if (str/blank? subcategory)
-                    {:sub (vec in-cat) :alts []}
+                    {:sub (if specific? [] (vec in-cat)) :alts []}
                     (let [sub (filter #(= (:subcategory %) subcategory) in-cat)]
                       {:sub (vec sub)
-                       :alts (if (empty? sub)
+                       :alts (if (or specific? (seq sub))
+                               []
                                (vec (remove #(= (:subcategory %) subcategory)
-                                            in-cat))
-                               [])}))]
+                                            in-cat)))}))]
         (assoc tiers :exact (vec exact))))))
 
 ;; --- Makeability ("can I make this?") ---
 
 ;; Always-available basics that never block a recipe and aren't tracked as
-;; inventory items.
+;; inventory items. Everything else must be in the Mixers & Garnishes inventory
+;; to count as available.
 (def ^:private ignored-basics #{"ice" "water"})
 
 (defn name-matches?
@@ -108,9 +118,10 @@
 
 (defn ingredient-status
   "Per-line status for a recipe ingredient, for display marks:
-   :have            — on hand, an ignored basic, or maps to no tracked item;
+   :have            — on hand or an ignored basic (ice/water);
    :missing-garnish — a garnish-category item we don't have (never blocks);
-   :missing         — a non-garnish tracked item we don't have.
+   :missing         — a non-garnish item we don't have, including ingredients
+                      not present in the Mixers & Garnishes inventory at all.
    Spirit-named ingredients reflect whether any owned bottle of that category is
    on hand."
   [spirits inventory-items {:keys [name inventory_item_ids]}]
@@ -140,8 +151,64 @@
                   (cond (:have_it item) :have
                         (= "garnish" (:category item)) :missing-garnish
                         :else :missing)
-                  ;; Maps to no tracked item — assume available.
-                  :have))))
+                  ;; Not in the Mixers & Garnishes inventory — don't assume
+                  ;; available; flag as missing so it can be added/stocked.
+                  :missing))))
+
+(defn- tag-ingredient-score
+  "Heuristic strength that lowercased ingredient name `iname` is the source line
+   for `tag`: the tag's resolved bottle name appearing in it is the strongest
+   signal, then the category/subcategory words, then the base-spirit heuristic."
+  [iname {:keys [category subcategory spirit_id]} spirits]
+  (let [has? (fn [needle]
+               (and (seq needle) (str/includes? iname (str/lower-case needle))))
+        spirit (when spirit_id (first (filter #(= (:id %) spirit_id) spirits)))]
+    (cond-> 0
+      (and spirit (has? (:name spirit))) (+ 3)
+      (has? subcategory) (+ 2)
+      (has? category) (+ 2)
+      (= category (ingredient-spirit-category iname)) (+ 2))))
+
+(defn ingredient-tag-map
+  "Map ingredient-index → spirit tag. Prefers each tag's explicit
+   :ingredient_index (set by the AI during extraction/refresh); falls back to a
+   heuristic match (tag-ingredient-score) for tags lacking one. Each tag and each
+   ingredient line is used at most once; tags that match nothing are dropped."
+  [ingredients tags spirits]
+  (let [n (count ingredients)
+        names (mapv #(str/lower-case (or (:name %) "")) ingredients)
+        explicit
+        (reduce (fn [m t]
+                  (let [i (:ingredient_index t)]
+                    (if
+                      (and (integer? i) (<= 0 i) (< i n) (not (contains? m i)))
+                      (assoc m i t)
+                      m)))
+                {}
+                tags)
+        placed (set (vals explicit))]
+    (first (reduce
+            (fn [[acc used] tag]
+              (let [best (->> (range n)
+                              (remove used)
+                              (map (fn [i] [(tag-ingredient-score (names i)
+                                                                  tag
+                                                                  spirits) i]))
+                              (filter #(pos? (first %)))
+                              (sort-by (comp - first))
+                              first
+                              second)]
+                (if best [(assoc acc best tag) (conj used best)] [acc used])))
+            [explicit (set (keys explicit))]
+            (remove placed tags)))))
+
+(defn tag-satisfied?
+  "True when a spirit tag has an owned (or out-of-stock precise) bottle."
+  [spirits tag]
+  (let [{:keys [exact sub alts]} (bottles-for-tag spirits tag)]
+    ;; sub/alts are owned-only; exact may be out of stock
+    (boolean
+     (or (some #(pos? (or (:quantity %) 1)) exact) (seq sub) (seq alts)))))
 
 (defn recipe-match-report
   "Makeability report for a recipe given current inventory:
@@ -149,31 +216,34 @@
     :missing [labels]            — unsatisfied spirit tags + missing mixers
     :missing-garnishes [names]   — soft; never blocks
     :ingredient-status {name→status}}.
-   Spirits are gated by :spirit_tags (owned bottle, exact or alt); recipes with
-   no tags have no spirit gate. Garnishes never block."
+   Spirit ingredient lines are gated by their :spirit_tags (matched to the line
+   via ingredient-tag-map); other lines drive the mixer/garnish checks. Recipes
+   with no tags have no spirit gate. Garnishes never block."
   [recipe spirits inventory-items]
-  (let [tags (distinct (:spirit_tags recipe))
-        tag-satisfied?
-        (fn [tag]
-          (let [{:keys [exact sub alts]} (bottles-for-tag spirits tag)]
-            ;; sub/alts are owned-only; exact may be out of stock
-            (boolean (or (some #(pos? (or (:quantity %) 1)) exact)
-                         (seq sub)
-                         (seq alts)))))
+  (let [ingredients (:ingredients recipe)
+        tags (distinct (:spirit_tags recipe))
+        tag-map (ingredient-tag-map ingredients tags spirits)
+        spirit-idxs (set (keys tag-map))
+        tag->idx (into {} (map (fn [[i t]] [t i])) tag-map)
+        sat? #(tag-satisfied? spirits %)
+        ;; missing spirit tags, labeled by their ingredient name when known
         spirit-missing
         (->> tags
-             (remove tag-satisfied?)
-             (map (fn [{:keys [category subcategory]}]
-                    (if (str/blank? subcategory) category subcategory)))
+             (remove sat?)
+             (map (fn [{:keys [category subcategory] :as t}]
+                    (or (when-let [i (tag->idx t)] (:name (nth ingredients i)))
+                        (when-not (str/blank? subcategory) subcategory)
+                        category)))
              (remove str/blank?)
              distinct
              vec)
         ;; Non-spirit ingredient lines drive the mixer/garnish checks;
         ;; spirit lines are gated above via spirit_tags to avoid
         ;; double-counting.
-        mixer-pairs (for [{:keys [name] :as ing} (:ingredients recipe)
-                          :when (not (ingredient-spirit-category name))]
-                      [name (ingredient-status spirits inventory-items ing)])
+        mixer-pairs (for [[i ing] (map-indexed vector ingredients)
+                          :when (not (spirit-idxs i))]
+                      [(:name ing)
+                       (ingredient-status spirits inventory-items ing)])
         mixer-missing (->> mixer-pairs
                            (filter #(= :missing (second %)))
                            (map first)
@@ -186,10 +256,14 @@
                                (remove str/blank?)
                                distinct
                                vec)
-        status-map (into {}
-                         (for [{:keys [name] :as ing} (:ingredients recipe)]
-                           [name
-                            (ingredient-status spirits inventory-items ing)]))]
+        status-map
+        (into {}
+              (map-indexed
+               (fn [i ing] [(:name ing)
+                            (if-let [tag (tag-map i)]
+                              (if (sat? tag) :have :missing)
+                              (ingredient-status spirits inventory-items ing))])
+               ingredients))]
     {:makeable? (and (empty? spirit-missing) (empty? mixer-missing))
      :missing (vec (concat spirit-missing mixer-missing))
      :missing-garnishes missing-garnishes
