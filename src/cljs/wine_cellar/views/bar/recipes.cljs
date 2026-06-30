@@ -322,9 +322,9 @@
                                                "rgba(232,195,200,0.16)"}}}}]))
 
 (defn- spirit-bottle-chips
-  "Bottle chips for a spirit tag, tiered most-precise first: an exact named-bottle
-   link leads (even when out of stock), then substitutes. nil when nothing's on
-   hand."
+  "Bottle chips for a spirit tag. A named bottle (:spirit_id) shows alone, even
+   when out of stock; otherwise owned category/subcategory matches show as
+   substitutes. nil when nothing's on hand."
   [app-state recipe-id spirits tag]
   (let [{:keys [exact sub alts]} (matching/bottles-for-tag spirits tag)
         owned? (fn [b] (pos? (or (:quantity b) 1)))
@@ -340,15 +340,14 @@
                       [bottle-chip app-state recipe-id b
                        {:dim? true :suffix (:subcategory b)}]))]
     (cond (seq exact-in) (sub-chips exact-in)
-          ;; The recipe names this exact bottle, so lead with it (dimmed,
-          ;; "out of stock") even when we're out — the in-stock substitutes
-          ;; follow as alternatives.
-          (seq exact-out) (concat (for [b exact-out]
-                                    ^{:key (str "x-" (:id b))}
-                                    [bottle-chip app-state recipe-id b
-                                     {:dim? true :suffix "out of stock"}])
-                                  (sub-chips sub)
-                                  (alt-chips alts))
+          ;; Named bottle out of stock: show only it (dimmed, "out of
+          ;; stock"). bottles-for-tag returns no sub/alts when a bottle is
+          ;; named, so there are no substitutes to surface — use the
+          ;; category chip.
+          (seq exact-out) (for [b exact-out]
+                            ^{:key (str "x-" (:id b))}
+                            [bottle-chip app-state recipe-id b
+                             {:dim? true :suffix "out of stock"}])
           (seq sub) (sub-chips sub)
           (seq alts) (alt-chips alts)
           :else nil)))

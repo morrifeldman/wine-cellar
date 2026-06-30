@@ -73,15 +73,18 @@
    :sub   = owned (quantity>0) bottles in the same category (+ same subcategory
             when the tag names one);
    :alts  = owned bottles in other subcategories of the category.
-   An in-stock :exact link suppresses the lower tiers; an out-of-stock :exact
-   link still lists in-stock substitutes below it. For specific-categories,
-   bottles aren't interchangeable, so a subcategory-less tag matches nothing by
-   category alone and no :alts substitutes are offered."
+   When the tag names a specific bottle (:spirit_id), only that bottle is
+   returned (in :exact) and no substitutes are offered — an out-of-stock named
+   bottle therefore leaves the tag unsatisfied; explore alternatives via the
+   category/subcategory chip. When no specific bottle is named, the
+   category/subcategory IS the spec, so owned matching bottles fill :sub/:alts.
+   For specific-categories, bottles aren't interchangeable, so a subcategory-less
+   tag matches nothing by category alone and no :alts substitutes are offered."
   [spirits {:keys [category subcategory spirit_id]}]
   (let [owned? (fn [s] (pos? (or (:quantity s) 1)))
         exact (when spirit_id (filterv #(= (:id %) spirit_id) spirits))
         specific? (specific-categories category)]
-    (if (and (seq exact) (some owned? exact))
+    (if (seq exact)
       {:exact exact :sub [] :alts []}
       (let [in-cat (filter #(and (= (:category %) category) (owned? %)) spirits)
             tiers (if (str/blank? subcategory)
@@ -92,7 +95,7 @@
                                []
                                (vec (remove #(= (:subcategory %) subcategory)
                                             in-cat)))}))]
-        (assoc tiers :exact (vec exact))))))
+        (assoc tiers :exact [])))))
 
 ;; --- Makeability ("can I make this?") ---
 
