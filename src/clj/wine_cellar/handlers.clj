@@ -520,18 +520,21 @@
                 :inventory-items (db-api/get-bar-inventory-items)}
            result (ai/resolve-recipe-links ingredients spirit-tags bar)]
        (if result
-         (let [ids-by-idx (into {}
-                                (map (juxt :index :inventory_item_ids))
-                                (:ingredient_links result))
+         (let [link-by-idx
+               (into {} (map (juxt :index identity)) (:ingredient_links result))
                spirit-by-idx
                (into {} (map (juxt :index identity)) (:spirit_links result))
-               new-ings (vec (map-indexed
-                              (fn [i ing]
-                                (let [ids (get ids-by-idx i)]
-                                  (if (seq ids)
-                                    (assoc ing :inventory_item_ids (vec ids))
-                                    (dissoc ing :inventory_item_ids))))
-                              ingredients))
+               new-ings
+               (vec (map-indexed
+                     (fn [i ing]
+                       (let [{:keys [inventory_item_ids garnish]}
+                             (get link-by-idx i)]
+                         (cond-> (-> ing
+                                     (dissoc :inventory_item_ids :garnish))
+                           (seq inventory_item_ids)
+                           (assoc :inventory_item_ids (vec inventory_item_ids))
+                           (true? garnish) (assoc :garnish true))))
+                     ingredients))
                new-tags (vec
                          (map-indexed
                           (fn [i tag]

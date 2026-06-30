@@ -124,9 +124,13 @@
                       not present in the Mixers & Garnishes inventory at all.
    Spirit-named ingredients reflect whether any owned bottle of that category is
    on hand."
-  [spirits inventory-items {:keys [name inventory_item_ids]}]
+  [spirits inventory-items {:keys [name garnish inventory_item_ids]}]
   (let [n (or (normalize-text name) "")
-        id-set (set inventory_item_ids)]
+        id-set (set inventory_item_ids)
+        ;; Recipe-side garnish role: a missing garnish never blocks, no
+        ;; matter how the linked inventory item is categorized (a lemon
+        ;; twist links to the "fruit" lemon, not a "garnish" item).
+        miss (if garnish :missing-garnish :missing)]
     (cond (str/blank? n) :have
           (contains? ignored-basics n) :have
           (ingredient-spirit-category name)
@@ -134,7 +138,7 @@
             (if (some #(and (= (:category %) cat) (pos? (or (:quantity %) 1)))
                       spirits)
               :have
-              :missing))
+              miss))
           ;; Prefer the precise id links (survive renames/fuzzy wording),
           ;; with
           ;; OR semantics — on hand if ANY linked item is. Fall back to the
@@ -143,17 +147,19 @@
                          (cond (empty? linked) :have ; all links dangling —
                                                      ; assume available
                                (some :have_it linked) :have
-                               (every? #(= "garnish" (:category %)) linked)
+                               (or garnish
+                                   (every? #(= "garnish" (:category %)) linked))
                                :missing-garnish
                                :else :missing))
           :else (if-let [item (some #(when (name-matches? (:name %) name) %)
                                     inventory-items)]
                   (cond (:have_it item) :have
-                        (= "garnish" (:category item)) :missing-garnish
+                        (or garnish (= "garnish" (:category item)))
+                        :missing-garnish
                         :else :missing)
                   ;; Not in the Mixers & Garnishes inventory — don't assume
                   ;; available; flag as missing so it can be added/stocked.
-                  :missing))))
+                  miss))))
 
 (defn- tag-ingredient-score
   "Heuristic strength that lowercased ingredient name `iname` is the source line

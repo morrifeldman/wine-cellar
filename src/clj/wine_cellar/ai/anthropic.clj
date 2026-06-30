@@ -351,6 +351,7 @@
                  :properties {:name {:type "string"}
                               :amount {:type "string"}
                               :unit {:type "string"}
+                              :garnish {:type "boolean"}
                               :inventory_item_ids {:type "array"
                                                    :items {:type "integer"}}}}
          :description
@@ -362,7 +363,12 @@
           "\"sugar\", both lemon and lime for a \"citrus garnish\"). Use an "
           "empty array or omit it when nothing matches. Do not use "
           "inventory_item_ids for the base spirit or spirituous modifiers — "
-          "those are linked via spirit_tags.")}
+          "those are linked via spirit_tags. Set garnish to true when the "
+          "ingredient is used only as a garnish (a twist, peel, wheel, "
+          "wedge, sprig, cherry, etc. — anything in a \"Garnish:\" line or "
+          "marked \"to garnish\"); a missing garnish never blocks making the "
+          "drink, so do not flag ingredients that are juiced, muddled, or "
+          "otherwise mixed in.")}
         :instructions {:type "string"}
         :spirit_tags
         {:type "array"
@@ -464,10 +470,13 @@
        "demerara and a white sugar for \"sugar\", both lemon and lime for a "
        "\"citrus garnish\"). Use an empty array when nothing matches. Do not "
        "link the base spirit or spirituous modifiers here — those are spirit "
-       "tags.")
+       "tags. Set garnish to true when the ingredient is used only as a "
+       "garnish (a twist, peel, wheel, wedge, sprig, cherry, etc.), false "
+       "when it is juiced, muddled, or otherwise mixed into the drink.")
       :items {:type "object"
-              :required ["index" "inventory_item_ids"]
+              :required ["index" "inventory_item_ids" "garnish"]
               :properties {:index {:type "integer"}
+                           :garnish {:type "boolean"}
                            :inventory_item_ids {:type "array"
                                                 :items {:type "integer"}}}}}
      :spirit_links
