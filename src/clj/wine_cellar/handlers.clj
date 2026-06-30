@@ -535,16 +535,26 @@
                            (assoc :inventory_item_ids (vec inventory_item_ids))
                            (true? garnish) (assoc :garnish true))))
                      ingredients))
-               new-tags (vec
-                         (map-indexed
-                          (fn [i tag]
-                            (let [{:keys [spirit_id ingredient_index]}
-                                  (get spirit-by-idx i)]
-                              (cond-> (dissoc tag :spirit_id :ingredient_index)
-                                spirit_id (assoc :spirit_id spirit_id)
-                                (integer? ingredient_index)
-                                (assoc :ingredient_index ingredient_index))))
-                          spirit-tags))]
+               new-tags
+               (vec
+                (map-indexed
+                 (fn [i tag]
+                   (let [{:keys [spirit_id ingredient_index category
+                                 subcategory]}
+                         (get spirit-by-idx i)]
+                     (cond-> (dissoc tag :spirit_id :ingredient_index)
+                       spirit_id (assoc :spirit_id spirit_id)
+                       (integer? ingredient_index) (assoc :ingredient_index
+                                                          ingredient_index)
+                       ;; Re-resolve the recipe's style against the
+                       ;; user's current taxonomy (e.g. "Dry" →
+                       ;; "London Dry" after they reorganize).
+                       (seq category) (assoc :category category)
+                       (seq subcategory) (assoc :subcategory subcategory)
+                       (and (contains? (get spirit-by-idx i) :subcategory)
+                            (not (seq subcategory)))
+                       (dissoc :subcategory))))
+                 spirit-tags))]
            (response/response (db-api/update-cocktail-recipe!
                                id
                                {:spirit_tags new-tags :ingredients new-ings})))

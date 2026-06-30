@@ -488,12 +488,22 @@
        "tag's category/subcategory, or null when no specific bottle is named "
        "(a category/subcategory match alone is enough). ingredient_index = the "
        "index of the ingredient line this spirit tag corresponds to (the base "
-       "spirit, modifier, or rinse it represents), or null if none does.")
+       "spirit, modifier, or rinse it represents), or null if none does. "
+       "category/subcategory = re-resolve what the recipe calls for against "
+       "the user's CURRENT bar vocabulary (the categories and subcategories "
+       "shown below): keep category as the shown value, but update subcategory "
+       "to the user's current name for that style when their taxonomy has "
+       "shifted (e.g. a tag that says \"Dry\" should become \"London Dry\" "
+       "when that is how the user now labels their dry gins). Use null for "
+       "subcategory when the recipe doesn't call for a specific style.")
       :items {:type "object"
-              :required ["index" "spirit_id" "ingredient_index"]
+              :required ["index" "spirit_id" "ingredient_index" "category"
+                         "subcategory"]
               :properties {:index {:type "integer"}
                            :spirit_id {:type ["integer" "null"]}
-                           :ingredient_index {:type ["integer" "null"]}}}}}
+                           :ingredient_index {:type ["integer" "null"]}
+                           :category {:type "string"}
+                           :subcategory {:type ["string" "null"]}}}}}
     :required ["ingredient_links" "spirit_links"]
     :additionalProperties false}})
 
