@@ -113,8 +113,9 @@
    :missing         — a non-garnish tracked item we don't have.
    Spirit-named ingredients reflect whether any owned bottle of that category is
    on hand."
-  [spirits inventory-items {:keys [name inventory_item_id]}]
-  (let [n (or (normalize-text name) "")]
+  [spirits inventory-items {:keys [name inventory_item_ids]}]
+  (let [n (or (normalize-text name) "")
+        id-set (set inventory_item_ids)]
     (cond (str/blank? n) :have
           (contains? ignored-basics n) :have
           (ingredient-spirit-category name)
@@ -123,15 +124,19 @@
                       spirits)
               :have
               :missing))
-          ;; Prefer the precise id link (survives renames/fuzzy wording);
-          ;; fall back to the name-substring scan for un-linked or legacy
-          ;; ingredients.
-          :else (if-let [item (or (when inventory_item_id
-                                    (some #(when (= (:id %) inventory_item_id)
-                                             %)
-                                          inventory-items))
-                                  (some #(when (name-matches? (:name %) name) %)
-                                        inventory-items))]
+          ;; Prefer the precise id links (survive renames/fuzzy wording),
+          ;; with
+          ;; OR semantics — on hand if ANY linked item is. Fall back to the
+          ;; name-substring scan for un-linked ingredients.
+          (seq id-set) (let [linked (filter #(id-set (:id %)) inventory-items)]
+                         (cond (empty? linked) :have ; all links dangling —
+                                                     ; assume available
+                               (some :have_it linked) :have
+                               (every? #(= "garnish" (:category %)) linked)
+                               :missing-garnish
+                               :else :missing))
+          :else (if-let [item (some #(when (name-matches? (:name %) name) %)
+                                    inventory-items)]
                   (cond (:have_it item) :have
                         (= "garnish" (:category item)) :missing-garnish
                         :else :missing)

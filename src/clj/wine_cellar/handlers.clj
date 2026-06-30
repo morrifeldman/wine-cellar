@@ -545,25 +545,28 @@
     (vec (concat merged dropped))))
 
 (defn- merge-ingredient-links
-  "Preserve each existing ingredient's text; set :inventory_item_id from the
-   fresh extraction (matched by normalized name), falling back to the existing
-   id — never losing a link or rewriting ingredient text."
+  "Preserve each existing ingredient's text; union its inventory item links with
+   the fresh extraction's (matched by normalized name) into :inventory_item_ids —
+   never losing a link or rewriting ingredient text. Dangling ids (item later
+   deleted) are inert downstream, so unioning is safe."
   [old-ingredients fresh-ingredients]
   (let [fresh-by-name (into {}
                             (map (juxt (comp norm-name :name)
-                                       :inventory_item_id))
+                                       :inventory_item_ids))
                             fresh-ingredients)]
     (mapv (fn [ing]
-            (if-let [id (or (get fresh-by-name (norm-name (:name ing)))
-                            (:inventory_item_id ing))]
-              (assoc ing :inventory_item_id id)
-              (dissoc ing :inventory_item_id)))
+            (let [ids (distinct (concat (:inventory_item_ids ing)
+                                        (get fresh-by-name
+                                             (norm-name (:name ing)))))]
+              (if (seq ids)
+                (assoc ing :inventory_item_ids (vec ids))
+                (dissoc ing :inventory_item_ids))))
           old-ingredients)))
 
 (defn refresh-recipe-links
   "Re-resolves a stored recipe's spirit and ingredient links against current
    inventory: re-extracts from the recipe's own text, then merges the fresh
-   :spirit_id / :inventory_item_id links onto the existing recipe (preserving
+   :spirit_id / :inventory_item_ids links onto the existing recipe (preserving
    text and never dropping an existing link). Writes only :spirit_tags and
    :ingredients."
   [{{{:keys [id]} :path} :parameters}]

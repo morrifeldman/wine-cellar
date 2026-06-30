@@ -160,11 +160,19 @@
            :value @query
            :on-change #(reset! query (.. % -target -value))
            :sx {:mb 2 :fontFamily "monospace"}}]
-         [button
-          {:variant "contained"
-           :color "primary"
-           :disabled (or @loading? (empty? @query))
-           :on-click handle-run} (if @loading? "Running..." "Run Query")]]
+         [box {:sx {:display "flex" :gap 1}}
+          [button
+           {:variant "contained"
+            :color "primary"
+            :disabled (or @loading? (empty? @query))
+            :on-click handle-run} (if @loading? "Running..." "Run Query")]
+          [button
+           {:variant "outlined"
+            :color "primary"
+            :disabled (or @loading? (empty? @query))
+            :on-click
+            (fn [] (reset! query "") (reset! result nil) (reset! error nil))}
+           "Clear"]]]
         (when @error [alert {:severity "error" :sx {:mb 2}} (str @error)])
         (when @result
           [box

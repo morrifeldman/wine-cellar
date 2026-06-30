@@ -227,10 +227,34 @@
     :missing-garnish {:glyph "~" :color "text.secondary"}
     {:glyph "✓" :color "rgba(139,195,74,0.85)"}))
 
+(defn- ingredient-link-chips
+  "Informational (non-clickable) chips for the inventory items an ingredient is
+   linked to. Dimmed with an \"out of stock\" suffix when not on hand. Dangling
+   ids (item since deleted) are skipped."
+  [inventory-items ingredient]
+  (let [id-set (set (:inventory_item_ids ingredient))
+        linked (filter #(id-set (:id %)) inventory-items)]
+    (when (seq linked)
+      [box {:sx {:display "flex" :flexWrap "wrap" :gap 0.5 :mt 0.25 :mb 0.25}}
+       (for [item linked
+             :let [out? (not (:have_it item))]]
+         ^{:key (:id item)}
+         [chip
+          {:label
+           (str (when out? "~ ") (:name item) (when out? " · out of stock"))
+           :size "small"
+           :sx {:height 22
+                :fontSize "0.7rem"
+                :letterSpacing "0.02em"
+                :opacity (if out? 0.55 1)
+                :bgcolor "rgba(139,195,74,0.08)"
+                :color "rgba(139,195,74,0.95)"
+                :border "1px solid rgba(139,195,74,0.25)"}}])])))
+
 (defn- ingredients-list
-  [recipe statuses]
+  [recipe statuses inventory-items]
   [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
-   (map-indexed (fn [idx {:keys [amount unit name]}]
+   (map-indexed (fn [idx {:keys [amount unit name] :as ingredient}]
                   (let [{:keys [glyph color]} (ingredient-mark (get statuses
                                                                     name))]
                     ^{:key idx}
@@ -239,7 +263,8 @@
                       [box
                        {:component "span"
                         :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}}
-                       glyph] (str/join " " (filter seq [amount unit name]))]]))
+                       glyph] (str/join " " (filter seq [amount unit name]))]
+                     [ingredient-link-chips inventory-items ingredient]]))
                 (:ingredients recipe))])
 
 (defn- tags-editor
@@ -462,7 +487,8 @@
      [detail-section
       {:icon local-bar :label "Ingredients" :color "rgba(139,195,74,0.7)"}
       (if (seq (:ingredients recipe))
-        [ingredients-list recipe (:ingredient-status report)]
+        [ingredients-list recipe (:ingredient-status report)
+         (:inventory-items bar)]
         [typography
          {:variant "body2" :sx {:color "text.secondary" :fontStyle "italic"}}
          "No ingredients yet — use Edit to add some."])]

@@ -351,14 +351,18 @@
                  :properties {:name {:type "string"}
                               :amount {:type "string"}
                               :unit {:type "string"}
-                              :inventory_item_id {:type ["integer" "null"]}}}
+                              :inventory_item_ids {:type "array"
+                                                   :items {:type "integer"}}}}
          :description
-         (str "One entry per ingredient. When an ingredient clearly "
-              "corresponds to one of the user's Mixers & Garnishes "
-              "listed below, set inventory_item_id to that item's #id; "
-              "otherwise omit it. Do not use inventory_item_id for the "
-              "base spirit or spirituous modifiers — those are linked "
-              "via spirit_tags.")}
+         (str
+          "One entry per ingredient. Set inventory_item_ids to the #ids "
+          "of EVERY one of the user's Mixers & Garnishes (listed below) "
+          "that genuinely satisfies the ingredient — link all equivalents, "
+          "not just one (e.g. both a demerara and a white sugar for "
+          "\"sugar\", both lemon and lime for a \"citrus garnish\"). Use an "
+          "empty array or omit it when nothing matches. Do not use "
+          "inventory_item_ids for the base spirit or spirituous modifiers — "
+          "those are linked via spirit_tags.")}
         :instructions {:type "string"}
         :spirit_tags
         {:type "array"
