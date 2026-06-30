@@ -25,6 +25,7 @@
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.views.bar.matching :as matching]
+            [wine-cellar.views.bar.inventory :as inv]
             [wine-cellar.views.bar.spirits :refer
              [category-filter-bar subcategory-filter-bar category-colors
               category-labels spirit-categories]]
@@ -227,29 +228,51 @@
     :missing-garnish {:glyph "~" :color "text.secondary"}
     {:glyph "✓" :color "rgba(139,195,74,0.85)"}))
 
+(defn- category-rgb
+  "The bare \"R,G,B\" triple from an inventory category-meta rgba() color, so we
+   can build chip bg/border/text at our own alpha levels."
+  [category]
+  (let [color (:color (get inv/category-meta
+                           category
+                           (get inv/category-meta "other")))]
+    (second (re-find #"rgba\(([\d, ]+?),\s*[\d.]+\)" color))))
+
 (defn- ingredient-link-chips
   "Informational (non-clickable) chips for the inventory items an ingredient is
-   linked to. Dimmed with an \"out of stock\" suffix when not on hand. Dangling
-   ids (item since deleted) are skipped."
+   linked to, colored and iconed by the item's category to match the Mixers &
+   Garnishes page. Dimmed with an \"out of stock\" suffix when not on hand.
+   Dangling ids (item since deleted) are skipped."
   [inventory-items ingredient]
   (let [id-set (set (:inventory_item_ids ingredient))
-        linked (filter #(id-set (:id %)) inventory-items)]
+        ;; in-stock first, out-of-stock pushed to the right (stable within
+        ;; each)
+        linked (->> inventory-items
+                    (filter #(id-set (:id %)))
+                    (sort-by (complement :have_it)))]
     (when (seq linked)
       [box {:sx {:display "flex" :flexWrap "wrap" :gap 0.5 :mt 0.25 :mb 0.25}}
        (for [item linked
-             :let [out? (not (:have_it item))]]
+             :let [out? (not (:have_it item))
+                   rgb (category-rgb (:category item))
+                   icon (:icon (get inv/category-meta
+                                    (:category item)
+                                    (get inv/category-meta "other")))]]
          ^{:key (:id item)}
          [chip
-          {:label
-           (str (when out? "~ ") (:name item) (when out? " · out of stock"))
+          {:label (str (:name item) (when out? " · out of stock"))
            :size "small"
+           :icon (when icon
+                   (r/as-element
+                    [icon
+                     {:sx {:fontSize "0.85rem"
+                           :color (str "rgba(" rgb ",0.95) !important")}}]))
            :sx {:height 22
                 :fontSize "0.7rem"
                 :letterSpacing "0.02em"
                 :opacity (if out? 0.55 1)
-                :bgcolor "rgba(139,195,74,0.08)"
-                :color "rgba(139,195,74,0.95)"
-                :border "1px solid rgba(139,195,74,0.25)"}}])])))
+                :bgcolor (str "rgba(" rgb ",0.08)")
+                :color (str "rgba(" rgb ",0.95)")
+                :border (str "1px solid rgba(" rgb ",0.3)")}}])])))
 
 (defn- ingredients-list
   [recipe statuses inventory-items]
