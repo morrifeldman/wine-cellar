@@ -72,7 +72,12 @@
   [e]
   (let [data (ex-data e)
         status (or (:status data) 500)
-        error-message (or (:error data) (.getMessage e) "AI analysis failed")]
+        ;; The Anthropic API puts the human-readable reason (e.g. "Your
+        ;; credit balance is too low…") in the parsed error body — prefer
+        ;; it.
+        api-message (get-in data [:parsed :error :message])
+        error-message
+        (or (:error data) api-message (.getMessage e) "AI analysis failed")]
     {:status status
      :body (cond-> {:error error-message}
              (and (not= (:error data) (.getMessage e))
@@ -494,7 +499,7 @@
 
 (defn extract-cocktail-recipe
   [request]
-  (with-server-error
+  (with-ai-error
    (let [message-text (get-in request [:parameters :body :message-text])
          existing-tags (db-api/distinct-recipe-tags)
          bar {:spirits (db-api/get-spirits)
@@ -512,7 +517,7 @@
    no longer makes are cleared. Out-of-stock items and spirits are in the prompt,
    so they can still be re-linked."
   [{{{:keys [id]} :path} :parameters}]
-  (with-server-error
+  (with-ai-error
    (if-let [recipe (db-api/get-cocktail-recipe id)]
      (let [ingredients (:ingredients recipe)
            spirit-tags (:spirit_tags recipe)

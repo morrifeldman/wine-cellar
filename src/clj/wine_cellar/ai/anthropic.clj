@@ -384,21 +384,25 @@
                               :spirit_id {:type ["integer" "null"]}
                               :ingredient_index {:type "integer"}}}
          :description
-         (str "One entry per spirit/modifier ingredient — the base "
-              "spirit, any spirituous modifiers, and any rinse/wash "
-              "(e.g. absinthe rinse). category MUST be one of the "
-              "listed values. Include subcategory only when it "
-              "matches a subcategory shown in the bar inventory "
-              "(e.g. {category: liqueur, subcategory: bitter} for "
-              "Campari, {category: other, subcategory: Absinthe}). "
-              "Reuse the inventory's exact subcategory strings, "
-              "matching their capitalization. When the recipe's "
-              "spirit clearly corresponds to one of the user's bar "
-              "spirits listed below, set spirit_id to that spirit's "
-              "#id; otherwise omit it. Always still set category "
-              "(and subcategory when it matches). Set ingredient_index "
-              "to the 0-based position of the matching ingredient in "
-              "the ingredients array above.")}
+         (str
+          "One entry per spirit/modifier ingredient — the base "
+          "spirit, any spirituous modifiers, and any rinse/wash "
+          "(e.g. absinthe rinse). category MUST be one of the "
+          "listed values. Include subcategory only when it "
+          "matches a subcategory shown in the bar inventory "
+          "(e.g. {category: liqueur, subcategory: bitter} for "
+          "Campari, {category: other, subcategory: Absinthe}). "
+          "Reuse the inventory's exact subcategory strings, "
+          "matching their capitalization. Set spirit_id ONLY "
+          "when the recipe names a specific brand/product (e.g. "
+          "\"Beefeater\", \"Four Roses Small Batch\") matching a "
+          "bottle the user owns; for a generic spirit/style name "
+          "(\"gin\", \"London Dry gin\", \"bourbon\", \"rye\") "
+          "omit it and rely on category/subcategory — do NOT pin "
+          "to whatever bottle they happen to own. Always still set category "
+          "(and subcategory when it matches). Set ingredient_index "
+          "to the 0-based position of the matching ingredient in "
+          "the ingredients array above.")}
         :tags {:type "array"
                :maxItems 4
                :items {:type "string"}
@@ -488,10 +492,14 @@
      {:type "array"
       :description
       (str
-       "Exactly one entry per spirit-tag index shown. spirit_id = the #id of "
-       "the user's bar spirit the recipe specifically calls for at that "
-       "tag's category/subcategory, or null when no specific bottle is named "
-       "(a category/subcategory match alone is enough). ingredient_index = the "
+       "Exactly one entry per spirit-tag index shown. spirit_id = set ONLY "
+       "when the recipe ingredient names a specific brand or product (e.g. "
+       "\"Beefeater\", \"Four Roses Small Batch\", \"Campari\") that matches a "
+       "bottle the user owns. For a GENERIC spirit or style name — \"gin\", "
+       "\"London Dry gin\", \"bourbon\", \"rye\", \"blanco tequila\", \"sweet "
+       "vermouth\" — leave spirit_id null and rely on the category/subcategory "
+       "match; do NOT pin it to whatever bottle the user happens to own in "
+       "that style. null is the default. ingredient_index = the "
        "index of the ingredient line this spirit tag corresponds to (the base "
        "spirit, modifier, or rinse it represents), or null if none does. "
        "category/subcategory = re-resolve what the recipe calls for against "
