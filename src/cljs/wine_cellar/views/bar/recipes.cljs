@@ -749,24 +749,25 @@
        :on-click #(reset! selected-tags #{})} "clear"])])
 
 (defn- makeable-filter-chip
-  [makeable-only?]
-  (let [active? @makeable-only?]
+  "One toggle in the makeable filter. `mode` is this chip's value; clicking
+   toggles the shared `makeable-filter` atom between `mode` and nil. `on` and
+   `off` are the accent colors (base rgb triple string, e.g. \"139,195,74\")."
+  [makeable-filter mode label rgb]
+  (let [active? (= @makeable-filter mode)]
     [chip
-     {:label "Makeable"
+     {:label label
       :size "small"
       :clickable true
-      :on-click #(swap! makeable-only? not)
+      :on-click #(swap! makeable-filter (fn [c] (when-not (= c mode) mode)))
       :sx {:height 24
            :fontSize "0.72rem"
            :letterSpacing "0.02em"
            :mb 1.5
-           :bgcolor (if active? "rgba(139,195,74,0.22)" "rgba(139,195,74,0.06)")
-           :color "rgba(174,213,129,0.95)"
-           :border (str
-                    "1px solid "
-                    (if active? "rgba(139,195,74,0.6)" "rgba(139,195,74,0.25)"))
+           :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
+           :color (str "rgba(" rgb ",0.95)")
+           :border (str "1px solid rgba(" rgb "," (if active? "0.6" "0.25") ")")
            "@media (hover: hover)" {"&:hover" {:bgcolor
-                                               "rgba(139,195,74,0.18)"}}}}]))
+                                               (str "rgba(" rgb ",0.18)")}}}}]))
 
 (defn- refresh-all-bar
   "Re-resolve every recipe's spirit/ingredient links sequentially, with a live
@@ -798,7 +799,7 @@
         selected-tags (r/atom #{})
         selected-spirits (r/atom #{})
         selected-subspirits (r/atom #{})
-        makeable-only? (r/atom false)]
+        makeable-filter (r/atom nil)]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             recipes (:recipes bar)
@@ -821,7 +822,7 @@
             sel @selected-tags
             sel-spirits @selected-spirits
             sel-subspirits @selected-subspirits
-            mk @makeable-only?
+            mk @makeable-filter
             filtered
             (cond->> recipes
               (seq term) (filter #(str/includes? (normalize-text
@@ -832,7 +833,10 @@
                                                sel-spirits))
               (seq sel-subspirits)
               (filter #(some (matching/recipe-spirit-subcats %) sel-subspirits))
-              mk (filter #(matching/recipe-makeable? % spirits inventory-items))
+              (= mk :makeable)
+              (filter #(matching/recipe-makeable? % spirits inventory-items))
+              (= mk :missing)
+              (remove #(matching/recipe-makeable? % spirits inventory-items))
               :always (sort-by (juxt #(if (:rating %) 0 1)
                                      #(- (or (:rating %) 0)))))]
         [box (when show-form? [recipe-form app-state])
@@ -848,7 +852,11 @@
                 (when (seq sub)
                   [subcategory-filter-bar selected-subspirits sub])))
             (when (seq all-tags) [tag-filter-bar selected-tags all-tags])
-            [makeable-filter-chip makeable-only?] [refresh-all-bar app-state]])
+            [box {:sx {:display "flex" :gap 0.75}}
+             [makeable-filter-chip makeable-filter :makeable "Makeable"
+              "139,195,74"]
+             [makeable-filter-chip makeable-filter :missing
+              "Missing ingredients" "255,167,38"]] [refresh-all-bar app-state]])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]
