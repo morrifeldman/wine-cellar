@@ -109,11 +109,6 @@
 
 ;; --- Makeability ("can I make this?") ---
 
-;; Always-available basics that never block a recipe and aren't tracked as
-;; inventory items. Everything else must be in the Mixers & Garnishes inventory
-;; to count as available.
-(def ^:private ignored-basics #{"ice" "water"})
-
 (defn name-matches?
   "True when the inventory item name appears as a whole-word substring of the
    ingredient name (both accent-normalized and lowercased), so item \"lime
@@ -131,7 +126,7 @@
 
 (defn ingredient-status
   "Per-line status for a recipe ingredient, for display marks:
-   :have            — on hand or an ignored basic (ice/water);
+   :have            — on hand (a linked/named inventory item we have);
    :missing-garnish — a garnish-category item we don't have (never blocks);
    :missing         — a non-garnish item we don't have, including ingredients
                       not present in the Mixers & Garnishes inventory at all.
@@ -145,7 +140,6 @@
         ;; twist links to the "fruit" lemon, not a "garnish" item).
         miss (if garnish :missing-garnish :missing)]
     (cond (str/blank? n) :have
-          (contains? ignored-basics n) :have
           (ingredient-spirit-category name)
           (let [cat (ingredient-spirit-category name)]
             (if (some #(and (= (:category %) cat) (pos? (or (:quantity %) 1)))
