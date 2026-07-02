@@ -22,6 +22,13 @@
     ["shochu" "soju" "sake" "aquavit" "akvavit" "absinthe" "pastis" "baijiu"
      "arak" "raki" "ouzo"]]])
 
+(defn same-category?
+  "Case-insensitive spirit-category equality. Spirits store categories lowercase
+  (\"gin\"), but recipe :spirit_tags store them capitalized (\"Gin\", from the
+  AI's capitalized bar context), so raw = would never match category-only tags."
+  [a b]
+  (and a b (= (str/lower-case a) (str/lower-case b))))
+
 (defn ingredient-spirit-category
   "Canonical spirit category for an ingredient name, or nil. Word-boundary
   matched so e.g. \"gin\" does not match \"ginger\"."
@@ -83,10 +90,13 @@
   [spirits {:keys [category subcategory spirit_id]}]
   (let [owned? (fn [s] (pos? (or (:quantity s) 1)))
         exact (when spirit_id (filterv #(= (:id %) spirit_id) spirits))
-        specific? (specific-categories category)]
+        specific? (specific-categories (some-> category
+                                               str/lower-case))]
     (if (seq exact)
       {:exact exact :sub [] :alts []}
-      (let [in-cat (filter #(and (= (:category %) category) (owned? %)) spirits)
+      (let [in-cat (filter #(and (same-category? (:category %) category)
+                                 (owned? %))
+                           spirits)
             tiers (if (str/blank? subcategory)
                     {:sub (if specific? [] (vec in-cat)) :alts []}
                     (let [sub (filter #(= (:subcategory %) subcategory) in-cat)]
@@ -290,7 +300,7 @@
   [recipe spirit]
   (boolean (some (fn [{:keys [category subcategory spirit_id]}]
                    (or (and spirit_id (= spirit_id (:id spirit)))
-                       (and (= category (:category spirit))
+                       (and (same-category? category (:category spirit))
                             (or (str/blank? subcategory)
                                 (= subcategory (:subcategory spirit))))))
                  (:spirit_tags recipe))))
