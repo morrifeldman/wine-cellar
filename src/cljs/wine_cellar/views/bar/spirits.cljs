@@ -67,6 +67,13 @@
        sort
        vec))
 
+(defn- subcategories-for-category
+  "Subcategories seen on spirits in the given category, so subcategory suggestions
+  stay scoped to their category (e.g. London Dry under Gin, not under Whiskey)."
+  [spirits category]
+  (-> (filter #(= (:category %) category) spirits)
+      (unique-spirit-values :subcategory)))
+
 (defn- spirit-create-form
   "Scan-first creation: capture label, analyze with AI, create spirit with all fields."
   [app-state]
@@ -261,7 +268,8 @@
              :inline? true}]
            [editable-autocomplete-field
             {:value (:subcategory spirit)
-             :options (unique-spirit-values (:spirits bar) :subcategory)
+             :options (subcategories-for-category (:spirits bar)
+                                                  (:category spirit))
              :free-solo true
              :on-save
              #(api/update-spirit app-state (:id spirit) {:subcategory %})
