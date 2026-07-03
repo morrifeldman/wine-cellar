@@ -15,7 +15,7 @@
             [reagent-mui.material.rating :refer [rating]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.material.checkbox :refer [checkbox]]
-            [reagent-mui.material.divider :refer [divider]]
+            [reagent-mui.icons.local-florist :refer [local-florist]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
             [reagent-mui.icons.add :refer [add]]
@@ -797,13 +797,16 @@
                                                "rgba(232,195,200,0.18)"}}}}]))
 
 (defn- garnish-toggle-chip
-  "Toggle for counting garnish-role ingredients in the filter; shown next to the
-   Ingredients chip while the filter is open. `recipes` and `inventory-items`
-   are needed to prune stale selections when garnishes are toggled off."
-  [include-garnishes? selected-ingredients recipes inventory-items]
+  "Toggle for counting garnish-role ingredients in the filter; shown as a leaf
+   icon next to the Ingredients chip while the filter is open. `recipes` and
+   `inventory-items` are needed to prune stale selections when garnishes are
+   toggled off."
+  [include-garnishes? selected-ingredients open-cat recipes inventory-items]
   (let [on? @include-garnishes?]
     [chip
-     {:label "Include garnishes"
+     {:label (r/as-element [local-florist
+                            {:sx {:fontSize 16 :display "block"}}])
+      :title "Include garnishes"
       :size "small"
       :clickable true
       :on-click
@@ -811,68 +814,94 @@
         (swap! include-garnishes? not)
         ;; Turning garnishes off: prune selections no longer reachable
         ;; without garnish lines/items so they can't silently zero the
-        ;; list.
+        ;; list, and close the Garnishes category if it's open.
         (when on?
           (let [idx (matching/recipe-item-index recipes inventory-items false)
                 reachable (into #{} (mapcat val) idx)]
-            (swap! selected-ingredients #(into #{} (filter reachable) %)))))
+            (swap! selected-ingredients #(into #{} (filter reachable) %))
+            (swap! open-cat #(when-not (= % "garnish") %)))))
       :sx {:height 24
-           :fontSize "0.72rem"
-           :letterSpacing "0.02em"
            :mb 1.5
+           "& .MuiChip-label" {:px 0.75}
            :bgcolor (str "rgba(139,195,74," (if on? "0.22" "0.06") ")")
            :color "rgba(174,213,129,0.95)"
            :border (str "1px solid rgba(139,195,74," (if on? "0.6" "0.25") ")")
            "@media (hover: hover)" {"&:hover" {:bgcolor
                                                "rgba(139,195,74,0.15)"}}}}]))
 
-(defn- ingredient-filter-bar
-  "Expanded ingredient filter: one chip per inventory item used by ≥1 recipe,
-   grouped by inventory category with dividers, plus a clear button. `vocab` is
-   the pre-sorted item list."
-  [selected-ingredients vocab]
+(defn- ingredient-category-bar
+  "First level of the ingredient filter: one chip per inventory category
+   present in `vocab`, in inv/category-order. Clicking opens/closes that
+   category's item chips; a chip shows how many of its items are selected."
+  [open-cat selected-ingredients vocab]
+  (let [by-cat (group-by :category vocab)
+        sel @selected-ingredients]
+    [box
+     {:sx {:display "flex"
+           :gap 0.5
+           :flexWrap "wrap"
+           :alignItems "center"
+           :mb 1.5
+           :ml 1}}
+     (for [cat inv/category-order
+           :when (contains? by-cat cat)]
+       (let [n (count (filter #(contains? sel (:id %)) (by-cat cat)))
+             open? (= @open-cat cat)
+             hot? (or open? (pos? n))
+             rgb (category-rgb cat)]
+         ^{:key cat}
+         [chip
+          {:label (str (get inv/category-labels cat cat)
+                       (when (pos? n) (str " · " n)))
+           :size "small"
+           :clickable true
+           :on-click #(swap! open-cat (fn [c] (when-not (= c cat) cat)))
+           :sx {:height 22
+                :fontSize "0.7rem"
+                :letterSpacing "0.02em"
+                :bgcolor (str "rgba(" rgb "," (if hot? "0.22" "0.06") ")")
+                :color (str "rgba(" rgb ",0.95)")
+                :border
+                (str "1px solid rgba(" rgb "," (if hot? "0.6" "0.25") ")")
+                "@media (hover: hover)"
+                {"&:hover" {:bgcolor (str "rgba(" rgb ",0.15)")}}}}]))
+     (when (seq sel)
+       [button
+        {:size "small"
+         :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+         :on-click #(reset! selected-ingredients #{})} "clear"])]))
+
+(defn- ingredient-item-bar
+  "Second level of the ingredient filter: item chips for the open category."
+  [selected-ingredients items]
   [box
    {:sx {:display "flex"
          :gap 0.5
          :flexWrap "wrap"
          :alignItems "center"
          :mb 1.5
-         :ml 1}}
-   (let [indexed (map-indexed vector vocab)]
-     (for [[i item] indexed]
-       (let [active? (contains? @selected-ingredients (:id item))
-             rgb (category-rgb (:category item))
-             prev-cat (when (pos? i) (:category (nth vocab (dec i))))]
-         ^{:key (:id item)}
-         [:<>
-          (when (and prev-cat (not= prev-cat (:category item)))
-            [divider
-             {:orientation "vertical"
-              :flexItem true
-              :sx {:mx 0.5 :borderColor "rgba(232,195,200,0.5)"}}])
-          [chip
-           {:label (:name item)
-            :size "small"
-            :clickable true
-            :on-click #(swap! selected-ingredients (fn [s]
-                                                     (if (contains? s
-                                                                    (:id item))
-                                                       (disj s (:id item))
-                                                       (conj s (:id item)))))
-            :sx {:height 22
-                 :fontSize "0.7rem"
-                 :letterSpacing "0.02em"
-                 :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
-                 :color (str "rgba(" rgb ",0.95)")
-                 :border
-                 (str "1px solid rgba(" rgb "," (if active? "0.6" "0.25") ")")
-                 "@media (hover: hover)"
-                 {"&:hover" {:bgcolor (str "rgba(" rgb ",0.15)")}}}}]])))
-   (when (seq @selected-ingredients)
-     [button
-      {:size "small"
-       :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
-       :on-click #(reset! selected-ingredients #{})} "clear"])])
+         :ml 2}}
+   (for [item items]
+     (let [active? (contains? @selected-ingredients (:id item))
+           rgb (category-rgb (:category item))]
+       ^{:key (:id item)}
+       [chip
+        {:label (:name item)
+         :size "small"
+         :clickable true
+         :on-click #(swap! selected-ingredients (fn [s]
+                                                  (if (contains? s (:id item))
+                                                    (disj s (:id item))
+                                                    (conj s (:id item)))))
+         :sx {:height 22
+              :fontSize "0.7rem"
+              :letterSpacing "0.02em"
+              :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
+              :color (str "rgba(" rgb ",0.95)")
+              :border
+              (str "1px solid rgba(" rgb "," (if active? "0.6" "0.25") ")")
+              "@media (hover: hover)"
+              {"&:hover" {:bgcolor (str "rgba(" rgb ",0.15)")}}}}]))])
 
 (defn- refresh-all-bar
   "Re-resolve every recipe's spirit/ingredient links sequentially, with a live
@@ -880,7 +909,7 @@
   [app-state]
   (let [{:keys [running? done total]} (get-in @app-state
                                               [:bar :refresh-progress])]
-    [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mb 1.5}}
+    [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mt 2}}
      [button
       {:variant "text"
        :size "small"
@@ -907,6 +936,7 @@
         selected-ingredients (r/atom #{})
         include-garnishes? (r/atom false)
         show-ingredient-filter? (r/atom false)
+        open-ingredient-cat (r/atom nil)
         makeable-filter (r/atom nil)]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
@@ -977,17 +1007,22 @@
             [box {:sx {:display "flex" :gap 0.75 :flexWrap "wrap"}}
              [makeable-filter-chip makeable-filter :makeable "Makeable"
               "139,195,74"]
-             [makeable-filter-chip makeable-filter :missing
-              "Missing ingredients" "255,167,38"]
+             [makeable-filter-chip makeable-filter :missing "Missing"
+              "255,167,38"]
              (when (seq ingredient-vocab)
                [ingredient-filter-toggle-chip show-ingredient-filter?
                 (count sel-ingredients)])
              (when (and @show-ingredient-filter? (seq ingredient-vocab))
                [garnish-toggle-chip include-garnishes? selected-ingredients
-                recipes inventory-items])]
+                open-ingredient-cat recipes inventory-items])]
             (when (and @show-ingredient-filter? (seq ingredient-vocab))
-              [ingredient-filter-bar selected-ingredients ingredient-vocab])
-            [refresh-all-bar app-state]])
+              [ingredient-category-bar open-ingredient-cat selected-ingredients
+               ingredient-vocab])
+            (when @show-ingredient-filter?
+              (let [items (filter #(= (:category %) @open-ingredient-cat)
+                                  ingredient-vocab)]
+                (when (seq items)
+                  [ingredient-item-bar selected-ingredients items])))])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]
@@ -995,4 +1030,6 @@
              ^{:key (:id recipe)}
              (cond (= (:id recipe) editing-id) [recipe-form app-state]
                    (= (:id recipe) viewing-id) [recipe-display app-state recipe]
-                   :else [recipe-card app-state recipe])))]))))
+                   :else [recipe-card app-state recipe])))
+         (when (and (seq recipes) (not show-form?))
+           [refresh-all-bar app-state])]))))

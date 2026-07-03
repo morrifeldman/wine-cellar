@@ -4,6 +4,7 @@
             [reagent-mui.material.tab :refer [tab]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.icons.add :refer [add]]
+            [reagent-mui.icons.arrow-back :refer [arrow-back]]
             [wine-cellar.nav :as nav]
             [wine-cellar.views.bar.spirits :refer [spirits-tab]]
             [wine-cellar.views.bar.inventory :refer [inventory-tab]]
@@ -25,15 +26,15 @@
         tab-index (get tab-values active-tab 0)]
     [box
      [box
-      {:sx
-       {:display "flex" :justifyContent "flex-end" :alignItems "center" :mb 2}}
-      [button {:variant "outlined" :color "primary" :on-click #(nav/go-wines!)}
-       "Wine Cellar"]]
-     [box
       {:sx {:display "flex"
             :alignItems "center"
             :mb 2
             :borderBottom "1px solid rgba(0,0,0,0.12)"}}
+      [button
+       {:size "small"
+        :title "Wine Cellar"
+        :sx {:color "text.secondary" :minWidth 0 :p 0.5 :mr 1}
+        :on-click #(nav/go-wines!)} [arrow-back {:fontSize "small"}]]
       [tabs
        {:value tab-index
         :on-change (fn [_ v]
@@ -41,7 +42,7 @@
                        [:bar :active-tab]
                        (get tab-keys v :spirits)))
         :sx {:flex 1}} [tab {:label "Spirits"}] [tab {:label "Recipes"}]
-       [tab {:label "Mixers & Garnishes"}]]
+       [tab {:label "Mixers"}]]
       [button
        {:size "small"
         :sx {:color "text.secondary" :minWidth 0 :p 0.5 :ml 1}
