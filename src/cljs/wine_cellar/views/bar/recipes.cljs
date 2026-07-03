@@ -750,16 +750,21 @@
        :on-click #(reset! selected-tags #{})} "clear"])])
 
 (defn- makeable-filter-chip
-  "One toggle in the makeable filter. `mode` is this chip's value; clicking
-   toggles the shared `makeable-filter` atom between `mode` and nil. `on` and
-   `off` are the accent colors (base rgb triple string, e.g. \"139,195,74\")."
-  [makeable-filter mode label rgb]
-  (let [active? (= @makeable-filter mode)]
+  "Single three-state makeability toggle: clicking cycles
+   All recipes (neutral) → Makeable (green) → Missing (orange) → back."
+  [makeable-filter]
+  (let [mode @makeable-filter
+        active? (some? mode)
+        [label rgb] (case mode
+                      :makeable ["Makeable" "139,195,74"]
+                      :missing ["Missing" "255,167,38"]
+                      ["All recipes" "232,195,200"])]
     [chip
      {:label label
       :size "small"
       :clickable true
-      :on-click #(swap! makeable-filter (fn [c] (when-not (= c mode) mode)))
+      :on-click
+      #(swap! makeable-filter {nil :makeable :makeable :missing :missing nil})
       :sx {:height 24
            :fontSize "0.72rem"
            :letterSpacing "0.02em"
@@ -1005,10 +1010,7 @@
                   [subcategory-filter-bar selected-subspirits sub])))
             (when (seq all-tags) [tag-filter-bar selected-tags all-tags])
             [box {:sx {:display "flex" :gap 0.75 :flexWrap "wrap"}}
-             [makeable-filter-chip makeable-filter :makeable "Makeable"
-              "139,195,74"]
-             [makeable-filter-chip makeable-filter :missing "Missing"
-              "255,167,38"]
+             [makeable-filter-chip makeable-filter]
              (when (seq ingredient-vocab)
                [ingredient-filter-toggle-chip show-ingredient-filter?
                 (count sel-ingredients)])
