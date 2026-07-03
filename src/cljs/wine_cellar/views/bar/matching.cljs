@@ -124,6 +124,43 @@
                                             "\\b"))
                            ing)))))
 
+(defn recipe-item-index
+  "Map recipe-id → set of inventory-item ids the recipe uses, for the
+   ingredient filter. Prefers a line's precise :inventory_item_ids links,
+   falling back to a name-matches?-style whole-word scan for un-linked lines.
+   When include-garnishes? is false, garnish-role lines (:garnish flag) are
+   skipped and garnish-category items are excluded."
+  [recipes inventory-items include-garnishes?]
+  (let [items (if include-garnishes?
+                inventory-items
+                (remove #(= "garnish" (:category %)) inventory-items))
+        item-ids (into #{} (map :id) items)
+        ;; Precompile one whole-word regex per item so the fallback scan
+        ;; doesn't rebuild patterns per line×item.
+        matchers
+        (into []
+              (keep (fn [{:keys [id name]}]
+                      (let [n (or (normalize-text name) "")]
+                        (when (seq n)
+                          [id
+                           (re-pattern
+                            (str "\\b"
+                                 (str/replace n #"[.*+?^${}()|\[\]\\]" "\\\\$0")
+                                 "\\b"))]))))
+              items)
+        line-ids (fn [{:keys [name garnish inventory_item_ids]}]
+                   (when (or include-garnishes? (not garnish))
+                     (if (seq inventory_item_ids)
+                       (filter item-ids inventory_item_ids)
+                       (let [n (or (normalize-text name) "")]
+                         (when (seq n)
+                           (keep (fn [[id re]] (when (re-find re n) id))
+                                 matchers))))))]
+    (into {}
+          (map (juxt :id
+                     (fn [r] (into #{} (mapcat line-ids) (:ingredients r)))))
+          recipes)))
+
 (defn ingredient-status
   "Per-line status for a recipe ingredient, for display marks:
    :have            — on hand (a linked/named inventory item we have);
