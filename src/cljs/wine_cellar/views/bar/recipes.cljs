@@ -803,7 +803,7 @@
   [include-garnishes? selected-ingredients recipes inventory-items]
   (let [on? @include-garnishes?]
     [chip
-     {:label "garnishes"
+     {:label "Include garnishes"
       :size "small"
       :clickable true
       :on-click
