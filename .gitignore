@@ -57,5 +57,9 @@ scripts/ui_check.js
 search_failure.png
 backup.sql
 .playwright-mcp
+test-results/
+
+# Phone screenshots dropped into the repo
+WhatsApp Image*
 
 
