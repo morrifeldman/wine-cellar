@@ -497,62 +497,75 @@
                        (do (db-api/delete-cocktail-recipe! id) (no-content))
                        (not-found "Recipe"))))
 
+(defn- merge-recipe-links
+  "Rewrites ingredients from a resolve-recipe-links result, joining by index.
+   The fresh links are authoritative — :inventory_item_ids and :spirit are
+   rebuilt from the result and cleared when absent. :garnish is sticky-true:
+   an ingredient stays a garnish if either the result or the incoming
+   ingredient says so (extraction saw the source text, so its flag is
+   higher-confidence than a re-link's)."
+  [ingredients {:keys [ingredient_links spirit_links]}]
+  (let [link-by-idx (into {} (map (juxt :index identity)) ingredient_links)
+        spirit-by-idx
+        (into {} (map (juxt :ingredient_index identity)) spirit_links)]
+    (vec (map-indexed
+          (fn [i ing]
+            (let [{:keys [inventory_item_ids garnish]} (get link-by-idx i)
+                  {:keys [spirit_id category subcategory]} (get spirit-by-idx i)
+                  garnish? (or (true? garnish) (true? (:garnish ing)))]
+              (cond-> (dissoc ing :inventory_item_ids :garnish :spirit)
+                (seq inventory_item_ids) (assoc :inventory_item_ids
+                                                (vec inventory_item_ids))
+                garnish? (assoc :garnish true)
+                (seq category)
+                (assoc :spirit
+                       (cond-> {:category category}
+                         (seq subcategory) (assoc :subcategory subcategory)
+                         spirit_id (assoc :spirit_id spirit_id))))))
+          ingredients))))
+
 (defn extract-cocktail-recipe
+  "Two-phase: extracts recipes from text without any bar context, then links
+   each extracted recipe to the bar via the same resolution call refresh uses.
+   A failed resolve degrades to an unlinked recipe rather than failing the
+   extraction."
   [request]
   (with-ai-error
    (let [message-text (get-in request [:parameters :body :message-text])
          existing-tags (db-api/distinct-recipe-tags)
          bar {:spirits (db-api/get-spirits)
               :inventory-items (db-api/get-bar-inventory-items)}]
-     (if-let [recipe
-              (ai/extract-cocktail-recipe message-text existing-tags bar)]
-       (response/response recipe)
+     (if-let [result (ai/extract-cocktail-recipe message-text existing-tags)]
+       (response/response
+        (update result
+                :recipes
+                (partial
+                 mapv
+                 (fn [recipe]
+                   (if-let [links (and (seq (:ingredients recipe))
+                                       (ai/resolve-recipe-links recipe bar))]
+                     (update recipe :ingredients merge-recipe-links links)
+                     recipe)))))
        {:status 422 :body {:error "Could not extract recipe from text"}}))))
 
 (defn refresh-recipe-links
   "Re-resolves a stored recipe's links against current inventory via an id-keyed
    resolution call (no re-extraction, so ingredient text is never paraphrased).
-   The fresh run is authoritative: each ingredient's :inventory_item_ids,
-   :garnish and :spirit spec are rewritten from the result by index — links the
-   AI no longer makes are cleared. Out-of-stock items and spirits are in the
-   prompt, so they can still be re-linked. Legacy :spirit_tags are passed as
-   hints and left untouched in the DB, so refreshing also migrates old recipes
-   to the embedded-:spirit shape."
+   The fresh run is authoritative: each ingredient's :inventory_item_ids and
+   :spirit spec are rewritten from the result by index — links the AI no longer
+   makes are cleared (except :garnish, which is sticky once true). Out-of-stock
+   items and spirits are in the prompt, so they can still be re-linked."
   [{{{:keys [id]} :path} :parameters}]
   (with-ai-error
    (if-let [recipe (db-api/get-cocktail-recipe id)]
-     (let [ingredients (:ingredients recipe)
-           bar {:spirits (db-api/get-spirits)
+     (let [bar {:spirits (db-api/get-spirits)
                 :inventory-items (db-api/get-bar-inventory-items)}
-           result
-           (ai/resolve-recipe-links ingredients (:spirit_tags recipe) bar)]
+           result (ai/resolve-recipe-links recipe bar)]
        (if result
-         (let [link-by-idx
-               (into {} (map (juxt :index identity)) (:ingredient_links result))
-               spirit-by-idx (into {}
-                                   (map (juxt :ingredient_index identity))
-                                   (:spirit_links result))
-               new-ings
-               (vec
-                (map-indexed
-                 (fn [i ing]
-                   (let [{:keys [inventory_item_ids garnish]} (get link-by-idx
-                                                                   i)
-                         {:keys [spirit_id category subcategory]}
-                         (get spirit-by-idx i)]
-                     (cond-> (dissoc ing :inventory_item_ids :garnish :spirit)
-                       (seq inventory_item_ids) (assoc :inventory_item_ids
-                                                       (vec inventory_item_ids))
-                       (true? garnish) (assoc :garnish true)
-                       (seq category) (assoc :spirit
-                                             (cond-> {:category category}
-                                               (seq subcategory)
-                                               (assoc :subcategory subcategory)
-                                               spirit_id (assoc :spirit_id
-                                                                spirit_id))))))
-                 ingredients))]
-           (response/response
-            (db-api/update-cocktail-recipe! id {:ingredients new-ings})))
+         (response/response
+          (db-api/update-cocktail-recipe!
+           id
+           {:ingredients (merge-recipe-links (:ingredients recipe) result)}))
          {:status 422 :body {:error "Could not refresh recipe links"}}))
      (not-found "Recipe"))))
 

@@ -247,6 +247,6 @@
     [:name :varchar [:not nil]] [:description :text]
     [:ingredients :jsonb [:not nil] [:default [:raw "'[]'::jsonb"]]]
     [:instructions :text] [:notes :text] [:tags :varchar :array]
-    [:spirit_tags :jsonb] [:source :varchar] [:rating :integer]
+    [:source :varchar] [:rating :integer]
     [:created_at :timestamptz [:default [:now]]]
     [:updated_at :timestamptz [:default [:now]]]]})

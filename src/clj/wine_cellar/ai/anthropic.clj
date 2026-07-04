@@ -346,38 +346,12 @@
         :description {:type "string"}
         :ingredients
         {:type "array"
-         :items
-         {:type "object"
-          :required ["name"]
-          :properties
-          {:name {:type "string"}
-           :amount {:type "string"}
-           :unit {:type "string"}
-           :garnish {:type "boolean"}
-           :inventory_item_ids {:type "array" :items {:type "integer"}}
-           :spirit
-           {:type "object"
-            :required ["category"]
-            :properties {:category {:type "string" :enum spirit-categories}
-                         :subcategory {:type "string"}
-                         :spirit_id {:type ["integer" "null"]}}
-            :description
-            (str "Set on every spirit/modifier ingredient — the base spirit, "
-                 "any spirituous modifiers, and any rinse/wash (e.g. absinthe "
-                 "rinse); omit for non-spirituous ingredients. category MUST "
-                 "be one of the listed values. Include subcategory only when "
-                 "it matches a subcategory shown in the bar inventory (e.g. "
-                 "{category: liqueur, subcategory: bitter} for Campari, "
-                 "{category: other, subcategory: Absinthe}). Reuse the "
-                 "inventory's exact subcategory strings, matching their "
-                 "capitalization. Set spirit_id ONLY when the recipe names a "
-                 "specific brand/product (e.g. \"Beefeater\", \"Four Roses "
-                 "Small Batch\") matching a bottle the user owns; for a "
-                 "generic spirit/style name (\"gin\", \"London Dry gin\", "
-                 "\"bourbon\", \"rye\") omit it and rely on "
-                 "category/subcategory — do NOT pin to whatever bottle they "
-                 "happen to own. Always still set category (and subcategory "
-                 "when it matches).")}}}
+         :items {:type "object"
+                 :required ["name"]
+                 :properties {:name {:type "string"}
+                              :amount {:type "string"}
+                              :unit {:type "string"}
+                              :garnish {:type "boolean"}}}
          :description
          (str
           "One entry per ingredient. For name, prefer the generic spirit/"
@@ -385,14 +359,7 @@
           "context (e.g. 'bourbon' rather than 'Buffalo Trace', 'London dry "
           "gin' rather than 'Tanqueray'); keep a brand only when the recipe "
           "truly depends on that specific bottle. "
-          "Set inventory_item_ids to the #ids "
-          "of EVERY one of the user's Mixers & Garnishes (listed below) "
-          "that genuinely satisfies the ingredient — link all equivalents, "
-          "not just one (e.g. both a demerara and a white sugar for "
-          "\"sugar\", both lemon and lime for a \"citrus garnish\"). Use an "
-          "empty array or omit it when nothing matches. Do not use "
-          "inventory_item_ids for the base spirit or spirituous modifiers — "
-          "those carry a spirit spec instead. Set garnish to true when the "
+          "Set garnish to true when the "
           "ingredient is used only as a garnish (a twist, peel, wheel, "
           "wedge, sprig, cherry, etc. — anything in a \"Garnish:\" line or "
           "marked \"to garnish\"); a missing garnish never blocks making the "
@@ -421,36 +388,22 @@
 
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from a plain-text message. When
-   existing-tags are supplied, nudges the model to reuse that vocabulary. When
-   bar (a map of :spirits/:inventory-items) is supplied, feeds the user's real
-   inventory so the model can assign accurate spirit specs and normalize
-   ingredient/garnish names to the existing vocabulary."
-  ([text] (extract-cocktail-recipe text nil nil))
-  ([text existing-tags] (extract-cocktail-recipe text existing-tags nil))
-  ([text existing-tags bar]
+   existing-tags are supplied, nudges the model to reuse that vocabulary.
+   Pure extraction — linking to the user's bar happens in a separate
+   resolve-recipe-links phase."
+  ([text] (extract-cocktail-recipe text nil))
+  ([text existing-tags]
    {:pre [(string? text)]}
    (let [tag-hint
          (when (seq existing-tags)
            (str "\n\nTags already in use (reuse these exact strings when one "
                 "applies; only add a new tag if none fit): "
                 (str/join ", " existing-tags)))
-         bar-text (prompts/bar-context-text bar)
-         bar-hint
-         (when bar-text
-           (str "\n\nThe user's bar inventory is below. Use it to (1) assign "
-                "spirit specs by reusing the exact categories and subcategory "
-                "strings shown (match the subcategory capitalization), and "
-                "(2) normalize ingredient and garnish "
-                "names to match the Mixers & Garnishes names when an item "
-                "clearly corresponds (e.g. prefer 'lime juice', 'Angostura "
-                "bitters'); otherwise keep the recipe's own wording.\n\n"
-                "=== Bar Inventory ===\n" bar-text))
          request {:messages [{:role "user"
                               :content (str "Extract all cocktail recipes from"
                                             " this text:\n\n"
                                             text
-                                            tag-hint
-                                            bar-hint)}]
+                                            tag-hint)}]
                   :tools [extract-recipe-tool]
                   :tool_choice {:type "tool" :name extract-recipe-tool-name}
                   :max_tokens 2000}]
@@ -493,21 +446,23 @@
        "or rinse/wash (the base spirit, vermouths, liqueurs, absinthe rinse, "
        "etc.) — keyed by that line's ingredient index. Do NOT include entries "
        "for non-spirituous lines (juices, syrups, bitters dashes, garnishes). "
-       "spirit_id = set ONLY when the recipe ingredient names a specific "
-       "brand or product (e.g. \"Beefeater\", \"Four Roses Small Batch\", "
-       "\"Campari\") that matches a bottle the user owns. For a GENERIC "
-       "spirit or style name — \"gin\", \"London Dry gin\", \"bourbon\", "
-       "\"rye\", \"blanco tequila\", \"sweet vermouth\" — leave spirit_id "
-       "null and rely on the category/subcategory match; do NOT pin it to "
-       "whatever bottle the user happens to own in that style. null is the "
-       "default. category/subcategory = what the recipe calls for, expressed "
-       "in the user's CURRENT bar vocabulary (the categories and "
-       "subcategories shown below); any prior spec shown for the line is a "
-       "hint, but update subcategory to the user's current name for that "
-       "style when their taxonomy has shifted (e.g. \"Dry\" should become "
-       "\"London Dry\" when that is how the user now labels their dry gins). "
-       "Use null for subcategory when the recipe doesn't call for a specific "
-       "style.")
+       "spirit_id = set ONLY when the ingredient line itself names a "
+       "specific brand or product (e.g. \"Beefeater\", \"Four Roses Small "
+       "Batch\", \"Campari\") that matches a bottle the user owns. For a "
+       "GENERIC spirit or style name — \"gin\", \"London Dry gin\", "
+       "\"bourbon\", \"rye\", \"blanco tequila\", \"sweet vermouth\" — leave "
+       "spirit_id null and rely on the category/subcategory match; do NOT "
+       "pin it to whatever bottle the user happens to own in that style, and "
+       "brands mentioned in the recipe text merely as options or "
+       "suggestions do not count. null is the default. category/subcategory "
+       "= the style the recipe calls for, judged from the ingredient name "
+       "and recipe text. Set subcategory ONLY when the recipe actually "
+       "specifies a style (\"London Dry gin\", \"blanco tequila\", "
+       "\"rye\"); when interchangeable brands or styles are offered, there "
+       "is no style requirement. The bar inventory below supplies only the "
+       "exact spelling/capitalization of a subcategory, never a reason to "
+       "add one. Use null for subcategory when the recipe doesn't call for "
+       "a specific style.")
       :items {:type "object"
               :required ["ingredient_index" "spirit_id" "category"
                          "subcategory"]
@@ -519,40 +474,27 @@
     :additionalProperties false}})
 
 (defn resolve-recipe-links
-  "Resolves an existing recipe's ingredient and spirit links to the user's bar
-   by #id, keyed by ingredient index. Takes the recipe's ingredients (whose
-   lines may carry a current :spirit spec, shown as a hint), optional legacy
-   spirit-tags (pre-migration recipes; also shown as hints) and bar
+  "Resolves a recipe's ingredient and spirit links to the user's bar by #id,
+   keyed by ingredient index. Takes the recipe (:name :description
+   :instructions :notes :ingredients — the ingredient NAME is the sole style
+   signal; the rest is shown as context only) and bar
    (:spirits/:inventory-items). Returns a map of
    {:ingredient_links [{:index :inventory_item_ids :garnish}]
     :spirit_links [{:ingredient_index :spirit_id :category :subcategory}]}.
    Unlike re-extraction this never paraphrases the recipe — the model only
    reports ids against the indices we send, so the join back is exact."
-  [ingredients spirit-tags bar]
+  [{:keys [name description instructions notes ingredients]} bar]
   (let [ing-lines (str/join "\n"
-                            (map-indexed
-                             (fn [i {:keys [name spirit]}]
-                               (str i
-                                    ". "
-                                    name
-                                    (when-let [{:keys [category subcategory]}
-                                               spirit]
-                                      (str " [current spirit spec: "
-                                           category
-                                           (when (seq subcategory)
-                                             (str " / " subcategory))
-                                           "]"))))
-                             ingredients))
-        tag-lines (str/join
-                   "\n"
-                   (map (fn [{:keys [category subcategory ingredient_index]}]
-                          (str
-                           "- "
-                           category
-                           (when (seq subcategory) (str " / " subcategory))
-                           (when (integer? ingredient_index)
-                             (str " (for ingredient " ingredient_index ")"))))
-                        spirit-tags))
+                            (map-indexed (fn [i {:keys [name]}]
+                                           (str i ". " name))
+                                         ingredients))
+        recipe-context
+        (->> [(when (seq name) (str "Name: " name))
+              (when (seq description) (str "Description: " description))
+              (when (seq instructions) (str "Instructions: " instructions))
+              (when (seq notes) (str "Notes: " notes))]
+             (remove nil?)
+             (str/join "\n"))
         bar-text (prompts/bar-context-text
                   (select-keys bar [:spirits :inventory-items]))
         content (str
@@ -561,10 +503,12 @@
                  "shown, and one spirit_links entry per spirituous line.\n\n"
                  "Ingredients (index. name):\n"
                  ing-lines
-                 (when (seq tag-lines)
-                   (str "\n\nPreviously recorded spirit tags (hints; may be "
-                        "stale):\n"
-                        tag-lines))
+                 (when (seq recipe-context)
+                   (str "\n\nRecipe (context only — use it to judge what "
+                        "style each ingredient calls for and which lines are "
+                        "garnishes; brands mentioned here as options or "
+                        "suggestions justify neither a spirit_id nor a "
+                        "subcategory):\n" recipe-context))
                  "\n\n=== Bar Inventory ===\n"
                  bar-text)
         request {:messages [{:role "user" :content content}]

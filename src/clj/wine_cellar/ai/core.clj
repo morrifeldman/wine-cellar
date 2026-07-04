@@ -112,22 +112,19 @@
 
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from text. Always uses Anthropic.
-   existing-tags nudges the model to reuse the current tag vocabulary; bar (a
-   map of :spirits/:inventory-items) feeds the user's inventory for accurate
-   spirit specs and ingredient/garnish name normalization."
-  ([text] (extract-cocktail-recipe text nil nil))
-  ([text existing-tags] (extract-cocktail-recipe text existing-tags nil))
-  ([text existing-tags bar]
-   (try (anthropic/extract-cocktail-recipe text existing-tags bar)
+   existing-tags nudges the model to reuse the current tag vocabulary. Pure
+   extraction — bar linking happens separately via resolve-recipe-links."
+  ([text] (extract-cocktail-recipe text nil))
+  ([text existing-tags]
+   (try (anthropic/extract-cocktail-recipe text existing-tags)
         (catch Exception _ nil))))
 
 (defn resolve-recipe-links
-  "Resolves an existing recipe's ingredient/spirit links to the bar by #id,
-   keyed by index. Always uses Anthropic. Returns {:ingredient_links [...]
+  "Resolves a recipe's ingredient/spirit links to the bar by #id, keyed by
+   index. Always uses Anthropic. Returns {:ingredient_links [...]
    :spirit_links [...]} or nil on failure."
-  [ingredients spirit-tags bar]
-  (try (anthropic/resolve-recipe-links ingredients spirit-tags bar)
-       (catch Exception _ nil)))
+  [recipe bar]
+  (try (anthropic/resolve-recipe-links recipe bar) (catch Exception _ nil)))
 
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"
