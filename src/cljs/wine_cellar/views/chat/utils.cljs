@@ -44,7 +44,7 @@
                             ctx (.getContext canvas "2d")]
                         (set! (.-width canvas) (.-width img))
                         (set! (.-height canvas) (.-height img))
-                        (.drawImage ctx img 0)
+                        (.drawImage ctx img 0 0)
                         (let [jpeg-data-url
                               (.toDataURL canvas "image/jpeg" 0.85)]
                           (reset! attached-image jpeg-data-url)))))
