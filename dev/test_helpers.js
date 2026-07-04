@@ -15,7 +15,12 @@ function getAuthToken() {
 
 async function makePageWithAuth({ headless = false, width = 1280, height = 800 } = {}) {
   const token = getAuthToken();
-  const browser = await chromium.launch({ headless });
+  // Crostini gives Chromium a small /dev/shm and no GPU; without these
+  // flags headless tabs crash ("Target crashed").
+  const browser = await chromium.launch({
+    headless,
+    args: ['--disable-dev-shm-usage', '--disable-gpu'],
+  });
   const context = await browser.newContext({ viewport: { width, height }, hasTouch: false });
   await context.addCookies([{ name: 'auth-token', value: token, domain: 'localhost', path: '/' }]);
   const page = await context.newPage();
