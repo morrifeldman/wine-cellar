@@ -1026,9 +1026,11 @@
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]
            (for [recipe filtered]
-             ^{:key (:id recipe)}
-             (cond (= (:id recipe) editing-id) [recipe-form app-state]
-                   (= (:id recipe) viewing-id) [recipe-display app-state recipe]
-                   :else [recipe-card app-state recipe])))
+             (with-meta (cond (= (:id recipe) editing-id) [recipe-form
+                                                           app-state]
+                              (= (:id recipe) viewing-id) [recipe-display
+                                                           app-state recipe]
+                              :else [recipe-card app-state recipe])
+                        {:key (:id recipe)})))
          (when (and (seq recipes) (not show-form?))
            [refresh-all-bar app-state])]))))

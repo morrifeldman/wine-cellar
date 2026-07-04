@@ -597,7 +597,7 @@
               {:sx {:color "text.secondary" :textAlign "center" :py 4}}
               "No spirits yet. Add your first bottle!"]
              (for [spirit filtered]
-               ^{:key (:id spirit)}
-               (if (= (:id spirit) editing-id)
-                 [spirit-detail app-state]
-                 [spirit-card app-state spirit]))))]))))
+               (with-meta (if (= (:id spirit) editing-id)
+                            [spirit-detail app-state]
+                            [spirit-card app-state spirit])
+                          {:key (:id spirit)}))))]))))
