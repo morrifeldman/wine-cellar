@@ -60,7 +60,12 @@
         (str/join
          ""
          [(when (:appellation wine)
-            (str "\n  Appellation: " (:appellation wine)))
+            (str "\n  Appellation: "
+                 (:appellation wine)
+                 (when (:appellation_tier wine)
+                   (str " " (:appellation_tier wine)))))
+          (when (and (:appellation_tier wine) (not (:appellation wine)))
+            (str "\n  Appellation Tier: " (:appellation_tier wine)))
           (when (:vineyard wine) (str "\n  Vineyard: " (:vineyard wine)))
           (when (:classification wine)
             (str "\n  Classification: " (:classification wine)))
