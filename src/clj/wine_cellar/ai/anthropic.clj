@@ -445,7 +445,10 @@
        "One entry per ingredient line that is a spirit, spirituous modifier, "
        "or rinse/wash (the base spirit, vermouths, liqueurs, absinthe rinse, "
        "etc.) — keyed by that line's ingredient index. Do NOT include entries "
-       "for non-spirituous lines (juices, syrups, bitters dashes, garnishes). "
+       "for juices, syrups, or garnishes — nor for dashed bitters: bitters "
+       "are stocked under Mixers & Garnishes and belong in ingredient_links "
+       "even though they contain alcohol. A line gets a spirit_links entry "
+       "OR non-empty inventory_item_ids, never both. "
        "spirit_id = set ONLY when the ingredient line itself names a "
        "specific brand or product (e.g. \"Beefeater\", \"Four Roses Small "
        "Batch\", \"Campari\") that matches a bottle the user owns. For a "
@@ -462,7 +465,11 @@
        "is no style requirement. The bar inventory below supplies only the "
        "exact spelling/capitalization of a subcategory, never a reason to "
        "add one. Use null for subcategory when the recipe doesn't call for "
-       "a specific style.")
+       "a specific style — EXCEPT for the grab-bag categories liqueur and "
+       "other, whose bottles are not interchangeable: an entry there MUST "
+       "name the specific style as its subcategory (e.g. {liqueur, Triple "
+       "Sec}, {other, Absinthe}) or carry a spirit_id; if you cannot name "
+       "one, omit the entry entirely.")
       :items {:type "object"
               :required ["ingredient_index" "spirit_id" "category"
                          "subcategory"]

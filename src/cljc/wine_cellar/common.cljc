@@ -12,6 +12,15 @@
     :gemini "Gemini"
     nil "..."))
 
+(def grab-bag-spirit-categories
+  "Spirit categories whose bottles are NOT interchangeable (Campari ≠ triple
+   sec ≠ Chartreuse; absinthe ≠ aquavit). A spirit spec in one of these is
+   only satisfiable when it names a subcategory or a specific bottle — see
+   wine-cellar.views.bar.matching/bottles-for-spec, and the merge guard in
+   wine-cellar.handlers/merge-recipe-links that discards specs violating
+   this."
+  #{"liqueur" "other"})
+
 (def wine-styles
   #{"Red" "White" "Rosé" "Sparkling" "Rosé Sparkling" "Red Sparkling"
     "Fortified" "Orange" "Dessert"})

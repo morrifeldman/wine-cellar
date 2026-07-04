@@ -5,9 +5,11 @@
    from the current bar inventory. A spirit requirement lives on its
    ingredient line as :spirit {:category :subcategory :spirit_id} — the
    line↔requirement link is structural, not positional. Leaf namespace —
-   requires only clojure.string and the text-normalization helper, so both
-   spirits.cljs and recipes.cljs can use it without a circular dependency."
+   requires only clojure.string, shared constants, and the text-normalization
+   helper, so both spirits.cljs and recipes.cljs can use it without a
+   circular dependency."
   (:require [clojure.string :as str]
+            [wine-cellar.common :as common]
             [wine-cellar.utils.filters :refer [normalize-text]]))
 
 ;; Map a cocktail ingredient to a Spirits-tab category (reuses that taxonomy so
@@ -84,11 +86,10 @@
               (map (fn [p] {:subcat (:subcategory p) :cat (:category p)})))
         (recipe-spirit-specs r)))
 
-;; Grab-bag categories whose bottles are NOT interchangeable (Campari ≠ triple
-;; sec ≠ Chartreuse; absinthe ≠ aquavit). For these, a spirit spec must match
-;; the exact subcategory or precise bottle — owning some other member of the
-;; category does not satisfy it.
-(def ^:private specific-categories #{"liqueur" "other"})
+;; Grab-bag categories whose bottles are NOT interchangeable — for these, a
+;; spirit spec must match the exact subcategory or precise bottle; owning
+;; some other member of the category does not satisfy it.
+(def ^:private specific-categories common/grab-bag-spirit-categories)
 
 (defn bottles-for-spec
   "Bottles for an ingredient's spirit spec, in precedence tiers:
