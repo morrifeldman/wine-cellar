@@ -354,8 +354,11 @@
 
 (defn- smart-open-chat!
   [app-state]
-  ;; Always default to :selection+filters mode when opening chat
-  (state-core/set-context-mode! app-state :selection+filters)
+  ;; From a wine detail page, start with just that wine in context;
+  ;; otherwise default to :selection+filters mode.
+  (state-core/set-context-mode!
+   app-state
+   (if (:selected-wine-id @app-state) :selection :selection+filters))
   (swap! app-state assoc-in [:chat :open?] true)
   ;; Push a history entry so the back button closes the chat
   ;; rather than navigating away from the current page

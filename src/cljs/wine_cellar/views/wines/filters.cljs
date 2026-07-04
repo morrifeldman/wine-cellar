@@ -327,6 +327,28 @@
            :sx {:mr 1 :mb 0}}])]]]))
 
 
+(defn clear-filters-btn
+  [app-state]
+  [box {:sx {:alignSelf "center" :display "flex"}}
+   [tooltip {:title "Clear Filters"}
+    [icon-button
+     {:size "small"
+      :color "secondary"
+      :onClick #(swap! app-state assoc
+                  :filters {:search ""
+                            :country nil
+                            :region nil
+                            :styles []
+                            :style nil
+                            :varieties []
+                            :variety nil
+                            :price-range nil
+                            :tasting-window nil
+                            :verification nil
+                            :columns #{}}
+                  :sort {:field :created_at :direction :desc})}
+     [restart-alt {:fontSize "small"}]]]])
+
 (defn filter-header
   ([app-state count-info] (filter-header app-state count-info nil))
   ([app-state count-info {:keys [compact?]}]
@@ -353,25 +375,7 @@
                          :onClick
                          #(swap! app-state update :show-out-of-stock? not)}
                         [history {:fontSize "small"}]]]]
-         clear-btn [box {:sx {:alignSelf "center" :display "flex"}}
-                    [tooltip {:title "Clear Filters"}
-                     [icon-button
-                      {:size "small"
-                       :color "secondary"
-                       :onClick #(swap! app-state assoc
-                                   :filters {:search ""
-                                             :country nil
-                                             :region nil
-                                             :styles []
-                                             :style nil
-                                             :varieties []
-                                             :variety nil
-                                             :price-range nil
-                                             :tasting-window nil
-                                             :verification nil
-                                             :columns #{}}
-                                   :sort {:field :created_at :direction :desc})}
-                      [restart-alt {:fontSize "small"}]]]]
+         clear-btn [clear-filters-btn app-state]
          selection-buttons
          (cond-> []
            (pos? selected-count)
@@ -419,7 +423,7 @@
         [box
          {:sx {:display "flex" :alignItems "center" :gap 0.75 :flexWrap "wrap"}}
          [box {:sx {:flex 1 :minWidth {:xs 80 :sm 160}}}
-          [search-field app-state]] history-btn clear-btn
+          [search-field app-state]] history-btn
          (when count-info
            (let [{:keys [visible total]} count-info
                  same? (= visible total)
@@ -626,7 +630,10 @@
       {:elevation 1
        :sx (merge {:p {:xs 2 :md 3} :mb 3 :borderRadius 2} paper-sx)}
       [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-       [filter-header app-state count-info] [sort-filter-chip app-state]]
+       [filter-header app-state count-info]
+       [box {:sx {:display "flex" :alignItems "center" :gap 0.5}}
+        [sort-filter-chip app-state]
+        [box {:sx {:ml "auto"}} [clear-filters-btn app-state]]]]
       [collapse {:in (:show-filters? @app-state) :timeout "auto"}
        [box {:sx {:pt 1.5}}
         [filter-controls-grid app-state classifications 2]]]])))

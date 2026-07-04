@@ -22,6 +22,15 @@
           day (last parts)]
       (str year "-" month "-" day))))
 
+(defn today-iso
+  "Today's date as a YYYY-MM-DD string in local time."
+  []
+  (let [d (js/Date.)
+        pad (fn [n] (if (< n 10) (str "0" n) (str n)))]
+    (str (.getFullYear d)
+         "-" (pad (inc (.getMonth d)))
+         "-" (pad (.getDate d)))))
+
 ;; Data transformation helpers
 (defn unique-countries
   [classifications]

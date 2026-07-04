@@ -3,7 +3,7 @@
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.text-field :as mui-text-field]
             [wine-cellar.api :as api]
-            [wine-cellar.utils.formatting :refer [format-date-iso]]
+            [wine-cellar.utils.formatting :refer [format-date-iso today-iso]]
             [wine-cellar.common :as common]
             [wine-cellar.views.components.form :refer
              [checkbox-field date-field form-actions form-container form-row
@@ -32,6 +32,7 @@
     :new-tasting-note
     #(-> %
          (assoc :wine-id wine-id)
+         (update :tasting_date (fn [d] (or d (today-iso))))
          (dissoc :notes))))
 
 (defn- get-form-state
