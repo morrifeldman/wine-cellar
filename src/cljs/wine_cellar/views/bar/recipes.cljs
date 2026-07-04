@@ -717,34 +717,37 @@
 
 (defn- tag-filter-bar
   [selected-tags all-tags]
-  [box
-   {:sx
-    {:display "flex" :gap 0.5 :flexWrap "wrap" :alignItems "center" :mb 1.5}}
-   (for [tag all-tags]
-     (let [active? (contains? @selected-tags tag)]
-       ^{:key tag}
-       [chip
-        {:label tag
-         :size "small"
-         :clickable true
-         :on-click #(swap! selected-tags
-                      (fn [s] (if (contains? s tag) (disj s tag) (conj s tag))))
-         :sx {:height 24
-              :fontSize "0.72rem"
-              :letterSpacing "0.02em"
-              :bgcolor
-              (if active? "rgba(232,195,200,0.22)" "rgba(232,195,200,0.06)")
-              :color "rgba(232,195,200,0.95)"
-              :border
-              (str "1px solid "
-                   (if active? "rgba(232,195,200,0.6)" "rgba(232,195,200,0.2)"))
-              "@media (hover: hover)" {"&:hover"
-                                       {:bgcolor "rgba(232,195,200,0.18)"}}}}]))
-   (when (seq @selected-tags)
-     [button
-      {:size "small"
-       :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
-       :on-click #(reset! selected-tags #{})} "clear"])])
+  (let [selected @selected-tags]
+    [box
+     {:sx
+      {:display "flex" :gap 0.5 :flexWrap "wrap" :alignItems "center" :mb 1.5}}
+     (for [tag all-tags]
+       (let [active? (contains? selected tag)]
+         ^{:key tag}
+         [chip
+          {:label tag
+           :size "small"
+           :clickable true
+           :on-click
+           #(swap! selected-tags
+              (fn [s] (if (contains? s tag) (disj s tag) (conj s tag))))
+           :sx {:height 24
+                :fontSize "0.72rem"
+                :letterSpacing "0.02em"
+                :bgcolor
+                (if active? "rgba(232,195,200,0.22)" "rgba(232,195,200,0.06)")
+                :color "rgba(232,195,200,0.95)"
+                :border (str "1px solid "
+                             (if active?
+                               "rgba(232,195,200,0.6)"
+                               "rgba(232,195,200,0.2)"))
+                "@media (hover: hover)"
+                {"&:hover" {:bgcolor "rgba(232,195,200,0.18)"}}}}]))
+     (when (seq selected)
+       [button
+        {:size "small"
+         :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+         :on-click #(reset! selected-tags #{})} "clear"])]))
 
 (defn- makeable-filter-chip
   "Single three-state makeability toggle: clicking cycles
@@ -837,7 +840,8 @@
    category's item chips; a chip shows how many of its items are selected."
   [open-cat selected-ingredients vocab]
   (let [by-cat (group-by :category vocab)
-        sel @selected-ingredients]
+        sel @selected-ingredients
+        open @open-cat]
     [box
      {:sx {:display "flex"
            :gap 0.5
@@ -848,7 +852,7 @@
      (for [cat inv/category-order
            :when (contains? by-cat cat)]
        (let [n (count (filter #(contains? sel (:id %)) (by-cat cat)))
-             open? (= @open-cat cat)
+             open? (= open cat)
              hot? (or open? (pos? n))
              rgb (category-rgb cat)]
          ^{:key cat}
@@ -876,34 +880,35 @@
 (defn- ingredient-item-bar
   "Second level of the ingredient filter: item chips for the open category."
   [selected-ingredients items]
-  [box
-   {:sx {:display "flex"
-         :gap 0.5
-         :flexWrap "wrap"
-         :alignItems "center"
-         :mb 1.5
-         :ml 2}}
-   (for [item items]
-     (let [active? (contains? @selected-ingredients (:id item))
-           rgb (category-rgb (:category item))]
-       ^{:key (:id item)}
-       [chip
-        {:label (:name item)
-         :size "small"
-         :clickable true
-         :on-click #(swap! selected-ingredients (fn [s]
-                                                  (if (contains? s (:id item))
-                                                    (disj s (:id item))
-                                                    (conj s (:id item)))))
-         :sx {:height 22
-              :fontSize "0.7rem"
-              :letterSpacing "0.02em"
-              :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
-              :color (str "rgba(" rgb ",0.95)")
-              :border
-              (str "1px solid rgba(" rgb "," (if active? "0.6" "0.25") ")")
-              "@media (hover: hover)"
-              {"&:hover" {:bgcolor (str "rgba(" rgb ",0.15)")}}}}]))])
+  (let [sel @selected-ingredients]
+    [box
+     {:sx {:display "flex"
+           :gap 0.5
+           :flexWrap "wrap"
+           :alignItems "center"
+           :mb 1.5
+           :ml 2}}
+     (for [item items]
+       (let [active? (contains? sel (:id item))
+             rgb (category-rgb (:category item))]
+         ^{:key (:id item)}
+         [chip
+          {:label (:name item)
+           :size "small"
+           :clickable true
+           :on-click #(swap! selected-ingredients (fn [s]
+                                                    (if (contains? s (:id item))
+                                                      (disj s (:id item))
+                                                      (conj s (:id item)))))
+           :sx {:height 22
+                :fontSize "0.7rem"
+                :letterSpacing "0.02em"
+                :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
+                :color (str "rgba(" rgb ",0.95)")
+                :border
+                (str "1px solid rgba(" rgb "," (if active? "0.6" "0.25") ")")
+                "@media (hover: hover)"
+                {"&:hover" {:bgcolor (str "rgba(" rgb ",0.15)")}}}}]))]))
 
 (defn- refresh-all-bar
   "Re-resolve every recipe's spirit/ingredient links sequentially, with a live

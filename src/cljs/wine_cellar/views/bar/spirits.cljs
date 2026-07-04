@@ -460,12 +460,13 @@
   categories to show (in canonical `spirit-categories` order)."
   [selected-categories present-categories]
   (let [present (set present-categories)
-        cats (filter present spirit-categories)]
+        cats (filter present spirit-categories)
+        selected @selected-categories]
     [box
      {:sx
       {:display "flex" :gap 0.5 :flexWrap "wrap" :alignItems "center" :mb 1.5}}
      (for [cat cats]
-       (let [active? (contains? @selected-categories cat)
+       (let [active? (contains? selected cat)
              {:keys [base text]}
              (get category-colors cat {:base "160,160,160" :text "#c0c0c0"})]
          ^{:key cat}
@@ -485,7 +486,7 @@
                 (str "1px solid rgba(" base "," (if active? "0.6" "0.2") ")")
                 "@media (hover: hover)"
                 {"&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}}]))
-     (when (seq @selected-categories)
+     (when (seq selected)
        [button
         {:size "small"
          :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
@@ -500,7 +501,8 @@
                           (remove #(str/blank? (:subcat %)))
                           distinct
                           (sort-by (fn [{:keys [cat subcat]}]
-                                     [(get cat-order cat 99) subcat])))]
+                                     [(get cat-order cat 99) subcat])))
+        selected @selected-subcategories]
     (when (seq sorted-pairs)
       [:<> [divider {:sx {:mb 1 :borderColor "rgba(232,195,200,0.35)"}}]
        [box
@@ -512,7 +514,7 @@
               :ml 1}}
         (let [indexed (map-indexed vector sorted-pairs)]
           (for [[i {:keys [subcat cat]}] indexed]
-            (let [active? (contains? @selected-subcategories subcat)
+            (let [active? (contains? selected subcat)
                   {:keys [base text]} (get category-colors
                                            cat
                                            {:base "160,160,160"
@@ -544,7 +546,7 @@
                   (str "1px solid rgba(" base "," (if active? "0.6" "0.2") ")")
                   "@media (hover: hover)"
                   {"&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}}]])))
-        (when (seq @selected-subcategories)
+        (when (seq selected)
           [button
            {:size "small"
             :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
