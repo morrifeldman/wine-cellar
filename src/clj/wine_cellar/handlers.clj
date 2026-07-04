@@ -512,57 +512,47 @@
 (defn refresh-recipe-links
   "Re-resolves a stored recipe's links against current inventory via an id-keyed
    resolution call (no re-extraction, so ingredient text is never paraphrased).
-   The fresh run is authoritative: each ingredient's :inventory_item_ids and each
-   spirit tag's :spirit_id are rewritten from the result by index — links the AI
-   no longer makes are cleared. Out-of-stock items and spirits are in the prompt,
-   so they can still be re-linked."
+   The fresh run is authoritative: each ingredient's :inventory_item_ids,
+   :garnish and :spirit spec are rewritten from the result by index — links the
+   AI no longer makes are cleared. Out-of-stock items and spirits are in the
+   prompt, so they can still be re-linked. Legacy :spirit_tags are passed as
+   hints and left untouched in the DB, so refreshing also migrates old recipes
+   to the embedded-:spirit shape."
   [{{{:keys [id]} :path} :parameters}]
   (with-ai-error
    (if-let [recipe (db-api/get-cocktail-recipe id)]
      (let [ingredients (:ingredients recipe)
-           spirit-tags (:spirit_tags recipe)
            bar {:spirits (db-api/get-spirits)
                 :inventory-items (db-api/get-bar-inventory-items)}
-           result (ai/resolve-recipe-links ingredients spirit-tags bar)]
+           result
+           (ai/resolve-recipe-links ingredients (:spirit_tags recipe) bar)]
        (if result
          (let [link-by-idx
                (into {} (map (juxt :index identity)) (:ingredient_links result))
-               spirit-by-idx
-               (into {} (map (juxt :index identity)) (:spirit_links result))
+               spirit-by-idx (into {}
+                                   (map (juxt :ingredient_index identity))
+                                   (:spirit_links result))
                new-ings
-               (vec (map-indexed
-                     (fn [i ing]
-                       (let [{:keys [inventory_item_ids garnish]}
-                             (get link-by-idx i)]
-                         (cond-> (-> ing
-                                     (dissoc :inventory_item_ids :garnish))
-                           (seq inventory_item_ids)
-                           (assoc :inventory_item_ids (vec inventory_item_ids))
-                           (true? garnish) (assoc :garnish true))))
-                     ingredients))
-               new-tags
                (vec
                 (map-indexed
-                 (fn [i tag]
-                   (let [{:keys [spirit_id ingredient_index category
-                                 subcategory]}
+                 (fn [i ing]
+                   (let [{:keys [inventory_item_ids garnish]} (get link-by-idx
+                                                                   i)
+                         {:keys [spirit_id category subcategory]}
                          (get spirit-by-idx i)]
-                     (cond-> (dissoc tag :spirit_id :ingredient_index)
-                       spirit_id (assoc :spirit_id spirit_id)
-                       (integer? ingredient_index) (assoc :ingredient_index
-                                                          ingredient_index)
-                       ;; Re-resolve the recipe's style against the
-                       ;; user's current taxonomy (e.g. "Dry" →
-                       ;; "London Dry" after they reorganize).
-                       (seq category) (assoc :category category)
-                       (seq subcategory) (assoc :subcategory subcategory)
-                       (and (contains? (get spirit-by-idx i) :subcategory)
-                            (not (seq subcategory)))
-                       (dissoc :subcategory))))
-                 spirit-tags))]
-           (response/response (db-api/update-cocktail-recipe!
-                               id
-                               {:spirit_tags new-tags :ingredients new-ings})))
+                     (cond-> (dissoc ing :inventory_item_ids :garnish :spirit)
+                       (seq inventory_item_ids) (assoc :inventory_item_ids
+                                                       (vec inventory_item_ids))
+                       (true? garnish) (assoc :garnish true)
+                       (seq category) (assoc :spirit
+                                             (cond-> {:category category}
+                                               (seq subcategory)
+                                               (assoc :subcategory subcategory)
+                                               spirit_id (assoc :spirit_id
+                                                                spirit_id))))))
+                 ingredients))]
+           (response/response
+            (db-api/update-cocktail-recipe! id {:ingredients new-ings})))
          {:status 422 :body {:error "Could not refresh recipe links"}}))
      (not-found "Recipe"))))
 

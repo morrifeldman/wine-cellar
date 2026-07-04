@@ -308,8 +308,8 @@
 
 (defn- bottle-chip
   "Clickable chip for a bottle under a spirit ingredient. `:dim?` dims it and
-   prefixes a `~`; `:suffix` appends a ` · <suffix>` note (the actual subcategory
-   for a substitute, or \"out of stock\" for an unavailable link)."
+   prefixes a `~`; `:suffix` appends a ` · <suffix>` note (\"out of stock\" for
+   an unavailable link)."
   [app-state recipe-id spirit {:keys [dim? suffix]}]
   (let [base (str/join " · "
                        (filter seq [(:distillery spirit) (:name spirit)]))]
@@ -329,42 +329,39 @@
                                                "rgba(232,195,200,0.16)"}}}}]))
 
 (defn- spirit-bottle-chips
-  "Bottle chips for a spirit tag. A named bottle (:spirit_id) shows alone, even
-   when out of stock; otherwise owned category/subcategory matches show as
-   substitutes. nil when nothing's on hand."
-  [app-state recipe-id spirits tag]
-  (let [{:keys [exact sub alts]} (matching/bottles-for-tag spirits tag)
-        owned? (fn [b] (pos? (or (:quantity b) 1)))
+  "Bottle chips for an ingredient's spirit spec, from precomputed
+   bottles-for-spec tiers. A named bottle (:spirit_id) shows alone, even when
+   out of stock; otherwise owned category/subcategory matches show. No
+   cross-subcategory substitutes — the category chip is the browse path. nil
+   when nothing's on hand."
+  [app-state recipe-id {:keys [exact sub]}]
+  (let [owned? (fn [b] (pos? (or (:quantity b) 1)))
         exact-in (filter owned? exact)
-        exact-out (remove owned? exact)
-        sub-chips (fn [bs]
-                    (for [b bs]
-                      ^{:key (str "s-" (:id b))}
-                      [bottle-chip app-state recipe-id b {}]))
-        alt-chips (fn [bs]
-                    (for [b bs]
-                      ^{:key (str "a-" (:id b))}
-                      [bottle-chip app-state recipe-id b
-                       {:dim? true :suffix (:subcategory b)}]))]
-    (cond (seq exact-in) (sub-chips exact-in)
+        exact-out (remove owned? exact)]
+    (cond (seq exact-in) (for [b exact-in]
+                           ^{:key (str "s-" (:id b))}
+                           [bottle-chip app-state recipe-id b {}])
           ;; Named bottle out of stock: show only it (dimmed, "out of
-          ;; stock"). bottles-for-tag returns no sub/alts when a bottle is
-          ;; named, so there are no substitutes to surface — use the
-          ;; category chip.
+          ;; stock"); explore alternatives via the category chip.
           (seq exact-out) (for [b exact-out]
                             ^{:key (str "x-" (:id b))}
                             [bottle-chip app-state recipe-id b
                              {:dim? true :suffix "out of stock"}])
-          (seq sub) (sub-chips sub)
-          (seq alts) (alt-chips alts)
+          (seq sub) (for [b sub]
+                      ^{:key (str "s-" (:id b))}
+                      [bottle-chip app-state recipe-id b {}])
           :else nil)))
 
 (defn- spirit-category-chip
-  "Clickable taxonomy chip (e.g. \"Dry Gin\") that opens the Spirits tab filtered
-   to that category/subcategory."
-  [app-state recipe-id {:keys [category subcategory]}]
+  "Clickable taxonomy chip (e.g. \"Dry Gin\") that opens the Spirits tab
+   filtered to that category/subcategory. When nothing matching the spec is
+   owned (per the bottles-for-spec tiers), opens the whole category instead so
+   the user can browse it and judge substitutions themselves."
+  [app-state recipe-id {:keys [category subcategory]} {:keys [exact sub]}]
   (let [{:keys [base text]}
         (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
+        owned? (fn [b] (pos? (or (:quantity b) 1)))
+        none-owned? (and (empty? (filter owned? exact)) (empty? sub))
         ;; "other" is a catch-all; when a subcategory names the spirit
         ;; (e.g. "Absinthe") show just that rather than "Absinthe Other".
         label (if (and (= category "other") (seq subcategory))
@@ -375,8 +372,10 @@
      {:label label
       :size "small"
       :clickable true
-      :on-click
-      #(view-category-from-recipe! app-state recipe-id category subcategory)
+      :on-click #(view-category-from-recipe! app-state
+                                             recipe-id
+                                             category
+                                             (when-not none-owned? subcategory))
       :sx {:height 22
            :fontSize "0.7rem"
            :letterSpacing "0.02em"
@@ -388,37 +387,35 @@
 
 (defn- ingredients-list
   [app-state recipe statuses inventory-items spirits]
-  (let [tag-map (matching/ingredient-tag-map (:ingredients recipe)
-                                             (distinct (:spirit_tags recipe))
-                                             spirits)]
-    [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
-     (map-indexed
-      (fn [idx {:keys [amount unit name] :as ingredient}]
-        (let [{:keys [glyph color]} (ingredient-mark (get statuses name))
-              tag (get tag-map idx)]
-          ^{:key idx}
-          [:li
-           [typography {:variant "body2"}
-            [box
-             {:component "span"
-              :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}} glyph]
-            (str/join " " (filter seq [amount unit name]))]
-           (if tag
+  [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
+   (map-indexed
+    (fn [idx {:keys [amount unit name spirit] :as ingredient}]
+      (let [{:keys [glyph color]} (ingredient-mark (get statuses name))]
+        ^{:key idx}
+        [:li
+         [typography {:variant "body2"}
+          [box
+           {:component "span"
+            :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}} glyph]
+          (str/join " " (filter seq [amount unit name]))]
+         (if spirit
+           (let [tiers (matching/bottles-for-spec spirits spirit)]
              [box
               {:sx {:display "flex"
                     :flexWrap "wrap"
                     :alignItems "center"
                     :gap 0.5
                     :mt 0.25
-                    :mb 0.25}} [spirit-category-chip app-state (:id recipe) tag]
-              (or (spirit-bottle-chips app-state (:id recipe) spirits tag)
+                    :mb 0.25}}
+              [spirit-category-chip app-state (:id recipe) spirit tiers]
+              (or (spirit-bottle-chips app-state (:id recipe) tiers)
                   [typography
                    {:variant "body2"
                     :sx {:color "text.secondary"
                          :fontSize "0.78rem"
-                         :fontStyle "italic"}} "none on hand"])]
-             [ingredient-link-chips inventory-items ingredient])]))
-      (:ingredients recipe))]))
+                         :fontStyle "italic"}} "none on hand"])])
+           [ingredient-link-chips inventory-items ingredient])]))
+    (:ingredients recipe))])
 
 (defn- tags-editor
   [_app-state _recipe _all-tags]
