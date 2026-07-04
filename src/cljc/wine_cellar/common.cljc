@@ -127,7 +127,7 @@
   {:region
    "The major wine area. For Old World: Bordeaux, Tuscany, Rioja. For US: Napa Valley, Sonoma County, Willamette Valley (NOT 'California' unless generic)."
    :appellation
-   "The specific legal place name (AOC/AVA). If no sub-appellation exists, repeat the Region."
+   "The specific legal place name (AOC/AVA). If no sub-appellation exists, repeat the Region. Leave empty for wines with no geographic indication (e.g., Vin de France, Vino da Tavola)."
    :appellation_tier "The regulatory status acronym (e.g., AOC, DOCG, AVA, GI)."
    :classification
    "The quality rank of the site/estate (e.g., Grand Cru, Premier Cru). NOT for regulatory tiers."

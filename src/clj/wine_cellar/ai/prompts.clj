@@ -456,6 +456,7 @@
 2. Appellation (Specific Legal Place):
    - The specific AOC/AVA (e.g., Pauillac, Oakville, Russian River Valley).
    - REDUNDANCY RULE: If a wine has no sub-appellation, repeat the Region name (e.g., Region: \"Napa Valley\", Appellation: \"Napa Valley\").
+   - NO-GI EXCEPTION: If the wine carries no geographic indication (e.g., Vin de France, Vino da Tavola), leave Appellation empty; still set Appellation Tier.
 3. Appellation Tier (Regulatory Acronym):
    - Use the acronym: AOC, DOCG, AVA, DOQ, etc.
 4. Classification (Quality/Site Rank):
