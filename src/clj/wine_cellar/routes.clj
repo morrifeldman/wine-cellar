@@ -173,7 +173,14 @@
 (s/def ::sort_order (s/nilable int?))
 (s/def ::amount (s/nilable string?))
 (s/def ::unit (s/nilable string?))
-(s/def ::ingredient (s/keys :req-un [::name] :opt-un [::amount ::unit]))
+(s/def ::spirit_id pos-int?)
+(s/def ::garnish boolean?)
+(s/def ::inventory_item_ids (s/coll-of pos-int?))
+(s/def ::spirit
+  (s/keys :req-un [::category] :opt-un [::subcategory ::spirit_id]))
+(s/def ::ingredient
+  (s/keys :req-un [::name]
+          :opt-un [::amount ::unit ::garnish ::inventory_item_ids ::spirit]))
 (s/def ::ingredients (s/coll-of ::ingredient))
 (s/def ::instructions (s/nilable string?))
 (s/def ::tags (s/nilable (s/coll-of string?)))
