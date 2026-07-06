@@ -117,14 +117,15 @@
   ([text] (extract-cocktail-recipe text nil))
   ([text existing-tags]
    (try (anthropic/extract-cocktail-recipe text existing-tags)
-        (catch Exception _ nil))))
+        (catch Exception e (tap> ["❌ extract-cocktail-recipe failed" e]) nil))))
 
 (defn resolve-recipe-links
   "Resolves a recipe's ingredient/spirit links to the bar by #id, keyed by
    index. Always uses Anthropic. Returns {:ingredient_links [...]
    :spirit_links [...]} or nil on failure."
   [recipe bar]
-  (try (anthropic/resolve-recipe-links recipe bar) (catch Exception _ nil)))
+  (try (anthropic/resolve-recipe-links recipe bar)
+       (catch Exception e (tap> ["❌ resolve-recipe-links failed" e]) nil)))
 
 (defn get-model-info
   "Returns current model configuration for each provider and the default provider"
