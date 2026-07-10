@@ -517,7 +517,8 @@
      (map-indexed
       (fn [i ing]
         (let [{:keys [inventory_item_ids garnish]} (get link-by-idx i)
-              {:keys [spirit_id category subcategory]} (get spirit-by-idx i)
+              {:keys [spirit_id category subcategory preferred_spirit_ids]}
+              (get spirit-by-idx i)
               garnish? (or (true? garnish) (true? (:garnish ing)))
               spec? (and (seq category)
                          (or spirit_id
@@ -531,7 +532,10 @@
             spec? (assoc :spirit
                          (cond-> {:category category}
                            (seq subcategory) (assoc :subcategory subcategory)
-                           spirit_id (assoc :spirit_id spirit_id))))))
+                           spirit_id (assoc :spirit_id spirit_id)
+                           (seq preferred_spirit_ids)
+                           (assoc :preferred_spirit_ids
+                                  (vec preferred_spirit_ids)))))))
       ingredients))))
 
 (defn extract-cocktail-recipe

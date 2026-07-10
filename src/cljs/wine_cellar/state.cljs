@@ -64,7 +64,7 @@
          :recipes []
          :loading? false
          :error nil
-         :active-tab :spirits
+         :active-tab :recipes
          :show-spirit-form? false
          :editing-spirit-id nil
          :show-recipe-form? false

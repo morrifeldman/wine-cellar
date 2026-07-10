@@ -457,7 +457,14 @@
        "spirit_id null and rely on the category/subcategory match; do NOT "
        "pin it to whatever bottle the user happens to own in that style, and "
        "brands mentioned in the recipe text merely as options or "
-       "suggestions do not count. null is the default. category/subcategory "
+       "suggestions do not count (report those in preferred_spirit_ids "
+       "instead). null is the default. "
+       "preferred_spirit_ids = the #ids of owned bottles the recipe text "
+       "explicitly recommends or offers as good choices for this line (e.g. "
+       "\"Buffalo Trace or Old Forester 1910 are great picks here\"), in the "
+       "order mentioned. These are soft suggestions, never requirements. Use "
+       "an empty array when the text recommends none; never include a bottle "
+       "the text does not mention. category/subcategory "
        "= the style the recipe calls for, judged from the ingredient name "
        "and recipe text. Set subcategory ONLY when the recipe actually "
        "specifies a style (\"London Dry gin\", \"blanco tequila\", "
@@ -471,12 +478,14 @@
        "Sec}, {other, Absinthe}) or carry a spirit_id; if you cannot name "
        "one, omit the entry entirely.")
       :items {:type "object"
-              :required ["ingredient_index" "spirit_id" "category"
-                         "subcategory"]
+              :required ["ingredient_index" "spirit_id" "category" "subcategory"
+                         "preferred_spirit_ids"]
               :properties {:ingredient_index {:type "integer"}
                            :spirit_id {:type ["integer" "null"]}
                            :category {:type "string" :enum spirit-categories}
-                           :subcategory {:type ["string" "null"]}}}}}
+                           :subcategory {:type ["string" "null"]}
+                           :preferred_spirit_ids {:type "array"
+                                                  :items {:type "integer"}}}}}}
     :required ["ingredient_links" "spirit_links"]
     :additionalProperties false}})
 
@@ -515,7 +524,8 @@
                         "style each ingredient calls for and which lines are "
                         "garnishes; brands mentioned here as options or "
                         "suggestions justify neither a spirit_id nor a "
-                        "subcategory):\n" recipe-context))
+                        "subcategory, but owned bottles among them belong in "
+                        "preferred_spirit_ids):\n" recipe-context))
                  "\n\n=== Bar Inventory ===\n"
                  bar-text)
         request {:messages [{:role "user" :content content}]

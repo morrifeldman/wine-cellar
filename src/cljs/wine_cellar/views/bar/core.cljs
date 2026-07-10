@@ -11,7 +11,7 @@
             [wine-cellar.views.bar.recipes :refer
              [recipes-tab save-recipe-dialog]]))
 
-(def tab-values {:spirits 0 :recipes 1 :inventory 2})
+(def tab-values {:recipes 0 :spirits 1 :inventory 2})
 
 (def tab-keys (into {} (map (fn [[k v]] [v k]) tab-values)))
 
@@ -22,7 +22,7 @@
 
 (defn bar-page
   [app-state]
-  (let [active-tab (get-in @app-state [:bar :active-tab] :spirits)
+  (let [active-tab (get-in @app-state [:bar :active-tab] :recipes)
         tab-index (get tab-values active-tab 0)]
     [box
      [box
@@ -40,8 +40,8 @@
         :on-change (fn [_ v]
                      (swap! app-state assoc-in
                        [:bar :active-tab]
-                       (get tab-keys v :spirits)))
-        :sx {:flex 1}} [tab {:label "Spirits"}] [tab {:label "Recipes"}]
+                       (get tab-keys v :recipes)))
+        :sx {:flex 1}} [tab {:label "Recipes"}] [tab {:label "Spirits"}]
        [tab {:label "Mixers"}]]
       [button
        {:size "small"
@@ -53,4 +53,4 @@
        :spirits [spirits-tab app-state]
        :recipes [recipes-tab app-state]
        :inventory [inventory-tab app-state]
-       [spirits-tab app-state]) [save-recipe-dialog app-state]]))
+       [recipes-tab app-state]) [save-recipe-dialog app-state]]))

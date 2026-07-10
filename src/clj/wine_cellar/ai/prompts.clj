@@ -255,21 +255,21 @@
     (let [spirits-section
           (when (seq spirits)
             (let [by-cat (group-by :category spirits)]
-              (str "Spirits (" (count spirits)
-                   " bottles):\n"
+              (str
+               "Spirits (" (count spirits)
+               " bottles):\n"
+               (str/join
+                "\n"
+                (for [[cat items] by-cat]
+                  (str
+                   "  " (str/capitalize cat)
+                   ": "
                    (str/join
-                    "\n"
-                    (for [[cat items] by-cat]
-                      (str
-                       "  " (str/capitalize cat)
-                       ": "
-                       (str/join
-                        ", "
-                        (map
-                         (fn [{:keys [id name subcategory distillery proof
-                                      age_statement country region notes]}]
-                           (str
-                            (when id (str "#" id " "))
+                    ", "
+                    (map
+                     (fn [{:keys [id name subcategory distillery proof
+                                  age_statement country region notes quantity]}]
+                       (str (when id (str "#" id " "))
                             name
                             (when subcategory (str " (" subcategory ")"))
                             (when distillery (str " [" distillery "]"))
@@ -277,8 +277,12 @@
                             (when age_statement (str ", " age_statement))
                             (when country
                               (str ", " country (when region (str "/" region))))
+                            (when (and quantity (zero? quantity))
+                              " (OUT OF STOCK)")
+                            (when (and quantity (> quantity 1))
+                              (str " (x" quantity ")"))
                             (when notes (str " — " notes))))
-                         items))))))))
+                     items))))))))
           inventory-section
           (when (seq inventory-items)
             (let [by-cat (group-by :category inventory-items)]
