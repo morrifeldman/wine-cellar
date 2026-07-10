@@ -302,17 +302,27 @@
           recipes-section
           (when (seq recipes)
             (str "Saved Recipes (" (count recipes)
-                 "):\n" (str/join
-                         "\n"
-                         (map (fn [r]
-                                (str "  "
-                                     (:name r)
-                                     (when (seq (:tags r))
-                                       (str " [" (str/join ", " (:tags r)) "]"))
-                                     " — "
-                                     (count (:ingredients r))
-                                     " ingredients"))
-                              recipes))))]
+                 "):\n"
+                 (str/join
+                  "\n"
+                  (map (fn [{:keys [name tags rating ingredients]}]
+                         (str "  "
+                              name
+                              (when (seq tags)
+                                (str " [" (str/join ", " tags) "]"))
+                              (when rating (str " (rated " rating "/10)"))
+                              (when (seq ingredients)
+                                (str ": "
+                                     (str/join
+                                      ", "
+                                      (map (fn [{:keys [amount unit name]}]
+                                             (str/join " "
+                                                       (filter seq
+                                                               (map str
+                                                                    [amount unit
+                                                                     name]))))
+                                           ingredients))))))
+                       recipes))))]
       (str/join "\n\n"
                 (filter identity
                         [spirits-section inventory-section recipes-section])))))
