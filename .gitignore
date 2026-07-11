@@ -63,6 +63,3 @@ test-results/
 WhatsApp Image*
 
 
-
-# Local dev overrides (not committed)
-scripts/dev-env.local.sh

@@ -15,9 +15,7 @@ cd "$(dirname "$0")/.."
 
 SESSION=wine-dev
 
-# Local overrides (git-ignored) — e.g. NGROK_URL, which shouldn't live in a
-# public repo. Falls back to the pass entry wine-cellar/ngrok-url if present.
-[[ -f scripts/dev-env.local.sh ]] && source scripts/dev-env.local.sh
+# NGROK_URL shouldn't live in this public repo — read it from pass.
 if [[ -z "${NGROK_URL:-}" ]]; then
   NGROK_URL="$(pass show wine-cellar/ngrok-url 2>/dev/null || true)"
 fi
@@ -25,7 +23,7 @@ if [[ -n "${NGROK_URL:-}" ]]; then
   export NGROK_URL
 else
   unset NGROK_URL # dev-all treats any set value (even "") as "run ngrok"
-  echo "NGROK_URL not configured (scripts/dev-env.local.sh or pass wine-cellar/ngrok-url); starting without ngrok."
+  echo "NGROK_URL not configured (pass wine-cellar/ngrok-url); starting without ngrok."
 fi
 
 # Defaults — override any of these by exporting before running.
