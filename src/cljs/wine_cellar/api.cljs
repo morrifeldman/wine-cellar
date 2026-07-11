@@ -1593,26 +1593,35 @@
 
 (defn refresh-all-recipe-links
   "Sequentially refreshes every recipe's links, updating
-   [:bar :refresh-progress] as it goes. Stops early when :stop? is set; a single
-   recipe's failure is skipped so the batch continues."
+   [:bar :refresh-progress] as it goes (:current holds the name of the recipe
+   being resolved). Stops early when :stop? is set; a single recipe's failure
+   is skipped so the batch continues."
   [app-state]
-  (let [ids (mapv :id (get-in @app-state [:bar :recipes]))]
+  (let [entries (mapv (juxt :id :name) (get-in @app-state [:bar :recipes]))]
     (swap! app-state assoc-in
       [:bar :refresh-progress]
-      {:running? true :done 0 :total (count ids) :stop? false})
-    (go (loop [[id & more] ids]
-          (if (or (nil? id) (get-in @app-state [:bar :refresh-progress :stop?]))
-            (swap! app-state assoc-in [:bar :refresh-progress :running?] false)
-            (let [result (<! (POST
-                              (str "/api/cocktail-recipes/" id "/refresh-links")
-                              {}
-                              "Failed to refresh recipe links"))]
-              (when (:success result)
-                (swap! app-state update-in
-                  [:bar :recipes]
-                  (fn [rs] (mapv #(if (= (:id %) id) (:data result) %) rs))))
-              (swap! app-state update-in [:bar :refresh-progress :done] inc)
-              (recur more)))))))
+      {:running? true :done 0 :total (count entries) :stop? false})
+    (go
+     (loop [[[id recipe-name] & more] entries]
+       (if (or (nil? id) (get-in @app-state [:bar :refresh-progress :stop?]))
+         (swap! app-state update-in
+           [:bar :refresh-progress]
+           assoc
+           :running? false
+           :current nil)
+         (do (swap! app-state assoc-in
+               [:bar :refresh-progress :current]
+               recipe-name)
+             (let [result
+                   (<! (POST (str "/api/cocktail-recipes/" id "/refresh-links")
+                             {}
+                             "Failed to refresh recipe links"))]
+               (when (:success result)
+                 (swap! app-state update-in
+                   [:bar :recipes]
+                   (fn [rs] (mapv #(if (= (:id %) id) (:data result) %) rs))))
+               (swap! app-state update-in [:bar :refresh-progress :done] inc)
+               (recur more))))))))
 
 (defn delete-cocktail-recipe
   [app-state id]

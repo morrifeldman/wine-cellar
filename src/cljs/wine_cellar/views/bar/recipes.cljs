@@ -971,10 +971,10 @@
 
 (defn- refresh-all-bar
   "Re-resolve every recipe's spirit/ingredient links sequentially, with a live
-   progress count and a stop control."
+   count naming the recipe being resolved and a stop control."
   [app-state]
-  (let [{:keys [running? done total]} (get-in @app-state
-                                              [:bar :refresh-progress])]
+  (let [{:keys [running? done total current]} (get-in @app-state
+                                                      [:bar :refresh-progress])]
     [box {:sx {:display "flex" :alignItems "center" :gap 0.5 :mt 2}}
      [button
       {:variant "text"
@@ -983,7 +983,13 @@
        :start-icon (when running? (r/as-element [circular-progress {:size 14}]))
        :on-click #(api/refresh-all-recipe-links app-state)
        :sx {:color "text.secondary" :textTransform "none" :fontSize "0.78rem"}}
-      (if running? (str "Refreshing… " done "/" total) "Refresh all links")]
+      (if running?
+        (str "Refreshing… "
+             done
+             "/"
+             total
+             (when (seq current) (str " · " current)))
+        "Refresh all links")]
      (when running?
        [button
         {:variant "text"
