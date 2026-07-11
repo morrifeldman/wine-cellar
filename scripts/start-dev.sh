@@ -39,18 +39,14 @@ if [[ "${1:-}" == "--no-tmux" ]] || ! command -v tmux >/dev/null; then
   exec clojure -M:dev-all
 fi
 
-# Link the dev window into the user's working session so it's one Ctrl-b n
+# Link the dev window into the invoking tmux session so it's one Ctrl-b n
 # away, while the canonical wine-dev session keeps it alive independently.
-link_into_active_session() {
+# $TMUX names the exact session — it's inherited even by Claude's shells,
+# since claude is launched inside tmux. Outside tmux we don't guess.
+link_into_current_session() {
+  [[ -z "${TMUX:-}" ]] && return 0
   local target
-  if [[ -n "${TMUX:-}" ]]; then
-    target="$(tmux display-message -p '#S')"
-  else
-    # Invoked outside tmux (e.g. by Claude): link into the most recently
-    # active attached session, if any.
-    target="$(tmux list-clients -F '#{client_activity} #{client_session}' 2>/dev/null |
-      sort -rn | awk 'NR==1 {print $2}')"
-  fi
+  target="$(tmux display-message -p '#S')"
   [[ -z "$target" || "$target" == "$SESSION" ]] && return 0
   if ! tmux list-windows -t "$target" -F '#{window_name}' | grep -qx "$SESSION"; then
     tmux link-window -d -s "$SESSION:^" -t "$target" 2>/dev/null &&
@@ -71,7 +67,7 @@ else
   tmux new-session -d -s "$SESSION" -n "$SESSION" "scripts/start-dev.sh --no-tmux"
   echo "Started dev environment in tmux session '$SESSION'."
 fi
-link_into_active_session
+link_into_current_session
 
 if [[ "${1:-}" == "--attach" && -t 0 ]]; then
   if [[ -n "${TMUX:-}" ]]; then
