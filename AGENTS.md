@@ -9,7 +9,7 @@
 - `npx shadow-cljs release app` - production bundle
 
 ## Dev Environment Ownership
-- The dev stack lives in tmux session `wine-dev` so it survives any single terminal or Claude session
+- The dev stack lives in tmux session `wine-dev` so it survives any single terminal or Claude session; start-dev also links it as a window into the user's most recently active tmux session for easy viewing
 - Claude may health-check (ports 3000/8080) and restart it via `scripts/start-dev.sh` when it's down — check `tmux ls` and ports first, never double-start
 - Read logs with `tmux capture-pane -pt wine-dev`; stop with `tmux send-keys -t wine-dev C-c` (dev-all's shutdown hook tears down all three processes)
 - Model config env vars use `_LIGHT_MODEL` (not `LITE`) — same names as the GitHub repository variables
