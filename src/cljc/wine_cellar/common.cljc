@@ -12,6 +12,12 @@
     :gemini "Gemini"
     nil "..."))
 
+(def spirit-categories
+  "Canonical spirit category list, shared by the bar UI, the recipe
+   extraction tool schema, and the spirit label analysis prompt."
+  ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur"
+   "vermouth" "other"])
+
 (def grab-bag-spirit-categories
   "Spirit categories whose bottles are NOT interchangeable (Campari ≠ triple
    sec ≠ Chartreuse; absinthe ≠ aquavit). A spirit spec in one of these is

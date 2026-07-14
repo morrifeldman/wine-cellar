@@ -559,18 +559,19 @@
 
 (defn spirit-label-analysis-system-prompt
   ([] (spirit-label-analysis-system-prompt nil))
-  ([existing-subcategories]
+  ([subcategory-tree]
    (let
-     [categories (str/join ", "
-                           ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal"
-                            "brandy" "liqueur" "other"])
+     [categories (str/join ", " common/spirit-categories)
       subcategory-hint
-      (when (seq existing-subcategories)
+      (when (seq subcategory-tree)
         (str
-         " Known subcategories already in use: "
-         (str/join ", " (sort existing-subcategories))
-         "."
-         " Prefer these when applicable, but you may use a new one if none fit."))]
+         " Known subcategories already in use, by category:\n"
+         (str/join "\n"
+                   (for [[category subcategories] (sort subcategory-tree)]
+                     (str "  " category
+                          ": " (str/join ", " (sort subcategories)))))
+         "\n"
+         "Prefer these when applicable, but you may use a new one if none fit."))]
      (str
       "You are a spirits expert identifying bottles from label images. "
       "First, identify the spirit from the label. Then use BOTH what you can read on the label "

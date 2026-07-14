@@ -323,11 +323,7 @@
 
 (def extract-recipe-tool-name "save_cocktail_recipe")
 
-;; Mirrors wine-cellar.views.bar.spirits/spirit-categories so spirit specs hold
-;; even when the user has no spirits in inventory yet.
-(def spirit-categories
-  ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur"
-   "vermouth" "other"])
+(def spirit-categories common/spirit-categories)
 
 (def extract-recipe-tool
   {:name extract-recipe-tool-name

@@ -19,6 +19,7 @@
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [reagent-mui.icons.keyboard-arrow-up :refer [keyboard-arrow-up]]
             [reagent-mui.icons.keyboard-arrow-down :refer [keyboard-arrow-down]]
+            [wine-cellar.common :as common]
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.views.bar.matching :as matching]
             [wine-cellar.api :as api]
@@ -30,9 +31,7 @@
             [wine-cellar.views.components.image-upload :refer
              [camera-capture]]))
 
-(def spirit-categories
-  ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur"
-   "vermouth" "other"])
+(def spirit-categories common/spirit-categories)
 
 (def category-labels
   (into {}

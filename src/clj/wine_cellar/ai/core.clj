@@ -75,11 +75,16 @@
 
 (defn analyze-spirit-label
   [provider front-image]
-  (let [existing-subcategories (->> (db-api/get-spirits)
-                                    (keep :subcategory)
-                                    distinct)
+  (let [subcategory-tree (->> (db-api/get-spirits)
+                              (filter :subcategory)
+                              (group-by :category)
+                              (map (fn [[category spirits]] [category
+                                                             (distinct
+                                                              (map :subcategory
+                                                                   spirits))]))
+                              (into {}))
         system-prompt (prompts/spirit-label-analysis-system-prompt
-                       existing-subcategories)
+                       subcategory-tree)
         user-content (prompts/label-analysis-user-content front-image nil)
         prompt {:system system-prompt :user-content user-content}]
     (case provider
