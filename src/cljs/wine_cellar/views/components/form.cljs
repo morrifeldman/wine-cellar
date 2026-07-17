@@ -161,6 +161,12 @@
     :variant "outlined"
     :onChange #(when on-change (on-change (.. % -target -value)))}])
 
+(defn ref-value
+  "Current DOM value of an uncontrolled field's input-ref atom"
+  [input-ref]
+  (some-> @input-ref
+          .-value))
+
 (defn uncontrolled-text-field
   "High-performance single-line text input that doesn't re-render on every
    keystroke; read the value from input-ref at save time"
@@ -178,7 +184,7 @@
     :size "small"
     :margin "dense"
     :sx (merge form-field-style sx)
-    :inputRef #(reset! input-ref %)
+    :inputRef (when input-ref #(reset! input-ref %))
     :onBlur (when on-blur #(on-blur (.-value (.-target %))))}])
 
 (defn uncontrolled-text-area-field
@@ -199,7 +205,7 @@
     :size "small"
     :margin "dense"
     :sx (merge form-field-style sx)
-    :inputRef #(reset! input-ref %)
+    :inputRef (when input-ref #(reset! input-ref %))
     :onBlur (when on-blur #(on-blur (.-value (.-target %))))}])
 
 (defn number-field

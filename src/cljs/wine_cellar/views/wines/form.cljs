@@ -16,8 +16,8 @@
             [wine-cellar.utils.vintage :as vintage]
             [wine-cellar.views.components.form :refer
              [currency-field date-field form-actions form-container form-divider
-              form-row number-field select-field smart-select-field text-field
-              uncontrolled-text-area-field year-field]]
+              form-row number-field ref-value select-field smart-select-field
+              uncontrolled-text-area-field uncontrolled-text-field year-field]]
             [wine-cellar.views.components.image-upload :refer [image-upload]]
             [wine-cellar.views.components.ai-provider-toggle :refer
              [provider-toggle-button]]))
@@ -107,14 +107,25 @@
                     [:new-wine :drink_until_year]
                     (when-not (empty? %) (js/parseInt % 10)))}]))
 
+(defn- clean-str
+  "Trimmed string, or nil when blank — an empty :location/:producer must stay
+   nil so validation (e.g. valid-location?) treats it as absent"
+  [s]
+  (let [t (some-> s
+                  str/trim)]
+    (when (seq t) t)))
+
 (defn wine-form
   [app-state]
   (let [new-wine (:new-wine @app-state)
         classifications (:classifications @app-state)
         submitting? (:submitting-wine? @app-state)
         window-commentary-ref (r/atom nil)
+        producer-ref (r/atom nil)
+        name-ref (r/atom nil)
+        location-ref (r/atom nil)
         validate-wine
-        (fn []
+        (fn [new-wine]
           (cond (not (valid-name-producer? new-wine))
                 "Either Wine Name or Producer must be provided"
                 (empty? (:country new-wine)) "Country is required"
@@ -135,22 +146,36 @@
                 :else nil))
         submit-handler
         (fn []
-          (if-let [error (validate-wine)]
-            (swap! app-state assoc :error error)
-            (do (swap! app-state assoc :submitting-wine? true)
-                ;; Extract tasting window commentary from ref
-                (let [commentary (when @window-commentary-ref
-                                   (.-value @window-commentary-ref))]
-                  (api/create-wine
-                   app-state
-                   (-> new-wine
-                       (update :price js/parseFloat)
-                       (update :vintage (fn [v] (js/parseInt v 10)))
-                       (update :quantity (fn [q] (js/parseInt q 10)))
-                       (update :original_quantity
-                               (fn [_] (js/parseInt (:quantity new-wine) 10)))
-                       (assoc :tasting_window_commentary commentary)
-                       (assoc :create-classification-if-needed true)))))))]
+          ;; re-read :new-wine at submit time and merge the uncontrolled
+          ;; fields' DOM values — they aren't in app-state while typing,
+          ;; and blur commits can land after this render's closure was
+          ;; captured
+          (let [new-wine
+                (cond-> (:new-wine @app-state)
+                  @producer-ref (assoc :producer
+                                       (clean-str (ref-value producer-ref)))
+                  @name-ref (assoc :name (clean-str (ref-value name-ref)))
+                  @location-ref (assoc :location
+                                       (clean-str (ref-value location-ref))))
+                ;; drop nil-valued keys — the API schema accepts absent
+                ;; optional fields but rejects explicit nulls (e.g. :name)
+                new-wine (into {} (remove (comp nil? val)) new-wine)]
+            (if-let [error (validate-wine new-wine)]
+              (swap! app-state assoc :error error)
+              (do (swap! app-state assoc :submitting-wine? true)
+                  ;; Extract tasting window commentary from ref
+                  (let [commentary (when @window-commentary-ref
+                                     (.-value @window-commentary-ref))]
+                    (api/create-wine
+                     app-state
+                     (-> new-wine
+                         (update :price js/parseFloat)
+                         (update :vintage (fn [v] (js/parseInt v 10)))
+                         (update :quantity (fn [q] (js/parseInt q 10)))
+                         (update :original_quantity
+                                 (fn [_] (js/parseInt (:quantity new-wine) 10)))
+                         (assoc :tasting_window_commentary commentary)
+                         (assoc :create-classification-if-needed true))))))))]
     [form-container {:title "Add New Wine" :on-submit submit-handler}
      ;; Wine Label Images Section
      [form-divider "Wine Label Images"]
@@ -211,16 +236,24 @@
      ;; Basic Information Section
      [form-divider "Basic Information"]
      [form-row
-      [text-field
+      ;; uncontrolled: text lives in the DOM; blur commits to app-state
+      ;; (for the Suggest button's ready? gate) and the reset-key remounts
+      ;; the field when Analyze Label fills in a new value
+      [uncontrolled-text-field
        {:label "Producer"
-        :value (:producer new-wine)
+        :initial-value (:producer new-wine)
+        :reset-key (str "producer-" (:producer new-wine))
+        :input-ref producer-ref
         :helper-text "Either Name or Producer required"
-        :on-change #(swap! app-state assoc-in [:new-wine :producer] %)}]
-      [text-field
+        :on-blur
+        #(swap! app-state assoc-in [:new-wine :producer] (clean-str %))}]
+      [uncontrolled-text-field
        {:label "Name"
-        :value (:name new-wine)
+        :initial-value (:name new-wine)
+        :reset-key (str "name-" (:name new-wine))
+        :input-ref name-ref
         :helper-text "Either Name or Producer required"
-        :on-change #(swap! app-state assoc-in [:new-wine :name] %)}]
+        :on-blur #(swap! app-state assoc-in [:new-wine :name] (clean-str %))}]
       [select-field
        {:label "Style"
         :value (:style new-wine)
@@ -342,7 +375,9 @@
             :startIcon (when-not suggesting? (r/as-element [auto-awesome]))
             :onClick
             (fn []
-              (-> (api/suggest-drinking-window app-state new-wine)
+              ;; fresh deref — the blur commit that enabled this button may
+              ;; have landed after this render's new-wine was captured
+              (-> (api/suggest-drinking-window app-state (:new-wine @app-state))
                   (.then
                    (fn [result]
                      (let [window-reason (str "Drinking window suggested: "
@@ -378,18 +413,27 @@
        {:label "Tasting Window Commentary"
         :rows 4
         :initial-value (:tasting_window_commentary new-wine)
+        ;; remount when Suggest/Analyze writes a new commentary so the
+        ;; suggestion actually shows up (and isn't clobbered at submit by
+        ;; this field's stale DOM value)
+        :reset-key (str "twc-" (:tasting_window_commentary new-wine))
         :input-ref window-commentary-ref}]]
      ;; Additional Information Section
      [form-divider "Additional Information"]
      [form-row
-      [text-field
+      [uncontrolled-text-field
        {:label "Location"
         :required false
-        :value (:location new-wine)
+        :initial-value (:location new-wine)
+        :reset-key (str "location-" (:location new-wine))
+        :input-ref location-ref
         :helper-text common/format-location-error
-        :error (and (:location new-wine)
-                    (not (common/valid-location? (:location new-wine))))
-        :on-change #(swap! app-state assoc-in [:new-wine :location] %)}]
+        ;; validates on blur (when the commit lands in app-state)
+        :error (boolean (and (seq (:location new-wine))
+                             (not (common/valid-location? (:location
+                                                           new-wine)))))
+        :on-blur
+        #(swap! app-state assoc-in [:new-wine :location] (clean-str %))}]
       [number-field
        {:label "Quantity"
         :required true

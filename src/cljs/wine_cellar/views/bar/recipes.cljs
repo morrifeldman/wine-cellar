@@ -33,7 +33,7 @@
              [editable-text-field editable-autocomplete-field search-text-field
               detail-section]]
             [wine-cellar.views.components.form :refer
-             [uncontrolled-text-field uncontrolled-text-area-field]]
+             [ref-value uncontrolled-text-field uncontrolled-text-area-field]]
             [wine-cellar.api :as api]))
 
 (defn- recipe-search-text
@@ -90,10 +90,6 @@
                                                     #{subcategory}
                                                     #{})}))))
 
-(defn- ref-value
-  [input-ref]
-  (some-> @input-ref
-          .-value))
 
 (defn- make-row
   "Row-structure entry for an ingredient: stable identity + initial values +
