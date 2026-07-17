@@ -161,10 +161,30 @@
     :variant "outlined"
     :onChange #(when on-change (on-change (.. % -target -value)))}])
 
+(defn uncontrolled-text-field
+  "High-performance single-line text input that doesn't re-render on every
+   keystroke; read the value from input-ref at save time"
+  [{:keys [label initial-value required helper-text error reset-key input-ref
+           on-blur sx]}]
+  [mui-text-field/text-field
+   {:key reset-key ; forces re-render when reset-key changes
+    :label label
+    :required required
+    :fullWidth true
+    :defaultValue (or initial-value "")
+    :error error
+    :helperText helper-text
+    :variant "outlined"
+    :size "small"
+    :margin "dense"
+    :sx (merge form-field-style sx)
+    :inputRef #(reset! input-ref %)
+    :onBlur (when on-blur #(on-blur (.-value (.-target %))))}])
+
 (defn uncontrolled-text-area-field
   "High-performance text area that doesn't re-render on every keystroke"
   [{:keys [label initial-value required rows helper-text error reset-key
-           input-ref on-blur]}]
+           input-ref on-blur sx]}]
   [mui-text-field/text-field
    {:key reset-key ; forces re-render when reset-key changes
     :label label
@@ -178,7 +198,7 @@
     :variant "outlined"
     :size "small"
     :margin "dense"
-    :sx form-field-style
+    :sx (merge form-field-style sx)
     :inputRef #(reset! input-ref %)
     :onBlur (when on-blur #(on-blur (.-value (.-target %))))}])
 

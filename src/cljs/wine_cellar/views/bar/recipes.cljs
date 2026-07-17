@@ -10,7 +10,6 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.material.text-field :as mui-text-field]
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.rating :refer [rating]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
@@ -33,6 +32,8 @@
             [wine-cellar.views.components :refer
              [editable-text-field editable-autocomplete-field search-text-field
               detail-section]]
+            [wine-cellar.views.components.form :refer
+             [uncontrolled-text-field uncontrolled-text-area-field]]
             [wine-cellar.api :as api]))
 
 (defn- recipe-search-text
@@ -89,151 +90,148 @@
                                                     #{subcategory}
                                                     #{})}))))
 
-(defn- text-field
-  [label value on-change & {:keys [type multiline rows]}]
-  [mui-text-field/text-field
-   {:label label
-    :value (or value "")
-    :on-change #(on-change (-> %
-                               .-target
-                               .-value))
-    :type (or type "text")
-    :multiline (boolean multiline)
-    :rows rows
-    :size "small"
-    :full-width true
-    :sx {:mb 1.5}}])
+(defn- ref-value
+  [input-ref]
+  (some-> @input-ref
+          .-value))
+
+(defn- make-row
+  "Row-structure entry for an ingredient: stable identity + initial values +
+   DOM refs. The typed text lives only in the DOM until save."
+  [ingredient]
+  {:row-id (random-uuid)
+   :ingredient ingredient ; preserves keys like :spirit,
+                          ; :inventory_item_ids
+   :name-ref (r/atom nil)
+   :amount-ref (r/atom nil)
+   :unit-ref (r/atom nil)})
 
 (defn- ingredient-row
-  [ingredient idx on-update on-remove]
-  [box {:sx {:display "flex" :gap 1 :mb 1 :alignItems "center"} :key idx}
-   [mui-text-field/text-field
+  [{:keys [ingredient name-ref amount-ref unit-ref]} on-remove]
+  [box {:sx {:display "flex" :gap 1 :mb 1 :alignItems "center"}}
+   [uncontrolled-text-field
     {:label "Ingredient"
-     :value (or (:name ingredient) "")
-     :on-change #(on-update idx
-                            (assoc ingredient
-                                   :name
-                                   (-> %
-                                       .-target
-                                       .-value)))
-     :size "small"
+     :initial-value (:name ingredient)
+     :input-ref name-ref
      :sx {:flex 3}}]
-   [mui-text-field/text-field
+   [uncontrolled-text-field
     {:label "Amount"
-     :value (or (:amount ingredient) "")
-     :on-change #(on-update idx
-                            (assoc ingredient
-                                   :amount
-                                   (-> %
-                                       .-target
-                                       .-value)))
-     :size "small"
+     :initial-value (:amount ingredient)
+     :input-ref amount-ref
      :sx {:flex 2}}]
-   [mui-text-field/text-field
+   [uncontrolled-text-field
     {:label "Unit"
-     :value (or (:unit ingredient) "")
-     :on-change #(on-update idx
-                            (assoc ingredient
-                                   :unit
-                                   (-> %
-                                       .-target
-                                       .-value)))
-     :size "small"
+     :initial-value (:unit ingredient)
+     :input-ref unit-ref
      :sx {:flex 1.5}}]
-   [icon-button {:size "small" :color "error" :on-click #(on-remove idx)}
+   [icon-button {:size "small" :color "error" :on-click on-remove}
     [delete {:fontSize "small"}]]])
 
 (defn recipe-form
   [app-state]
-  (let [bar (get @app-state :bar)
-        editing-id (:editing-recipe-id bar)
-        recipe (if editing-id
-                 (first (filter #(= (:id %) editing-id) (:recipes bar)))
-                 (:new-recipe bar))
-        update-field!
-        (fn [field val]
-          (if editing-id
-            (swap! app-state update-in
-              [:bar :recipes]
-              (fn [recipes]
-                (mapv #(if (= (:id %) editing-id) (assoc % field val) %)
-                      recipes)))
-            (swap! app-state assoc-in [:bar :new-recipe field] val)))
-        update-ingredient!
-        (fn [idx ingredient]
-          (update-field! :ingredients
-                         (assoc (vec (:ingredients recipe)) idx ingredient)))
-        remove-ingredient!
-        (fn [idx]
-          (update-field! :ingredients
-                         (vec (concat (subvec (vec (:ingredients recipe)) 0 idx)
-                                      (subvec (vec (:ingredients recipe))
-                                              (inc idx))))))
-        add-ingredient! #(update-field! :ingredients
-                                        (conj (vec (:ingredients recipe)) {}))
-        cancel!
-        (fn []
-          (if editing-id
-            (swap! app-state assoc-in [:bar :editing-recipe-id] nil)
-            (do
-              (swap! app-state assoc-in [:bar :show-recipe-form?] false)
-              (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []}))))
-        submit!
-        (fn [e]
-          (.preventDefault e)
-          (let [tags-raw (get recipe :tags-input "")
-                tags (when (seq tags-raw)
-                       (mapv str/trim (str/split tags-raw #",")))
-                payload (-> recipe
-                            (dissoc :tags-input)
-                            (assoc :tags tags))]
-            (if editing-id
-              (-> (api/update-cocktail-recipe app-state editing-id payload)
-                  ;; keep the recipe open (back to its detail view)
-                  ;; rather than collapsing after a save.
-                  (.then #(swap! app-state assoc-in
-                            [:bar :viewing-recipe-id]
-                            editing-id)))
-              (api/create-cocktail-recipe app-state payload))))]
-    [paper
-     {:elevation 2 :sx {:p 2 :mb 2 :borderLeft "4px solid rgba(114,47,55,0.5)"}}
-     [:form {:on-submit submit!}
-      [typography {:variant "h6" :sx {:mb 2 :color "primary.main"}}
-       (if editing-id "Edit Recipe" "Add Recipe")]
-      [box {:sx {:display "flex" :gap 1.5 :flexWrap "wrap"}}
-       [box {:sx {:flex "2 1 200px"}}
-        [text-field "Recipe Name" (:name recipe) #(update-field! :name %)]]
-       [box {:sx {:flex "1 1 200px"}}
-        [text-field "Source" (:source recipe) #(update-field! :source %)]]
-       [box {:sx {:flex "1 1 200px"}}
-        [text-field "Tags (comma-separated)"
-         (or (:tags-input recipe)
-             (when (seq (:tags recipe)) (str/join ", " (:tags recipe)))
-             "") #(update-field! :tags-input %)]]
-       [box {:sx {:flex "3 1 400px"}}
-        [text-field "Description" (:description recipe)
-         #(update-field! :description %) :multiline true :rows 4]]]
-      [typography {:variant "subtitle2" :sx {:mb 1 :mt 0.5 :fontWeight 600}}
-       "Ingredients"]
-      (map-indexed (fn [idx ingredient]
-                     ^{:key idx}
-                     [ingredient-row ingredient idx update-ingredient!
-                      remove-ingredient!])
-                   (:ingredients recipe))
-      [button
-       {:variant "outlined"
-        :size "small"
-        :start-icon (r/as-element [add])
-        :on-click add-ingredient!
-        :sx {:mb 2}} "Add Ingredient"]
-      [text-field "Instructions" (:instructions recipe)
-       #(update-field! :instructions %) :multiline true :rows 4]
-      [text-field "Notes" (:notes recipe) #(update-field! :notes %) :multiline
-       true :rows 3]
-      [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end"}}
-       [button {:variant "outlined" :on-click cancel!} "Cancel"]
-       [button {:type "submit" :variant "contained" :color "primary"}
-        (if editing-id "Save" "Add")]]]]))
+  (r/with-let
+   [editing-id (get-in @app-state [:bar :editing-recipe-id]) recipe
+    (if editing-id
+      (first (filter #(= (:id %) editing-id)
+                     (get-in @app-state [:bar :recipes])))
+      (get-in @app-state [:bar :new-recipe])) rows
+    (r/atom (mapv make-row (:ingredients recipe))) name-ref (r/atom nil)
+    source-ref (r/atom nil) tags-ref (r/atom nil) description-ref (r/atom nil)
+    instructions-ref (r/atom nil) notes-ref (r/atom nil) add-ingredient!
+    #(swap! rows conj (make-row {})) remove-ingredient!
+    (fn [row-id]
+      (swap! rows (fn [rs] (vec (remove #(= (:row-id %) row-id) rs))))) cancel!
+    (fn []
+      (if editing-id
+        (swap! app-state assoc-in [:bar :editing-recipe-id] nil)
+        (do (swap! app-state assoc-in [:bar :show-recipe-form?] false)
+            (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []}))))
+    submit!
+    (fn [e]
+      (.preventDefault e)
+      (let [ingredients (mapv (fn [{:keys [ingredient name-ref amount-ref
+                                           unit-ref]}]
+                                (assoc ingredient
+                                       :name (ref-value name-ref)
+                                       :amount (ref-value amount-ref)
+                                       :unit (ref-value unit-ref)))
+                              @rows)
+            tags-raw (or (ref-value tags-ref) "")
+            tags (when (seq tags-raw) (mapv str/trim (str/split tags-raw #",")))
+            payload (assoc recipe
+                           :name (ref-value name-ref)
+                           :source (ref-value source-ref)
+                           :description (ref-value description-ref)
+                           :instructions (ref-value instructions-ref)
+                           :notes (ref-value notes-ref)
+                           :tags tags
+                           :ingredients ingredients)]
+        (if editing-id
+          (-> (api/update-cocktail-recipe app-state editing-id payload)
+              ;; keep the recipe open (back to its detail view)
+              ;; rather than collapsing after a save.
+              (.then #(swap! app-state assoc-in
+                        [:bar :viewing-recipe-id]
+                        editing-id)))
+          (api/create-cocktail-recipe app-state payload))))]
+   [paper
+    {:elevation 2 :sx {:p 2 :mb 2 :borderLeft "4px solid rgba(114,47,55,0.5)"}}
+    [:form {:on-submit submit!}
+     [typography {:variant "h6" :sx {:mb 2 :color "primary.main"}}
+      (if editing-id "Edit Recipe" "Add Recipe")]
+     [box {:sx {:display "flex" :gap 1.5 :flexWrap "wrap"}}
+      [box {:sx {:flex "2 1 200px"}}
+       [uncontrolled-text-field
+        {:label "Recipe Name"
+         :initial-value (:name recipe)
+         :input-ref name-ref
+         :sx {:width "100%"}}]]
+      [box {:sx {:flex "1 1 200px"}}
+       [uncontrolled-text-field
+        {:label "Source"
+         :initial-value (:source recipe)
+         :input-ref source-ref
+         :sx {:width "100%"}}]]
+      [box {:sx {:flex "1 1 200px"}}
+       [uncontrolled-text-field
+        {:label "Tags (comma-separated)"
+         :initial-value (when (seq (:tags recipe))
+                          (str/join ", " (:tags recipe)))
+         :input-ref tags-ref
+         :sx {:width "100%"}}]]
+      [box {:sx {:flex "3 1 400px"}}
+       [uncontrolled-text-area-field
+        {:label "Description"
+         :initial-value (:description recipe)
+         :rows 4
+         :input-ref description-ref
+         :sx {:width "100%"}}]]]
+     [typography {:variant "subtitle2" :sx {:mb 1 :mt 0.5 :fontWeight 600}}
+      "Ingredients"]
+     (for [{:keys [row-id] :as row} @rows]
+       ^{:key (str row-id)} [ingredient-row row #(remove-ingredient! row-id)])
+     [button
+      {:variant "outlined"
+       :size "small"
+       :start-icon (r/as-element [add])
+       :on-click add-ingredient!
+       :sx {:mb 2}} "Add Ingredient"]
+     [uncontrolled-text-area-field
+      {:label "Instructions"
+       :initial-value (:instructions recipe)
+       :rows 4
+       :input-ref instructions-ref
+       :sx {:width "100%" :mb 1}}]
+     [uncontrolled-text-area-field
+      {:label "Notes"
+       :initial-value (:notes recipe)
+       :rows 3
+       :input-ref notes-ref
+       :sx {:width "100%" :mb 1}}]
+     [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end"}}
+      [button {:variant "outlined" :on-click cancel!} "Cancel"]
+      [button {:type "submit" :variant "contained" :color "primary"}
+       (if editing-id "Save" "Add")]]]]))
 
 (defn- save-field!
   [app-state recipe field value]
@@ -703,7 +701,8 @@
 
 (defn save-recipe-dialog
   [_app-state]
-  (let [selected (r/atom nil)]
+  (let [selected (r/atom nil)
+        dialog-name-ref (r/atom nil)]
     (fn [app-state]
       (let [save-state (get-in @app-state [:chat :save-recipe])
             open? (boolean (:open? save-state))
@@ -717,7 +716,13 @@
             sel @selected
             save! (fn []
                     (doseq [idx (sort sel)]
-                      (let [recipe (nth recipes idx)]
+                      (let [recipe (nth recipes idx)
+                            recipe (if multi?
+                                     recipe
+                                     (assoc recipe
+                                            :name
+                                            (or (ref-value dialog-name-ref)
+                                                (:name recipe))))]
                         (api/create-cocktail-recipe
                          app-state
                          (assoc recipe :source "AI Chat"))))
@@ -751,10 +756,11 @@
              recipes)
             (let [recipe (first recipes)]
               [:<>
-               [text-field "Recipe Name" (or (:name recipe) "")
-                #(swap! app-state assoc-in
-                   [:chat :save-recipe :recipes 0 :name]
-                   %)]
+               [uncontrolled-text-field
+                {:label "Recipe Name"
+                 :initial-value (:name recipe)
+                 :reset-key (str "save-recipe-" (:name recipe))
+                 :input-ref dialog-name-ref}]
                (when (seq (:ingredients recipe))
                  [:<>
                   [typography {:variant "subtitle2" :sx {:mt 1.5 :mb 0.5}}
