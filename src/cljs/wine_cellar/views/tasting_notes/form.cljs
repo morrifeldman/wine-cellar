@@ -141,7 +141,12 @@
        [form-container
         {:title (if editing? "Edit Tasting Note" "Add Tasting Note")
          :on-submit
-         #(let [note-data (collect-note-data updated-note
+         ;; re-read :new-tasting-note at submit time — a blur-committed
+         ;; field
+         ;; (e.g. Source) swaps app-state after this render's updated-note
+         ;; was
+         ;; captured, and the submit click can beat the re-render
+         #(let [note-data (collect-note-data (:new-tasting-note @app-state)
                                              notes-ref
                                              other-obs-ref
                                              nose-obs-ref
@@ -172,9 +177,9 @@
              :options (or (:tasting-note-sources @app-state) [])
              :free-solo true
              :helper-text "Choose from existing sources or type a new one"
-             :on-input-change
-             (fn [val _]
-               (swap! app-state assoc-in [:new-tasting-note :source] val))
+             ;; no :on-input-change — free-solo text commits on
+             ;; blur/selection so typing doesn't write to app-state per
+             ;; keystroke
              :on-change
              #(swap! app-state assoc-in [:new-tasting-note :source] %)}]])
         [form-row

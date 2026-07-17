@@ -16,7 +16,7 @@
             [wine-cellar.common :refer [wine-styles style->info]]
             [wine-cellar.utils.mui :refer [safe-js-props]]
             [wine-cellar.views.components.form :refer
-             [date-field number-field select-field]]
+             [date-field number-field select-field uncontrolled-text-field]]
             [wine-cellar.views.components.wset-appearance :refer
              [wset-appearance-section]]
             [wine-cellar.views.components.wset-nose :refer [wset-nose-section]]
@@ -26,7 +26,7 @@
              [wset-conclusions-section]]))
 
 (defn- guesses-section
-  [app-state]
+  [app-state _producer-ref]
   (let [classifications (r/cursor app-state [:classifications])
         varieties (r/cursor app-state [:grape-varieties])
         country-options (r/reaction (->> @classifications
@@ -39,7 +39,7 @@
                                          (map :name)
                                          sort
                                          clj->js))]
-    (fn [app-state]
+    (fn [app-state producer-ref]
       (let [form-data (get-in @app-state [:blind-tastings :form :wset_data] {})
             selected-country (:guessed_country form-data)
             region-options (->> @classifications
@@ -91,11 +91,15 @@
             {:freeSolo true
              :options @country-options
              :value (or (:guessed_country form-data) "")
-             :onInputChange (fn [_ new-value _]
-                              (swap! app-state assoc-in
-                                [:blind-tastings :form :wset_data
-                                 :guessed_country]
-                                new-value))
+             ;; commit on selection/blur, not per keystroke
+             :onChange (fn [_ v]
+                         (swap! app-state assoc-in
+                           [:blind-tastings :form :wset_data :guessed_country]
+                           (js->clj v)))
+             :onBlur (fn [e]
+                       (swap! app-state assoc-in
+                         [:blind-tastings :form :wset_data :guessed_country]
+                         (.. e -target -value)))
              :renderInput (fn [params]
                             (r/as-element [mui-text-field/text-field
                                            (merge (safe-js-props params)
@@ -108,11 +112,15 @@
             {:freeSolo true
              :options region-options
              :value (or (:guessed_region form-data) "")
-             :onInputChange (fn [_ new-value _]
-                              (swap! app-state assoc-in
-                                [:blind-tastings :form :wset_data
-                                 :guessed_region]
-                                new-value))
+             ;; commit on selection/blur, not per keystroke
+             :onChange (fn [_ v]
+                         (swap! app-state assoc-in
+                           [:blind-tastings :form :wset_data :guessed_region]
+                           (js->clj v)))
+             :onBlur (fn [e]
+                       (swap! app-state assoc-in
+                         [:blind-tastings :form :wset_data :guessed_region]
+                         (.. e -target -value)))
              :renderInput (fn [params]
                             (r/as-element [mui-text-field/text-field
                                            (merge (safe-js-props params)
@@ -135,20 +143,18 @@
                                :guessed_vintage]
                               (if (js/isNaN parsed) nil parsed))))}]]
           [grid {:item true :xs 12 :sm 6}
-           [mui-text-field/text-field
+           [uncontrolled-text-field
             {:label "Guessed Producer (optional)"
-             :fullWidth true
-             :size "small"
-             :value (or (:guessed_producer form-data) "")
-             :onChange #(swap! app-state assoc-in
-                          [:blind-tastings :form :wset_data :guessed_producer]
-                          (.. % -target -value))}]]]]))))
+             :initial-value (:guessed_producer form-data)
+             :input-ref producer-ref
+             :sx {:width "100%"}}]]]]))))
 
 (defn blind-tasting-form-dialog
   [app-state]
   (r/with-let
    [other-observations-ref (r/atom nil) nose-observations-ref (r/atom nil)
-    palate-observations-ref (r/atom nil) final-comments-ref (r/atom nil)]
+    palate-observations-ref (r/atom nil) final-comments-ref (r/atom nil)
+    producer-ref (r/atom nil)]
    (let [blind-state (:blind-tastings @app-state)
          open? (:show-form? blind-state)
          submitting? (:submitting? blind-state)
@@ -164,7 +170,12 @@
                          (assoc :form {}))))
          handle-submit
          (fn []
-           (let [other-obs (when @other-observations-ref
+           ;; re-read form state at submit time — blur-committed fields
+           ;; (country/region) swap app-state after this render's closures
+           ;; were captured, and the Save click can beat the re-render
+           (let [form-data (or (get-in @app-state [:blind-tastings :form]) {})
+                 wset-data (or (:wset_data form-data) {})
+                 other-obs (when @other-observations-ref
                              (.-value @other-observations-ref))
                  nose-obs (when @nose-observations-ref
                             (.-value @nose-observations-ref))
@@ -172,6 +183,8 @@
                               (.-value @palate-observations-ref))
                  final-comments (when @final-comments-ref
                                   (.-value @final-comments-ref))
+                 producer (some-> @producer-ref
+                                  .-value)
                  updated-wset
                  (cond-> wset-data
                    other-obs (assoc-in [:appearance :other_observations]
@@ -181,6 +194,7 @@
                                palate-obs)
                    final-comments (assoc-in [:conclusions :final_comments]
                                    final-comments)
+                   (seq producer) (assoc :guessed_producer producer)
                    true (assoc :note_type "wset_level_3" :version "1.0"))
                  note-data {:tasting_date (:tasting_date form-data)
                             :rating (when-let [r (:rating form-data)]
@@ -251,7 +265,7 @@
            :final-comments-ref final-comments-ref
            :on-change #(swap! app-state assoc-in
                          [:blind-tastings :form :wset_data :conclusions]
-                         %)}]]] [guesses-section app-state]]
+                         %)}]]] [guesses-section app-state producer-ref]]
       [dialog-actions [button {:onClick close!} "Cancel"]
        [button
         {:variant "contained" :disabled submitting? :onClick handle-submit}
