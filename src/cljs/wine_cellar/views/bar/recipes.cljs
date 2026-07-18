@@ -21,6 +21,7 @@
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.local-bar :refer [local-bar]]
             [reagent-mui.icons.star :refer [star] :rename {star star-icon}]
+            [reagent-mui.icons.star-border :refer [star-border]]
             [reagent-mui.icons.menu-book :refer [menu-book]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
@@ -221,7 +222,8 @@
      [uncontrolled-text-area-field
       {:label "Notes"
        :initial-value (:notes recipe)
-       :rows 3
+       :min-rows 3
+       :max-rows 12
        :input-ref notes-ref
        :sx {:width "100%" :mb 1}}]
      [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end"}}
@@ -305,19 +307,22 @@
   "Clickable chip for a bottle under a spirit ingredient. `:dim?` dims it and
    prefixes a `~`; `:suffix` appends a ` · <suffix>` note (\"out of stock\" for
    an unavailable link); `:star?` marks a recipe-preferred bottle with a gold
-   star."
-  [app-state recipe-id spirit {:keys [dim? suffix star?]}]
+   star; `:alt?` marks a variation/alternative bottle with a hollow star."
+  [app-state recipe-id spirit {:keys [dim? suffix star? alt?]}]
   (let [base (str/join " · "
                        (filter seq [(:distillery spirit) (:name spirit)]))]
     [chip
      {:label (str (when dim? "~ ") base (when (seq suffix) (str " · " suffix)))
       :size "small"
       :clickable true
-      :icon (when star?
-              (r/as-element [star-icon
-                             {:sx {:fontSize "0.8rem"
-                                   :color
-                                   "rgba(255,213,79,0.85) !important"}}]))
+      :icon (cond star? (r/as-element
+                         [star-icon
+                          {:sx {:fontSize "0.8rem"
+                                :color "rgba(255,213,79,0.85) !important"}}])
+                  alt? (r/as-element
+                        [star-border
+                         {:sx {:fontSize "0.8rem"
+                               :color "rgba(255,213,79,0.6) !important"}}]))
       :on-click #(view-spirit-from-recipe! app-state recipe-id (:id spirit))
       :sx {:height 22
            :fontSize "0.7rem"
@@ -368,16 +373,24 @@
    out of stock; otherwise owned category/subcategory matches show. No
    cross-subcategory substitutes — the category chip is the browse path.
    Bottles the recipe text itself recommends (the spec's
-   :preferred_spirit_ids) sort first with a gold star, and when any are on
-   hand the collapsed view shows just them — the rest of the bench waits
-   behind '+N more'. nil when nothing's on hand."
-  [app-state recipe-id {:keys [preferred_spirit_ids]} {:keys [exact sub]}]
+   :preferred_spirit_ids) sort first with a gold star, then bottles it
+   offers as character-changing variations (:alternate_spirit_ids) with a
+   hollow star; when any are on hand the collapsed view shows just the
+   marked ones — the rest of the bench waits behind '+N more'. nil when
+   nothing's on hand."
+  [app-state recipe-id {:keys [preferred_spirit_ids alternate_spirit_ids]}
+   {:keys [exact sub]}]
   (let [owned? (fn [b] (pos? (or (:quantity b) 1)))
         exact-in (filter owned? exact)
         exact-out (remove owned? exact)
         pref? (comp (set preferred_spirit_ids) :id)
-        sub (sort-by (complement pref?) sub)
-        n-pref (count (filter pref? sub))]
+        alt? (fn [b] (and ((set alternate_spirit_ids) (:id b)) (not (pref? b))))
+        rank (fn [b]
+               (cond (pref? b) 0
+                     (alt? b) 1
+                     :else 2))
+        sub (sort-by rank sub)
+        n-marked (count (remove #(= 2 (rank %)) sub))]
     (cond (seq exact-in) [bottle-chip-list max-bottle-chips
                           (for [b exact-in]
                             ^{:key (str "s-" (:id b))}
@@ -389,11 +402,12 @@
                              ^{:key (str "x-" (:id b))}
                              [bottle-chip app-state recipe-id b
                               {:dim? true :suffix "out of stock"}])]
-          (seq sub) [bottle-chip-list (if (pos? n-pref) n-pref max-bottle-chips)
+          (seq sub) [bottle-chip-list
+                     (if (pos? n-marked) n-marked max-bottle-chips)
                      (for [b sub]
                        ^{:key (str "s-" (:id b))}
                        [bottle-chip app-state recipe-id b
-                        {:star? (boolean (pref? b))}])]
+                        {:star? (boolean (pref? b)) :alt? (alt? b)}])]
           :else nil)))
 
 (defn- spirit-category-chip

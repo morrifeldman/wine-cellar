@@ -488,13 +488,18 @@
        "pin it to whatever bottle the user happens to own in that style, and "
        "brands mentioned in the recipe text merely as options or "
        "suggestions do not count (report those in preferred_spirit_ids "
-       "instead). null is the default. "
+       "or alternate_spirit_ids instead). null is the default. "
        "preferred_spirit_ids = the #ids of owned bottles the recipe text "
-       "explicitly recommends or offers as good choices for this line (e.g. "
-       "\"Buffalo Trace or Old Forester 1910 are great picks here\"), in the "
-       "order mentioned. These are soft suggestions, never requirements. Use "
-       "an empty array when the text recommends none; never include a bottle "
-       "the text does not mention. category/subcategory "
+       "recommends for this line in the drink AS WRITTEN (e.g. \"Buffalo "
+       "Trace or Old Forester 1910 are great picks here\"), in the order "
+       "mentioned. alternate_spirit_ids = the #ids of owned bottles the "
+       "text offers only as variations or conditional alternatives that "
+       "change the drink's character (\"for a smokier version, reach for "
+       "X instead\", \"X if you want it drier\") — such a bottle is NOT "
+       "preferred; it goes here, in the order mentioned. Both lists are "
+       "soft suggestions, never requirements, and a bottle appears in at "
+       "most one of them. Use empty arrays when the text recommends none; "
+       "never include a bottle the text does not mention. category/subcategory "
        "= the style the recipe calls for, judged from the ingredient name "
        "and recipe text. Set subcategory ONLY when the recipe actually "
        "specifies a style (\"London Dry gin\", \"blanco tequila\", "
@@ -509,12 +514,14 @@
        "one, omit the entry entirely.")
       :items {:type "object"
               :required ["ingredient_index" "spirit_id" "category" "subcategory"
-                         "preferred_spirit_ids"]
+                         "preferred_spirit_ids" "alternate_spirit_ids"]
               :properties {:ingredient_index {:type "integer"}
                            :spirit_id {:type ["integer" "null"]}
                            :category {:type "string" :enum spirit-categories}
                            :subcategory {:type ["string" "null"]}
                            :preferred_spirit_ids {:type "array"
+                                                  :items {:type "integer"}}
+                           :alternate_spirit_ids {:type "array"
                                                   :items {:type "integer"}}}}}}
     :required ["ingredient_links" "spirit_links"]
     :additionalProperties false}})
@@ -555,7 +562,8 @@
                         "garnishes; brands mentioned here as options or "
                         "suggestions justify neither a spirit_id nor a "
                         "subcategory, but owned bottles among them belong in "
-                        "preferred_spirit_ids):\n" recipe-context))
+                        "preferred_spirit_ids or alternate_spirit_ids):\n"
+                        recipe-context))
                  "\n\n=== Bar Inventory ===\n"
                  bar-text)
         request {:messages [{:role "user" :content content}]

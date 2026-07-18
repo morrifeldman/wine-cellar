@@ -177,9 +177,11 @@
 (s/def ::garnish boolean?)
 (s/def ::inventory_item_ids (s/coll-of pos-int?))
 (s/def ::preferred_spirit_ids (s/coll-of pos-int?))
+(s/def ::alternate_spirit_ids (s/coll-of pos-int?))
 (s/def ::spirit
   (s/keys :req-un [::category]
-          :opt-un [::subcategory ::spirit_id ::preferred_spirit_ids]))
+          :opt-un [::subcategory ::spirit_id ::preferred_spirit_ids
+                   ::alternate_spirit_ids]))
 (s/def ::ingredient
   (s/keys :req-un [::name]
           :opt-un [::amount ::unit ::garnish ::inventory_item_ids ::spirit]))

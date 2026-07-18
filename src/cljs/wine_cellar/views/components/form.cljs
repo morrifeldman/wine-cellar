@@ -189,13 +189,15 @@
 
 (defn uncontrolled-text-area-field
   "High-performance text area that doesn't re-render on every keystroke"
-  [{:keys [label initial-value required rows helper-text error reset-key
-           input-ref on-blur sx]}]
+  [{:keys [label initial-value required rows min-rows max-rows helper-text error
+           reset-key input-ref on-blur sx]}]
   [mui-text-field/text-field
    {:key reset-key ; forces re-render when reset-key changes
     :label label
     :multiline true
-    :rows (or rows 4)
+    :rows (when-not (or min-rows max-rows) (or rows 4))
+    :minRows min-rows
+    :maxRows max-rows
     :required required
     :fullWidth true
     :defaultValue (or initial-value "")
