@@ -21,7 +21,7 @@
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.local-bar :refer [local-bar]]
             [reagent-mui.icons.star :refer [star] :rename {star star-icon}]
-            [reagent-mui.icons.star-border :refer [star-border]]
+            [reagent-mui.icons.swap-horiz :refer [swap-horiz]]
             [reagent-mui.icons.menu-book :refer [menu-book]]
             [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
             [wine-cellar.utils.filters :refer [normalize-text]]
@@ -307,7 +307,7 @@
   "Clickable chip for a bottle under a spirit ingredient. `:dim?` dims it and
    prefixes a `~`; `:suffix` appends a ` · <suffix>` note (\"out of stock\" for
    an unavailable link); `:star?` marks a recipe-preferred bottle with a gold
-   star; `:alt?` marks a variation/alternative bottle with a hollow star."
+   star; `:alt?` marks a variation/alternative bottle with a swap icon."
   [app-state recipe-id spirit {:keys [dim? suffix star? alt?]}]
   (let [base (str/join " · "
                        (filter seq [(:distillery spirit) (:name spirit)]))]
@@ -320,7 +320,7 @@
                           {:sx {:fontSize "0.8rem"
                                 :color "rgba(255,213,79,0.85) !important"}}])
                   alt? (r/as-element
-                        [star-border
+                        [swap-horiz
                          {:sx {:fontSize "0.8rem"
                                :color "rgba(255,213,79,0.6) !important"}}]))
       :on-click #(view-spirit-from-recipe! app-state recipe-id (:id spirit))
@@ -375,7 +375,7 @@
    Bottles the recipe text itself recommends (the spec's
    :preferred_spirit_ids) sort first with a gold star, then bottles it
    offers as character-changing variations (:alternate_spirit_ids) with a
-   hollow star; when any are on hand the collapsed view shows just the
+   swap icon; when any are on hand the collapsed view shows just the
    marked ones — the rest of the bench waits behind '+N more'. nil when
    nothing's on hand."
   [app-state recipe-id {:keys [preferred_spirit_ids alternate_spirit_ids]}
