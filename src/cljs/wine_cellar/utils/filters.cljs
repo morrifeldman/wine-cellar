@@ -133,6 +133,24 @@
       (if (= :desc direction) (reverse sorted) sorted))
     wines))
 
+(defn filters-active?
+  "True when any wine filter is set to a non-default value."
+  [state]
+  (let [{:keys [search country region styles style varieties variety
+                tasting-window price-range verification columns]}
+        (:filters state)]
+    (boolean (or (seq search)
+                 country
+                 region
+                 (seq styles)
+                 style
+                 (seq varieties)
+                 variety
+                 price-range
+                 tasting-window
+                 verification
+                 (seq columns)))))
+
 ;; Main filtering and sorting function
 (defn filtered-sorted-wines
   [app-state]

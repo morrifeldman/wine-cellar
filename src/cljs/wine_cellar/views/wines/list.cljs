@@ -403,16 +403,19 @@
                      show-selected? (and (:show-selected-wines? state)
                                          (seq selected-wines))
                      visible-wines (if show-selected?
-                                     selected-wines
+                                     (vec (filter
+                                           #(contains? selected-ids (:id %))
+                                           (filtered-sorted-wines app-state)))
                                      (filtered-sorted-wines app-state))
                      show-out-of-stock? (:show-out-of-stock? state)
                      base-wines (if show-out-of-stock?
                                   wines
                                   (filter #(pos? (or (:quantity %) 0)) wines))
                      visible-count (count visible-wines)
-                     total-count (if show-selected?
-                                   (count selected-wines)
-                                   (count base-wines))
+                     ;; Denominator is always the whole (in-stock)
+                     ;; cellar — the Selected (n) button already
+                     ;; shows the selection count
+                     total-count (count base-wines)
                      selection-count (count (or selected-ids #{}))]
                  [:<> [collection-stats-modal app-state]
                   (if (:selected-wine-id state)

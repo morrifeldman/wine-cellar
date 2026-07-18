@@ -3,8 +3,7 @@
             [reagent-mui.material.tooltip :refer [tooltip]]
             [wine-cellar.api :as api]
             [wine-cellar.state :as state-core]
-            [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
-            [wine-cellar.views.chat.utils :refer [combine-wine-lists]]))
+            [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
 (defn manual-context-wines
   [state]
@@ -29,7 +28,13 @@
     (case mode
       :summary []
       :selection manual-wines
-      :selection+filters (combine-wine-lists manual-wines visible-wines)
+      ;; With a selection, filters narrow it (intersection);
+      ;; without one, context is just the filtered wines.
+      :selection+filters (if (seq manual-wines)
+                           (let [manual-ids (set (map :id manual-wines))]
+                             (vec (filter #(contains? manual-ids (:id %))
+                                          visible-wines)))
+                           visible-wines)
       [])))
 
 (defn- context-label-element
@@ -43,7 +48,9 @@
     :selection+filters (if (pos? context-count)
                          [:<>
                           [:span {:style {:fontWeight 700}} (str context-count)]
-                          " wines (selected + filters)"]
+                          (if (pos? manual-count)
+                            " wines (selected + filters)"
+                            " wines (filtered)")]
                          "No wines match the filters")
     "Summary only"))
 
@@ -138,9 +145,12 @@
                                         :wine-search-state search-state}))))
 
 (defn indicator-button
-  [context-mode indicator-props change-context-mode!]
+  [context-mode indicator-props change-context-mode! manual-count]
   (let [{:keys [color label sx]} indicator-props
-        context-cycle [:summary :selection :selection+filters]
+        ;; Nothing selected — no point stopping on :selection
+        context-cycle (if (pos? manual-count)
+                        [:summary :selection :selection+filters]
+                        [:summary :selection+filters])
         cycle-context-mode!
         (fn []
           (let [indexed (map-indexed vector context-cycle)

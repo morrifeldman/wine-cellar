@@ -97,9 +97,14 @@
                                        :show-tasting-note-form?
                                        :editing-note-id
                                        :new-tasting-note
-                                       :show-selected-wines?
-                                       :selected-wine-ids
                                        :return-to-report?)
+                               ;; Keep wine selection on same-view
+                               ;; navigations (e.g. chat close via
+                               ;; history.back); clear it when
+                               ;; actually switching views
+                               (cond-> (not= old-view new-view)
+                                       (dissoc :show-selected-wines?
+                                        :selected-wine-ids))
                                (merge nav-state))))
         (let [chat-modal-open? (gobj/get (.-state js/history) "chatModalOpen")
               chat-open? (gobj/get (.-state js/history) "chatOpen")]

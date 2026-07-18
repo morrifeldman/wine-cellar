@@ -17,7 +17,8 @@
             [wine-cellar.views.components.image-upload :refer [camera-capture]]
             [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.views.wines.filters :as wine-filters]
-            [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
+            [wine-cellar.utils.filters :refer
+             [filtered-sorted-wines filters-active?]]
             [wine-cellar.api :as api]
             [wine-cellar.state :as state-core]
             [wine-cellar.views.chat.utils :as chat-utils]
@@ -230,7 +231,8 @@
                                   :sx {:color "text.secondary"
                                        :fontSize "0.7rem"}} "Bar inventory"]
                                 [chat-context/indicator-button context-mode
-                                 indicator-props change-context-mode!])
+                                 indicator-props change-context-mode!
+                                 manual-count])
             filter-count-info {:visible visible-count :total total-count}
             filter-panel (when (and (not bar-view?) filters-active?)
                            (wine-filters/filter-bar app-state
@@ -354,11 +356,18 @@
 
 (defn- smart-open-chat!
   [app-state]
-  ;; From a wine detail page, start with just that wine in context;
-  ;; otherwise default to :selection+filters mode.
+  ;; From a wine detail page or an unfiltered selected-wines view,
+  ;; start with just those wines in context. With both a selection
+  ;; and active filters, start in :selection+filters (their
+  ;; intersection). Otherwise default to :selection+filters.
   (state-core/set-context-mode!
    app-state
-   (if (:selected-wine-id @app-state) :selection :selection+filters))
+   (let [state @app-state
+         has-selection? (seq (:selected-wine-ids state))]
+     (cond (:selected-wine-id state) :selection
+           (and has-selection? (filters-active? state)) :selection+filters
+           (and has-selection? (:show-selected-wines? state)) :selection
+           :else :selection+filters)))
   (swap! app-state assoc-in [:chat :open?] true)
   ;; Push a history entry so the back button closes the chat
   ;; rather than navigating away from the current page
