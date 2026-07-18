@@ -189,6 +189,7 @@
 (s/def ::instructions (s/nilable string?))
 (s/def ::tags (s/nilable (s/coll-of string?)))
 (s/def ::description (s/nilable string?))
+(s/def ::caption (s/nilable string?))
 (s/def ::message-text string?)
 
 (def spirit-schema
@@ -208,13 +209,13 @@
 
 (def cocktail-recipe-schema
   (s/keys :req-un [::name ::ingredients]
-          :opt-un [::description ::instructions ::notes ::tags ::source
-                   ::rating]))
+          :opt-un [::caption ::description ::instructions ::notes ::tags
+                   ::source ::rating]))
 
 (def cocktail-recipe-update-schema
   (s/keys :opt-un
-          [::name ::ingredients ::description ::instructions ::notes ::tags
-           ::source ::rating]))
+          [::name ::ingredients ::caption ::description ::instructions ::notes
+           ::tags ::source ::rating]))
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 

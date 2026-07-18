@@ -100,6 +100,10 @@
    (sql-execute-helper
     tx
     {:raw
+     ["ALTER TABLE cocktail_recipes ADD COLUMN IF NOT EXISTS caption varchar;"]})
+   (sql-execute-helper
+    tx
+    {:raw
      ["DO $$ BEGIN "
       "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='wines' AND column_name='open_bottle_opened_at') THEN "
       "ALTER TABLE wines ADD COLUMN open_bottle_opened_at timestamptz; "

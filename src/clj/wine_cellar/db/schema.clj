@@ -244,7 +244,7 @@
   {:create-table [:cocktail_recipes :if-not-exists]
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
-    [:name :varchar [:not nil]] [:description :text]
+    [:name :varchar [:not nil]] [:caption :varchar] [:description :text]
     [:ingredients :jsonb [:not nil] [:default [:raw "'[]'::jsonb"]]]
     [:instructions :text] [:notes :text] [:tags :varchar :array]
     [:source :varchar] [:rating :integer]

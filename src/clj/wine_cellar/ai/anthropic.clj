@@ -339,14 +339,22 @@
        :required ["name" "ingredients"]
        :properties
        {:name {:type "string"}
+        :caption {:type "string"
+                  :description
+                  (str "A one-line hook for the recipe card, at most ~12 "
+                       "words — what the drink is and why you'd reach for "
+                       "it (e.g. \"Smoke wrapping around Cynar's earthy "
+                       "bitterness.\"). Always provide it: distill it from "
+                       "the headnote when there is one, otherwise write "
+                       "your own.")}
         :description {:type "string"
                       :description
                       (str "When the source includes a headnote or "
                            "introductory text about the drink (history, "
                            "attribution, tasting notes), transcribe it "
                            "verbatim and in full — do not summarize or "
-                           "truncate it. Only write your own one-sentence "
-                           "description when the source has none.")}
+                           "truncate it. Omit when the source has none; "
+                           "the caption already covers the one-liner.")}
         :source {:type "string"
                  :description
                  (str "The publication, book, or site name the recipe comes "

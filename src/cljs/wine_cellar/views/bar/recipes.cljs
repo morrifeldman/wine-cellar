@@ -39,8 +39,8 @@
 
 (defn- recipe-search-text
   [r]
-  (->> (concat [(:name r) (:source r) (:description r) (:instructions r)
-                (:notes r)]
+  (->> (concat [(:name r) (:source r) (:caption r) (:description r)
+                (:instructions r) (:notes r)]
                (:tags r)
                (map :name (:ingredients r)))
        (filter some?)
@@ -133,9 +133,10 @@
                      (get-in @app-state [:bar :recipes])))
       (get-in @app-state [:bar :new-recipe])) rows
     (r/atom (mapv make-row (:ingredients recipe))) name-ref (r/atom nil)
-    source-ref (r/atom nil) tags-ref (r/atom nil) description-ref (r/atom nil)
-    instructions-ref (r/atom nil) notes-ref (r/atom nil) add-ingredient!
-    #(swap! rows conj (make-row {})) remove-ingredient!
+    source-ref (r/atom nil) tags-ref (r/atom nil) caption-ref (r/atom nil)
+    description-ref (r/atom nil) instructions-ref (r/atom nil) notes-ref
+    (r/atom nil) add-ingredient! #(swap! rows conj (make-row {}))
+    remove-ingredient!
     (fn [row-id]
       (swap! rows (fn [rs] (vec (remove #(= (:row-id %) row-id) rs))))) cancel!
     (fn []
@@ -158,6 +159,7 @@
             payload (assoc recipe
                            :name (ref-value name-ref)
                            :source (ref-value source-ref)
+                           :caption (ref-value caption-ref)
                            :description (ref-value description-ref)
                            :instructions (ref-value instructions-ref)
                            :notes (ref-value notes-ref)
@@ -197,10 +199,18 @@
          :input-ref tags-ref
          :sx {:width "100%"}}]]
       [box {:sx {:flex "3 1 400px"}}
+       [uncontrolled-text-field
+        {:label "Caption"
+         :initial-value (:caption recipe)
+         :helper-text "One-line summary shown on the recipe card"
+         :input-ref caption-ref
+         :sx {:width "100%"}}]]
+      [box {:sx {:flex "3 1 400px"}}
        [uncontrolled-text-area-field
         {:label "Description"
          :initial-value (:description recipe)
-         :rows 4
+         :min-rows 3
+         :max-rows 12
          :input-ref description-ref
          :sx {:width "100%"}}]]]
      [typography {:variant "subtitle2" :sx {:mb 1 :mt 0.5 :fontWeight 600}}
@@ -595,14 +605,21 @@
       (when (seq (:ingredients recipe))
         [box {:sx {:mt 1}} [makeable-badge report]])
       [tags-editor app-state recipe all-tags]]
-     ;; Description (inline editable, no section header — sits as the lede)
+     ;; Caption (inline editable, no section header — sits as the lede)
+     [box {:sx {:mb 1}}
+      [editable-text-field
+       {:value (:caption recipe)
+        :on-save #(save-field! app-state recipe :caption %)
+        :empty-text "Add a one-line caption..."
+        :display-sx {:fontStyle "italic" :color "text.secondary"}}]]
+     ;; Description — the longer headnote/story, below the caption
      [box {:sx {:mb 1}}
       [editable-text-field
        {:value (:description recipe)
         :on-save #(save-field! app-state recipe :description %)
-        :empty-text "Add a short description..."
-        :text-field-props {:multiline true :rows 2}
-        :display-sx {:fontStyle "italic" :color "text.secondary"}}]]
+        :empty-text "Add a description..."
+        :text-field-props {:multiline true :minRows 3 :maxRows 12}
+        :display-sx {:color "text.secondary" :fontSize "0.9rem"}}]]
      ;; Ingredients section
      [detail-section
       {:icon local-bar :label "Ingredients" :color "rgba(139,195,74,0.7)"}
@@ -703,11 +720,16 @@
             ^{:key tag}
             [chip
              {:label tag :size "small" :sx {:height 18 :fontSize "0.7rem"}}])])
-       (when (:description recipe)
+       (when-let [line (or (:caption recipe) (:description recipe))]
          [typography
           {:variant "body2"
-           :sx {:color "text.secondary" :fontSize "0.8rem" :mt 0.5}}
-          (:description recipe)])]]]))
+           :sx {:color "text.secondary"
+                :fontSize "0.8rem"
+                :mt 0.5
+                :display "-webkit-box"
+                :WebkitLineClamp 2
+                :WebkitBoxOrient "vertical"
+                :overflow "hidden"}} line])]]]))
 
 (defn save-recipe-dialog
   [_app-state]
