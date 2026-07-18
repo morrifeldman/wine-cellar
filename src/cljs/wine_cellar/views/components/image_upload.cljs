@@ -8,6 +8,28 @@
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [reagent-mui.icons.close :refer [close]]))
 
+(defn file->jpeg-data-url
+  "Reads an image File/Blob, redraws it on a canvas, and calls callback with
+   a JPEG data URL."
+  [file-or-blob callback]
+  (let [reader (js/FileReader.)]
+    (set! (.-onload reader)
+          (fn [e]
+            (let [data-url (-> e
+                               .-target
+                               .-result)
+                  img (js/Image.)]
+              (set! (.-onload img)
+                    (fn []
+                      (let [canvas (js/document.createElement "canvas")
+                            ctx (.getContext canvas "2d")]
+                        (set! (.-width canvas) (.-width img))
+                        (set! (.-height canvas) (.-height img))
+                        (.drawImage ctx img 0 0)
+                        (callback (.toDataURL canvas "image/jpeg" 0.85)))))
+              (set! (.-src img) data-url))))
+    (.readAsDataURL reader file-or-blob)))
+
 (defn create-thumbnail
   [data-url callback]
   (let [img (js/Image.)]

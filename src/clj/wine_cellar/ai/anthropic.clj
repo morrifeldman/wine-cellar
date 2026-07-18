@@ -327,7 +327,7 @@
 
 (def extract-recipe-tool
   {:name extract-recipe-tool-name
-   :description "Extracts structured cocktail recipe data from text."
+   :description "Extracts structured cocktail recipe data from text or images."
    :input_schema
    {:type "object"
     :required ["recipes"]
@@ -339,7 +339,19 @@
        :required ["name" "ingredients"]
        :properties
        {:name {:type "string"}
-        :description {:type "string"}
+        :description {:type "string"
+                      :description
+                      (str "When the source includes a headnote or "
+                           "introductory text about the drink (history, "
+                           "attribution, tasting notes), transcribe it "
+                           "verbatim and in full — do not summarize or "
+                           "truncate it. Only write your own one-sentence "
+                           "description when the source has none.")}
+        :source {:type "string"
+                 :description
+                 (str "The publication, book, or site name the recipe comes "
+                      "from, only when it is visible in the source material "
+                      "(e.g. 'Death & Co'); omit otherwise.")}
         :ingredients
         {:type "array"
          :items {:type "object"
@@ -354,7 +366,9 @@
           "ingredient term over a specific brand when it still makes sense in "
           "context (e.g. 'bourbon' rather than 'Buffalo Trace', 'London dry "
           "gin' rather than 'Tanqueray'); keep a brand only when the recipe "
-          "truly depends on that specific bottle. "
+          "truly depends on that specific bottle. When the source merely "
+          "recommends a brand for a line, keep the generic name here and "
+          "record the recommendation in notes. "
           "Set garnish to true when the "
           "ingredient is used only as a garnish (a twist, peel, wheel, "
           "wedge, sprig, cherry, etc. — anything in a \"Garnish:\" line or "
@@ -362,6 +376,18 @@
           "drink, so do not flag ingredients that are juiced, muddled, or "
           "otherwise mixed in.")}
         :instructions {:type "string"}
+        :notes {:type "string"
+                :description
+                (str "Tips, variations, ratio tweaks, and serving "
+                     "suggestions from the source that aren't part of the "
+                     "core build (e.g. a 'notes' section, substitutions, "
+                     "'if too mellow, bump X'). Also record here any "
+                     "specific bottle/brand recommendations dropped from "
+                     "the generic ingredient names (e.g. 'Del Maguey Vida "
+                     "works well for the mezcal') — downstream linking "
+                     "uses these to mark preferred bottles. Stay faithful "
+                     "to the source; omit when it offers nothing beyond "
+                     "the build.")}
         :tags {:type "array"
                :maxItems 4
                :items {:type "string"}
@@ -383,26 +409,34 @@
                              "not 'negroni variation').")}}}}}}})
 
 (defn extract-cocktail-recipe
-  "Extracts structured cocktail recipe data from a plain-text message. When
-   existing-tags are supplied, nudges the model to reuse that vocabulary.
-   Pure extraction — linking to the user's bar happens in a separate
-   resolve-recipe-links phase."
+  "Extracts structured cocktail recipe data from a plain-text message and/or
+   an image supplied as a base64 data URL. When existing-tags are supplied,
+   nudges the model to reuse that vocabulary. Pure extraction — linking to
+   the user's bar happens in a separate resolve-recipe-links phase."
   ([text] (extract-cocktail-recipe text nil))
-  ([text existing-tags]
-   {:pre [(string? text)]}
+  ([text existing-tags] (extract-cocktail-recipe text existing-tags nil))
+  ([text existing-tags image]
+   {:pre [(or (string? text) (string? image))]}
    (let [tag-hint
          (when (seq existing-tags)
            (str "\n\nTags already in use (reuse these exact strings when one "
                 "applies; only add a new tag if none fit): "
                 (str/join ", " existing-tags)))
-         request {:messages [{:role "user"
-                              :content (str "Extract all cocktail recipes from"
-                                            " this text:\n\n"
-                                            text
-                                            tag-hint)}]
+         image-entry (prompts/label-image-entry image)
+         content (if image-entry
+                   [image-entry
+                    {:type "text"
+                     :text (str "Extract all cocktail recipes from this image."
+                                (when (seq text)
+                                  (str "\n\nAccompanying text:\n" text))
+                                tag-hint)}]
+                   (str "Extract all cocktail recipes from this text:\n\n"
+                        text
+                        tag-hint))
+         request {:messages [{:role "user" :content content}]
                   :tools [extract-recipe-tool]
                   :tool_choice {:type "tool" :name extract-recipe-tool-name}
-                  :max_tokens 2000}]
+                  :max_tokens 3000}]
      (call-anthropic-api request true))))
 
 (def resolve-links-tool-name "resolve_recipe_links")

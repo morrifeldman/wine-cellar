@@ -1545,15 +1545,28 @@
             (fn [items] (filterv #(not= (:id %) id) items)))))))
 
 (defn create-cocktail-recipe
-  [app-state recipe]
-  (go (let [result (<! (POST "/api/cocktail-recipes"
-                             recipe
-                             "Failed to create recipe"))]
-        (if (:success result)
-          (do (swap! app-state update-in [:bar :recipes] conj (:data result))
-              (swap! app-state assoc-in [:bar :show-recipe-form?] false)
-              (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []}))
-          (swap! app-state assoc-in [:bar :error] (:error result))))))
+  ([app-state recipe] (create-cocktail-recipe app-state recipe nil))
+  ([app-state recipe {:keys [open?]}]
+   (go
+    (let [result
+          (<! (POST "/api/cocktail-recipes" recipe "Failed to create recipe"))]
+      (if (:success result)
+        (let [created (:data result)]
+          (swap! app-state update-in [:bar :recipes] conj created)
+          (swap! app-state assoc-in [:bar :show-recipe-form?] false)
+          (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []})
+          (when open?
+            (swap! app-state assoc-in [:bar :viewing-recipe-id] (:id created))
+            (js/setTimeout
+             (fn []
+               (when-let [el (.getElementById js/document
+                                              (str "recipe-" (:id created)))]
+                 (let [top (-> (.. el getBoundingClientRect -top)
+                               (+ (.-pageYOffset js/window))
+                               (- 16))]
+                   (.scrollTo js/window #js {:top top :behavior "smooth"}))))
+             100)))
+        (swap! app-state assoc-in [:bar :error] (:error result)))))))
 
 (defn update-cocktail-recipe
   [app-state id recipe]
@@ -1654,4 +1667,35 @@
        (swap! app-state (fn [s]
                           (-> s
                               (assoc-in [:chat :save-recipe :extracting?] false)
+                              (assoc-in [:bar :error] (:error result)))))))))
+
+(defn extract-recipe-from-image!
+  [app-state image-data]
+  (swap! app-state (fn [s]
+                     (-> s
+                         (assoc-in [:bar :photo-import :extracting?] true)
+                         (assoc-in [:chat :save-recipe]
+                                   {:extracting? true
+                                    :recipe nil
+                                    :open? false
+                                    :origin :photo}))))
+  (go
+   (let [result (<! (POST "/api/cocktail-recipe-extract"
+                          {:image image-data}
+                          "Failed to extract recipe"))]
+     (if (:success result)
+       (let [data (:data result)
+             recipes (or (:recipes data) (when (:name data) [data]))]
+         (swap! app-state (fn [s]
+                            (-> s
+                                (assoc-in [:bar :photo-import]
+                                          {:open? false :extracting? false})
+                                (assoc-in [:chat :save-recipe]
+                                          {:extracting? false
+                                           :recipes (vec recipes)
+                                           :open? true
+                                           :origin :photo})))))
+       (swap! app-state (fn [s]
+                          (-> s
+                              (assoc-in [:bar :photo-import :extracting?] false)
                               (assoc-in [:bar :error] (:error result)))))))))

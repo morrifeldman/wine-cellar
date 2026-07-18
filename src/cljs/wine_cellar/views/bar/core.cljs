@@ -5,9 +5,11 @@
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.arrow-back :refer [arrow-back]]
+            [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [wine-cellar.nav :as nav]
             [wine-cellar.views.bar.spirits :refer [spirits-tab]]
             [wine-cellar.views.bar.inventory :refer [inventory-tab]]
+            [wine-cellar.views.bar.photo-import :refer [photo-import-dialog]]
             [wine-cellar.views.bar.recipes :refer
              [recipes-tab save-recipe-dialog]]))
 
@@ -43,6 +45,15 @@
                        (get tab-keys v :recipes)))
         :sx {:flex 1}} [tab {:label "Recipes"}] [tab {:label "Spirits"}]
        [tab {:label "Mixers"}]]
+      (when (= active-tab :recipes)
+        [button
+         {:size "small"
+          :title "Import recipe from photo"
+          :data-testid "import-recipe-photo"
+          :sx {:color "text.secondary" :minWidth 0 :p 0.5 :ml 1}
+          :on-click
+          #(swap! app-state assoc-in [:bar :photo-import :open?] true)}
+         [camera-alt {:fontSize "small"}]])
       [button
        {:size "small"
         :sx {:color "text.secondary" :minWidth 0 :p 0.5 :ml 1}
@@ -53,4 +64,5 @@
        :spirits [spirits-tab app-state]
        :recipes [recipes-tab app-state]
        :inventory [inventory-tab app-state]
-       [recipes-tab app-state]) [save-recipe-dialog app-state]]))
+       [recipes-tab app-state]) [save-recipe-dialog app-state]
+     [photo-import-dialog app-state]]))

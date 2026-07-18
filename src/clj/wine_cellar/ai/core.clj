@@ -116,12 +116,14 @@
       :gemini (gemini/generate-report-commentary prompt))))
 
 (defn extract-cocktail-recipe
-  "Extracts structured cocktail recipe data from text. Always uses Anthropic.
-   existing-tags nudges the model to reuse the current tag vocabulary. Pure
-   extraction — bar linking happens separately via resolve-recipe-links."
+  "Extracts structured cocktail recipe data from text and/or an image (base64
+   data URL). Always uses Anthropic. existing-tags nudges the model to reuse
+   the current tag vocabulary. Pure extraction — bar linking happens
+   separately via resolve-recipe-links."
   ([text] (extract-cocktail-recipe text nil))
-  ([text existing-tags]
-   (try (anthropic/extract-cocktail-recipe text existing-tags)
+  ([text existing-tags] (extract-cocktail-recipe text existing-tags nil))
+  ([text existing-tags image]
+   (try (anthropic/extract-cocktail-recipe text existing-tags image)
         (catch Exception e (tap> ["❌ extract-cocktail-recipe failed" e]) nil))))
 
 (defn resolve-recipe-links

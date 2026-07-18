@@ -1,5 +1,6 @@
 (ns wine-cellar.views.chat.utils
-  (:require [clojure.string :as string]))
+  (:require [clojure.string :as string]
+            [wine-cellar.views.components.image-upload :as image-upload]))
 
 (defn escape-regex
   [s]
@@ -30,26 +31,7 @@
 (defn handle-clipboard-image
   "Process an image file/blob from clipboard and set it as attached image"
   [file-or-blob attached-image]
-  (let [reader (js/FileReader.)]
-    (set! (.-onload reader)
-          (fn [e]
-            (let [data-url (-> e
-                               .-target
-                               .-result)
-                  img (js/Image.)]
-              (set! (.-onload img)
-                    (fn []
-                      ;; Convert to JPEG format
-                      (let [canvas (js/document.createElement "canvas")
-                            ctx (.getContext canvas "2d")]
-                        (set! (.-width canvas) (.-width img))
-                        (set! (.-height canvas) (.-height img))
-                        (.drawImage ctx img 0 0)
-                        (let [jpeg-data-url
-                              (.toDataURL canvas "image/jpeg" 0.85)]
-                          (reset! attached-image jpeg-data-url)))))
-              (set! (.-src img) data-url))))
-    (.readAsDataURL reader file-or-blob)))
+  (image-upload/file->jpeg-data-url file-or-blob #(reset! attached-image %)))
 
 (defn handle-paste-event
   "Handle paste events to detect and process clipboard images"

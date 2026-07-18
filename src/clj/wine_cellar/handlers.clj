@@ -539,28 +539,31 @@
       ingredients))))
 
 (defn extract-cocktail-recipe
-  "Two-phase: extracts recipes from text without any bar context, then links
-   each extracted recipe to the bar via the same resolution call refresh uses.
-   A failed resolve degrades to an unlinked recipe rather than failing the
-   extraction."
+  "Two-phase: extracts recipes from text and/or an image without any bar
+   context, then links each extracted recipe to the bar via the same
+   resolution call refresh uses. A failed resolve degrades to an unlinked
+   recipe rather than failing the extraction."
   [request]
   (with-ai-error
-   (let [message-text (get-in request [:parameters :body :message-text])
+   (let [{:keys [message-text image]} (get-in request [:parameters :body])
          existing-tags (db-api/distinct-recipe-tags)
          bar {:spirits (db-api/get-spirits)
               :inventory-items (db-api/get-bar-inventory-items)}]
-     (if-let [result (ai/extract-cocktail-recipe message-text existing-tags)]
-       (response/response
-        (update result
-                :recipes
-                (partial
-                 mapv
-                 (fn [recipe]
-                   (if-let [links (and (seq (:ingredients recipe))
-                                       (ai/resolve-recipe-links recipe bar))]
-                     (update recipe :ingredients merge-recipe-links links)
-                     recipe)))))
-       {:status 422 :body {:error "Could not extract recipe from text"}}))))
+     (if (and (empty? message-text) (empty? image))
+       {:status 400 :body {:error "message-text or image is required"}}
+       (if-let [result
+                (ai/extract-cocktail-recipe message-text existing-tags image)]
+         (response/response
+          (update result
+                  :recipes
+                  (partial
+                   mapv
+                   (fn [recipe]
+                     (if-let [links (and (seq (:ingredients recipe))
+                                         (ai/resolve-recipe-links recipe bar))]
+                       (update recipe :ingredients merge-recipe-links links)
+                       recipe)))))
+         {:status 422 :body {:error "Could not extract recipe"}})))))
 
 (defn refresh-recipe-links
   "Re-resolves a stored recipe's links against current inventory via an id-keyed

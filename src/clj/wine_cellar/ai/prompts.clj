@@ -438,7 +438,9 @@
         "image/png"
         :else "image/jpeg"))
 
-(defn- label-image-entry
+(defn label-image-entry
+  "Builds an Anthropic image content block from a base64 data URL, or nil when
+   the input isn't a usable data URL."
   [image]
   (when-let [data (strip-image-data-url image)]
     {:type "image"

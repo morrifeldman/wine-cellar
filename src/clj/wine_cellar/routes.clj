@@ -370,8 +370,8 @@
            :handler handlers/get-report}}]
    ;; Grape Varieties Routes
    ["/cocktail-recipe-extract"
-    {:post {:summary "Extract recipe from text using AI"
-            :parameters {:body (s/keys :req-un [::message-text])}
+    {:post {:summary "Extract recipe from text or image using AI"
+            :parameters {:body (s/keys :opt-un [::message-text ::image])}
             :responses {200 {:body map?} 422 {:body map?} 500 {:body map?}}
             :handler handlers/extract-cocktail-recipe}}]
    ["/chat"

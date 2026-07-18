@@ -721,7 +721,13 @@
                                                 (:name recipe))))]
                         (api/create-cocktail-recipe
                          app-state
-                         (assoc recipe :source "AI Chat"))))
+                         (assoc recipe
+                                :source
+                                (or (:source recipe)
+                                    (if (= :photo (:origin save-state))
+                                      "Photo import"
+                                      "AI Chat")))
+                         {:open? (= 1 (count sel))})))
                     (close!)
                     (swap! app-state assoc-in [:bar :active-tab] :recipes))]
         [dialog {:open open? :on-close close! :max-width "sm" :full-width true}
