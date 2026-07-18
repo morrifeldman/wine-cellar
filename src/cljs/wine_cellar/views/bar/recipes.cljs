@@ -690,15 +690,7 @@
       :sx {:p 1.5 :mb 1 :cursor "pointer" "&:hover" {:bgcolor "action.hover"}}
       :on-click
       #(do (swap! app-state assoc-in [:bar :viewing-recipe-id] (:id recipe))
-           (js/setTimeout
-            (fn []
-              (when-let [el (.getElementById js/document
-                                             (str "recipe-" (:id recipe)))]
-                (let [top (-> (.. el getBoundingClientRect -top)
-                              (+ (.-pageYOffset js/window))
-                              (- 16))]
-                  (.scrollTo js/window #js {:top top :behavior "smooth"}))))
-            100))}
+           (api/scroll-recipe-into-view! (:id recipe)))}
      [box
       {:sx {:display "flex"
             :alignItems "flex-start"

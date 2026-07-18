@@ -153,7 +153,12 @@
           (api/fetch-latest-sensor-readings app-state {}))
         (when (and (= :bar (:view nav-state))
                    (not (gobj/get (.-state js/history) "barNav")))
-          (api/fetch-bar-data app-state))
+          (api/fetch-bar-data app-state)
+          ;; A recipe opened behind the chat modal (e.g. saved from chat)
+          ;; loses its scroll position to the browser's history scroll
+          ;; restoration when the chat's history entry pops — re-scroll.
+          (when-let [recipe-id (get-in @app-state [:bar :viewing-recipe-id])]
+            (api/scroll-recipe-into-view! recipe-id)))
         (when-let [scroll-y (gobj/get (.-state js/history) "scrollY")]
           (.replaceState js/history #js {} "" (.-pathname js/location))
           (swap! app-state assoc :restore-scroll scroll-y))))))

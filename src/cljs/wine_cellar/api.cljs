@@ -1544,6 +1544,19 @@
             [:bar :inventory-items]
             (fn [items] (filterv #(not= (:id %) id) items)))))))
 
+(defn scroll-recipe-into-view!
+  "Smooth-scrolls the window so the recipe card/detail sits near the top.
+   Delayed a tick so the element exists after a state change re-renders."
+  [recipe-id]
+  (js/setTimeout
+   (fn []
+     (when-let [el (.getElementById js/document (str "recipe-" recipe-id))]
+       (let [top (-> (.. el getBoundingClientRect -top)
+                     (+ (.-pageYOffset js/window))
+                     (- 16))]
+         (.scrollTo js/window #js {:top top :behavior "smooth"}))))
+   100))
+
 (defn create-cocktail-recipe
   ([app-state recipe] (create-cocktail-recipe app-state recipe nil))
   ([app-state recipe {:keys [open?]}]
@@ -1552,20 +1565,14 @@
           (<! (POST "/api/cocktail-recipes" recipe "Failed to create recipe"))]
       (if (:success result)
         (let [created (:data result)]
-          (swap! app-state update-in [:bar :recipes] conj created)
+          ;; prepend: matches the server's newest-first order, so a later
+          ;; refetch doesn't reshuffle the list under an open detail view
+          (swap! app-state update-in [:bar :recipes] #(into [created] %))
           (swap! app-state assoc-in [:bar :show-recipe-form?] false)
           (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []})
           (when open?
             (swap! app-state assoc-in [:bar :viewing-recipe-id] (:id created))
-            (js/setTimeout
-             (fn []
-               (when-let [el (.getElementById js/document
-                                              (str "recipe-" (:id created)))]
-                 (let [top (-> (.. el getBoundingClientRect -top)
-                               (+ (.-pageYOffset js/window))
-                               (- 16))]
-                   (.scrollTo js/window #js {:top top :behavior "smooth"}))))
-             100)))
+            (scroll-recipe-into-view! (:id created))))
         (swap! app-state assoc-in [:bar :error] (:error result)))))))
 
 (defn update-cocktail-recipe
