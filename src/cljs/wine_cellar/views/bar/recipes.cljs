@@ -1018,7 +1018,12 @@
        :disabled (boolean running?)
        :start-icon (when running? (r/as-element [circular-progress {:size 14}]))
        :on-click #(api/refresh-all-recipe-links app-state)
-       :sx {:color "text.secondary" :textTransform "none" :fontSize "0.78rem"}}
+       :sx {:color "text.secondary"
+            :textTransform "none"
+            :fontSize "0.78rem"
+            ;; while running the button is disabled but doubles as the
+            ;; progress readout — keep it readable, not text.disabled
+            "&.Mui-disabled" {:color "text.secondary"}}}
       (if running?
         (str "Refreshing… "
              done
