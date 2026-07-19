@@ -74,7 +74,8 @@
                :fontWeight 600
                :lineHeight 1.15
                :color "primary.main"}} (:name recipe)]
-        [icon-button {:on-click close! :sx {:mt 0.5}} [close]]]
+        [icon-button {:on-click close! :sx {:mt 0.5 :color "text.secondary"}}
+         [close]]]
        (when-let [caption (:caption recipe)]
          [typography
           {:sx {:fontStyle "italic"

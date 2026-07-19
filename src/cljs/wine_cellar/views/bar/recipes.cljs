@@ -606,6 +606,7 @@
         [icon-button
          {:size "small"
           :data-testid "recipe-mode-button"
+          :sx {:color "text.secondary"}
           :on-click #(swap! app-state assoc-in [:bar :recipe-mode?] true)}
          [fullscreen-icon]]]]
       [box {:sx {:mt 0.5}}
