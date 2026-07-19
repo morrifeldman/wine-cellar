@@ -240,7 +240,10 @@
           editing-id (:editing-spirit-id bar)
           spirit (first (filter #(= (:id %) editing-id) (:spirits bar)))]
       (when spirit
-        [paper {:elevation 0 :sx {:p 2 :mb 2 :bgcolor "transparent"}}
+        [paper
+         {:elevation 0
+          :id (str "spirit-" (:id spirit))
+          :sx {:p 2 :mb 2 :bgcolor "transparent"}}
          ;; Identity row
          [box {:sx {:mb 3}}
           [dot-separated-row

@@ -62,7 +62,9 @@
        :on-close close!
        :PaperProps {:sx {:bgcolor "background.default"
                          :backgroundImage "none"}}}
-      [box {:sx {:p {:xs 2.5 :sm 4} :maxWidth 700 :mx "auto" :width "100%"}}
+      ;; No width/100% here: without CssBaseline box-sizing is content-box,
+      ;; so width + padding would overflow the viewport on mobile
+      [box {:sx {:p {:xs 2.5 :sm 4} :maxWidth 700 :mx "auto"}}
        [box
         {:sx {:display "flex"
               :alignItems "flex-start"

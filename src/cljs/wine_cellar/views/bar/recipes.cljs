@@ -67,7 +67,15 @@
   (swap! app-state #(-> %
                         (assoc-in [:bar :viewing-recipe-id] nil)
                         (assoc-in [:bar :active-tab] :spirits)
-                        (assoc-in [:bar :editing-spirit-id] spirit-id))))
+                        (assoc-in [:bar :editing-spirit-id] spirit-id)))
+  (js/setTimeout
+   (fn []
+     (when-let [el (.getElementById js/document (str "spirit-" spirit-id))]
+       (let [top (-> (.. el getBoundingClientRect -top)
+                     (+ (.-pageYOffset js/window))
+                     (- 16))]
+         (.scrollTo js/window #js {:top top :behavior "smooth"}))))
+   100))
 
 (defn- view-category-from-recipe!
   "Switch to the Spirits tab filtered to a spirit category/subcategory, pushing a
