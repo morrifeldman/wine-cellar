@@ -1,41 +1,45 @@
 (ns wine-cellar.views.bar.recipes
-  (:require [clojure.string :as str]
-            [reagent.core :as r]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.dialog :refer [dialog]]
-            [reagent-mui.material.dialog-title :refer [dialog-title]]
-            [reagent-mui.material.dialog-content :refer [dialog-content]]
-            [reagent-mui.material.dialog-actions :refer [dialog-actions]]
-            [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.material.chip :refer [chip]]
-            [reagent-mui.material.rating :refer [rating]]
-            [reagent-mui.material.circular-progress :refer [circular-progress]]
-            [reagent-mui.material.checkbox :refer [checkbox]]
-            [reagent-mui.icons.local-florist :refer [local-florist]]
-            [reagent-mui.material.form-control-label :refer
-             [form-control-label]]
-            [reagent-mui.icons.add :refer [add]]
-            [reagent-mui.icons.delete :refer [delete]]
-            [reagent-mui.icons.local-bar :refer [local-bar]]
-            [reagent-mui.icons.star :refer [star] :rename {star star-icon}]
-            [reagent-mui.icons.swap-horiz :refer [swap-horiz]]
-            [reagent-mui.icons.menu-book :refer [menu-book]]
-            [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
-            [wine-cellar.utils.filters :refer [normalize-text]]
-            [wine-cellar.views.bar.matching :as matching]
-            [wine-cellar.views.bar.inventory :as inv]
-            [wine-cellar.views.bar.spirits :refer
-             [category-filter-bar subcategory-filter-bar category-colors
-              category-labels]]
-            [wine-cellar.views.components :refer
-             [editable-text-field editable-autocomplete-field search-text-field
-              detail-section]]
-            [wine-cellar.views.components.form :refer
-             [ref-value uncontrolled-text-field uncontrolled-text-area-field]]
-            [wine-cellar.api :as api]))
+  (:require
+    [clojure.string :as str]
+    [reagent.core :as r]
+    [reagent-mui.material.box :refer [box]]
+    [reagent-mui.material.dialog :refer [dialog]]
+    [reagent-mui.material.dialog-title :refer [dialog-title]]
+    [reagent-mui.material.dialog-content :refer [dialog-content]]
+    [reagent-mui.material.dialog-actions :refer [dialog-actions]]
+    [reagent-mui.material.paper :refer [paper]]
+    [reagent-mui.material.typography :refer [typography]]
+    [reagent-mui.material.button :refer [button]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.material.chip :refer [chip]]
+    [reagent-mui.material.rating :refer [rating]]
+    [reagent-mui.material.circular-progress :refer [circular-progress]]
+    [reagent-mui.material.checkbox :refer [checkbox]]
+    [reagent-mui.icons.local-florist :refer [local-florist]]
+    [reagent-mui.material.form-control-label :refer [form-control-label]]
+    [reagent-mui.icons.add :refer [add]]
+    [reagent-mui.icons.delete :refer [delete]]
+    [reagent-mui.icons.local-bar :refer [local-bar]]
+    [reagent-mui.icons.fullscreen :refer [fullscreen] :rename
+     {fullscreen fullscreen-icon}]
+    [reagent-mui.material.tooltip :refer [tooltip]]
+    [reagent-mui.icons.star :refer [star] :rename {star star-icon}]
+    [reagent-mui.icons.swap-horiz :refer [swap-horiz]]
+    [reagent-mui.icons.menu-book :refer [menu-book]]
+    [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
+    [wine-cellar.utils.filters :refer [normalize-text]]
+    [wine-cellar.views.bar.matching :as matching]
+    [wine-cellar.views.bar.recipe-mode :as recipe-mode]
+    [wine-cellar.views.bar.inventory :as inv]
+    [wine-cellar.views.bar.spirits :refer
+     [category-filter-bar subcategory-filter-bar category-colors
+      category-labels]]
+    [wine-cellar.views.components :refer
+     [editable-text-field editable-autocomplete-field search-text-field
+      detail-section]]
+    [wine-cellar.views.components.form :refer
+     [ref-value uncontrolled-text-field uncontrolled-text-area-field]]
+    [wine-cellar.api :as api]))
 
 (defn- recipe-search-text
   [r]
@@ -577,19 +581,33 @@
      {:elevation 0
       :id (str "recipe-" (:id recipe))
       :sx {:p 2 :mb 2 :bgcolor "transparent"}}
+     (when (get-in @app-state [:bar :recipe-mode?])
+       [recipe-mode/recipe-mode-dialog app-state recipe])
      ;; Identity row
      [box {:sx {:mb 2}}
       [box
-       {:sx {:cursor "pointer"
-             :borderRadius 1
-             :mx -0.5
-             :px 0.5
-             :py 0.25
-             "&:hover" {:bgcolor "action.hover"}}
-        :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
-       [typography
-        {:sx {:fontSize "1.35rem" :fontWeight 600 :color "primary.main"}}
-        (:name recipe)]]
+       {:sx {:display "flex"
+             :alignItems "flex-start"
+             :justifyContent "space-between"
+             :gap 1}}
+       [box
+        {:sx {:cursor "pointer"
+              :flex 1
+              :borderRadius 1
+              :mx -0.5
+              :px 0.5
+              :py 0.25
+              "&:hover" {:bgcolor "action.hover"}}
+         :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
+        [typography
+         {:sx {:fontSize "1.35rem" :fontWeight 600 :color "primary.main"}}
+         (:name recipe)]]
+       [tooltip {:title "Recipe mode"}
+        [icon-button
+         {:size "small"
+          :data-testid "recipe-mode-button"
+          :on-click #(swap! app-state assoc-in [:bar :recipe-mode?] true)}
+         [fullscreen-icon]]]]
       [box {:sx {:mt 0.5}}
        [editable-text-field
         {:value (:source recipe)
