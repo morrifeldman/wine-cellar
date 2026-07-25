@@ -292,9 +292,7 @@
          {:on-click (fn [] (reset! anchor-el nil) (nav/go-blind-tastings!))}
          [list-item-icon [visibility-off {:fontSize "small" :color "primary"}]]
          "Blind Tastings"]
-        [menu-item {:on-click (fn [] (reset! anchor-el nil) (nav/go-bar!))}
-         [list-item-icon [local-bar {:fontSize "small" :color "primary"}]]
-         "Bar"] [divider]
+        [divider]
         [typography
          {:variant "caption"
           :sx {:px 2
@@ -333,6 +331,21 @@
           [arrow-back {:fontSize "small"}]
           [add {:fontSize "small"}])]])))
 
+(defn- bar-button
+  [app-state]
+  (let [active? (= (:view @app-state) :bar)]
+    [icon-button
+     {:on-click #(nav/go-bar!)
+      :size "large"
+      :color "primary"
+      :sx {:border "1px solid"
+           :border-color "primary.main"
+           :opacity (if active? 1 0.8)
+           :bgcolor (when active? "rgba(232,195,200,0.12)")
+           :borderRadius 1
+           "&:hover" {:opacity 1 :bgcolor "rgba(232,195,200,0.08)"}}}
+     [local-bar]]))
+
 (defn top-controls
   [app-state]
   [box
@@ -346,7 +359,8 @@
    [new-wine-or-list app-state]
    ;; Right side
    (if (mobile?)
-     [more-menu app-state]
+     [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
+      [bar-button app-state] [more-menu app-state]]
      (let [current-view (:view @app-state)]
        [box {:sx {:display "flex" :gap 1 :alignItems "center"}}
         [button
