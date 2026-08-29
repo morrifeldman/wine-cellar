@@ -7,7 +7,7 @@
 ## Dev Environment Ownership
 - The dev stack lives in tmux session `wine-dev` so it survives any single terminal or Claude session; start-dev also links it as a window into the user's most recently active tmux session for easy viewing
 - Claude may health-check (ports 3000/8080) and restart it via `scripts/start-dev.sh` when it's down — check `tmux ls` and ports first, never double-start
-- Read logs with `tmux capture-pane -pt wine-dev`; stop with `tmux send-keys -t wine-dev C-c` (dev-all's shutdown hook tears down all three processes)
+- Read logs with `tmux capture-pane -pt wine-dev`; stop with `tmux send-keys -t wine-dev C-c` (dev-all's shutdown hook tears down every process it started)
 - AI model defaults live in `resources/ai-models.edn`; env vars like `ANTHROPIC_SMALL_MODEL` override them at runtime
 
 ## Live REPL Access
@@ -19,17 +19,11 @@
 ## Conventions
 - Run `clj -M:clj-kondo --lint src/<FILE CHANGED>` after each change
 - Propose ad-hoc Clojure scripts (in `scripts/wine_cellar/scripts/`) for data tasks rather than manual DB manipulations
-- When a task is finished, just commit it — don't wait for confirmation (pushing still asks; a push to main deploys)
+- When a task is finished, just commit and push it — don't wait for confirmation
 
 ## UI/UX
-- **Taxonomy**: `Classification` = Terroir/Site (Grand Cru). `Designation` = Style/Aging (Riserva)
 - **Cards**: Minimalist, label-free, dot-separated metadata
-- **Theme**: Dark burgundy. Ratings 95+ = Gold (#FFD54F), 90-94 = Pinkish (#E8C3C8)
-
-## Testing
-- **Playwright**: `dev/ui_check.js`; shared helpers in `dev/test_helpers.js`
-- **Auth**: generate JWT via backend REPL (`auth/create-jwt-token`), inject as `auth-token` cookie
-- **Frontend state**: query `@wine-cellar.core/app-state` via Shadow-CLJS REPL
+- **Theme**: Dark burgundy
 
 ## Credentials
 Local dev uses `pass` password manager (paths like `wine-cellar/anthropic-api-key`). See `docs/environment-variables.md`.
