@@ -15,13 +15,6 @@ jobs:
         run: |
           export FLY_APP_NAME="${{ secrets.FLY_APP_NAME }}"
           export FLY_PRIMARY_REGION="${{ secrets.FLY_PRIMARY_REGION }}"
-          export ANTHROPIC_MODEL="${{ vars.ANTHROPIC_MODEL }}"
-          export ANTHROPIC_LIGHT_MODEL="${{ vars.ANTHROPIC_LIGHT_MODEL }}"
-          export OPENAI_MODEL="${{ vars.OPENAI_MODEL }}"
-          export OPENAI_LIGHT_MODEL="${{ vars.OPENAI_LIGHT_MODEL }}"
-          export GEMINI_MODEL="${{ vars.GEMINI_MODEL }}"
-          export GEMINI_LIGHT_MODEL="${{ vars.GEMINI_LIGHT_MODEL }}"
-          export AI_DEFAULT_PROVIDER="${{ vars.AI_DEFAULT_PROVIDER }}"
           envsubst < fly.toml.template > fly.toml
           echo "Generated fly.toml:"
           cat fly.toml

@@ -9,13 +9,9 @@
 
 (def responses-url "https://api.openai.com/v1/responses")
 
-(defstate model
-          :start
-          (config-utils/get-config "OPENAI_MODEL" :fallback "gpt-5"))
+(defstate model :start (config-utils/ai-model :openai :model))
 
-(defstate light-model
-          :start
-          (config-utils/get-config "OPENAI_LIGHT_MODEL" :fallback "gpt-5-mini"))
+(defstate small-model :start (config-utils/ai-model :openai :small-model))
 
 (defstate api-key :start (config-utils/get-config "OPENAI_API_KEY"))
 
@@ -262,7 +258,7 @@
 (defn generate-conversation-title
   [{:keys [system user]}]
   {:pre [(string? system) (string? user)]}
-  (let [request {:model light-model
+  (let [request {:model small-model
                  :input
                  [{:role "system" :content [{:type "input_text" :text system}]}
                   {:role "user" :content [{:type "input_text" :text user}]}]

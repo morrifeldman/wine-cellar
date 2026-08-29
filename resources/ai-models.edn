@@ -1,0 +1,7 @@
+;; Default AI models. Any value here can be overridden at runtime by the
+;; matching environment variable (e.g. ANTHROPIC_MODEL), which is how you
+;; make a one-off change without editing the file.
+{:default-provider :anthropic
+ :anthropic {:model "claude-opus-5"    :small-model "claude-haiku-4-5"}
+ :openai    {:model "gpt-5.6-terra"    :small-model "gpt-5.6-luna"}
+ :gemini    {:model "gemini-3.7-flash" :small-model "gemini-3.5-flash-lite"}}

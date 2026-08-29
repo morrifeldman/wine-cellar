@@ -9,15 +9,9 @@
 
 (def api-url "https://api.anthropic.com/v1/messages")
 
-(defstate
- model
- :start
- (config-utils/get-config "ANTHROPIC_MODEL" :fallback "claude-sonnet-4-6")) ; Default to current model
+(defstate model :start (config-utils/ai-model :anthropic :model))
 
-(defstate
- light-model
- :start
- (config-utils/get-config "ANTHROPIC_LIGHT_MODEL" :fallback "claude-haiku-4-5"))
+(defstate small-model :start (config-utils/ai-model :anthropic :small-model))
 
 (defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
 
@@ -301,14 +295,14 @@
     (call-anthropic-api request false)))
 
 (defn generate-conversation-title
-  "Create a concise conversation title using Anthropic's lightweight model."
+  "Create a concise conversation title using Anthropic's small model."
   [{:keys [system user]}]
   {:pre [(string? system) (string? user)]}
   (let [request {:system system
                  :messages [{:role "user" :content [{:type "text" :text user}]}]
                  :max_tokens 40
                  :temperature 0.2}]
-    (call-anthropic-api request false light-model)))
+    (call-anthropic-api request false small-model)))
 
 (defn generate-report-commentary
   "Generates a report commentary using Anthropic's Claude API."

@@ -10,15 +10,9 @@
 
 (defstate api-key :start (config-utils/get-config "GEMINI_API_KEY"))
 
-(defstate model
-          :start
-          (config-utils/get-config "GEMINI_MODEL" :fallback "gemini-3"))
+(defstate model :start (config-utils/ai-model :gemini :model))
 
-(defstate light-model
-          :start
-          (config-utils/get-config "GEMINI_LIGHT_MODEL"
-                                   :fallback
-                                   "gemini-2.5-flash-lite"))
+(defstate small-model :start (config-utils/ai-model :gemini :small-model))
 
 (def ^:private json-mapper json/keyword-keys-object-mapper)
 
@@ -204,7 +198,7 @@
                  :messages [{:role "user" :content user}]
                  :max-tokens 1000
                  :temperature 0.2}]
-    (call-gemini-api request :model-override light-model)))
+    (call-gemini-api request :model-override small-model)))
 
 (defn generate-report-commentary
   "Generates a report commentary using Gemini."

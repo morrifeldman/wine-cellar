@@ -12,9 +12,7 @@
 
 (defstate default-provider
           :start
-          (let [provider (keyword (config-utils/get-config "AI_DEFAULT_PROVIDER"
-                                                           :fallback
-                                                           "anthropic"))]
+          (let [provider (config-utils/ai-default-provider)]
             (when-not (common/ai-providers provider)
               (throw (ex-info (str "Invalid AI_DEFAULT_PROVIDER: " provider
                                    ". Must be one of: " common/ai-providers)
@@ -139,9 +137,9 @@
   []
   {:models
    {:anthropic anthropic/model :openai openai/model :gemini gemini/model}
-   :light-models {:anthropic anthropic/light-model
-                  :openai openai/light-model
-                  :gemini gemini/light-model}
+   :small-models {:anthropic anthropic/small-model
+                  :openai openai/small-model
+                  :gemini gemini/small-model}
    :default-provider default-provider})
 
 ;; TODO: add provider-aware wrappers for any remaining Anthropics-only helpers

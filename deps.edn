@@ -39,6 +39,6 @@
         ring-cors/ring-cors {:mvn/version "0.1.13"}
         ring/ring-core {:mvn/version "1.13.0"}
         ring/ring-defaults {:mvn/version "0.4.0"}}
- :paths ["src/clj" "src/cljc" "src/cljs"]}
+ :paths ["resources" "src/clj" "src/cljc" "src/cljs"]}
 ;; Starting a repl for development
 ;; clj -M:dev:repl/conjure

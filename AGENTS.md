@@ -2,7 +2,7 @@
 
 ## Build & Development Commands
 - `npm install` - sync JS dependencies (once)
-- `scripts/start-dev.sh` - full dev environment (backend + watcher + ngrok) in tmux session `wine-dev`; env vars/models are set inside the script
+- `scripts/start-dev.sh` - full dev environment (backend + watcher + ngrok) in tmux session `wine-dev`
 - `clj -M:dev-all` - same, foreground in current terminal (what the script wraps)
 - `npx shadow-cljs watch app` - frontend-only (outputs to `public/js`)
 - `clj -M:run-server` - API only
@@ -12,7 +12,7 @@
 - The dev stack lives in tmux session `wine-dev` so it survives any single terminal or Claude session; start-dev also links it as a window into the user's most recently active tmux session for easy viewing
 - Claude may health-check (ports 3000/8080) and restart it via `scripts/start-dev.sh` when it's down — check `tmux ls` and ports first, never double-start
 - Read logs with `tmux capture-pane -pt wine-dev`; stop with `tmux send-keys -t wine-dev C-c` (dev-all's shutdown hook tears down all three processes)
-- Model config env vars use `_LIGHT_MODEL` (not `LITE`) — same names as the GitHub repository variables
+- AI model defaults live in `resources/ai-models.edn`; env vars like `ANTHROPIC_SMALL_MODEL` override them at runtime
 
 ## Live REPL Access
 - **Backend**: `bb scripts/repl_client.clj "(expr)"`

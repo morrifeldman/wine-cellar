@@ -26,15 +26,6 @@ else
   echo "NGROK_URL not configured (pass wine-cellar/ngrok-url); starting without ngrok."
 fi
 
-# Defaults — override any of these by exporting before running.
-export AI_DEFAULT_PROVIDER="${AI_DEFAULT_PROVIDER:-anthropic}"
-export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-claude-opus-4-8}"
-export ANTHROPIC_LIGHT_MODEL="${ANTHROPIC_LIGHT_MODEL:-claude-haiku-4-5}"
-export OPENAI_MODEL="${OPENAI_MODEL:-gpt-5.5}"
-export OPENAI_LIGHT_MODEL="${OPENAI_LIGHT_MODEL:-gpt-5.4-mini}"
-export GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.1-pro-preview}"
-export GEMINI_LIGHT_MODEL="${GEMINI_LIGHT_MODEL:-gemini-3.1-flash-lite}"
-
 if [[ "${1:-}" == "--no-tmux" ]] || ! command -v tmux >/dev/null; then
   exec clojure -M:dev-all
 fi

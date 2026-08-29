@@ -1,5 +1,7 @@
 (ns wine-cellar.config-utils
-  (:require [clojure.java.shell :as sh]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.java.shell :as sh]
             [clojure.string :as string]
             [mount.core :refer [defstate]]))
 
@@ -48,6 +50,11 @@
            string/lower-case
            (string/replace "_" "-"))))
 
+(defn env-value
+  "Value of an environment variable, treating blank as unset."
+  [env-var-name]
+  (let [raw (System/getenv env-var-name)] (when-not (string/blank? raw) raw)))
+
 (defn get-config
   "Gets a configuration value from environment variables or pass.
    In production, only uses environment variables.
@@ -59,9 +66,7 @@
    
    Returns the configuration value or throws an exception if not found."
   [env-var-name & {:keys [pass-path fallback]}]
-  (try (let [env-raw (System/getenv env-var-name)
-             env-value (when (and env-raw (not (string/blank? env-raw)))
-                         env-raw)]
+  (try (let [env-value (env-value env-var-name)]
          (when (and production? (nil? env-value) (nil? fallback))
            (throw (ex-info
                    (str "Missing required environment variable in production: "
@@ -82,3 +87,34 @@
                             :pass-path pass-path
                             :cause (.getMessage e)}
                            e))))))
+
+;; AI model defaults live in resources/ai-models.edn so there is one place to
+;; change them. Environment variables still win at runtime.
+(def ai-models-file "ai-models.edn")
+
+(defstate ai-models
+          :start
+          (edn/read-string (slurp (or (io/resource ai-models-file)
+                                      (io/file (str "resources/"
+                                                    ai-models-file))))))
+
+(defn model-env-var
+  "Environment variable name for a provider/key pair,
+   e.g. :anthropic + :small-model -> \"ANTHROPIC_SMALL_MODEL\""
+  [provider k]
+  (-> (str (name provider) "-" (name k))
+      (string/replace "-" "_")
+      string/upper-case))
+
+(defn ai-model
+  "Model id for a provider, e.g. (ai-model :anthropic :small-model).
+   The matching env var (ANTHROPIC_SMALL_MODEL) wins when set, otherwise the
+   value from resources/ai-models.edn is used."
+  [provider k]
+  (or (env-value (model-env-var provider k)) (get-in ai-models [provider k])))
+
+(defn ai-default-provider
+  "Default AI provider keyword. AI_DEFAULT_PROVIDER wins when set, otherwise
+   :default-provider from resources/ai-models.edn is used."
+  []
+  (keyword (or (env-value "AI_DEFAULT_PROVIDER") (:default-provider ai-models))))
