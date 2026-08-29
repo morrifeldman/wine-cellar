@@ -104,6 +104,44 @@
                                                     #{})}))))
 
 
+(defn- linked-inventory-items
+  "Mixers & Garnishes items an ingredient line points at: its explicit links
+   when it has them, otherwise a name match (\"fresh lime juice\" finds the
+   \"lime juice\" item)."
+  [inventory-items {:keys [name inventory_item_ids]}]
+  (let [id-set (set inventory_item_ids)
+        linked (filterv #(id-set (:id %)) inventory-items)]
+    (if (seq linked)
+      linked
+      (filterv #(matching/name-matches? (:name %) name) inventory-items))))
+
+(defn- view-inventory-from-recipe!
+  "Switch to the Mixers tab to stock an ingredient, pushing a history entry so
+   Back returns to the recipe. Highlights the items the ingredient points at;
+   when it points at none, opens the add form with the ingredient's name filled
+   in so the missing item can be created on the spot."
+  [app-state recipe-id inventory-items ingredient]
+  (let [ids (mapv :id (linked-inventory-items inventory-items ingredient))
+        new-item (when (empty? ids)
+                   {:name (str/trim (or (:name ingredient) ""))
+                    :category (if (:garnish ingredient) "garnish" "other")})]
+    (.replaceState js/history
+                   #js {:barNav #js {:activeTab "recipes"
+                                     :viewingRecipeId recipe-id}}
+                   ""
+                   (.-pathname js/location))
+    (.pushState js/history
+                #js {:barNav #js {:activeTab "inventory"
+                                  :highlightItemIds (clj->js ids)}}
+                ""
+                (.-pathname js/location))
+    (swap! app-state #(-> %
+                          (assoc-in [:bar :viewing-recipe-id] nil)
+                          (assoc-in [:bar :active-tab] :inventory)
+                          (assoc-in [:bar :highlight-item-ids] (set ids))
+                          (assoc-in [:bar :new-inventory-item] new-item)))
+    (when-let [id (first ids)] (inv/scroll-item-into-view! id))))
+
 (defn- make-row
   "Row-structure entry for an ingredient: stable identity + initial values +
    DOM refs. The typed text lives only in the DOM until save."
@@ -289,11 +327,12 @@
     (second (re-find #"rgba\(([\d, ]+?),\s*[\d.]+\)" color))))
 
 (defn- ingredient-link-chips
-  "Informational (non-clickable) chips for the inventory items an ingredient is
-   linked to, colored and iconed by the item's category to match the Mixers &
-   Garnishes page. Dimmed with an \"out of stock\" suffix when not on hand.
-   Dangling ids (item since deleted) are skipped."
-  [inventory-items ingredient]
+  "Chips for the inventory items an ingredient is linked to, colored and iconed
+   by the item's category to match the Mixers & Garnishes page. Dimmed with an
+   \"out of stock\" suffix when not on hand. Clicking one opens that page with
+   the item highlighted, so stock can be corrected there. Dangling ids (item
+   since deleted) are skipped."
+  [app-state recipe-id inventory-items ingredient]
   (let [id-set (set (:inventory_item_ids ingredient))
         ;; in-stock first, out-of-stock pushed to the right (stable within
         ;; each)
@@ -312,6 +351,12 @@
          [chip
           {:label (str (:name item) (when out? " · out of stock"))
            :size "small"
+           :clickable true
+           :on-click #(view-inventory-from-recipe!
+                       app-state
+                       recipe-id
+                       inventory-items
+                       (assoc ingredient :inventory_item_ids [(:id item)]))
            :icon (when icon
                    (r/as-element
                     [icon
@@ -323,7 +368,9 @@
                 :opacity (if out? 0.55 1)
                 :bgcolor (str "rgba(" rgb ",0.08)")
                 :color (str "rgba(" rgb ",0.95)")
-                :border (str "1px solid rgba(" rgb ",0.3)")}}])])))
+                :border (str "1px solid rgba(" rgb ",0.3)")
+                "@media (hover: hover)"
+                {"&:hover" {:bgcolor (str "rgba(" rgb ",0.18)")}}}}])])))
 
 (defn- bottle-chip
   "Clickable chip for a bottle under a spirit ingredient. `:dim?` dims it and
@@ -470,14 +517,29 @@
   [box {:component "ul" :sx {:mt 0 :mb 0 :pl 2.5 :listStyleType "none"}}
    (map-indexed
     (fn [idx {:keys [amount unit name spirit] :as ingredient}]
-      (let [{:keys [glyph color]} (ingredient-mark (get statuses name))]
+      (let [{:keys [glyph color]} (ingredient-mark (get statuses name))
+            text (str/join " " (filter seq [amount unit name]))]
         ^{:key idx}
         [:li
          [typography {:variant "body2"}
           [box
            {:component "span"
             :sx {:color color :fontWeight 600 :mr 0.75 :ml -2}} glyph]
-          (str/join " " (filter seq [amount unit name]))]
+          ;; A non-spirit line is a Mixers & Garnishes item, so tapping it
+          ;; goes there to fix what's in stock. Spirit lines have their own
+          ;; chips into the Spirits tab just below.
+          (if spirit
+            text
+            [box
+             {:component "span"
+              :sx {:cursor "pointer"
+                   :textDecorationColor "rgba(255,255,255,0.25)"
+                   "@media (hover: hover)"
+                   {"&:hover" {:textDecoration "underline"}}}
+              :on-click #(view-inventory-from-recipe! app-state
+                                                      (:id recipe)
+                                                      inventory-items
+                                                      ingredient)} text])]
          (if spirit
            (let [tiers (matching/bottles-for-spec spirits spirit)]
              [box
@@ -494,7 +556,8 @@
                     :sx {:color "text.secondary"
                          :fontSize "0.78rem"
                          :fontStyle "italic"}} "none on hand"])])
-           [ingredient-link-chips inventory-items ingredient])]))
+           [ingredient-link-chips app-state (:id recipe) inventory-items
+            ingredient])]))
     (:ingredients recipe))])
 
 (defn- tags-editor

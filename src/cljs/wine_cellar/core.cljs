@@ -144,7 +144,11 @@
                 (cond-> {:active-tab (keyword (gobj/get bar-nav "activeTab"))
                          :viewing-recipe-id (gobj/get bar-nav "viewingRecipeId")
                          :editing-spirit-id (gobj/get bar-nav
-                                                      "editingSpiritId")}
+                                                      "editingSpiritId")
+                         :highlight-item-ids
+                         (some-> (gobj/get bar-nav "highlightItemIds")
+                                 js->clj
+                                 set)}
                   sf (assoc :spirits-initial-filter
                             {:categories #{(gobj/get sf "category")}
                              :subcategories (if (seq sub) #{sub} #{})}))))))

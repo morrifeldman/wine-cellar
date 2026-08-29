@@ -43,6 +43,22 @@
    "garnish" {:icon local-florist :color "rgba(139,195,74,0.7)"}
    "other" {:icon more-horiz :color "rgba(144,164,174,0.7)"}})
 
+(def ^:private item-dom-id-prefix "bar-inventory-item-")
+
+(defn item-dom-id [item-id] (str item-dom-id-prefix item-id))
+
+(defn scroll-item-into-view!
+  "Smooth-scrolls the Mixers list so `item-id` is on screen. Delayed a tick so
+   the element exists after a tab switch has re-rendered."
+  [item-id]
+  (js/setTimeout (fn []
+                   (when-let [el (.getElementById js/document
+                                                  (item-dom-id item-id))]
+                     (.scrollIntoView el
+                                      #js {:behavior "smooth"
+                                           :block "center"})))
+                 100))
+
 (defn- section-header
   [icon-component label border-color]
   [box
@@ -107,9 +123,9 @@
        :on-click #(do (reset! form-data {}) (close-form!))} "Cancel"]]))
 
 (defn- inventory-item
-  [_app-state _item _editing-id _cat-color]
+  [_app-state _item _editing-id _cat-color _highlight?]
   (let [edit-name (r/atom nil)]
-    (fn [app-state item editing-id cat-color]
+    (fn [app-state item editing-id cat-color highlight?]
       (let [have? (boolean (:have_it item))]
         (if (= (:id item) @editing-id)
           [box
@@ -162,8 +178,14 @@
              :on-click #(do (reset! edit-name nil) (reset! editing-id nil))}
             [close {:fontSize "small"}]]]
           [box
-           {:on-click
-            #(api/toggle-bar-inventory-item app-state (:id item) (not have?))
+           {:id (item-dom-id (:id item))
+            :on-click (fn []
+                        ;; Acting on the item is the end of the trail that
+                        ;; brought us here, so drop the highlight.
+                        (swap! app-state update :bar dissoc :highlight-item-ids)
+                        (api/toggle-bar-inventory-item app-state
+                                                       (:id item)
+                                                       (not have?)))
             :on-double-click
             (fn [e] (.stopPropagation e) (reset! editing-id (:id item)))
             :sx {:display "inline-flex"
@@ -181,6 +203,8 @@
                             (str (subs cat-color 0 (- (count cat-color) 4))
                                  "0.15)")
                             "transparent")
+                 :boxShadow (when highlight?
+                              "0 0 0 2px rgba(232,195,200,0.85)")
                  "&:hover"
                  {:bgcolor (if have?
                              (str (subs cat-color 0 (- (count cat-color) 4))
@@ -197,7 +221,7 @@
 
 
 (defn- category-section
-  [app-state category items editing-id]
+  [app-state category items editing-id highlighted]
   (let [label (get category-labels category category)
         {:keys [icon color]} (get category-meta
                                   category
@@ -207,23 +231,34 @@
      [section-header icon label color]
      [box {:sx {:display "flex" :flexWrap "wrap" :gap 1}}
       (for [item items]
-        ^{:key (:id item)} [inventory-item app-state item editing-id color])]]))
+        ^{:key (:id item)}
+        [inventory-item app-state item editing-id color
+         (contains? highlighted (:id item))])]]))
 
 (defn inventory-tab
   [app-state]
-  (let [form-data (r/atom {})
+  ;; Seed the add form from a one-shot left by a recipe ingredient that has no
+  ;; item here yet, then clear it.
+  (let [prefill (get-in @app-state [:bar :new-inventory-item])
+        _ (when prefill
+            (swap! app-state update :bar dissoc :new-inventory-item)
+            (swap! app-state assoc-in [:bar :show-inventory-form?] true))
+        form-data (r/atom (or prefill {}))
         editing-id (r/atom nil)]
     (fn []
       (let [items (get-in @app-state [:bar :inventory-items])
             show-form? (get-in @app-state [:bar :show-inventory-form?])
+            highlighted (get-in @app-state [:bar :highlight-item-ids])
             grouped (group-by :category items)]
         [box (when show-form? [add-item-form app-state form-data])
          (for [cat category-order
                :let [cat-items (get grouped cat)]
                :when (seq cat-items)]
-           ^{:key cat} [category-section app-state cat cat-items editing-id])
+           ^{:key cat}
+           [category-section app-state cat cat-items editing-id highlighted])
          ;; Any categories not in the predefined order
          (for [[cat cat-items] grouped
                :when (not (some #{cat} category-order))]
            ^{:key cat}
-           [category-section app-state cat cat-items editing-id])]))))
+           [category-section app-state cat cat-items editing-id
+            highlighted])]))))

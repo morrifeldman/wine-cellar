@@ -40,9 +40,14 @@
       [tabs
        {:value tab-index
         :on-change (fn [_ v]
-                     (swap! app-state assoc-in
-                       [:bar :active-tab]
-                       (get tab-keys v :recipes)))
+                     ;; A hand-picked tab starts fresh: drop anything a
+                     ;; recipe ingredient left behind for the Mixers tab.
+                     (swap! app-state update
+                       :bar
+                       (fn [bar]
+                         (-> bar
+                             (dissoc :highlight-item-ids :new-inventory-item)
+                             (assoc :active-tab (get tab-keys v :recipes))))))
         :sx {:flex 1}} [tab {:label "Recipes"}] [tab {:label "Spirits"}]
        [tab {:label "Mixers"}]]
       (when (= active-tab :recipes)
