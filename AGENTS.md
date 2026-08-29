@@ -3,10 +3,6 @@
 ## Build & Development Commands
 - `npm install` - sync JS dependencies (once)
 - `scripts/start-dev.sh` - full dev environment (backend + watcher + ngrok) in tmux session `wine-dev`
-- `clj -M:dev-all` - same, foreground in current terminal (what the script wraps)
-- `npx shadow-cljs watch app` - frontend-only (outputs to `public/js`)
-- `clj -M:run-server` - API only
-- `npx shadow-cljs release app` - production bundle
 
 ## Dev Environment Ownership
 - The dev stack lives in tmux session `wine-dev` so it survives any single terminal or Claude session; start-dev also links it as a window into the user's most recently active tmux session for easy viewing
@@ -20,16 +16,10 @@
 - **Restart Backend**: `bb scripts/repl_client.clj "(do (require 'clojure.tools.namespace.repl) (clojure.tools.namespace.repl/refresh))"`
 - **Frontend Build**: Do NOT run compilation commands. Check `.shadow-cljs/build.log` for status.
 
-## Working Style
-- One change at a time; ask user to test before moving on
-- Be collaborative, don't get too far ahead with suggestions
-- Minimal or no summaries of changes
-- If Edit tool errors, suggest changes in chat instead
-- For single-character fixes (e.g. missing paren), suggest in chat rather than using Edit
-- Use jsonista for JSON processing
-- Stage and commit when work is complete; imperative, concise subjects, no trailing periods
-- Propose ad-hoc Clojure scripts (in `scripts/wine_cellar/scripts/`) for data tasks rather than manual DB manipulations
+## Conventions
 - Run `clj -M:clj-kondo --lint src/<FILE CHANGED>` after each change
+- Propose ad-hoc Clojure scripts (in `scripts/wine_cellar/scripts/`) for data tasks rather than manual DB manipulations
+- When a task is finished, just commit it — don't wait for confirmation (pushing still asks; a push to main deploys)
 
 ## UI/UX
 - **Taxonomy**: `Classification` = Terroir/Site (Grand Cru). `Designation` = Style/Aging (Riserva)
