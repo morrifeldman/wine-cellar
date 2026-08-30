@@ -50,7 +50,7 @@ A self-hosted wine collection management application built with Clojure and Cloj
    npm install
    ```
 
-3. **Link the jj Config** (gives `jj fix` its zprint formatting settings; `format-and-bump.sh` also does this on demand)
+3. **Link the jj Config** (gives `jj fix` its zprint formatting settings)
    ```bash
    ./scripts/setup-jj-config.sh
    ```
@@ -151,3 +151,24 @@ To set up CI/CD:
 Now, whenever you push changes to the main branch, the application will be automatically deployed to Fly.io.
 
 ## Development Tools
+
+### Before You Commit
+
+```bash
+./scripts/format-and-bump.sh
+```
+
+Formats the Clojure files your revision changed and increments the version in
+`public/version.json`. There is no commit hook doing this for you — jj has none —
+so it is a step you run yourself, and skipping it ships unformatted code that
+never prompts anyone to refresh.
+
+The formatting comes from `jj fix`, which reads zprint settings out of
+`jj-config.toml`. If jj has never been pointed at that file the script links it
+for you, so a fresh clone works on the first run. Outside a jj checkout it falls
+back to `clj -M:format`, which reformats every source file rather than just the
+changed ones.
+
+The version number is what the running app polls to decide whether to prompt a
+reload, and what the service worker keys its asset cache on. Reuse a version
+number and a deploy leaves everyone on the old bundle with no prompt.

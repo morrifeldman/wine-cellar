@@ -15,7 +15,7 @@ refresh.
 
 1. **Lint what you touched** — `clj -M:clj-kondo --lint src/<file>` for each
    changed source file.
-2. **Format and bump** — `.claude/skills/ship/format-and-bump.sh`. It runs
+2. **Format and bump** — `scripts/format-and-bump.sh`. It runs
    `jj fix` (zprint; settings live in `jj-config.toml`) and increments the patch
    version in `public/version.json`. `jj fix` is worth the setup because it
    formats only the files a revision changed instead of walking all 93 sources.
