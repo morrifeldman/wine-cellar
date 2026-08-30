@@ -291,8 +291,7 @@
         [menu-item
          {:on-click (fn [] (reset! anchor-el nil) (nav/go-blind-tastings!))}
          [list-item-icon [visibility-off {:fontSize "small" :color "primary"}]]
-         "Blind Tastings"]
-        [divider]
+         "Blind Tastings"] [divider]
         [typography
          {:variant "caption"
           :sx {:px 2

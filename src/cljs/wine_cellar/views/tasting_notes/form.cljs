@@ -144,8 +144,7 @@
          ;; re-read :new-tasting-note at submit time — a blur-committed
          ;; field
          ;; (e.g. Source) swaps app-state after this render's updated-note
-         ;; was
-         ;; captured, and the submit click can beat the re-render
+         ;; was captured, and the submit click can beat the re-render
          #(let [note-data (collect-note-data (:new-tasting-note @app-state)
                                              notes-ref
                                              other-obs-ref

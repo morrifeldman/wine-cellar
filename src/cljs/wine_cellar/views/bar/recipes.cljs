@@ -534,8 +534,8 @@
              {:component "span"
               :sx {:cursor "pointer"
                    :textDecorationColor "rgba(255,255,255,0.25)"
-                   "@media (hover: hover)"
-                   {"&:hover" {:textDecoration "underline"}}}
+                   "@media (hover: hover)" {"&:hover" {:textDecoration
+                                                       "underline"}}}
               :on-click #(view-inventory-from-recipe! app-state
                                                       (:id recipe)
                                                       inventory-items

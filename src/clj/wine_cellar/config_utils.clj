@@ -117,4 +117,5 @@
   "Default AI provider keyword. AI_DEFAULT_PROVIDER wins when set, otherwise
    :default-provider from resources/ai-models.edn is used."
   []
-  (keyword (or (env-value "AI_DEFAULT_PROVIDER") (:default-provider ai-models))))
+  (keyword (or (env-value "AI_DEFAULT_PROVIDER")
+               (:default-provider ai-models))))

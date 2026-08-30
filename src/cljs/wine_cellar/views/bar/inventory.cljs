@@ -51,13 +51,11 @@
   "Smooth-scrolls the Mixers list so `item-id` is on screen. Delayed a tick so
    the element exists after a tab switch has re-rendered."
   [item-id]
-  (js/setTimeout (fn []
-                   (when-let [el (.getElementById js/document
-                                                  (item-dom-id item-id))]
-                     (.scrollIntoView el
-                                      #js {:behavior "smooth"
-                                           :block "center"})))
-                 100))
+  (js/setTimeout
+   (fn []
+     (when-let [el (.getElementById js/document (item-dom-id item-id))]
+       (.scrollIntoView el #js {:behavior "smooth" :block "center"})))
+   100))
 
 (defn- section-header
   [icon-component label border-color]
@@ -179,13 +177,12 @@
             [close {:fontSize "small"}]]]
           [box
            {:id (item-dom-id (:id item))
-            :on-click (fn []
-                        ;; Acting on the item is the end of the trail that
-                        ;; brought us here, so drop the highlight.
-                        (swap! app-state update :bar dissoc :highlight-item-ids)
-                        (api/toggle-bar-inventory-item app-state
-                                                       (:id item)
-                                                       (not have?)))
+            :on-click
+            (fn []
+              ;; Acting on the item is the end of the trail that
+              ;; brought us here, so drop the highlight.
+              (swap! app-state update :bar dissoc :highlight-item-ids)
+              (api/toggle-bar-inventory-item app-state (:id item) (not have?)))
             :on-double-click
             (fn [e] (.stopPropagation e) (reset! editing-id (:id item)))
             :sx {:display "inline-flex"
@@ -203,8 +200,7 @@
                             (str (subs cat-color 0 (- (count cat-color) 4))
                                  "0.15)")
                             "transparent")
-                 :boxShadow (when highlight?
-                              "0 0 0 2px rgba(232,195,200,0.85)")
+                 :boxShadow (when highlight? "0 0 0 2px rgba(232,195,200,0.85)")
                  "&:hover"
                  {:bgcolor (if have?
                              (str (subs cat-color 0 (- (count cat-color) 4))
@@ -237,8 +233,8 @@
 
 (defn inventory-tab
   [app-state]
-  ;; Seed the add form from a one-shot left by a recipe ingredient that has no
-  ;; item here yet, then clear it.
+  ;; Seed the add form from a one-shot left by a recipe ingredient that has
+  ;; no item here yet, then clear it.
   (let [prefill (get-in @app-state [:bar :new-inventory-item])
         _ (when prefill
             (swap! app-state update :bar dissoc :new-inventory-item)
