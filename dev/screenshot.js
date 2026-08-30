@@ -3,7 +3,7 @@
  * Usage: node dev/screenshot.js <jwt-token> [path] [url]
  *
  * Takes a screenshot of the app after auth injection.
- * Defaults to http://localhost:8080, saves to /tmp/screenshot.png
+ * Defaults to http://localhost:3000, saves to /tmp/screenshot.png
  */
 
 const { chromium } = require('playwright');

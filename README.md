@@ -42,7 +42,7 @@ A self-hosted wine collection management application built with Clojure and Cloj
 ### Setup
 1. **Database Setup**
    ```bash
-   ansible-playbook postgresql.yml
+   ansible-playbook automation/postgresql.yml
    ```
 
 2. **Install Dependencies**

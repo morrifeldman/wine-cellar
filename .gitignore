@@ -53,7 +53,6 @@ device.jwt
 embedded/esp32-sentinel/main/config.h
 
 # Local Tools & Test Artifacts
-scripts/ui_check.js
 search_failure.png
 backup.sql
 .playwright-mcp
@@ -61,5 +60,6 @@ test-results/
 
 # Phone screenshots dropped into the repo
 WhatsApp Image*
+Screenshot *.png
 
 
