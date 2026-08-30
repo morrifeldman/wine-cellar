@@ -3,9 +3,8 @@ FROM clojure:temurin-21-tools-deps-alpine AS frontend-builder
 
 WORKDIR /app
 
-# Copy dependency files and hook installer used by npm prepare
+# Copy dependency files
 COPY deps.edn shadow-cljs.edn package.json package-lock.json ./
-COPY scripts/setup-git-hooks.sh scripts/
 
 # Install npm dependencies and pre-download Clojure dependencies
 RUN apk add --no-cache nodejs npm && npm install

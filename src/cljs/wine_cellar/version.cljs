@@ -11,14 +11,13 @@
   (go (try (let [response (<! (http/get "/version.json"))]
              (if (:success response)
                (reset! version-cache (:body response))
-               (reset! version-cache {:version "unknown" :commit "unknown"})))
-           (catch :default _e
-             (reset! version-cache {:version "error" :commit "error"})))))
+               (reset! version-cache {:version "unknown"})))
+           (catch :default _e (reset! version-cache {:version "error"})))))
 
 (defn get-version-info [] @version-cache)
 
 (defn version-string
   []
   (if-let [version-info @version-cache]
-    (str "v" (:version version-info) " (" (:commit version-info) ")")
+    (str "v" (:version version-info))
     "Loading..."))

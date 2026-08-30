@@ -19,7 +19,7 @@
 ## Conventions
 - Run `clj -M:clj-kondo --lint src/<FILE CHANGED>` after each change
 - Propose ad-hoc Clojure scripts (in `scripts/wine_cellar/scripts/`) for data tasks rather than manual DB manipulations
-- When a task is finished, just commit and push it — don't wait for confirmation. Follow the `ship` skill: jj skips the git pre-commit hook, so formatting and the version bump have to be run by hand
+- When a task is finished, just commit and push it — don't wait for confirmation. Follow the `ship` skill: nothing formats or bumps the app version on its own
 
 ## UI/UX
 - **Cards**: Minimalist, label-free, dot-separated metadata

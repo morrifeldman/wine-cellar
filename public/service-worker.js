@@ -18,7 +18,7 @@ const extractVersion = (payload) => {
   if (!payload || typeof payload !== 'object') {
     return null;
   }
-  return payload.commit || payload.version || payload.date || null;
+  return payload.version || payload.date || null;
 };
 
 const cacheNameFor = (version) => `${CACHE_PREFIX}${version || 'runtime'}`;

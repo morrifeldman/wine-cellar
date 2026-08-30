@@ -50,9 +50,9 @@ A self-hosted wine collection management application built with Clojure and Cloj
    npm install
    ```
 
-3. **Install Git Hooks** (automatically runs during `npm install`; rerun manually if needed)
+3. **Link the jj Config** (gives `jj fix` its zprint formatting settings)
    ```bash
-   ./scripts/setup-git-hooks.sh
+   ./scripts/setup-jj-hooks.sh
    ```
 
 4. **Configure Credentials** (see Credentials section below)
