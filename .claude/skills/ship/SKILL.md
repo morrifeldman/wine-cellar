@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Finish a wine-cellar change — format, bump the app version, commit, push. Use whenever a task is done and the work is about to be committed.
+description: Use when a change is finished and ready to commit.
 ---
 
 # Shipping a wine-cellar change
