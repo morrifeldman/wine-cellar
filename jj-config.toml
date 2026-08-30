@@ -16,3 +16,9 @@ patterns = [
   "deps.edn",
   "shadow-cljs.edn",
 ]
+
+# `jj bookmark advance` defaults to moving the bookmark to @, but the working
+# copy is a fresh empty commit by the time we advance. Aim it at the commit we
+# just made instead.
+[revsets]
+bookmark-advance-to = "@-"

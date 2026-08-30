@@ -10,8 +10,8 @@ Run all of it, every time, whatever the change touched:
 ```bash
 scripts/format-and-bump.sh          # jj fix + a new version number; --all to sweep every file
 jj commit -m "..."
-jj bookmark set main -r @-
-jj git push -b main
+jj bookmark advance                 # moves the closest bookmark to the new commit
+jj git push
 ```
 
 A push to main is a production deploy to Fly.io. Any other bookmark just pushes.
