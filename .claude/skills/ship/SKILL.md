@@ -15,10 +15,11 @@ refresh.
 
 1. **Lint what you touched** — `clj -M:clj-kondo --lint src/<file>` for each
    changed source file.
-2. **Format and bump** — `scripts/format-and-bump.sh`. It runs
-   `jj fix` (zprint; settings live in `jj-config.toml`) and increments the patch
-   version in `public/version.json`. `jj fix` is worth the setup because it
-   formats only the files a revision changed instead of walking all 93 sources.
+2. **Format and bump** — `scripts/format-and-bump.sh`. It runs `jj fix` and
+   increments the patch version in `public/version.json`. `jj fix` formats only
+   the files your revision changed, which is why it beats a whole-tree pass. Add
+   `--all` to format every source file anyway (`jj fix
+   --include-unchanged-files`), about four seconds for the repo.
 3. **Commit and push** —
    `jj commit -m "..."` → `jj bookmark set main -r @-` → `jj git push -b main`.
 
@@ -35,8 +36,6 @@ the working copy. That's usually what you want, but not always.
 Two things, and neither fails quietly:
 
 - **zprint on PATH.** The script checks first and points you at the project.
-  Without it, fall back to `clj -M:format`, which formats the whole tree through
-  the JVM in about 15 seconds.
 - **`jj-config.toml` linked into jj's repo-scoped config,** which is what tells
   jj to run zprint at all. jj keeps that file outside the repo — ask for its path
   with `jj config path --repo` rather than assuming `.jj/repo/config.toml`, which
@@ -44,6 +43,12 @@ Two things, and neither fails quietly:
   with "No `fix.tools` are configured"; the script recognises that message, runs
   `scripts/setup-jj-config.sh`, and retries, so a clone repairs itself on first
   run.
+
+`jj-config.toml` is the only place formatting is configured — both the zprint
+settings and which files they apply to. Its patterns cover `src`, `dev`,
+`scripts`, `deps.edn` and `shadow-cljs.edn`, deliberately leaving out the
+vendored configs in `.clj-kondo/imports` and the hand-laid-out data in
+`resources`.
 
 ## Why the version bump matters
 

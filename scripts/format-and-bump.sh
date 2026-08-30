@@ -9,33 +9,42 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT_DIR"
 
 # --- Format -----------------------------------------------------------------
-# `jj fix` formats only the files the revision actually changed, which is why we
-# use it over a whole-tree pass. It needs two things installed: the zprint binary
-# on PATH, and jj-config.toml reaching jj through a symlink at
-# .jj/repo/config.toml. Both fail loudly, and the missing symlink we can just fix.
-if ! command -v zprint > /dev/null; then
-  echo "zprint is not on PATH — install it from https://github.com/kkinnear/zprint" >&2
-  echo "or run the slower JVM fallback by hand: clj -M:format" >&2
+# `jj fix` formats only the files the revision changed, which is why we use it
+# over a whole-tree pass. Pass --all to format every source file instead; the
+# file patterns and zprint settings both live in jj-config.toml.
+#
+# jj reaches that config through a path it owns, outside the repo, so a fresh
+# clone has none and `jj fix` exits with "No `fix.tools` are configured". Install
+# it and retry rather than making the user work out what went wrong.
+FIX_ARGS=""
+if [ "${1:-}" = "--all" ]; then
+  FIX_ARGS="--include-unchanged-files"
+  shift
+fi
+
+if [ ! -d .jj ]; then
+  echo "Not a jj checkout, so there is no jj fix to run." >&2
+  echo "Format by hand with: zprint '{:style :community :map {:comma? false} :width 80}'" >&2
   exit 1
 fi
 
-if [ -d .jj ]; then
-  echo "Formatting with jj fix..."
-  if ! output=$(jj fix 2>&1); then
-    if printf '%s' "$output" | grep -q 'fix\.tools'; then
-      echo "jj has no formatting tools configured; linking the config and retrying..."
-      ./scripts/setup-jj-config.sh
-      output=$(jj fix 2>&1)
-    else
-      printf '%s\n' "$output" >&2
-      exit 1
-    fi
-  fi
-  printf '%s\n' "$output"
-else
-  echo "Not a jj repo; formatting every Clojure file with clj -M:format..."
-  clj -M:format
+if ! command -v zprint > /dev/null; then
+  echo "zprint is not on PATH — install it from https://github.com/kkinnear/zprint" >&2
+  exit 1
 fi
+
+echo "Formatting with jj fix${FIX_ARGS:+ $FIX_ARGS}..."
+if ! output=$(jj fix $FIX_ARGS 2>&1); then
+  if printf '%s' "$output" | grep -q 'fix\.tools'; then
+    echo "jj has no formatting tools configured; linking the config and retrying..."
+    ./scripts/setup-jj-config.sh
+    output=$(jj fix $FIX_ARGS 2>&1)
+  else
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+fi
+printf '%s\n' "$output"
 
 # --- Version ----------------------------------------------------------------
 # The app polls /version.json and prompts users to refresh when the version

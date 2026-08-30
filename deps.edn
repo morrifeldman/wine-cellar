@@ -9,11 +9,6 @@
                               nrepl/nrepl {:mvn/version "1.3.1"}}
                  :main-opts ["--main" "nrepl.cmdline" "--middleware"
                              "[cider.nrepl/cider-middleware]" "--interactive"]}
-  :format
-  ;; Format all files in project clj -M:format
-  {:extra-deps {zprint/zprint {:mvn/version "1.2.9"}}
-   :extra-paths ["scripts"]
-   :main-opts ["-m" "format-zprint"]}
   :clj-kondo {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.07.28"}}
               :main-opts ["-m" "clj-kondo.main"]}
   :dev-all

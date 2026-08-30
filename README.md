@@ -163,11 +163,13 @@ Formats the Clojure files your revision changed and increments the version in
 so it is a step you run yourself, and skipping it ships unformatted code that
 never prompts anyone to refresh.
 
-The formatting comes from `jj fix`, which reads zprint settings out of
-`jj-config.toml`. If jj has never been pointed at that file the script links it
-for you, so a fresh clone works on the first run. Outside a jj checkout it falls
-back to `clj -M:format`, which reformats every source file rather than just the
-changed ones.
+The formatting comes from `jj fix`, which reads its zprint settings and its list
+of which files to touch out of `jj-config.toml` — the one place formatting is
+configured. If jj has never been pointed at that file the script links it for
+you, so a fresh clone works on the first run.
+
+To sweep the whole codebase rather than just what you changed, add `--all`. It
+takes about four seconds.
 
 The version number is what the running app polls to decide whether to prompt a
 reload, and what the service worker keys its asset cache on. Reuse a version

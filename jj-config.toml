@@ -1,8 +1,18 @@
+# Formatting for `jj fix`. Install with scripts/setup-jj-config.sh.
+#
+# Scoped to source we own. A blanket **/*.edn also swept up the vendored configs
+# under .clj-kondo/imports and the hand-laid-out data in resources/, rewriting
+# files whose formatting is not ours to choose.
 [fix.tools.zprint]
 command = ["zprint", "{:style :community :map {:comma? false} :width 80}"]
 patterns = [
-  "glob:**/*.clj",
-  "glob:**/*.cljs",
-  "glob:**/*.cljc",
-  "glob:**/*.edn",
+  "glob:src/**/*.clj",
+  "glob:src/**/*.cljc",
+  "glob:src/**/*.cljs",
+  "glob:dev/**/*.clj",
+  "glob:dev/**/*.cljc",
+  "glob:dev/**/*.cljs",
+  "glob:scripts/**/*.clj",
+  "deps.edn",
+  "shadow-cljs.edn",
 ]
