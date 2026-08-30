@@ -50,9 +50,9 @@ A self-hosted wine collection management application built with Clojure and Cloj
    npm install
    ```
 
-3. **Link the jj Config** (gives `jj fix` its zprint formatting settings)
+3. **Link the jj Config** (gives `jj fix` its zprint formatting settings; `format-and-bump.sh` also does this on demand)
    ```bash
-   ./scripts/setup-jj-hooks.sh
+   ./scripts/setup-jj-config.sh
    ```
 
 4. **Configure Credentials** (see Credentials section below)

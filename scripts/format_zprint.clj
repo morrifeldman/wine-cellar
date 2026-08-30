@@ -2,10 +2,7 @@
   (:require [clojure.java.io :as io]
             [zprint.core :as zp]))
 
-(def default-options
-  {:style :community
-   :map {:comma? false}
-   :width 80})
+(def default-options {:style :community :map {:comma? false} :width 80})
 
 (defn clojure-file?
   "Check if a file is a Clojure or ClojureScript file."
@@ -26,14 +23,13 @@
   "Format a single file using zprint."
   [file options]
   (let [path (.getPath file)]
-    (try
-      (println "Formatting" path)
-      (zp/zprint-file path path path options)
-      (println "✓ Successfully formatted" path)
-      true
-      (catch Exception e
-        (println "✗ Error formatting" path ":" (.getMessage e))
-        false))))
+    (try (println "Formatting" path)
+         (zp/zprint-file path path path options)
+         (println "✓ Successfully formatted" path)
+         true
+         (catch Exception e
+           (println "✗ Error formatting" path ":" (.getMessage e))
+           false))))
 
 (defn format-directory!
   "Format all Clojure files in the given directory and its subdirectories."
@@ -43,15 +39,17 @@
         success-count (count (filter identity results))
         total-count (count results)]
     (println)
-    (println (format "Formatted %d/%d files successfully." success-count total-count))
+    (println
+     (format "Formatted %d/%d files successfully." success-count total-count))
     (when (< success-count total-count)
-      (println (format "Failed to format %d files." (- total-count success-count))))))
+      (println (format "Failed to format %d files."
+                       (- total-count success-count))))))
 
 (defn -main
   "Format all Clojure files in the project."
   [& _]
   (let [options default-options
-        src-dirs ["src/clj" "src/cljc" "src/cljs" "dev"]]
+        src-dirs ["src/clj" "src/cljc" "src/cljs" "dev" "scripts"]]
     (println "Starting formatting with zprint...")
     (doseq [dir src-dirs]
       (println (str "\nProcessing directory: " dir))

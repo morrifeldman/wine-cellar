@@ -17,16 +17,33 @@ refresh.
    changed source file.
 2. **Format and bump** — `.claude/skills/ship/format-and-bump.sh`. It runs
    `jj fix` (zprint; settings live in `jj-config.toml`) and increments the patch
-   version in `public/version.json`.
+   version in `public/version.json`. `jj fix` is worth the setup because it
+   formats only the files a revision changed instead of walking all 93 sources.
 3. **Commit and push** —
    `jj commit -m "..."` → `jj bookmark set main -r @-` → `jj git push -b main`.
 
-Skip step 2 for a change that touches no app code — docs, scripts, this skill.
-Bumping the version there would prompt every user to reload for nothing.
+For a change that touches no app code — docs, scripts, this skill — run `jj fix`
+on its own instead of the script. Bumping the version there would prompt every
+user to reload for nothing.
 
 Before running `jj fix`, glance at `jj log`: its default revset is every mutable
 revision reachable from `@`, so it will reformat unpushed commits too, not just
 the working copy. That's usually what you want, but not always.
+
+## What `jj fix` needs installed
+
+Two things, and neither fails quietly:
+
+- **zprint on PATH.** The script checks first and points you at the project.
+  Without it, fall back to `clj -M:format`, which formats the whole tree through
+  the JVM in about 15 seconds.
+- **`jj-config.toml` linked into jj's repo-scoped config,** which is what tells
+  jj to run zprint at all. jj keeps that file outside the repo — ask for its path
+  with `jj config path --repo` rather than assuming `.jj/repo/config.toml`, which
+  is where older jj put it. A fresh clone has no such file and `jj fix` exits 1
+  with "No `fix.tools` are configured"; the script recognises that message, runs
+  `scripts/setup-jj-config.sh`, and retries, so a clone repairs itself on first
+  run.
 
 ## Why the version bump matters
 
