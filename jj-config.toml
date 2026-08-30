@@ -17,8 +17,14 @@ patterns = [
   "shadow-cljs.edn",
 ]
 
-# `jj bookmark advance` defaults to moving the bookmark to @, but the working
-# copy is a fresh empty commit by the time we advance. Aim it at the commit we
-# just made instead.
+# `jj bookmark advance` defaults to moving the bookmark to @, which is the empty
+# working copy jj commit leaves behind. Aim it at the closest revision actually
+# worth pushing, so the ship sequence works without anyone's personal config.
 [revsets]
-bookmark-advance-to = "@-"
+bookmark-advance-to = 'closest_pushable(@)'
+
+[revset-aliases]
+# Closest revision that is mutable, described and either non-empty or a merge
+'closest_pushable(to)' = '''
+  heads(::to & mutable() & ~description(exact:"") & (~empty() | merges()))
+'''
