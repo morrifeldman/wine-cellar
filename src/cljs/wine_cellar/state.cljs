@@ -1,5 +1,19 @@
 (ns wine-cellar.state)
 
+(def default-recipe-filters
+  "Recipe-tab filter selections. They live in app-state so a trip to another
+   bar tab and back (a recipe ingredient link, then Back) comes home to the
+   same filtered list."
+  {:search ""
+   :tags #{}
+   :spirits #{}
+   :subspirits #{}
+   :ingredients #{}
+   :include-garnishes? false
+   :show-ingredient-filter? false
+   :open-ingredient-cat nil
+   :makeable nil})
+
 (def initial-app-state
   "Initial app state structure - shared between initialization and reset"
   {:wines []
@@ -70,7 +84,8 @@
          :show-recipe-form? false
          :editing-recipe-id nil
          :new-spirit {}
-         :new-recipe {:ingredients []}}})
+         :new-recipe {:ingredients []}
+         :recipe-filters default-recipe-filters}})
 
 (def ^:private context-modes #{:summary :selection :selection+filters})
 

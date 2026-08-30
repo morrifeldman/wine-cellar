@@ -7,6 +7,7 @@
             [reagent-mui.icons.arrow-back :refer [arrow-back]]
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [wine-cellar.nav :as nav]
+            [wine-cellar.state :as state]
             [wine-cellar.views.bar.spirits :refer [spirits-tab]]
             [wine-cellar.views.bar.inventory :refer [inventory-tab]]
             [wine-cellar.views.bar.photo-import :refer [photo-import-dialog]]
@@ -41,12 +42,16 @@
        {:value tab-index
         :on-change (fn [_ v]
                      ;; A hand-picked tab starts fresh: drop anything a
-                     ;; recipe ingredient left behind for the Mixers tab.
+                     ;; recipe ingredient left behind for the Mixers tab,
+                     ;; and clear the recipe filters that only a Back
+                     ;; should keep.
                      (swap! app-state update
                        :bar
                        (fn [bar]
                          (-> bar
                              (dissoc :highlight-item-ids :new-inventory-item)
+                             (assoc :recipe-filters
+                                    state/default-recipe-filters)
                              (assoc :active-tab (get tab-keys v :recipes))))))
         :sx {:flex 1}} [tab {:label "Recipes"}] [tab {:label "Spirits"}]
        [tab {:label "Mixers"}]]

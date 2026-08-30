@@ -4,7 +4,8 @@
             [wine-cellar.views.main :as views]
             [wine-cellar.api :as api]
             [wine-cellar.nav :as nav]
-            [wine-cellar.state :refer [initial-app-state]]
+            [wine-cellar.state :refer
+             [initial-app-state default-recipe-filters]]
             [wine-cellar.theme :refer [wine-theme]]
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe]
@@ -150,7 +151,13 @@
                                  set)}
                   sf (assoc :spirits-initial-filter
                             {:categories #{(gobj/get sf "category")}
-                             :subcategories (if (seq sub) #{sub} #{})}))))))
+                             :subcategories (if (seq sub) #{sub} #{})}))))
+            ;; The recipe list comes back with its filters intact, so the
+            ;; recipe that was open is still there — put it back under the
+            ;; reader's eyes rather than trusting the browser's own scroll
+            ;; restoration.
+            (when-let [recipe-id (gobj/get bar-nav "viewingRecipeId")]
+              (api/scroll-recipe-into-view! recipe-id))))
         (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
         (when (and (:show-report? nav-state) (not (:report @app-state)))
           (api/fetch-latest-report app-state
@@ -161,6 +168,11 @@
           (api/fetch-latest-sensor-readings app-state {}))
         (when (and (= :bar (:view nav-state))
                    (not (gobj/get (.-state js/history) "barNav")))
+          ;; Arriving at the bar afresh (not via a Back inside it) — start
+          ;; with the whole recipe collection showing.
+          (swap! app-state assoc-in
+            [:bar :recipe-filters]
+            default-recipe-filters)
           (api/fetch-bar-data app-state)
           ;; A recipe opened behind the chat modal (e.g. saved from chat)
           ;; loses its scroll position to the browser's history scroll

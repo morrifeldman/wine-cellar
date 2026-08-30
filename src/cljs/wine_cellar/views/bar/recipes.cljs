@@ -1132,15 +1132,19 @@
 
 (defn recipes-tab
   [_app-state]
-  (let [search-text (r/atom "")
-        selected-tags (r/atom #{})
-        selected-spirits (r/atom #{})
-        selected-subspirits (r/atom #{})
-        selected-ingredients (r/atom #{})
-        include-garnishes? (r/atom false)
-        show-ingredient-filter? (r/atom false)
-        open-ingredient-cat (r/atom nil)
-        makeable-filter (r/atom nil)]
+  ;; Filters live in app-state, not in local atoms: following an ingredient
+  ;; to another bar tab unmounts this component, and Back should return to
+  ;; the same filtered list rather than the whole collection.
+  (let [filter-cursor #(r/cursor _app-state [:bar :recipe-filters %])
+        search-text (filter-cursor :search)
+        selected-tags (filter-cursor :tags)
+        selected-spirits (filter-cursor :spirits)
+        selected-subspirits (filter-cursor :subspirits)
+        selected-ingredients (filter-cursor :ingredients)
+        include-garnishes? (filter-cursor :include-garnishes?)
+        show-ingredient-filter? (filter-cursor :show-ingredient-filter?)
+        open-ingredient-cat (filter-cursor :open-ingredient-cat)
+        makeable-filter (filter-cursor :makeable)]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             recipes (:recipes bar)
