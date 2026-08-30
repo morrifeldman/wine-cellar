@@ -117,7 +117,7 @@
 (defn- build-request-body
   [{:keys [system messages tools tool_choice max_tokens temperature metadata
            stop_sequences]} model-override]
-  (-> {:model model-override :max_tokens (or max_tokens 1000)}
+  (-> {:model model-override :max_tokens (or max_tokens 16000)}
       (cond-> system (assoc :system system))
       (assoc :messages messages)
       (cond-> (seq tools) (assoc :tools tools))
@@ -156,7 +156,7 @@
                                         "content-type" "application/json"}
                               :as :text
                               :keepalive 60000
-                              :timeout 60000}))
+                              :timeout 300000}))
            parsed (when body
                     (json/read-value body json/keyword-keys-object-mapper))
            response-with-parsed (assoc response :parsed parsed)
@@ -194,7 +194,7 @@
                  :messages [{:role "user" :content [{:type "text" :text user}]}]
                  :tools [drinking-window-tool]
                  :tool_choice {:type "tool" :name drinking-window-tool-name}
-                 :max_tokens 600}]
+                 :max_tokens 4000}]
     (call-anthropic-api request true)))
 
 (defn analyze-wine-label
@@ -208,7 +208,7 @@
                  :messages [{:role "user" :content (vec user-content)}]
                  :tools [label-analysis-tool]
                  :tool_choice {:type "tool" :name label-analysis-tool-name}
-                 :max_tokens 900}]
+                 :max_tokens 4000}]
     (call-anthropic-api request true)))
 
 (def spirit-label-analysis-tool-name "record_spirit_label")
@@ -268,7 +268,7 @@
                  :tools [spirit-label-analysis-tool]
                  :tool_choice {:type "tool"
                                :name spirit-label-analysis-tool-name}
-                 :max_tokens 600}]
+                 :max_tokens 4000}]
     (call-anthropic-api request true)))
 
 (defn chat-about-wines
@@ -282,7 +282,8 @@
         {:system
          [{:type "text" :text system-text :cache_control {:type "ephemeral"}}
           {:type "text" :text context-text :cache_control {:type "ephemeral"}}]
-         :messages messages}]
+         :messages messages
+         :max_tokens 16000}]
     (call-anthropic-api request false)))
 
 (defn generate-wine-summary
@@ -291,7 +292,9 @@
   [{:keys [system user]}]
   (assert (string? system) "Wine-summary prompt requires :system text")
   (assert (string? user) "Wine-summary prompt requires :user text")
-  (let [request {:system system :messages [{:role "user" :content user}]}]
+  (let [request {:system system
+                 :messages [{:role "user" :content user}]
+                 :max_tokens 8000}]
     (call-anthropic-api request false)))
 
 (defn generate-conversation-title
@@ -311,7 +314,7 @@
   (assert (string? user) "Report prompt requires :user text")
   (let [request {:system system
                  :messages [{:role "user" :content [{:type "text" :text user}]}]
-                 :max_tokens 1000
+                 :max_tokens 8000
                  :temperature 0.7}]
     (call-anthropic-api request false)))
 
@@ -438,7 +441,7 @@
          request {:messages [{:role "user" :content content}]
                   :tools [extract-recipe-tool]
                   :tool_choice {:type "tool" :name extract-recipe-tool-name}
-                  :max_tokens 3000}]
+                  :max_tokens 16000}]
      (call-anthropic-api request true))))
 
 (def resolve-links-tool-name "resolve_recipe_links")
@@ -571,5 +574,5 @@
         request {:messages [{:role "user" :content content}]
                  :tools [resolve-links-tool]
                  :tool_choice {:type "tool" :name resolve-links-tool-name}
-                 :max_tokens 1500}]
+                 :max_tokens 8000}]
     (call-anthropic-api request true)))
