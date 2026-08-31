@@ -21,12 +21,10 @@
 - Propose ad-hoc Clojure scripts (in `scripts/wine_cellar/scripts/`) for data tasks rather than manual DB manipulations
 
 ## Shipping
-Finishing a task includes shipping it. Commit and push without being asked.
+Finishing a task includes shipping it — commit and push without being asked. Deciding a change is done is your call; that is what the trust is for. This is a personal project, so a bad push is one `jj` command from undone.
 
-- Deciding a change is done is your call to make. That is what the trust is for — asking "should I commit this?" hands the judgment back.
-- This is a personal project with no other users and no release train. A bad push is one `jj` command away from being undone, so shipping something wrong costs minutes. Stalling on every change costs more.
-- Follow the `ship` skill; nothing formats or bumps the app version on its own.
-- Then confirm the push actually landed — compare the bookmark against `origin` rather than trusting the push output — and say so in a plain line with the version. Nobody should have to ask "is it shipped?"
+- Follow the `ship` skill; nothing formats or bumps the app version on its own
+- Confirm the push landed by checking the bookmark against `origin`, not the push command's output, then say so with the version
 
 ## UI/UX
 - **Cards**: Minimalist, label-free, dot-separated metadata
