@@ -622,8 +622,13 @@
                     {:spirits (db-api/get-spirits)
                      :inventory-items (db-api/get-bar-inventory-items)
                      :recipes (db-api/get-cocktail-recipes)})
-              urls (vec
-                    (take 2 (re-seq #"https?://[^\s<>\"{}|\\^`\[\]]+" message)))
+              ;; Claude fetches pasted links itself through Anthropic's
+              ;; web_fetch tool, so we only download pages here for the
+              ;; providers that have no server-side fetcher of their own.
+              urls (when-not (= :anthropic provider)
+                     (vec (take 2
+                                (re-seq #"https?://[^\s<>\"{}|\\^`\[\]]+"
+                                        message))))
               web-content
               (when (seq urls)
                 (into

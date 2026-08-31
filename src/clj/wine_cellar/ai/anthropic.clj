@@ -141,48 +141,78 @@
     (when-let [text (extract-text-content content)]
       (json/read-value text json/keyword-keys-object-mapper))))
 
+(defn- post-anthropic
+  "Sends one request to the Messages API and returns the http-kit response with
+   the decoded body under :parsed. Throws on transport errors and non-200s."
+  [request-body]
+  (tap> ["anthropic-request-body" request-body])
+  (let [{:keys [status body error] :as response}
+        (deref (http/post api-url
+                          {:body (json/write-value-as-string request-body)
+                           :headers {"x-api-key" api-key
+                                     "anthropic-version" "2023-06-01"
+                                     "content-type" "application/json"}
+                           :as :text
+                           :keepalive 60000
+                           :timeout 300000}))
+        parsed (when body
+                 (json/read-value body json/keyword-keys-object-mapper))
+        response-with-parsed (assoc response :parsed parsed)]
+    (when error
+      (tap> ["anthropic-request-error" error])
+      (throw
+       (ex-info "Anthropic API request failed" response-with-parsed error)))
+    (when (not= 200 status)
+      (tap> ["anthropic-request-non-200" {:status status :body parsed}])
+      (throw (ex-info "Anthropic API request failed" response-with-parsed)))
+    response-with-parsed))
+
+(def ^:private max-pause-turn-resumes
+  "Server-side tools such as web_fetch run in a loop on Anthropic's side. When
+   that loop hits its iteration limit the turn comes back paused; we hand the
+   partial answer back and let it pick up where it left off, a few times at
+   most so a runaway turn can't loop forever."
+  3)
+
+(defn- run-turn
+  [request-body]
+  (loop [body request-body
+         resumes 0]
+    (let [response (post-anthropic body)
+          parsed (:parsed response)]
+      (if (and (= "pause_turn" (:stop_reason parsed))
+               (< resumes max-pause-turn-resumes))
+        (do (tap> ["anthropic-pause-turn-resume" resumes])
+            (recur (update body
+                           :messages
+                           conj
+                           {:role "assistant" :content (:content parsed)})
+                   (inc resumes)))
+        response))))
+
 (defn call-anthropic-api
   "Makes a request to the Anthropic API with messages array and optional JSON parsing"
   ([request] (call-anthropic-api request false))
   ([request parse-json?] (call-anthropic-api request parse-json? model))
   ([request parse-json? model-override]
-   (let [request-body (build-request-body request model-override)]
-     (tap> ["anthropic-request-body" request-body])
-     (let [{:keys [status body error] :as response}
-           (deref (http/post api-url
-                             {:body (json/write-value-as-string request-body)
-                              :headers {"x-api-key" api-key
-                                        "anthropic-version" "2023-06-01"
-                                        "content-type" "application/json"}
-                              :as :text
-                              :keepalive 60000
-                              :timeout 300000}))
-           parsed (when body
-                    (json/read-value body json/keyword-keys-object-mapper))
-           response-with-parsed (assoc response :parsed parsed)
-           content (:content parsed)]
-       (when error
-         (tap> ["anthropic-request-error" error])
-         (throw
-          (ex-info "Anthropic API request failed" response-with-parsed error)))
-       (when (not= 200 status)
-         (tap> ["anthropic-request-non-200" {:status status :body parsed}])
-         (throw (ex-info "Anthropic API request failed" response-with-parsed)))
-       (if parse-json?
-         (try (if-let [parsed-response (parse-json-content content)]
-                (do (tap> ["anthropic-parsed-response" parsed-response])
-                    parsed-response)
-                (throw (ex-info "Anthropic response missing JSON payload"
-                                response-with-parsed)))
-              (catch Exception e
-                (throw (ex-info "Failed to parse AI response as JSON"
-                                response-with-parsed
-                                e))))
-         (let [text-content (extract-text-content content)]
-           (if (seq (str text-content))
-             text-content
-             (throw (ex-info "Anthropic response missing assistant text"
-                             response-with-parsed)))))))))
+   (let [{:keys [parsed] :as response-with-parsed}
+         (run-turn (build-request-body request model-override))
+         content (:content parsed)]
+     (if parse-json?
+       (try (if-let [parsed-response (parse-json-content content)]
+              (do (tap> ["anthropic-parsed-response" parsed-response])
+                  parsed-response)
+              (throw (ex-info "Anthropic response missing JSON payload"
+                              response-with-parsed)))
+            (catch Exception e
+              (throw (ex-info "Failed to parse AI response as JSON"
+                              response-with-parsed
+                              e))))
+       (let [text-content (extract-text-content content)]
+         (if (seq (str text-content))
+           text-content
+           (throw (ex-info "Anthropic response missing assistant text"
+                           response-with-parsed))))))))
 
 (defn suggest-drinking-window
   "Suggests an optimal drinking window for a wine using Anthropic's Claude API.
@@ -271,6 +301,12 @@
                  :max_tokens 4000}]
     (call-anthropic-api request true)))
 
+(def web-fetch-tool
+  "Anthropic's own page fetcher. Claude reads a link the user pasted into the
+   chat straight off Anthropic's servers, so we never download the page here.
+   It will only open URLs that already appear in the conversation."
+  {:type "web_fetch_20260209" :name "web_fetch" :max_uses 5})
+
 (defn chat-about-wines
   "Chat with AI about wine collection and wine-related topics with conversation history.
    Expects {:system-text ... :context-text ... :messages [...]} prepared by ai.core."
@@ -283,6 +319,7 @@
          [{:type "text" :text system-text :cache_control {:type "ephemeral"}}
           {:type "text" :text context-text :cache_control {:type "ephemeral"}}]
          :messages messages
+         :tools [web-fetch-tool]
          :max_tokens 16000}]
     (call-anthropic-api request false)))
 
