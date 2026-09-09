@@ -109,10 +109,17 @@
                  :bottle_format :alcohol_percentage]
       :additionalProperties false}}))
 
+(def ^:private models-without-temperature
+  "Anthropic dropped the temperature parameter with Opus 4.7, and every model
+   released since rejects it outright. Matched as substrings of the model name."
+  ["opus-4-7" "opus-4-8" "opus-5" "sonnet-5" "fable-5" "mythos-5"])
+
 (defn- temperature-supported?
-  "Opus 4.8+ deprecates the temperature parameter and 400s when it is sent."
+  "These models 400 with \"`temperature` is deprecated for this model\" when
+   the parameter is sent, so we drop it rather than fail the request."
   [model-name]
-  (not (and model-name (str/includes? model-name "opus-4-8"))))
+  (not (and model-name
+            (some #(str/includes? model-name %) models-without-temperature))))
 
 (defn- build-request-body
   [{:keys [system messages tools tool_choice max_tokens temperature metadata
