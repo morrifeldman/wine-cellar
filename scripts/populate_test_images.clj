@@ -3,9 +3,10 @@
             [clojure.string :as str])
   (:import [java.util Base64]))
 
-(defn encode-svg [svg-string]
+(defn encode-svg
+  [svg-string]
   (let [encoder (Base64/getEncoder)
-        bytes (.getBytes svg-string "UTF-8")])
+        bytes (.getBytes svg-string "UTF-8")]
     (str "data:image/svg+xml;base64," (.encodeToString encoder bytes))))
 
 (def red-wine-svg
@@ -43,7 +44,8 @@
      <circle cx=\"250\" cy=\"390\" r=\"4\" fill=\"#d4af37\"/>
    </svg>")
 
-(defn get-image-for-style [style]
+(defn get-image-for-style
+  [style]
   (case (and style (str/lower-case style))
     "red" (encode-svg red-wine-svg)
     "white" (encode-svg white-wine-svg)
@@ -53,17 +55,16 @@
     "champagne" (encode-svg sparkling-wine-svg)
     (encode-svg red-wine-svg))) ;; Default
 
-(defn run []
+(defn run
+  []
   (let [wines (db/get-wines-for-list)]
     (println "Found" (count wines) "wines to update.")
     (doseq [wine wines]
       (let [style (:style wine)
             image (get-image-for-style style)]
         (println "Updating" (:id wine) " (" (:name wine) ") with style" style)
-        (db/update-wine!
-         (:id wine)
-         {:label_image image
-          :label_thumbnail image})))
+        (db/update-wine! (:id wine)
+                         {:label_image image :label_thumbnail image})))
     (println "Done!")))
 
 (run)
