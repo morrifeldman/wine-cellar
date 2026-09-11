@@ -42,8 +42,13 @@
                 [{:text (str content)}])]
     {:role (if (= role "assistant") "model" "user") :parts parts}))
 
+(def ^:private google-search-tool
+  "Gemini's own grounded search, so chat can answer questions that depend on
+   something current without us fetching anything ourselves."
+  {:google_search {}})
+
 (defn- build-request-body
-  [{:keys [system messages response-schema max-tokens temperature]}]
+  [{:keys [system messages response-schema max-tokens temperature tools]}]
   (let [contents (mapv transform-message messages)
         system-instruction (when system {:parts [{:text system}]})
         generation-config (cond-> {}
@@ -54,6 +59,7 @@
                             temperature (assoc :temperature temperature))]
     (cond-> {:contents contents}
       system-instruction (assoc :system_instruction system-instruction)
+      (seq tools) (assoc :tools tools)
       (seq generation-config) (assoc :generationConfig generation-config))))
 
 (defn- call-gemini-api
@@ -79,8 +85,13 @@
                           {:status status :error parsed})))
         (let [candidate (first (:candidates parsed))
               parts (get-in candidate [:content :parts])
-              text-response (some-> (first parts)
-                                    :text)]
+              ;; A grounded answer comes back split across several parts,
+              ;; so
+              ;; take every one of them rather than just the first.
+              text-response (->> parts
+                                 (keep :text)
+                                 (remove str/blank?)
+                                 (str/join))]
           (when (str/blank? text-response)
             (tap> ["gemini-no-text" parsed])
             (throw (ex-info "Gemini response contained no text"
@@ -112,7 +123,8 @@
   "Chat about wines using Gemini."
   [{:keys [system-text context-text messages]}]
   (let [full-system (str system-text "\n\n" context-text)
-        request {:system full-system :messages messages}]
+        request
+        {:system full-system :messages messages :tools [google-search-tool]}]
     (call-gemini-api request)))
 
 (def drinking-window-schema

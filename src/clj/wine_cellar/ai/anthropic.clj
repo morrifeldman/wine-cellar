@@ -314,6 +314,13 @@
    It will only open URLs that already appear in the conversation."
   {:type "web_fetch_20260209" :name "web_fetch" :max_uses 5})
 
+(def web-search-tool
+  "Anthropic's own search. Claude looks things up on Anthropic's servers when
+   the answer depends on something current — today's offer on a wine site, a
+   vintage report, what a bottle is going for — and pairs with web_fetch to
+   open whatever it finds."
+  {:type "web_search_20260209" :name "web_search" :max_uses 5})
+
 (defn chat-about-wines
   "Chat with AI about wine collection and wine-related topics with conversation history.
    Expects {:system-text ... :context-text ... :messages [...]} prepared by ai.core."
@@ -326,7 +333,7 @@
          [{:type "text" :text system-text :cache_control {:type "ephemeral"}}
           {:type "text" :text context-text :cache_control {:type "ephemeral"}}]
          :messages messages
-         :tools [web-fetch-tool]
+         :tools [web-search-tool web-fetch-tool]
          :max_tokens 16000}]
     (call-anthropic-api request false)))
 

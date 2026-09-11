@@ -94,13 +94,19 @@
               :bottle_format :alcohol_percentage]
    :additionalProperties false})
 
+(def ^:private web-search-tool
+  "OpenAI's hosted search, so chat can answer questions that depend on
+   something current without us fetching anything ourselves."
+  {:type "web_search"})
+
 (defn- build-request
   [{:keys [system-text context-text messages]}]
   {:pre [(string? system-text) (string? context-text) (vector? messages)]}
   {:input (into
            [{:role "system" :content [{:type "input_text" :text system-text}]}
             {:role "system" :content [{:type "input_text" :text context-text}]}]
-           (conversation->input messages))})
+           (conversation->input messages))
+   :tools [web-search-tool]})
 
 (defn- output-content [response-body] (mapcat :content (:output response-body)))
 

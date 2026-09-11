@@ -622,9 +622,9 @@
                     {:spirits (db-api/get-spirits)
                      :inventory-items (db-api/get-bar-inventory-items)
                      :recipes (db-api/get-cocktail-recipes)})
-              ;; Claude fetches pasted links itself through Anthropic's
-              ;; web_fetch tool, so we only download pages here for the
-              ;; providers that have no server-side fetcher of their own.
+              ;; Every provider searches the web on its own side, but only
+              ;; Anthropic can open a specific URL (web_fetch), so we still
+              ;; download pasted links here for the other two.
               urls (when-not (= :anthropic provider)
                      (vec (take 2
                                 (re-seq #"https?://[^\s<>\"{}|\\^`\[\]]+"

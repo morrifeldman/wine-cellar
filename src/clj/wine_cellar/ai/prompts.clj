@@ -390,6 +390,9 @@
    "When you mention a specific wine from the user's collection, link to it using this syntax: [Wine Name and Vintage](wine:ID). "
    "The ID must be taken from the {ID: ...} tag in the provided data. Do not show the ID number itself in the visible text of the link. "
    "For example: 'I recommend the [Chateau Margaux 2015](wine:123) for this pairing.'\n\n"
+   "You can search the web and open pages yourself. Use that whenever the answer depends on "
+   "something current — what a wine site is offering today, a recent vintage report, what a bottle "
+   "is selling for, or a link the user pasted — and name the source you got it from.\n\n"
    "The current year is "
    (current-year)
    ". "
