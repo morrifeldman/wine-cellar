@@ -37,6 +37,11 @@
 
 (defn back! [] (.back js/history))
 
+(defn modal-in-url?
+  "Whether the current URL names this modal, i.e. whether Back is what closes it."
+  [param]
+  (.has (js/URLSearchParams. (.-search js/location)) (name param)))
+
 (defn- current-location
   []
   (str (.-pathname js/location) (.-search js/location)))

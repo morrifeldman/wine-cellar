@@ -59,7 +59,7 @@
             parts)))))))
 
 (defn- render-rich-text
-  [text app-state is-user search-term global-offset current-match-idx]
+  [text is-user search-term global-offset current-match-idx]
   (let [link-pattern #"\[([^\]]+)\]\(wine:(\d+)\)"] ; Regex literal, no
                                                     ; escaping issues.
     (if (string/blank? text)
@@ -100,34 +100,33 @@
                        new-elements
                        (if (< idx (count link-matches))
                          (let [[_ link-text wine-id] (nth link-matches idx)]
-                           (conj
-                            elements
-                            [:<> highlighted-part ; Vector literal.
-                             [typography ; Vector literal.
-                              {:component "span" ; Map literal.
-                               :variant "body2"
-                               :sx {:color (if is-user
-                                             "secondary.light"
-                                             "primary.light")
-                                    :textDecoration "underline"
-                                    :cursor "pointer"
-                                    :fontWeight 600
-                                    :whiteSpace "nowrap"
-                                    :lineHeight "inherit"
-                                    :&:hover {:color (if is-user
-                                                       "common.white"
-                                                       "primary.main")}} ; Map
-                                                                         ; literal.
-                               :on-click
-                               (fn [e]
-                                 (.preventDefault e)
-                                 (.stopPropagation e)
-                                 (.replaceState js/history
-                                                #js {:chatOpen true}
-                                                "")
-                                 (swap! app-state assoc-in [:chat :open?] false)
-                                 (nav/go-wine-detail! (js/parseInt wine-id)))}
-                              link-text]])) ; Vector literal.
+                           (conj elements
+                                 [:<> highlighted-part ; Vector literal.
+                                  [typography ; Vector literal.
+                                   {:component "span" ; Map literal.
+                                    :variant "body2"
+                                    :sx {:color (if is-user
+                                                  "secondary.light"
+                                                  "primary.light")
+                                         :textDecoration "underline"
+                                         :cursor "pointer"
+                                         :fontWeight 600
+                                         :whiteSpace "nowrap"
+                                         :lineHeight "inherit"
+                                         :&:hover {:color (if is-user
+                                                            "common.white"
+                                                            "primary.main")}} ; Map
+                                                                              ; literal.
+                                    :on-click (fn [e]
+                                                (.preventDefault e)
+                                                (.stopPropagation e)
+                                                ;; The wine page's URL
+                                                ;; carries no ?chat, so the
+                                                ;; chat closes here and
+                                                ;; reopens on Back
+                                                (nav/go-wine-detail!
+                                                 (js/parseInt wine-id)))}
+                                   link-text]])) ; Vector literal.
                          (conj elements highlighted-part))] ; Vector literal.
                    [new-elements (+ offset match-count)])) ; Vector literal.
                [[] global-offset] ; Vector literal.
@@ -165,7 +164,6 @@
              :word-wrap "break-word"
              :line-height 1.6}} ; Map literal.
        (render-rich-text text
-                         app-state
                          is-user
                          search-term
                          global-offset

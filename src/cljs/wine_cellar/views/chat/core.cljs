@@ -20,6 +20,7 @@
             [wine-cellar.utils.filters :refer
              [filtered-sorted-wines filters-active?]]
             [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]
             [wine-cellar.state :as state-core]
             [wine-cellar.views.chat.utils :as chat-utils]
             [wine-cellar.views.chat.context :as chat-context]
@@ -368,11 +369,8 @@
            (and has-selection? (filters-active? state)) :selection+filters
            (and has-selection? (:show-selected-wines? state)) :selection
            :else :selection+filters)))
-  (swap! app-state assoc-in [:chat :open?] true)
-  ;; Push a history entry so the back button closes the chat
-  ;; rather than navigating away from the current page
-  (.pushState js/history #js {:chatModalOpen true} "" (.-href js/location))
-  (api/load-conversations! app-state {:force? true}))
+  ;; on-navigate opens the chat from the URL, and Back closes it again
+  (nav/open-modal! :chat))
 
 (defn wine-chat-fab
   "Floating action button for wine chat"

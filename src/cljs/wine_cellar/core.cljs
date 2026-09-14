@@ -79,7 +79,8 @@
     (cond-> {:show-collection-stats? (= "1" stats)
              :show-tasting-note-form? (= "new" note)
              :editing-note-id (when (and note (not= "new" note))
-                                (js/parseInt note 10))
+                                (let [id (js/parseInt note 10)]
+                                  (when-not (js/isNaN id) id)))
              :zoomed-image zoom}
       selected (assoc :selected-wine-ids (into #{}
                                                (comp (map #(js/parseInt % 10))
@@ -99,6 +100,8 @@
         new-wine-id (:selected-wine-id nav-state)
         old-view (:view @app-state)
         new-view (:view nav-state)
+        chat-open? (= "1" (:chat (:query-params match)))
+        chat-was-open? (get-in @app-state [:chat :open?])
         saved-note (:new-tasting-note @app-state)
         submitting-note? (:submitting-note? @app-state)
         note-dirty? (and (note-form-open? @app-state)
@@ -110,46 +113,36 @@
     (if (and note-dirty?
              (not (js/confirm "Discard your in-progress tasting note?")))
       (nav/undo-back!)
-      (do
-        (swap! app-state (fn [s]
-                           (-> s
-                               ;; Keep wine selection on same-view
-                               ;; navigations (e.g. chat close via
-                               ;; history.back); clear it when
-                               ;; actually switching views
-                               (cond-> (not= old-view new-view)
-                                       (dissoc :show-selected-wines?
-                                        :selected-wine-ids))
-                               (cond-> (not (note-form-open? modal-state))
-                                       (dissoc :new-tasting-note))
-                               (merge nav-state modal-state))))
-        (let [chat-modal-open? (gobj/get (.-state js/history) "chatModalOpen")
-              chat-open? (gobj/get (.-state js/history) "chatOpen")]
-          (when (and (not= old-view new-view)
-                     (not chat-open?)
-                     (not chat-modal-open?))
+      (do (swap! app-state (fn [s]
+                             (-> s
+                                 ;; Keep wine selection on same-view
+                                 ;; navigations (e.g. chat close via
+                                 ;; history.back); clear it when
+                                 ;; actually switching views
+                                 (cond-> (not= old-view new-view)
+                                         (dissoc :show-selected-wines?
+                                          :selected-wine-ids))
+                                 (cond-> (not (note-form-open? modal-state))
+                                         (dissoc :new-tasting-note))
+                                 (merge nav-state modal-state))))
+          (cond
+            ;; The URL owns the chat, so arriving at one that names it is
+            ;; what opens it, a reload and a Back onto the FAB's entry
+            ;; included.
+            chat-open? (when-not chat-was-open?
+                         (swap! app-state assoc-in [:chat :open?] true)
+                         (api/load-conversations! app-state {:force? true}))
+            ;; The conversation belongs to the page it was started on
+            (not= old-view new-view)
             (swap! app-state (fn [s]
                                (->
                                  s
                                  (assoc-in [:chat :open?] false)
                                  (assoc-in [:chat :conversations-loaded?] false)
                                  (assoc-in [:chat :active-conversation-id] nil)
-                                 (assoc-in [:chat :messages] [])))))
-          ;; Back button pressed while on same page — close the chat
-          (when (and (= old-view new-view)
-                     (get-in @app-state [:chat :open?])
-                     (not chat-modal-open?))
-            (swap! app-state assoc-in [:chat :open?] false))
-          ;; Returning via wine-link chatOpen back-nav — reopen chat
-          (when chat-open?
-            (.replaceState js/history #js {} "" (.-pathname js/location))
-            (swap! app-state assoc-in [:chat :open?] true)
-            (api/load-conversations! app-state {:force? true}))
-          ;; Returning via chatModalOpen (e.g. Wine Cellar → back) — reopen
-          ;; chat
-          (when (and chat-modal-open? (not (get-in @app-state [:chat :open?])))
-            (swap! app-state assoc-in [:chat :open?] true)
-            (api/load-conversations! app-state {:force? true}))
+                                 (assoc-in [:chat :messages] []))))
+            ;; Closed on the same page, so it survives a reopen
+            chat-was-open? (swap! app-state assoc-in [:chat :open?] false))
           ;; Bar cross-tab nav (recipe → bottle, and Back) — restore
           ;; tab/detail
           (when-let [bar-nav (gobj/get (.-state js/history) "barNav")]
@@ -173,33 +166,33 @@
             ;; reader's eyes rather than trusting the browser's own scroll
             ;; restoration.
             (when-let [recipe-id (gobj/get bar-nav "viewingRecipeId")]
-              (api/scroll-recipe-into-view! recipe-id))))
-        ;; Only on arrival: opening a modal on a wine page navigates too,
-        ;; and reloading the page under it would scroll it away and discard
-        ;; whatever the modal is editing.
-        (when (and new-wine-id (not= old-wine-id new-wine-id))
-          (api/load-wine-detail-page app-state new-wine-id))
-        (when (and (:show-report? nav-state) (not (:report @app-state)))
-          (api/fetch-latest-report app-state
-                                   {:provider (get-in @app-state
-                                                      [:ai :provider])}))
-        (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
-        (when (= :sensor-readings (:view nav-state))
-          (api/fetch-latest-sensor-readings app-state {}))
-        (when (and (= :bar (:view nav-state))
-                   (not (gobj/get (.-state js/history) "barNav")))
-          ;; Arriving at the bar afresh (not via a Back inside it) — start
-          ;; with the whole recipe collection showing.
-          (swap! app-state assoc-in
-            [:bar :recipe-filters]
-            default-recipe-filters)
-          (api/fetch-bar-data app-state)
-          ;; A recipe opened behind the chat modal (e.g. saved from chat)
-          ;; loses its scroll position to the browser's history scroll
-          ;; restoration when the chat's history entry pops — re-scroll.
-          (when-let [recipe-id (get-in @app-state [:bar :viewing-recipe-id])]
-            (api/scroll-recipe-into-view! recipe-id)))
-        (nav/remember-location!)))))
+              (api/scroll-recipe-into-view! recipe-id)))
+          ;; Only on arrival: opening a modal on a wine page navigates too,
+          ;; and reloading the page under it would scroll it away and
+          ;; discard whatever the modal is editing.
+          (when (and new-wine-id (not= old-wine-id new-wine-id))
+            (api/load-wine-detail-page app-state new-wine-id))
+          (when (and (:show-report? nav-state) (not (:report @app-state)))
+            (api/fetch-latest-report app-state
+                                     {:provider (get-in @app-state
+                                                        [:ai :provider])}))
+          (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
+          (when (= :sensor-readings (:view nav-state))
+            (api/fetch-latest-sensor-readings app-state {}))
+          (when (and (= :bar (:view nav-state))
+                     (not (gobj/get (.-state js/history) "barNav")))
+            ;; Arriving at the bar afresh (not via a Back inside it) —
+            ;; start with the whole recipe collection showing.
+            (swap! app-state assoc-in
+              [:bar :recipe-filters]
+              default-recipe-filters)
+            (api/fetch-bar-data app-state)
+            ;; A recipe opened behind the chat modal (e.g. saved from chat)
+            ;; loses its scroll position to the browser's history scroll
+            ;; restoration when the chat's history entry pops — re-scroll.
+            (when-let [recipe-id (get-in @app-state [:bar :viewing-recipe-id])]
+              (api/scroll-recipe-into-view! recipe-id)))
+          (nav/remember-location!)))))
 
 (defonce root (atom nil))
 
