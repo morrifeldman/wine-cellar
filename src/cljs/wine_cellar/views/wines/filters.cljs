@@ -383,10 +383,7 @@
                   {:variant (if show-selected? "contained" "outlined")
                    :size "small"
                    :color (if show-selected? "primary" "secondary")
-                   :onClick (fn []
-                              (swap! app-state assoc
-                                :show-selected-wines?
-                                (not show-selected?)))}
+                   :onClick #(app-state-core/toggle-selected-only! app-state)}
                   (str "Selected (" selected-count ")")])
            (pos? selected-count) (conj [button
                                         {:variant "outlined"

@@ -2,6 +2,7 @@
   (:require [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.tooltip :refer [tooltip]]
             [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]
             [wine-cellar.state :as state-core]
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
@@ -94,26 +95,27 @@
 (defn apply-wine-search-state!
   [app-state search-state]
   (when (map? search-state)
-    (swap! app-state
-      (fn [state]
-        (-> state
-            (cond-> (contains? search-state :filters)
-                    (assoc
-                     :filters
-                     (update (:filters search-state) :tasting-window keyword)))
-            (cond-> (contains? search-state :sort) (assoc :sort
-                                                          (:sort search-state)))
-            (cond-> (contains? search-state :show-out-of-stock?)
-                    (assoc :show-out-of-stock?
-                           (:show-out-of-stock? search-state)))
-            (cond-> (contains? search-state :selected-wine-id)
-                    (assoc :selected-wine-id (:selected-wine-id search-state)))
-            (cond-> (contains? search-state :selected-wine-ids)
-                    (assoc :selected-wine-ids
-                           (into #{} (:selected-wine-ids search-state))))
-            (cond-> (contains? search-state :show-selected-wines?)
-                    (assoc :show-selected-wines?
-                           (boolean (:show-selected-wines? search-state)))))))
+    (swap! app-state (fn [state]
+                       (-> state
+                           (cond-> (contains? search-state :filters)
+                                   (assoc :filters
+                                          (update (:filters search-state)
+                                                  :tasting-window
+                                                  keyword)))
+                           (cond-> (contains? search-state :sort)
+                                   (assoc :sort (:sort search-state)))
+                           (cond-> (contains? search-state :show-out-of-stock?)
+                                   (assoc :show-out-of-stock?
+                                          (:show-out-of-stock? search-state)))
+                           (cond-> (contains? search-state :selected-wine-id)
+                                   (assoc :selected-wine-id
+                                          (:selected-wine-id search-state))))))
+    ;; The wines this conversation was about go back in the URL rather than
+    ;; straight into app-state: the URL owns the selection now, and
+    ;; anything written past it would be wiped by the next navigation.
+    (when (contains? search-state :selected-wine-ids)
+      (nav/set-selected-wines! (into #{} (:selected-wine-ids search-state)))
+      (nav/show-only-selected! (boolean (:show-selected-wines? search-state))))
     (cond (contains? search-state :context-mode)
           (when-let [mode (:context-mode search-state)]
             (state-core/set-context-mode! app-state (keyword mode)))

@@ -67,7 +67,26 @@
 (defn go-selected-wines!
   "Show the wine list narrowed to the given ids."
   [ids]
-  (rfe/push-state ::wines nil {:selected (str/join "," ids)}))
+  (rfe/push-state ::wines nil {:selected (str/join "," ids) :only "selected"}))
+
+(defn set-selected-wines!
+  "Put the hand-checked wines in the URL, so a reload, or a trip into a wine and
+   back, finds the same boxes ticked. Replaces rather than pushes: ticking a box
+   isn't a place to return to, and pushing would make Back undo clicks one at a
+   time. The ids are sorted so the same set of wines always reads the same way."
+  [ids]
+  (rfe/set-query #(if (seq ids)
+                    (assoc % :selected (str/join "," (sort ids)))
+                    ;; With nothing selected there is nothing for the
+                    ;; selected-only view to show, so it goes too.
+                    (dissoc % :selected :only))
+                 {:replace true}))
+
+(defn show-only-selected!
+  "Narrow the wine list to the checked wines, or widen it again."
+  [show?]
+  (rfe/set-query #(if show? (assoc % :only "selected") (dissoc % :only))
+                 {:replace true}))
 
 (defn back! [] (.back js/history))
 

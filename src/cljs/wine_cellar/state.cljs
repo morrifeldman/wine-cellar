@@ -131,21 +131,20 @@
   (= :selection+filters (context-mode state)))
 
 (defn toggle-wine-selection!
-  "Add or remove a wine id from the multi-select set."
+  "Add or remove a wine id from the multi-select set. The URL holds the set, so
+   the checkbox changes the URL and reads its own state back from it."
   [app-state wine-id checked?]
-  (swap! app-state (fn [state]
-                     (let [ids (or (:selected-wine-ids state) #{})
-                           new-ids
-                           (if checked? (conj ids wine-id) (disj ids wine-id))
-                           new-state (assoc state :selected-wine-ids new-ids)]
-                       (if (and (:show-selected-wines? new-state)
-                                (empty? new-ids))
-                         (assoc new-state :show-selected-wines? false)
-                         new-state)))))
+  (let [ids (or (:selected-wine-ids @app-state) #{})]
+    (nav/set-selected-wines!
+     (if checked? (conj ids wine-id) (disj ids wine-id)))))
+
+(defn toggle-selected-only!
+  "Flip between the whole list and only the checked wines."
+  [app-state]
+  (nav/show-only-selected! (not (:show-selected-wines? @app-state))))
 
 (defn clear-selected-wines!
   "Remove all manually selected wines and exit selected-only view."
   [app-state]
-  (swap! app-state assoc :selected-wine-ids #{} :show-selected-wines? false)
   (set-context-mode! app-state :summary)
-  (nav/forget-modal! :selected))
+  (nav/set-selected-wines! #{}))
