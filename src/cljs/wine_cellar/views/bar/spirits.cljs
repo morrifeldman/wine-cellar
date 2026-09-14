@@ -23,6 +23,7 @@
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.views.bar.matching :as matching]
             [wine-cellar.api :as api]
+            [wine-cellar.dom :as dom]
             [wine-cellar.nav :as nav]
             [wine-cellar.views.components :refer
              [dot-separated-row editable-text-field editable-autocomplete-field
@@ -212,7 +213,7 @@
       (when spirit
         [paper
          {:elevation 0
-          :id (str "spirit-" (:id spirit))
+          :id (dom/spirit-id (:id spirit))
           :sx {:p 2 :mb 2 :bgcolor "transparent"}}
          ;; Identity row
          [box {:sx {:mb 3}}

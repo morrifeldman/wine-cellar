@@ -40,6 +40,7 @@
     [wine-cellar.views.components.form :refer
      [ref-value uncontrolled-text-field uncontrolled-text-area-field]]
     [wine-cellar.api :as api]
+    [wine-cellar.dom :as dom]
     [wine-cellar.nav :as nav]))
 
 (defn- recipe-search-text
@@ -572,7 +573,7 @@
                                              (:inventory-items bar))]
     [paper
      {:elevation 0
-      :id (str "recipe-" (:id recipe))
+      :id (dom/recipe-id (:id recipe))
       :sx {:p 2 :mb 2 :bgcolor "transparent"}}
      (when (get-in @app-state [:bar :recipe-mode?])
        [recipe-mode/recipe-mode-dialog app-state recipe])
@@ -768,8 +769,8 @@
                          {:open? (= 1 (count sel))})))
                     (close!)
                     ;; A single saved recipe opens itself, which is already
-                    ;; a
-                    ;; trip to the Recipes tab; a batch needs taking there.
+                    ;; a trip to the Recipes tab; a batch needs taking
+                    ;; there.
                     (when (not= 1 (count sel)) (nav/go-bar-recipes!)))]
         [dialog {:open open? :on-close close! :max-width "sm" :full-width true}
          [dialog-title (if multi? "Save Recipes" "Save Recipe")]

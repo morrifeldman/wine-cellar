@@ -69,18 +69,27 @@
   [ids]
   (rfe/push-state ::wines nil {:selected (str/join "," ids)}))
 
-(defn open-modal!
-  "Open a modal by naming it in the current route's query string, so Back closes
-   just that modal and a reload opens it again."
-  ([param] (open-modal! param 1))
-  ([param value] (rfe/set-query #(assoc % param (str value)))))
-
 (defn back! [] (.back js/history))
+
+(defn- query-param
+  [param]
+  (.get (js/URLSearchParams. (.-search js/location)) (name param)))
 
 (defn modal-in-url?
   "Whether the current URL names this modal, i.e. whether Back is what closes it."
   [param]
-  (.has (js/URLSearchParams. (.-search js/location)) (name param)))
+  (some? (query-param param)))
+
+(defn open-modal!
+  "Open a modal by naming it in the current route's query string, so Back closes
+   just that modal and a reload opens it again."
+  ([param] (open-modal! param 1))
+  ([param value]
+   ;; Asking again for the modal the URL already names would stack a second
+   ;; identical entry, and then one Back wouldn't close it.
+   (let [value (str value)]
+     (when-not (= value (query-param param))
+       (rfe/set-query #(assoc % param value))))))
 
 (defn- current-location
   []

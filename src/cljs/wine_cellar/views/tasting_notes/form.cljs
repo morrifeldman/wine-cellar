@@ -3,6 +3,7 @@
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.text-field :as mui-text-field]
             [wine-cellar.api :as api]
+            [wine-cellar.dom :as dom]
             [wine-cellar.utils.formatting :refer [format-date-iso today-iso]]
             [wine-cellar.common :as common]
             [wine-cellar.views.components.form :refer
@@ -17,6 +18,15 @@
             [wine-cellar.views.components.wset-conclusions :refer
              [wset-conclusions-section]]))
 
+(defn- remember-baseline!
+  "Snapshot the form as it opens, so leaving a note you never touched doesn't
+   ask you to discard anything. The notes textarea is uncontrolled, so its text
+   is snapshotted on its own rather than read out of app-state."
+  [app-state notes]
+  (swap! app-state assoc
+    :tasting-note-baseline
+    {:note (:new-tasting-note @app-state) :notes (or notes "")}))
+
 (defn- initialize-editing-note!
   [app-state editing-note wine-id editing-note-id]
   (swap! app-state assoc
@@ -24,7 +34,8 @@
     (-> editing-note
         (assoc :note-id editing-note-id)
         (assoc :wine-id wine-id)
-        (dissoc :notes))))
+        (dissoc :notes)))
+  (remember-baseline! app-state (:notes editing-note)))
 
 (defn- initialize-new-note!
   [app-state wine-id]
@@ -33,7 +44,8 @@
     #(-> %
          (assoc :wine-id wine-id)
          (update :tasting_date (fn [d] (or d (today-iso))))
-         (dissoc :notes))))
+         (dissoc :notes)))
+  (remember-baseline! app-state ""))
 
 (defn- get-form-state
   [app-state]
@@ -231,6 +243,7 @@
              :required (not wset-mode?)
              :defaultValue (if editing? (:notes editing-note) "")
              :key (str "notes-" (or editing-note-id "new"))
+             :id dom/notes-field-id
              :inputRef #(reset! notes-ref %)
              :sx {"& .MuiOutlinedInput-root" {:backgroundColor "container.main"
                                               :border "none"
@@ -256,6 +269,9 @@
           (when editing?
             (fn []
               (api/delete-tasting-note app-state wine-id editing-note-id)
-              (swap! app-state assoc :editing-note-id nil :new-tasting-note {})
+              (swap! app-state assoc
+                :editing-note-id nil
+                :new-tasting-note {}
+                :tasting-note-baseline nil)
               (when on-close (on-close))))
           :on-cancel #(when on-close (on-close))}]]))))

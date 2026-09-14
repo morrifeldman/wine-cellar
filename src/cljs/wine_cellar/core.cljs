@@ -4,6 +4,7 @@
             [reagent.dom.client :as dom-client]
             [wine-cellar.views.main :as views]
             [wine-cellar.api :as api]
+            [wine-cellar.dom :as dom]
             [wine-cellar.nav :as nav]
             [wine-cellar.state :refer
              [initial-app-state default-recipe-filters]]
@@ -19,6 +20,14 @@
   [s]
   (when s (let [id (js/parseInt s 10)] (when-not (js/isNaN id) id))))
 
+(defn- highlight-ids
+  "The Mixers items the URL marks, in the order it names them — which is the
+   order the ingredient listed its bottles in, so the first one is the one to
+   scroll to."
+  [match]
+  (when-let [highlight (:highlight (:query-params match))]
+    (into [] (keep parse-id) (str/split highlight #","))))
+
 (defn- match->bar-state
   "The bar's own sub-state, as the URL states it. Every key here is owned by the
    URL, so a nil is an answer and not a gap: it closes whatever a previous URL
@@ -28,7 +37,7 @@
                  :data
                  :name)
         id (parse-id (:id (:path-params match)))
-        {:keys [category subcategory highlight]} (:query-params match)]
+        {:keys [category subcategory]} (:query-params match)]
     {:active-tab (case name
                    (::nav/bar-spirits ::nav/bar-spirit) :spirits
                    ::nav/bar-inventory :inventory
@@ -43,9 +52,7 @@
                                {:categories #{category}
                                 :subcategories
                                 (if (seq subcategory) #{subcategory} #{})})
-     :highlight-item-ids
-     (when (seq highlight)
-       (into #{} (keep parse-id) (str/split highlight #",")))}))
+     :highlight-item-ids (not-empty (set (highlight-ids match)))}))
 
 (defn- match->nav-state
   [match]
@@ -128,6 +135,20 @@
   [state]
   (or (:show-tasting-note-form? state) (boolean (:editing-note-id state))))
 
+(defn- note-touched?
+  "Whether the open tasting-note form holds anything worth warning about. What
+   counts is the difference from the snapshot taken when the form opened, not
+   whether it has content: a note opened for editing arrives full of text, and a
+   new one arrives dated today, so neither is empty to begin with. A saved note
+   drops its snapshot, which is what stops a save from asking you to discard the
+   work it just wrote."
+  [state]
+  (when-let [{:keys [note notes]} (:tasting-note-baseline state)]
+    (let [typed (dom/notes-field-text)]
+      (or (not= (dissoc (or (:new-tasting-note state) {}) :wine-id)
+                (dissoc note :wine-id))
+          (and (some? typed) (not= typed notes))))))
+
 (defn on-navigate
   [match _history]
   (let [nav-state (match->nav-state match)
@@ -138,85 +159,84 @@
         new-view (:view nav-state)
         chat-open? (= "1" (:chat (:query-params match)))
         chat-was-open? (get-in @app-state [:chat :open?])
-        saved-note (:new-tasting-note @app-state)
         submitting-note? (:submitting-note? @app-state)
         note-dirty? (and (note-form-open? @app-state)
                          (not (note-form-open? modal-state))
                          (not submitting-note?)
-                         (seq (dissoc saved-note :wine-id)))]
+                         (note-touched? @app-state))]
     (when (and old-wine-id (not= old-wine-id new-wine-id))
       (api/exit-wine-detail-page app-state))
     (if (and note-dirty?
              (not (js/confirm "Discard your in-progress tasting note?")))
       (nav/undo-back!)
-      (do
-        (swap! app-state (fn [s]
-                           (-> s
-                               ;; Keep wine selection on same-view
-                               ;; navigations (e.g. chat close via
-                               ;; history.back); clear it when
-                               ;; actually switching views
-                               (cond-> (not= old-view new-view)
-                                       (dissoc :show-selected-wines?
-                                        :selected-wine-ids))
-                               (cond-> (not (note-form-open? modal-state))
-                                       (dissoc :new-tasting-note))
-                               (merge (dissoc nav-state :bar) modal-state)
-                               ;; The bar's URL-owned keys share :bar
-                               ;; with plenty the URL says nothing
-                               ;; about (filters, half-filled forms),
-                               ;; so merge the URL's answer into the
-                               ;; sub-map instead of over it.
-                               (cond-> (:bar nav-state)
-                                       (update :bar merge (:bar nav-state))))))
-        (cond
-          ;; The URL owns the chat, so arriving at one that names it is
-          ;; what opens it, a reload and a Back onto the FAB's entry
-          ;; included.
-          chat-open? (when-not chat-was-open?
-                       (swap! app-state assoc-in [:chat :open?] true)
-                       (api/load-conversations! app-state {:force? true}))
-          ;; The conversation belongs to the page it was started on
-          (not= old-view new-view)
-          (swap! app-state (fn [s]
-                             (-> s
+      (do (swap! app-state
+            (fn [s]
+              (-> s
+                  ;; Keep wine selection on same-view
+                  ;; navigations (e.g. chat close via
+                  ;; history.back); clear it when
+                  ;; actually switching views
+                  (cond-> (not= old-view new-view) (dissoc :show-selected-wines?
+                                                    :selected-wine-ids))
+                  (cond-> (not (note-form-open? modal-state))
+                          (dissoc :new-tasting-note :tasting-note-baseline))
+                  (merge (dissoc nav-state :bar) modal-state)
+                  ;; The bar's URL-owned keys share :bar
+                  ;; with plenty the URL says nothing
+                  ;; about (filters, half-filled forms),
+                  ;; so merge the URL's answer into the
+                  ;; sub-map instead of over it.
+                  (cond-> (:bar nav-state)
+                          (update :bar merge (:bar nav-state))))))
+          (cond
+            ;; The URL owns the chat, so arriving at one that names it is
+            ;; what opens it, a reload and a Back onto the FAB's entry
+            ;; included.
+            chat-open? (when-not chat-was-open?
+                         (swap! app-state assoc-in [:chat :open?] true)
+                         (api/load-conversations! app-state {:force? true}))
+            ;; The conversation belongs to the page it was started on
+            (not= old-view new-view)
+            (swap! app-state (fn [s]
+                               (->
+                                 s
                                  (assoc-in [:chat :open?] false)
                                  (assoc-in [:chat :conversations-loaded?] false)
                                  (assoc-in [:chat :active-conversation-id] nil)
                                  (assoc-in [:chat :messages] []))))
-          ;; Closed on the same page, so it survives a reopen
-          chat-was-open? (swap! app-state assoc-in [:chat :open?] false))
-        ;; Whatever the bar URL points at, put it under the reader's eyes
-        ;; rather than trusting the browser's own scroll restoration.
-        ;; Driven from here so a Back onto a detail scrolls to it too, not
-        ;; just the click that opened it.
-        (when-let [recipe-id (get-in nav-state [:bar :viewing-recipe-id])]
-          (api/scroll-recipe-into-view! recipe-id))
-        (when-let [spirit-id (get-in nav-state [:bar :editing-spirit-id])]
-          (api/scroll-spirit-into-view! spirit-id))
-        (when-let [item-id (first (get-in nav-state
-                                          [:bar :highlight-item-ids]))]
-          (api/scroll-bar-item-into-view! item-id))
-        ;; Only on arrival: opening a modal on a wine page navigates too,
-        ;; and reloading the page under it would scroll it away and
-        ;; discard whatever the modal is editing.
-        (when (and new-wine-id (not= old-wine-id new-wine-id))
-          (api/load-wine-detail-page app-state new-wine-id))
-        (when (and (:show-report? nav-state) (not (:report @app-state)))
-          (api/fetch-latest-report app-state
-                                   {:provider (get-in @app-state
-                                                      [:ai :provider])}))
-        (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
-        (when (= :sensor-readings (:view nav-state))
-          (api/fetch-latest-sensor-readings app-state {}))
-        (when (and (= :bar new-view) (not= :bar old-view))
-          ;; Arriving at the bar from elsewhere, rather than moving around
-          ;; inside it — start with the whole recipe collection showing.
-          (swap! app-state assoc-in
-            [:bar :recipe-filters]
-            default-recipe-filters)
-          (api/fetch-bar-data app-state))
-        (nav/remember-location!)))))
+            ;; Closed on the same page, so it survives a reopen
+            chat-was-open? (swap! app-state assoc-in [:chat :open?] false))
+          ;; Whatever the bar URL points at, put it under the reader's eyes
+          ;; rather than trusting the browser's own scroll restoration.
+          ;; Driven from here so a Back onto a detail scrolls to it too,
+          ;; not just the click that opened it.
+          (when-let [recipe-id (get-in nav-state [:bar :viewing-recipe-id])]
+            (dom/scroll-recipe-into-view! recipe-id))
+          (when-let [spirit-id (get-in nav-state [:bar :editing-spirit-id])]
+            (dom/scroll-spirit-into-view! spirit-id))
+          (when (get-in nav-state [:bar :highlight-item-ids])
+            (dom/scroll-bar-item-into-view! (first (highlight-ids match))))
+          ;; Only on arrival: opening a modal on a wine page navigates too,
+          ;; and reloading the page under it would scroll it away and
+          ;; discard whatever the modal is editing.
+          (when (and new-wine-id (not= old-wine-id new-wine-id))
+            (api/load-wine-detail-page app-state new-wine-id))
+          (when (and (:show-report? nav-state) (not (:report @app-state)))
+            (api/fetch-latest-report app-state
+                                     {:provider (get-in @app-state
+                                                        [:ai :provider])}))
+          (when (= :devices (:view nav-state)) (api/fetch-devices app-state))
+          (when (= :sensor-readings (:view nav-state))
+            (api/fetch-latest-sensor-readings app-state {}))
+          (when (and (= :bar new-view) (not= :bar old-view))
+            ;; Arriving at the bar from elsewhere, rather than moving
+            ;; around inside it — start with the whole recipe collection
+            ;; showing.
+            (swap! app-state assoc-in
+              [:bar :recipe-filters]
+              default-recipe-filters)
+            (api/fetch-bar-data app-state))
+          (nav/remember-location!)))))
 
 (defonce root (atom nil))
 

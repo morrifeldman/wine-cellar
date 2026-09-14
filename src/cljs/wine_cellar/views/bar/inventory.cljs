@@ -21,6 +21,7 @@
             [reagent-mui.icons.local-florist :refer [local-florist]]
             [reagent-mui.icons.more-horiz :refer [more-horiz]]
             [wine-cellar.api :as api]
+            [wine-cellar.dom :as dom]
             [wine-cellar.nav :as nav]))
 
 (def category-labels
@@ -163,7 +164,7 @@
              :on-click #(do (reset! edit-name nil) (reset! editing-id nil))}
             [close {:fontSize "small"}]]]
           [box
-           {:id (api/bar-item-dom-id (:id item))
+           {:id (dom/bar-item-id (:id item))
             :on-click
             (fn []
               ;; Acting on the item is the end of the trail that

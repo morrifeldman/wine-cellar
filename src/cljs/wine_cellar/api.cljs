@@ -398,33 +398,39 @@
                              note
                              "Failed to create tasting note"))]
         (if (:success result)
-          (do
-            (swap! app-state update :tasting-notes conj (:data result))
-            (swap! app-state assoc :new-tasting-note {} :submitting-note? false)
-            ;; Clear the notes field after successful creation
-            (when (and notes-ref @notes-ref) (set! (.-value @notes-ref) "")))
+          (do (swap! app-state update :tasting-notes conj (:data result))
+              ;; The note is saved, so there is no longer any in-progress
+              ;; work for a navigation to ask about.
+              (swap! app-state assoc
+                :new-tasting-note {}
+                :tasting-note-baseline nil
+                :submitting-note? false)
+              ;; Clear the notes field after successful creation
+              (when (and notes-ref @notes-ref) (set! (.-value @notes-ref) "")))
           (swap! app-state assoc
             :error (:error result)
             :submitting-note? false)))))
 
 (defn update-tasting-note
   [app-state wine-id note-id note]
-  (go (let [result (<! (PUT (str "/api/wines/by-id/" wine-id
-                                 "/tasting-notes/" note-id)
-                            note
-                            "Failed to update tasting note"))]
-        (if (:success result)
-          (do (swap! app-state update
-                :tasting-notes
-                (fn [notes]
-                  (map #(if (= (:id %) note-id) (:data result) %) notes)))
-              (swap! app-state assoc
-                :editing-note-id nil
-                :submitting-note? false
-                :new-tasting-note {}))
-          (swap! app-state assoc
-            :error (:error result)
-            :submitting-note? false)))))
+  (go
+   (let [result (<! (PUT (str "/api/wines/by-id/" wine-id
+                              "/tasting-notes/" note-id)
+                         note
+                         "Failed to update tasting note"))]
+     (if (:success result)
+       (do (swap! app-state update
+             :tasting-notes
+             (fn [notes]
+               (map #(if (= (:id %) note-id) (:data result) %) notes)))
+           (swap! app-state assoc
+             :editing-note-id nil
+             :submitting-note? false
+             :new-tasting-note {}
+             :tasting-note-baseline nil))
+       (swap! app-state assoc
+         :error (:error result)
+         :submitting-note? false)))))
 
 (defn delete-tasting-note
   [app-state wine-id note-id]
@@ -1543,39 +1549,6 @@
           (swap! app-state update-in
             [:bar :inventory-items]
             (fn [items] (filterv #(not= (:id %) id) items)))))))
-
-(defn- scroll-to-top-of!
-  "Smooth-scrolls the window so `dom-id` sits near the top. Delayed a tick so
-   the element exists after a state change re-renders."
-  [dom-id]
-  (js/setTimeout (fn []
-                   (when-let [el (.getElementById js/document dom-id)]
-                     (let [top (-> (.. el getBoundingClientRect -top)
-                                   (+ (.-pageYOffset js/window))
-                                   (- 16))]
-                       (.scrollTo js/window
-                                  #js {:top top :behavior "smooth"}))))
-                 100))
-
-(defn scroll-recipe-into-view!
-  [recipe-id]
-  (scroll-to-top-of! (str "recipe-" recipe-id)))
-
-(defn scroll-spirit-into-view!
-  [spirit-id]
-  (scroll-to-top-of! (str "spirit-" spirit-id)))
-
-(defn bar-item-dom-id [item-id] (str "bar-inventory-item-" item-id))
-
-(defn scroll-bar-item-into-view!
-  "Centers a Mixers item rather than putting it at the top: the items are small
-   chips in a long grid, and one pinned to the top edge reads as cropped."
-  [item-id]
-  (js/setTimeout
-   (fn []
-     (when-let [el (.getElementById js/document (bar-item-dom-id item-id))]
-       (.scrollIntoView el #js {:behavior "smooth" :block "center"})))
-   100))
 
 (defn create-cocktail-recipe
   ([app-state recipe] (create-cocktail-recipe app-state recipe nil))
