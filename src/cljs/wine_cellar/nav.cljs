@@ -1,5 +1,7 @@
 (ns wine-cellar.nav
-  (:require [reitit.frontend.easy :as rfe]))
+  (:require [clojure.string :as str]
+            [reitit.frontend :as rf]
+            [reitit.frontend.easy :as rfe]))
 
 (def routes
   [["/" {:name ::wines}] ["/wine/:id" {:name ::wine-detail}]
@@ -21,3 +23,41 @@
 (defn go-admin-sql! [] (rfe/push-state ::admin-sql))
 (defn go-bar! [] (rfe/push-state ::bar))
 (defn replace-wines! [] (rfe/replace-state ::wines))
+
+(defn go-selected-wines!
+  "Show the wine list narrowed to the given ids."
+  [ids]
+  (rfe/push-state ::wines nil {:selected (str/join "," ids)}))
+
+(defn open-modal!
+  "Open a modal by naming it in the current route's query string, so Back closes
+   just that modal and a reload opens it again."
+  ([param] (open-modal! param 1))
+  ([param value] (rfe/set-query #(assoc % param (str value)))))
+
+(defn back! [] (.back js/history))
+
+(defn- current-location
+  []
+  (str (.-pathname js/location) (.-search js/location)))
+
+(defn forget-modal!
+  "Drop a modal's query param without telling the router — the app already left
+   the state that param describes."
+  [param]
+  (.replaceState js/history
+                 nil
+                 ""
+                 (rf/set-query-params (current-location) #(dissoc % param))))
+
+(defonce ^:private settled-location (atom nil))
+
+(defn remember-location! [] (reset! settled-location (current-location)))
+
+(defn undo-back!
+  "Put back the entry a Back press popped, for when the app refuses to leave the
+   screen (an unsaved form). Without it the browser stack would sit one entry
+   shallower than what's on screen and swallow the next Back."
+  []
+  (when-let [location @settled-location]
+    (.pushState js/history nil "" location)))

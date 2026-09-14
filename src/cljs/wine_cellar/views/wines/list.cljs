@@ -2,6 +2,7 @@
   (:require
     [clojure.string :as str]
     [reagent.core :as r]
+    [wine-cellar.nav :as nav]
     [wine-cellar.summary :as summary]
     [wine-cellar.views.components.stats-charts :as stats-charts]
     [wine-cellar.views.components.wine-card :refer [wine-card get-rating-color]]
@@ -348,7 +349,7 @@
         stats-data (summary/collection-stats wines
                                              {:visible-wines visible-wines})
         metric (or (:stats-metric @app-state) :wines)]
-    [modal {:open open? :onClose #(.back js/history) :closeAfterTransition true}
+    [modal {:open open? :onClose #(nav/back!) :closeAfterTransition true}
      [backdrop {:sx {:color "white"} :open open?}
       [box
        {:sx {:position "absolute"
@@ -372,7 +373,7 @@
         [box {:sx {:display "flex" :alignItems "center" :gap 1.5}}
          [stats-metric-toggle app-state]
          [icon-button
-          {:onClick #(.back js/history)
+          {:onClick #(nav/back!)
            :sx {:minWidth "auto" :p 1 :color "text.secondary"}} [close]]]]
        [stats-content app-state stats-data metric {:compact? false}]]]]))
 

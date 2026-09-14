@@ -1,4 +1,5 @@
-(ns wine-cellar.state)
+(ns wine-cellar.state
+  (:require [wine-cellar.nav :as nav]))
 
 (def default-recipe-filters
   "Recipe-tab filter selections. They live in app-state so a trip to another
@@ -146,4 +147,5 @@
   "Remove all manually selected wines and exit selected-only view."
   [app-state]
   (swap! app-state assoc :selected-wine-ids #{} :show-selected-wines? false)
-  (set-context-mode! app-state :summary))
+  (set-context-mode! app-state :summary)
+  (nav/forget-modal! :selected))

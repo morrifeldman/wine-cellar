@@ -1,5 +1,6 @@
 (ns wine-cellar.core
-  (:require [reagent.core :as r]
+  (:require [clojure.string :as str]
+            [reagent.core :as r]
             [reagent.dom.client :as dom-client]
             [wine-cellar.views.main :as views]
             [wine-cellar.api :as api]
@@ -70,35 +71,48 @@
        :show-wine-form? false
        :show-report? false})))
 
+(defn- match->modal-state
+  "Every modal that can be backed out of names itself in the query string, so
+   the URL alone says which ones are open."
+  [match]
+  (let [{:keys [stats note zoom selected]} (:query-params match)]
+    (cond-> {:show-collection-stats? (= "1" stats)
+             :show-tasting-note-form? (= "new" note)
+             :editing-note-id (when (and note (not= "new" note))
+                                (js/parseInt note 10))
+             :zoomed-image zoom}
+      selected (assoc :selected-wine-ids (into #{}
+                                               (comp (map #(js/parseInt % 10))
+                                                     (remove js/isNaN))
+                                               (str/split selected #","))
+                      :show-selected-wines? true))))
+
+(defn- note-form-open?
+  [state]
+  (or (:show-tasting-note-form? state) (boolean (:editing-note-id state))))
+
 (defn on-navigate
   [match _history]
   (let [nav-state (match->nav-state match)
+        modal-state (match->modal-state match)
         old-wine-id (:selected-wine-id @app-state)
         new-wine-id (:selected-wine-id nav-state)
         old-view (:view @app-state)
         new-view (:view nav-state)
-        note-form-open? (or (:show-tasting-note-form? @app-state)
-                            (boolean (:editing-note-id @app-state)))
         saved-note (:new-tasting-note @app-state)
         submitting-note? (:submitting-note? @app-state)
-        note-dirty? (and note-form-open?
+        note-dirty? (and (note-form-open? @app-state)
+                         (not (note-form-open? modal-state))
                          (not submitting-note?)
                          (seq (dissoc saved-note :wine-id)))]
     (when (and old-wine-id (not= old-wine-id new-wine-id))
       (api/exit-wine-detail-page app-state))
     (if (and note-dirty?
              (not (js/confirm "Discard your in-progress tasting note?")))
-      ;; User chose to stay — re-push the history entry so back still works
-      (.pushState js/history nil "" (.-pathname js/location))
+      (nav/undo-back!)
       (do
         (swap! app-state (fn [s]
                            (-> s
-                               (dissoc :zoomed-image
-                                       :show-collection-stats?
-                                       :show-tasting-note-form?
-                                       :editing-note-id
-                                       :new-tasting-note
-                                       :return-to-report?)
                                ;; Keep wine selection on same-view
                                ;; navigations (e.g. chat close via
                                ;; history.back); clear it when
@@ -106,7 +120,9 @@
                                (cond-> (not= old-view new-view)
                                        (dissoc :show-selected-wines?
                                         :selected-wine-ids))
-                               (merge nav-state))))
+                               (cond-> (not (note-form-open? modal-state))
+                                       (dissoc :new-tasting-note))
+                               (merge nav-state modal-state))))
         (let [chat-modal-open? (gobj/get (.-state js/history) "chatModalOpen")
               chat-open? (gobj/get (.-state js/history) "chatOpen")]
           (when (and (not= old-view new-view)
@@ -158,7 +174,11 @@
             ;; restoration.
             (when-let [recipe-id (gobj/get bar-nav "viewingRecipeId")]
               (api/scroll-recipe-into-view! recipe-id))))
-        (when new-wine-id (api/load-wine-detail-page app-state new-wine-id))
+        ;; Only on arrival: opening a modal on a wine page navigates too,
+        ;; and reloading the page under it would scroll it away and discard
+        ;; whatever the modal is editing.
+        (when (and new-wine-id (not= old-wine-id new-wine-id))
+          (api/load-wine-detail-page app-state new-wine-id))
         (when (and (:show-report? nav-state) (not (:report @app-state)))
           (api/fetch-latest-report app-state
                                    {:provider (get-in @app-state
@@ -179,9 +199,7 @@
           ;; restoration when the chat's history entry pops — re-scroll.
           (when-let [recipe-id (get-in @app-state [:bar :viewing-recipe-id])]
             (api/scroll-recipe-into-view! recipe-id)))
-        (when-let [scroll-y (gobj/get (.-state js/history) "scrollY")]
-          (.replaceState js/history #js {} "" (.-pathname js/location))
-          (swap! app-state assoc :restore-scroll scroll-y))))))
+        (nav/remember-location!)))))
 
 (defonce root (atom nil))
 

@@ -354,13 +354,9 @@
     [editable-producer app-state wine] [editable-name app-state wine]]])
 
 (defn image-zoom-modal
-  [app-state image-data image-title on-remove]
-  [modal
-   {:open (boolean (get @app-state :zoomed-image))
-    :onClose #(.back js/history)
-    :closeAfterTransition true}
-   [backdrop
-    {:sx {:color "white"} :open (boolean (get @app-state :zoomed-image))}
+  [image-data image-title on-remove]
+  [modal {:open true :onClose #(nav/back!) :closeAfterTransition true}
+   [backdrop {:sx {:color "white"} :open true}
     [box
      {:sx {:position "absolute"
            :top "50%"
@@ -387,9 +383,8 @@
           {:size "small"
            :color "error"
            :variant "text"
-           :onClick (fn [] (on-remove) (.back js/history))} "Remove"])
-       [button {:onClick #(.back js/history) :sx {:minWidth "auto" :p 1}}
-        [close]]]]
+           :onClick (fn [] (on-remove) (nav/back!))} "Remove"])
+       [button {:onClick #(nav/back!) :sx {:minWidth "auto" :p 1}} [close]]]]
      ;; Image container
      [box
       {:sx {:flex 1
@@ -406,15 +401,15 @@
              :borderRadius 1}}]]]]])
 
 (defn clickable-wine-image
-  [image-data label-type title on-image-change on-image-remove app-state]
+  [label-type {:keys [data on-change on-remove]}]
   [box {:sx {:position "relative"}}
    [image-upload
-    {:image-data image-data
+    {:image-data data
      :label-type label-type
-     :on-image-change on-image-change
-     :on-image-remove on-image-remove}]
+     :on-image-change on-change
+     :on-image-remove on-remove}]
    ;; Click overlay for zoom (only when image exists)
-   (when image-data
+   (when data
      [box
       {:sx {:position "absolute"
             :top 0
@@ -429,12 +424,7 @@
             :transition "background-color 0.2s"
             :pointerEvents "auto"
             ":hover" {:bgcolor "rgba(0,0,0,0.1)"}}
-       :onClick
-       #(do (.stopPropagation %)
-            (.pushState js/history nil "" (.-pathname js/location))
-            (swap! app-state assoc
-              :zoomed-image
-              {:data image-data :title title :on-remove on-image-remove}))}
+       :onClick #(do (.stopPropagation %) (nav/open-modal! :zoom label-type))}
       [box
        {:sx {:opacity 0
              :transition "opacity 0.2s"
@@ -447,28 +437,34 @@
              :pointerEvents "none"
              ":hover" {:opacity 1}}} "Click to zoom"]])])
 
+(defn- wine-label-images
+  "The zoom modal is reopened from a URL that names a label, so each label's
+   image, title and remove action have to be derivable from that name alone."
+  [app-state wine]
+  {"front" {:data (:label_image wine)
+            :title "Front Wine Label"
+            :on-change #(api/update-wine-image app-state (:id wine) %)
+            :on-remove #(api/update-wine-image
+                         app-state
+                         (:id wine)
+                         (assoc wine :label_image nil :label_thumbnail nil))}
+   "back" {:data (:back_label_image wine)
+           :title "Back Wine Label"
+           :on-change #(api/update-wine-image app-state (:id wine) %)
+           :on-remove #(api/update-wine-image
+                        app-state
+                        (:id wine)
+                        (assoc wine :back_label_image nil))}})
+
 (defn wine-images-section
   [app-state wine]
-  [:<>
-   ;; Image zoom modal
-   (when-let [zoomed (get @app-state :zoomed-image)]
-     [image-zoom-modal app-state (:data zoomed) (:title zoomed)
-      (:on-remove zoomed)])
-   ;; Front Wine Label Image
-   [grid {:item true :xs 6}
-    [clickable-wine-image (:label_image wine) "front" "Front Wine Label"
-     #(api/update-wine-image app-state (:id wine) %)
-     #(api/update-wine-image app-state
-                             (:id wine)
-                             (assoc wine :label_image nil :label_thumbnail nil))
-     app-state]]
-   ;; Back Wine Label Image
-   [grid {:item true :xs 6}
-    [clickable-wine-image (:back_label_image wine) "back" "Back Wine Label"
-     #(api/update-wine-image app-state (:id wine) %)
-     #(api/update-wine-image app-state
-                             (:id wine)
-                             (assoc wine :back_label_image nil)) app-state]]])
+  (let [labels (wine-label-images app-state wine)
+        zoomed (get labels (:zoomed-image @app-state))]
+    [:<>
+     (when (:data zoomed)
+       [image-zoom-modal (:data zoomed) (:title zoomed) (:on-remove zoomed)])
+     [grid {:item true :xs 6} [clickable-wine-image "front" (labels "front")]]
+     [grid {:item true :xs 6} [clickable-wine-image "back" (labels "back")]]]))
 
 (defn- section-header
   [icon-component label border-color]
@@ -1272,7 +1268,7 @@
 
 (defn wine-tasting-notes-section
   [app-state wine]
-  (let [on-close #(.back js/history)]
+  (let [on-close #(nav/back!)]
     [box
      {:sx {:mt 3 :borderLeft "3px solid rgba(240,98,146,0.7)" :pl 1.5 :pb 2}}
      [section-header rate-review "Tasting Notes" "rgba(240,98,146,0.7)"]
@@ -1281,9 +1277,7 @@
       [button
        {:size "small"
         :sx {:mt 1 :color "text.secondary" :minWidth 0 :p 0.5}
-        :on-click #(do (.pushState js/history nil "" (.-pathname js/location))
-                       (swap! app-state assoc :show-tasting-note-form? true))}
-       [add {:fontSize "small"}]]]
+        :on-click #(nav/open-modal! :note "new")} [add {:fontSize "small"}]]]
      [dialog
       {:open (or (:show-tasting-note-form? @app-state)
                  (boolean (:editing-note-id @app-state)))

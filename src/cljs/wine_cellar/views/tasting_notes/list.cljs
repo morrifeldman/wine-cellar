@@ -5,6 +5,7 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.divider :refer [divider]]
             [reagent-mui.material.typography :refer [typography]]
+            [wine-cellar.nav :as nav]
             [wine-cellar.utils.formatting :refer [format-date]]
             [wine-cellar.views.components.wset-shared :refer [wset-display]]))
 
@@ -15,7 +16,7 @@
         :else "rating.low"))
 
 (defn tasting-note-item
-  [app-state _wine-id note]
+  [_app-state _wine-id note]
   (let [is-external (boolean (:is_external note))]
     [paper
      {:elevation 1
@@ -26,8 +27,7 @@
                          "4px solid rgba(128,203,196,0.7)")
            :cursor "pointer"
            "&:hover" {:boxShadow 3}}
-      :onClick #(do (.pushState js/history nil "" (.-pathname js/location))
-                    (swap! app-state assoc :editing-note-id (:id note)))}
+      :onClick #(nav/open-modal! :note (:id note))}
      [grid {:container true}
       ;; Header with date/source and rating
       [grid {:item true :xs 9}

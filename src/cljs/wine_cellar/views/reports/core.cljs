@@ -19,13 +19,34 @@
 
 (defonce ^:private insights-el (atom nil))
 
-(defn- open-wine
-  [_app-state id]
-  (let [scroll-y (if-let [el @insights-el]
-                   (.-scrollTop el)
-                   0)]
-    (.replaceState js/history #js {:scrollY scroll-y} "")
-    (nav/go-wine-detail! id)))
+(defonce ^:private scroll-positions (atom {}))
+
+(defn- track-scroll!
+  [el k]
+  (.addEventListener el
+                     "scroll"
+                     #(swap! scroll-positions assoc k (.-scrollTop el))
+                     #js {:passive true}))
+
+(defn- restore-scroll!
+  "The report's markdown and cards land a frame or two after the element does,
+   so keep re-applying the offset until it sticks — and stop the moment the
+   reader takes over."
+  [el k]
+  (when-let [target (get @scroll-positions k)]
+    (let [tries (atom 10)
+          give-up #(reset! tries 0)]
+      (.addEventListener el "wheel" give-up #js {:once true :passive true})
+      (.addEventListener el "touchmove" give-up #js {:once true :passive true})
+      (letfn [(attempt []
+                (when (pos? @tries)
+                  (swap! tries dec)
+                  (set! (.-scrollTop el) target)
+                  (when (not= (.-scrollTop el) target)
+                    (js/requestAnimationFrame attempt))))]
+        (js/requestAnimationFrame attempt)))))
+
+(defn- open-wine [_app-state id] (nav/go-wine-detail! id))
 
 (defn- highlight-wine-card
   [wine on-view-wine]
@@ -53,18 +74,9 @@
        (str (:region wine) ", " (:country wine))]]]))
 
 (defn- handle-selection
-  [app-state ids]
+  [_app-state ids]
   (if (seq ids)
-    (do (.replaceState js/history
-                       #js {:scrollY (if-let [el @insights-el]
-                                       (.-scrollTop el)
-                                       0)}
-                       "")
-        (.pushState js/history nil "" (.-pathname js/location))
-        (swap! app-state assoc
-          :selected-wine-ids (set ids)
-          :show-selected-wines? true
-          :show-report? false))
+    (nav/go-selected-wines! ids)
     (js/console.warn "No IDs to select")))
 
 (defn- markdown-components
@@ -190,12 +202,7 @@
    [ref-fn
     (fn [el]
       (reset! insights-el el)
-      (when el
-        (when-let [scroll (:restore-scroll @app-state)]
-          (js/requestAnimationFrame (fn []
-                                      (set! (.-scrollTop el) scroll)
-                                      (swap! app-state dissoc
-                                        :restore-scroll))))))]
+      (when el (track-scroll! el :insights) (restore-scroll! el :insights)))]
    [paper
     {:ref ref-fn
      :elevation 24

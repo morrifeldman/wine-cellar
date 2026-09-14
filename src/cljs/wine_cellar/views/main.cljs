@@ -279,10 +279,7 @@
          [list-item-icon [insights {:fontSize "small" :color "primary"}]]
          "Insights"]
         [menu-item
-         {:on-click (fn []
-                      (reset! anchor-el nil)
-                      (.pushState js/history nil "" (.-pathname js/location))
-                      (swap! app-state assoc :show-collection-stats? true))}
+         {:on-click (fn [] (reset! anchor-el nil) (nav/open-modal! :stats))}
          [list-item-icon [bar-chart {:fontSize "small" :color "primary"}]]
          "Stats"]
         [menu-item {:on-click (fn [] (reset! anchor-el nil) (nav/go-sensors!))}
@@ -368,9 +365,7 @@
         [button
          {:variant "outlined"
           :color "primary"
-          :onClick #(do (.pushState js/history nil "" (.-pathname js/location))
-                        (swap! app-state assoc :show-collection-stats? true))}
-         "Stats"]
+          :onClick #(nav/open-modal! :stats)} "Stats"]
         [button
          {:variant (if (= current-view :sensor-readings) "contained" "outlined")
           :color "primary"
