@@ -1401,7 +1401,7 @@
     {:variant "contained"
      :color "primary"
      :start-icon (r/as-element [arrow-back])
-     :onClick #(.back js/history)} "Back to List"]
+     :onClick #(nav/back!)} "Back to List"]
    [box {:sx {:display "flex" :gap 2}}
     [share-button selected-wine-id selected-wine]
     [button

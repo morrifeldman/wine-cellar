@@ -39,7 +39,8 @@
       detail-section]]
     [wine-cellar.views.components.form :refer
      [ref-value uncontrolled-text-field uncontrolled-text-area-field]]
-    [wine-cellar.api :as api]))
+    [wine-cellar.api :as api]
+    [wine-cellar.nav :as nav]))
 
 (defn- recipe-search-text
   [r]
@@ -49,60 +50,6 @@
                (map :name (:ingredients r)))
        (filter some?)
        (str/join " ")))
-
-(defn- view-spirit-from-recipe!
-  "Switch to the Spirits tab with `spirit-id` open, pushing a history entry so
-   the browser Back button returns to the recipe that was open."
-  [app-state recipe-id spirit-id]
-  (.replaceState js/history
-                 #js {:barNav #js {:activeTab "recipes"
-                                   :viewingRecipeId recipe-id}}
-                 ""
-                 (.-pathname js/location))
-  (.pushState js/history
-              #js {:barNav #js {:activeTab "spirits"
-                                :editingSpiritId spirit-id}}
-              ""
-              (.-pathname js/location))
-  (swap! app-state #(-> %
-                        (assoc-in [:bar :viewing-recipe-id] nil)
-                        (assoc-in [:bar :active-tab] :spirits)
-                        (assoc-in [:bar :editing-spirit-id] spirit-id)))
-  (js/setTimeout
-   (fn []
-     (when-let [el (.getElementById js/document (str "spirit-" spirit-id))]
-       (let [top (-> (.. el getBoundingClientRect -top)
-                     (+ (.-pageYOffset js/window))
-                     (- 16))]
-         (.scrollTo js/window #js {:top top :behavior "smooth"}))))
-   100))
-
-(defn- view-category-from-recipe!
-  "Switch to the Spirits tab filtered to a spirit category/subcategory, pushing a
-   history entry so Back returns to the recipe that was open."
-  [app-state recipe-id category subcategory]
-  (.replaceState js/history
-                 #js {:barNav #js {:activeTab "recipes"
-                                   :viewingRecipeId recipe-id}}
-                 ""
-                 (.-pathname js/location))
-  (.pushState js/history
-              #js {:barNav #js {:activeTab "spirits"
-                                :spiritsFilter #js {:category category
-                                                    :subcategory (or subcategory
-                                                                     "")}}}
-              ""
-              (.-pathname js/location))
-  (swap! app-state #(-> %
-                        (assoc-in [:bar :viewing-recipe-id] nil)
-                        (assoc-in [:bar :active-tab] :spirits)
-                        (assoc-in [:bar :editing-spirit-id] nil)
-                        (assoc-in [:bar :spirits-initial-filter]
-                                  {:categories #{category}
-                                   :subcategories (if (seq subcategory)
-                                                    #{subcategory}
-                                                    #{})}))))
-
 
 (defn- linked-inventory-items
   "Mixers & Garnishes items an ingredient line points at: its explicit links
@@ -116,31 +63,18 @@
       (filterv #(matching/name-matches? (:name %) name) inventory-items))))
 
 (defn- view-inventory-from-recipe!
-  "Switch to the Mixers tab to stock an ingredient, pushing a history entry so
-   Back returns to the recipe. Highlights the items the ingredient points at;
-   when it points at none, opens the add form with the ingredient's name filled
-   in so the missing item can be created on the spot."
-  [app-state recipe-id inventory-items ingredient]
-  (let [ids (mapv :id (linked-inventory-items inventory-items ingredient))
-        new-item (when (empty? ids)
-                   {:name (str/trim (or (:name ingredient) ""))
-                    :category (if (:garnish ingredient) "garnish" "other")})]
-    (.replaceState js/history
-                   #js {:barNav #js {:activeTab "recipes"
-                                     :viewingRecipeId recipe-id}}
-                   ""
-                   (.-pathname js/location))
-    (.pushState js/history
-                #js {:barNav #js {:activeTab "inventory"
-                                  :highlightItemIds (clj->js ids)}}
-                ""
-                (.-pathname js/location))
-    (swap! app-state #(-> %
-                          (assoc-in [:bar :viewing-recipe-id] nil)
-                          (assoc-in [:bar :active-tab] :inventory)
-                          (assoc-in [:bar :highlight-item-ids] (set ids))
-                          (assoc-in [:bar :new-inventory-item] new-item)))
-    (when-let [id (first ids)] (inv/scroll-item-into-view! id))))
+  "Go to the Mixers tab to stock an ingredient, with the items it points at
+   highlighted. When it points at none, leaves the add form prefilled with the
+   ingredient's name so the missing item can be created on the spot — that
+   prefill is a one-shot the URL has no business carrying."
+  [app-state inventory-items ingredient]
+  (let [ids (mapv :id (linked-inventory-items inventory-items ingredient))]
+    (when (empty? ids)
+      (swap! app-state assoc-in
+        [:bar :new-inventory-item]
+        {:name (str/trim (or (:name ingredient) ""))
+         :category (if (:garnish ingredient) "garnish" "other")}))
+    (nav/go-bar-inventory-items! ids)))
 
 (defn- make-row
   "Row-structure entry for an ingredient: stable identity + initial values +
@@ -215,13 +149,10 @@
                            :notes (ref-value notes-ref)
                            :tags tags
                            :ingredients ingredients)]
+        ;; Saving an edit drops :editing-recipe-id, and the URL still names
+        ;; the recipe, so its detail view comes back on its own.
         (if editing-id
-          (-> (api/update-cocktail-recipe app-state editing-id payload)
-              ;; keep the recipe open (back to its detail view)
-              ;; rather than collapsing after a save.
-              (.then #(swap! app-state assoc-in
-                        [:bar :viewing-recipe-id]
-                        editing-id)))
+          (api/update-cocktail-recipe app-state editing-id payload)
           (api/create-cocktail-recipe app-state payload))))]
    [paper
     {:elevation 2 :sx {:p 2 :mb 2 :borderLeft "4px solid rgba(114,47,55,0.5)"}}
@@ -332,7 +263,7 @@
    \"out of stock\" suffix when not on hand. Clicking one opens that page with
    the item highlighted, so stock can be corrected there. Dangling ids (item
    since deleted) are skipped."
-  [app-state recipe-id inventory-items ingredient]
+  [app-state inventory-items ingredient]
   (let [id-set (set (:inventory_item_ids ingredient))
         ;; in-stock first, out-of-stock pushed to the right (stable within
         ;; each)
@@ -354,7 +285,6 @@
            :clickable true
            :on-click #(view-inventory-from-recipe!
                        app-state
-                       recipe-id
                        inventory-items
                        (assoc ingredient :inventory_item_ids [(:id item)]))
            :icon (when icon
@@ -377,7 +307,7 @@
    prefixes a `~`; `:suffix` appends a ` · <suffix>` note (\"out of stock\" for
    an unavailable link); `:star?` marks a recipe-preferred bottle with a gold
    star; `:alt?` marks a variation/alternative bottle with a swap icon."
-  [app-state recipe-id spirit {:keys [dim? suffix star? alt?]}]
+  [spirit {:keys [dim? suffix star? alt?]}]
   (let [base (str/join " · "
                        (filter seq [(:distillery spirit) (:name spirit)]))]
     [chip
@@ -392,7 +322,7 @@
                         [swap-horiz
                          {:sx {:fontSize "0.8rem"
                                :color "rgba(255,213,79,0.6) !important"}}]))
-      :on-click #(view-spirit-from-recipe! app-state recipe-id (:id spirit))
+      :on-click #(nav/go-bar-spirit! (:id spirit))
       :sx {:height 22
            :fontSize "0.7rem"
            :letterSpacing "0.02em"
@@ -447,8 +377,7 @@
    swap icon; when any are on hand the collapsed view shows just the
    marked ones — the rest of the bench waits behind '+N more'. nil when
    nothing's on hand."
-  [app-state recipe-id {:keys [preferred_spirit_ids alternate_spirit_ids]}
-   {:keys [exact sub]}]
+  [{:keys [preferred_spirit_ids alternate_spirit_ids]} {:keys [exact sub]}]
   (let [owned? (fn [b] (pos? (or (:quantity b) 1)))
         exact-in (filter owned? exact)
         exact-out (remove owned? exact)
@@ -462,21 +391,19 @@
         n-marked (count (remove #(= 2 (rank %)) sub))]
     (cond (seq exact-in) [bottle-chip-list max-bottle-chips
                           (for [b exact-in]
-                            ^{:key (str "s-" (:id b))}
-                            [bottle-chip app-state recipe-id b {}])]
+                            ^{:key (str "s-" (:id b))} [bottle-chip b {}])]
           ;; Named bottle out of stock: show only it (dimmed, "out of
           ;; stock"); explore alternatives via the category chip.
           (seq exact-out) [bottle-chip-list max-bottle-chips
                            (for [b exact-out]
                              ^{:key (str "x-" (:id b))}
-                             [bottle-chip app-state recipe-id b
+                             [bottle-chip b
                               {:dim? true :suffix "out of stock"}])]
-          (seq sub) [bottle-chip-list
-                     (if (pos? n-marked) n-marked max-bottle-chips)
-                     (for [b sub]
-                       ^{:key (str "s-" (:id b))}
-                       [bottle-chip app-state recipe-id b
-                        {:star? (boolean (pref? b)) :alt? (alt? b)}])]
+          (seq sub)
+          [bottle-chip-list (if (pos? n-marked) n-marked max-bottle-chips)
+           (for [b sub]
+             ^{:key (str "s-" (:id b))}
+             [bottle-chip b {:star? (boolean (pref? b)) :alt? (alt? b)}])]
           :else nil)))
 
 (defn- spirit-category-chip
@@ -484,7 +411,7 @@
    filtered to that category/subcategory. When nothing matching the spec is
    owned (per the bottles-for-spec tiers), opens the whole category instead so
    the user can browse it and judge substitutions themselves."
-  [app-state recipe-id {:keys [category subcategory]} {:keys [exact sub]}]
+  [{:keys [category subcategory]} {:keys [exact sub]}]
   (let [{:keys [base text]}
         (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
         owned? (fn [b] (pos? (or (:quantity b) 1)))
@@ -499,10 +426,8 @@
      {:label label
       :size "small"
       :clickable true
-      :on-click #(view-category-from-recipe! app-state
-                                             recipe-id
-                                             category
-                                             (when-not none-owned? subcategory))
+      :on-click
+      #(nav/go-bar-spirit-category! category (when-not none-owned? subcategory))
       :sx {:height 22
            :fontSize "0.7rem"
            :letterSpacing "0.02em"
@@ -537,7 +462,6 @@
                    "@media (hover: hover)" {"&:hover" {:textDecoration
                                                        "underline"}}}
               :on-click #(view-inventory-from-recipe! app-state
-                                                      (:id recipe)
                                                       inventory-items
                                                       ingredient)} text])]
          (if spirit
@@ -548,16 +472,14 @@
                     :alignItems "center"
                     :gap 0.5
                     :mt 0.25
-                    :mb 0.25}}
-              [spirit-category-chip app-state (:id recipe) spirit tiers]
-              (or (spirit-bottle-chips app-state (:id recipe) spirit tiers)
+                    :mb 0.25}} [spirit-category-chip spirit tiers]
+              (or (spirit-bottle-chips spirit tiers)
                   [typography
                    {:variant "body2"
                     :sx {:color "text.secondary"
                          :fontSize "0.78rem"
                          :fontStyle "italic"}} "none on hand"])])
-           [ingredient-link-chips app-state (:id recipe) inventory-items
-            ingredient])]))
+           [ingredient-link-chips app-state inventory-items ingredient])]))
     (:ingredients recipe))])
 
 (defn- tags-editor
@@ -669,7 +591,7 @@
               :px 0.5
               :py 0.25
               "&:hover" {:bgcolor "action.hover"}}
-         :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
+         :on-click #(nav/close-bar-recipe!)}
         [typography
          {:sx {:fontSize "1.35rem" :fontWeight 600 :color "primary.main"}}
          (:name recipe)]]
@@ -741,7 +663,7 @@
        {:variant "outlined"
         :color "error"
         :on-click #(when (js/confirm (str "Delete \"" (:name recipe) "\"?"))
-                     (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
+                     (nav/close-bar-recipe!)
                      (api/delete-cocktail-recipe app-state (:id recipe)))}
        "Delete"] [box {:sx {:flex 1}}]
       (let [refreshing? (= (:id recipe)
@@ -761,26 +683,24 @@
          (if refreshing? "Refreshing…" "Refresh links")])
       [button
        {:variant "outlined"
+        ;; Editing stays on the recipe's own URL — the form is another way
+        ;; of showing it, not another place — so Cancel lands back on the
+        ;; detail rather than the list.
         :on-click
-        (fn []
-          (swap! app-state assoc-in [:bar :viewing-recipe-id] nil)
-          (swap! app-state assoc-in [:bar :editing-recipe-id] (:id recipe)))}
+        #(swap! app-state assoc-in [:bar :editing-recipe-id] (:id recipe))}
        "Edit"]
       [button
        {:variant "contained"
         :color "primary"
-        :on-click #(swap! app-state assoc-in [:bar :viewing-recipe-id] nil)}
-       "Done"]]]))
+        :on-click #(nav/close-bar-recipe!)} "Done"]]]))
 
 (defn- recipe-card
-  [app-state recipe]
+  [recipe]
   (let [tags (:tags recipe)]
     [paper
      {:elevation 1
       :sx {:p 1.5 :mb 1 :cursor "pointer" "&:hover" {:bgcolor "action.hover"}}
-      :on-click
-      #(do (swap! app-state assoc-in [:bar :viewing-recipe-id] (:id recipe))
-           (api/scroll-recipe-into-view! (:id recipe)))}
+      :on-click #(nav/go-bar-recipe! (:id recipe))}
      [box
       {:sx {:display "flex"
             :alignItems "flex-start"
@@ -847,7 +767,10 @@
                                       "AI Chat")))
                          {:open? (= 1 (count sel))})))
                     (close!)
-                    (swap! app-state assoc-in [:bar :active-tab] :recipes))]
+                    ;; A single saved recipe opens itself, which is already
+                    ;; a
+                    ;; trip to the Recipes tab; a batch needs taking there.
+                    (when (not= 1 (count sel)) (nav/go-bar-recipes!)))]
         [dialog {:open open? :on-close close! :max-width "sm" :full-width true}
          [dialog-title (if multi? "Save Recipes" "Save Recipe")]
          [dialog-content {:sx {:pt "12px !important"}}
@@ -1235,7 +1158,7 @@
                                                            app-state]
                               (= (:id recipe) viewing-id) [recipe-display
                                                            app-state recipe]
-                              :else [recipe-card app-state recipe])
+                              :else [recipe-card recipe])
                         {:key (:id recipe)})))
          (when (and (seq recipes) (not show-form?))
            [refresh-all-bar app-state])]))))

@@ -20,7 +20,8 @@
             [reagent-mui.icons.science :refer [science]]
             [reagent-mui.icons.local-florist :refer [local-florist]]
             [reagent-mui.icons.more-horiz :refer [more-horiz]]
-            [wine-cellar.api :as api]))
+            [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]))
 
 (def category-labels
   {"fruit" "Fruit"
@@ -42,20 +43,6 @@
    "bitters" {:icon science :color "rgba(128,203,196,0.7)"}
    "garnish" {:icon local-florist :color "rgba(139,195,74,0.7)"}
    "other" {:icon more-horiz :color "rgba(144,164,174,0.7)"}})
-
-(def ^:private item-dom-id-prefix "bar-inventory-item-")
-
-(defn item-dom-id [item-id] (str item-dom-id-prefix item-id))
-
-(defn scroll-item-into-view!
-  "Smooth-scrolls the Mixers list so `item-id` is on screen. Delayed a tick so
-   the element exists after a tab switch has re-rendered."
-  [item-id]
-  (js/setTimeout
-   (fn []
-     (when-let [el (.getElementById js/document (item-dom-id item-id))]
-       (.scrollIntoView el #js {:behavior "smooth" :block "center"})))
-   100))
 
 (defn- section-header
   [icon-component label border-color]
@@ -176,12 +163,14 @@
              :on-click #(do (reset! edit-name nil) (reset! editing-id nil))}
             [close {:fontSize "small"}]]]
           [box
-           {:id (item-dom-id (:id item))
+           {:id (api/bar-item-dom-id (:id item))
             :on-click
             (fn []
               ;; Acting on the item is the end of the trail that
-              ;; brought us here, so drop the highlight.
+              ;; brought us here, so drop the highlight — from the URL
+              ;; too, since that is what a Back would light up again.
               (swap! app-state update :bar dissoc :highlight-item-ids)
+              (nav/forget-bar-highlight!)
               (api/toggle-bar-inventory-item app-state (:id item) (not have?)))
             :on-double-click
             (fn [e] (.stopPropagation e) (reset! editing-id (:id item)))

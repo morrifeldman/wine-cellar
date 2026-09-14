@@ -9,7 +9,12 @@
    ["/grape-varieties" {:name ::grape-varieties}]
    ["/classifications" {:name ::classifications}] ["/sensors" {:name ::sensors}]
    ["/devices" {:name ::devices}] ["/blind-tastings" {:name ::blind-tastings}]
-   ["/admin/sql" {:name ::admin-sql}] ["/bar" {:name ::bar}]])
+   ["/admin/sql" {:name ::admin-sql}] ["/bar" {:name ::bar}]
+   ["/bar/recipes" {:name ::bar-recipes}]
+   ["/bar/recipes/:id" {:name ::bar-recipe}]
+   ["/bar/spirits" {:name ::bar-spirits}]
+   ["/bar/spirits/:id" {:name ::bar-spirit}]
+   ["/bar/inventory" {:name ::bar-inventory}]])
 
 (defn go-wines! [] (rfe/push-state ::wines))
 (defn go-wine-detail! [id] (rfe/push-state ::wine-detail {:id id}))
@@ -22,7 +27,42 @@
 (defn go-blind-tastings! [] (rfe/push-state ::blind-tastings))
 (defn go-admin-sql! [] (rfe/push-state ::admin-sql))
 (defn go-bar! [] (rfe/push-state ::bar))
+(defn go-bar-recipes! [] (rfe/push-state ::bar-recipes))
+(defn go-bar-recipe! [id] (rfe/push-state ::bar-recipe {:id id}))
+(defn go-bar-spirits! [] (rfe/push-state ::bar-spirits))
+(defn go-bar-spirit! [id] (rfe/push-state ::bar-spirit {:id id}))
+(defn go-bar-inventory! [] (rfe/push-state ::bar-inventory))
 (defn replace-wines! [] (rfe/replace-state ::wines))
+
+(defn close-bar-recipe!
+  "Collapse an open recipe back to the list. Replaces rather than pushes: the
+   entry being left is the one that named the recipe, so there is nothing worth
+   keeping, and Back still reaches whatever came before the recipe."
+  []
+  (rfe/replace-state ::bar-recipes))
+
+(defn close-bar-spirit!
+  "Collapse an open spirit back to the list, replacing its entry the same way
+   `close-bar-recipe!` does."
+  []
+  (rfe/replace-state ::bar-spirits))
+
+(defn go-bar-spirit-category!
+  "Show the Spirits tab narrowed to a category, and to a subcategory when one is
+   named."
+  [category subcategory]
+  (rfe/push-state ::bar-spirits
+                  nil
+                  (cond-> {:category category}
+                    (seq subcategory) (assoc :subcategory subcategory))))
+
+(defn go-bar-inventory-items!
+  "Show the Mixers tab with the given items marked, so an ingredient's stock can
+   be corrected where it lives."
+  [ids]
+  (rfe/push-state ::bar-inventory
+                  nil
+                  (when (seq ids) {:highlight (str/join "," ids)})))
 
 (defn go-selected-wines!
   "Show the wine list narrowed to the given ids."
@@ -54,6 +94,12 @@
                  nil
                  ""
                  (rf/set-query-params (current-location) #(dissoc % param))))
+
+(defn forget-bar-highlight!
+  "Drop the Mixers highlight from the URL once the item it pointed at has been
+   acted on — the trail has been followed, so Back shouldn't light it up again."
+  []
+  (forget-modal! :highlight))
 
 (defonce ^:private settled-location (atom nil))
 

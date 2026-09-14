@@ -23,6 +23,7 @@
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.views.bar.matching :as matching]
             [wine-cellar.api :as api]
+            [wine-cellar.nav :as nav]
             [wine-cellar.views.components :refer
              [dot-separated-row editable-text-field editable-autocomplete-field
               search-text-field section-header]]
@@ -114,9 +115,7 @@
                                    (swap! app-state assoc-in
                                      [:bar :show-spirit-form?]
                                      false)
-                                   (swap! app-state assoc-in
-                                     [:bar :editing-spirit-id]
-                                     (:id created))))
+                                   (nav/go-bar-spirit! (:id created))))
                           (.catch (fn [_] (reset! submitting? false))))))))
                (.catch (fn [err]
                          (swap! app-state assoc
@@ -158,9 +157,7 @@
                   (fn [created]
                     (reset! submitting? false)
                     (swap! app-state assoc-in [:bar :show-spirit-form?] false)
-                    (swap! app-state assoc-in
-                      [:bar :editing-spirit-id]
-                      (:id created))))
+                    (nav/go-bar-spirit! (:id created))))
                  (.catch (fn [_] (reset! submitting? false))))))}
         [box
          {:sx {:display "flex" :gap 2 :alignItems "flex-end" :flexWrap "wrap"}}
@@ -204,33 +201,6 @@
            #(do (swap! app-state assoc-in [:bar :show-spirit-form?] false)
                 (swap! app-state assoc-in [:bar :new-spirit] {}))}
           "Cancel"]]]])]))
-
-(defn- view-recipe-from-spirit!
-  "Switch to the Recipes tab with `recipe-id` open, pushing a history entry so
-   the browser Back button returns to the spirit that was open."
-  [app-state spirit-id recipe-id]
-  (.replaceState js/history
-                 #js {:barNav #js {:activeTab "spirits"
-                                   :editingSpiritId spirit-id}}
-                 ""
-                 (.-pathname js/location))
-  (.pushState js/history
-              #js {:barNav #js {:activeTab "recipes"
-                                :viewingRecipeId recipe-id}}
-              ""
-              (.-pathname js/location))
-  (swap! app-state #(-> %
-                        (assoc-in [:bar :editing-spirit-id] nil)
-                        (assoc-in [:bar :active-tab] :recipes)
-                        (assoc-in [:bar :viewing-recipe-id] recipe-id)))
-  (js/setTimeout
-   (fn []
-     (when-let [el (.getElementById js/document (str "recipe-" recipe-id))]
-       (let [top (-> (.. el getBoundingClientRect -top)
-                     (+ (.-pageYOffset js/window))
-                     (- 16))]
-         (.scrollTo js/window #js {:top top :behavior "smooth"}))))
-   100))
 
 (defn- spirit-detail
   "Inline-edit detail view for a spirit."
@@ -391,8 +361,7 @@
                   {:label (:name r)
                    :size "small"
                    :clickable true
-                   :on-click
-                   #(view-recipe-from-spirit! app-state (:id spirit) (:id r))
+                   :on-click #(nav/go-bar-recipe! (:id r))
                    :sx {:height 24
                         :fontSize "0.72rem"
                         :letterSpacing "0.02em"
@@ -406,14 +375,11 @@
           [button
            {:variant "outlined"
             :color "error"
-            :on-click
-            #(when (js/confirm (str "Delete " (:name spirit) "?"))
-               (api/delete-spirit app-state (:id spirit))
-               (swap! app-state assoc-in [:bar :editing-spirit-id] nil))}
-           "Delete"] [box {:sx {:flex 1}}]
-          [button
-           {:variant "contained"
-            :on-click #(swap! app-state assoc-in [:bar :editing-spirit-id] nil)}
+            :on-click #(when (js/confirm (str "Delete " (:name spirit) "?"))
+                         (api/delete-spirit app-state (:id spirit))
+                         (nav/close-bar-spirit!))} "Delete"]
+          [box {:sx {:flex 1}}]
+          [button {:variant "contained" :on-click #(nav/close-bar-spirit!)}
            "Done"]]]))))
 
 (defn- spirit-meta
@@ -427,7 +393,7 @@
        (str/join " · ")))
 
 (defn spirit-card
-  [app-state spirit]
+  [spirit]
   (let [finished? (zero? (or (:quantity spirit) 1))]
     [paper
      {:elevation (if finished? 0 1)
@@ -436,8 +402,7 @@
            :cursor "pointer"
            :opacity (if finished? 0.45 1)
            "&:hover" {:bgcolor "action.hover"}}
-      :on-click
-      #(swap! app-state assoc-in [:bar :editing-spirit-id] (:id spirit))}
+      :on-click #(nav/go-bar-spirit! (:id spirit))}
      [typography {:variant "body1" :sx {:fontWeight 600 :lineHeight 1.2}}
       (->> [(:distillery spirit) (:name spirit) (:category spirit)]
            (filter seq)
@@ -556,11 +521,11 @@
 
 (defn spirits-tab
   [_app-state]
-  ;; Seed filters from a one-shot set by a recipe's category chip, then
-  ;; clear it.
+  ;; Seed the chip filters from what the URL asks for. Reading it once at
+  ;; mount is enough: this tab only mounts on a navigation, and every
+  ;; navigation re-derives the filter from the URL — so a Back onto a
+  ;; filtered spirits URL comes up filtered again.
   (let [init (get-in @_app-state [:bar :spirits-initial-filter])
-        _ (when init
-            (swap! _app-state update :bar dissoc :spirits-initial-filter))
         search-text (r/atom "")
         selected-categories (r/atom (or (:categories init) #{}))
         selected-subcategories (r/atom (or (:subcategories init) #{}))]
@@ -603,5 +568,5 @@
              (for [spirit filtered]
                (with-meta (if (= (:id spirit) editing-id)
                             [spirit-detail app-state]
-                            [spirit-card app-state spirit])
+                            [spirit-card spirit])
                           {:key (:id spirit)}))))]))))

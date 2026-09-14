@@ -1544,36 +1544,57 @@
             [:bar :inventory-items]
             (fn [items] (filterv #(not= (:id %) id) items)))))))
 
+(defn- scroll-to-top-of!
+  "Smooth-scrolls the window so `dom-id` sits near the top. Delayed a tick so
+   the element exists after a state change re-renders."
+  [dom-id]
+  (js/setTimeout (fn []
+                   (when-let [el (.getElementById js/document dom-id)]
+                     (let [top (-> (.. el getBoundingClientRect -top)
+                                   (+ (.-pageYOffset js/window))
+                                   (- 16))]
+                       (.scrollTo js/window
+                                  #js {:top top :behavior "smooth"}))))
+                 100))
+
 (defn scroll-recipe-into-view!
-  "Smooth-scrolls the window so the recipe card/detail sits near the top.
-   Delayed a tick so the element exists after a state change re-renders."
   [recipe-id]
+  (scroll-to-top-of! (str "recipe-" recipe-id)))
+
+(defn scroll-spirit-into-view!
+  [spirit-id]
+  (scroll-to-top-of! (str "spirit-" spirit-id)))
+
+(defn bar-item-dom-id [item-id] (str "bar-inventory-item-" item-id))
+
+(defn scroll-bar-item-into-view!
+  "Centers a Mixers item rather than putting it at the top: the items are small
+   chips in a long grid, and one pinned to the top edge reads as cropped."
+  [item-id]
   (js/setTimeout
    (fn []
-     (when-let [el (.getElementById js/document (str "recipe-" recipe-id))]
-       (let [top (-> (.. el getBoundingClientRect -top)
-                     (+ (.-pageYOffset js/window))
-                     (- 16))]
-         (.scrollTo js/window #js {:top top :behavior "smooth"}))))
+     (when-let [el (.getElementById js/document (bar-item-dom-id item-id))]
+       (.scrollIntoView el #js {:behavior "smooth" :block "center"})))
    100))
 
 (defn create-cocktail-recipe
   ([app-state recipe] (create-cocktail-recipe app-state recipe nil))
   ([app-state recipe {:keys [open?]}]
-   (go
-    (let [result
-          (<! (POST "/api/cocktail-recipes" recipe "Failed to create recipe"))]
-      (if (:success result)
-        (let [created (:data result)]
-          ;; prepend: matches the server's newest-first order, so a later
-          ;; refetch doesn't reshuffle the list under an open detail view
-          (swap! app-state update-in [:bar :recipes] #(into [created] %))
-          (swap! app-state assoc-in [:bar :show-recipe-form?] false)
-          (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []})
-          (when open?
-            (swap! app-state assoc-in [:bar :viewing-recipe-id] (:id created))
-            (scroll-recipe-into-view! (:id created))))
-        (swap! app-state assoc-in [:bar :error] (:error result)))))))
+   (go (let [result (<! (POST "/api/cocktail-recipes"
+                              recipe
+                              "Failed to create recipe"))]
+         (if (:success result)
+           (let [created (:data result)]
+             ;; prepend: matches the server's newest-first order, so a
+             ;; later refetch doesn't reshuffle the list under an open
+             ;; detail view
+             (swap! app-state update-in [:bar :recipes] #(into [created] %))
+             (swap! app-state assoc-in [:bar :show-recipe-form?] false)
+             (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []})
+             ;; The URL owns which recipe is open, so opening the new one
+             ;; is a navigation — it scrolls itself into view on arrival.
+             (when open? (nav/go-bar-recipe! (:id created))))
+           (swap! app-state assoc-in [:bar :error] (:error result)))))))
 
 (defn update-cocktail-recipe
   [app-state id recipe]
