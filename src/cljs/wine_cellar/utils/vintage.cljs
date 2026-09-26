@@ -31,9 +31,9 @@
 (defn tasting-window-color
   [status]
   (case status
-    :too-young "warning.main"
-    :ready "success.main"
-    :too-old "error.main"
+    :too-young "drinkingWindow.tooYoung"
+    :ready "drinkingWindow.ready"
+    :too-old "drinkingWindow.tooOld"
     :unknown "text.secondary"))
 
 (defn matches-tasting-window?

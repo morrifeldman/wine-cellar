@@ -27,7 +27,7 @@
             [wine-cellar.nav :as nav]
             [wine-cellar.views.components :refer
              [dot-separated-row editable-text-field editable-autocomplete-field
-              search-text-field section-header]]
+              search-text-field section-header section-rule]]
             [wine-cellar.views.components.ai-provider-toggle :refer
              [provider-toggle-button]]
             [wine-cellar.views.components.image-upload :refer
@@ -251,8 +251,8 @@
          ;; Origin section
          [box
           {:sx
-           {:mt 2 :borderLeft "3px solid rgba(139,195,74,0.7)" :pl 1.5 :pb 2}}
-          [section-header globe "Origin" "rgba(139,195,74,0.7)"]
+           {:mt 2 :borderLeft (str "2px solid " section-rule) :pl 1.5 :pb 2}}
+          [section-header globe "Origin"]
           [dot-separated-row
            [editable-autocomplete-field
             {:value (:country spirit)
@@ -289,8 +289,8 @@
          ;; Cellar section
          [box
           {:sx
-           {:mt 2 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
-          [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
+           {:mt 2 :borderLeft (str "2px solid " section-rule) :pl 1.5 :pb 2}}
+          [section-header inventory "Cellar"]
           [dot-separated-row
            [box {:sx {:display "inline-flex" :alignItems "center" :gap 0.5}}
             [typography {:variant "body2"} (str (or (:quantity spirit) 1))]
@@ -338,8 +338,8 @@
          ;; Notes section
          [box
           {:sx
-           {:mt 2 :borderLeft "3px solid rgba(255,213,79,0.7)" :pl 1.5 :pb 1}}
-          [section-header notes-icon "Notes" "rgba(255,213,79,0.7)"]
+           {:mt 2 :borderLeft (str "2px solid " section-rule) :pl 1.5 :pb 1}}
+          [section-header notes-icon "Notes"]
           [editable-text-field
            {:value (:notes spirit)
             :on-save #(api/update-spirit app-state (:id spirit) {:notes %})
@@ -353,10 +353,9 @@
            (when (seq used-in)
              [box
               {:sx {:mt 2
-                    :borderLeft "3px solid rgba(232,195,200,0.7)"
+                    :borderLeft (str "2px solid " section-rule)
                     :pl 1.5
-                    :pb 1}}
-              [section-header local-bar "Used in" "rgba(232,195,200,0.7)"]
+                    :pb 1}} [section-header local-bar "Used in"]
               [box {:sx {:display "flex" :flexWrap "wrap" :gap 0.75}}
                (for [r used-in]
                  ^{:key (:id r)}
@@ -425,6 +424,57 @@
               :textOverflow "ellipsis"
               :whiteSpace "nowrap"}} (:notes spirit)])]))
 
+(defn filter-chip-sx
+  "Plain look shared by every bar filter chip: selection shows as a filled,
+  brighter chip rather than as a color per category."
+  [active?]
+  (let [bg (if active? "#E8C3C8" "rgba(232,195,200,0.06)")]
+    {:height 24
+     :fontSize "0.72rem"
+     :letterSpacing "0.02em"
+     :bgcolor bg
+     :color (if active? "#150A0C" "rgba(232,195,200,0.95)")
+     :fontWeight (if active? 600 400)
+     :border (str "1px solid " (if active? "#E8C3C8" "rgba(232,195,200,0.2)"))
+     ;; MUI darkens a clickable chip on hover and after a tap; pin the
+     ;; background so a selected chip reads as selected on touch screens.
+     "&.MuiChip-clickable:hover, &.Mui-focusVisible" {:bgcolor bg}
+     "@media (hover: hover)"
+     {"&.MuiChip-clickable:hover"
+      {:bgcolor (if active? "#F5D6DB" "rgba(232,195,200,0.18)")}}}))
+
+(defn filters-toggle-chip
+  "Opens and closes a tab's chip filters. Shows how many are in force so a
+  closed panel never hides that the list is narrowed."
+  [open? active-count]
+  (let [open @open?]
+    [chip
+     {:label (str "Filters"
+                  (when (pos? active-count) (str " · " active-count))
+                  (if open " ▴" " ▾"))
+      :size "small"
+      :clickable true
+      :on-click #(swap! open? not)
+      :sx (filter-chip-sx false)}]))
+
+(defn active-filter-chips
+  "The filters in force, shown while the panel is closed. Each chip removes
+  its own filter. `entries` is a seq of {:key :label :on-remove}."
+  [entries]
+  (when (seq entries)
+    [box
+     {:sx
+      {:display "flex" :gap 0.5 :flexWrap "wrap" :alignItems "center" :mb 1.5}}
+     (for [{:keys [key label on-remove]} entries]
+       ^{:key key}
+       [chip
+        {:label label
+         :size "small"
+         :on-delete on-remove
+         :sx (merge (filter-chip-sx true)
+                    {"& .MuiChip-deleteIcon" {:color "rgba(21,10,12,0.6)"
+                                              :fontSize 16}})}])]))
+
 (defn category-filter-bar
   "Chip row for filtering by spirit category. `present-categories` is the set of
   categories to show (in canonical `spirit-categories` order)."
@@ -436,26 +486,14 @@
      {:sx
       {:display "flex" :gap 0.5 :flexWrap "wrap" :alignItems "center" :mb 1.5}}
      (for [cat cats]
-       (let [active? (contains? selected cat)
-             {:keys [base text]}
-             (get category-colors cat {:base "160,160,160" :text "#c0c0c0"})]
-         ^{:key cat}
-         [chip
-          {:label (get category-labels cat cat)
-           :size "small"
-           :clickable true
-           :on-click
-           #(swap! selected-categories
-              (fn [s] (if (contains? s cat) (disj s cat) (conj s cat))))
-           :sx {:height 24
-                :fontSize "0.72rem"
-                :letterSpacing "0.02em"
-                :bgcolor (str "rgba(" base "," (if active? "0.22" "0.06") ")")
-                :color text
-                :border
-                (str "1px solid rgba(" base "," (if active? "0.6" "0.2") ")")
-                "@media (hover: hover)"
-                {"&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}}]))
+       ^{:key cat}
+       [chip
+        {:label (get category-labels cat cat)
+         :size "small"
+         :clickable true
+         :on-click #(swap! selected-categories
+                      (fn [s] (if (contains? s cat) (disj s cat) (conj s cat))))
+         :sx (filter-chip-sx (contains? selected cat))}])
      (when (seq selected)
        [button
         {:size "small"
@@ -464,7 +502,7 @@
 
 (defn subcategory-filter-bar
   "Chip row for filtering by subcategory. `subcat-pairs` is a seq of
-  {:subcat :cat} maps (cat drives the chip color); deduped and sorted here."
+  {:subcat :cat} maps (cat groups the chips); deduped and sorted here."
   [selected-subcategories subcat-pairs]
   (let [cat-order (into {} (map-indexed (fn [i c] [c i]) spirit-categories))
         sorted-pairs (->> subcat-pairs
@@ -484,12 +522,7 @@
               :ml 1}}
         (let [indexed (map-indexed vector sorted-pairs)]
           (for [[i {:keys [subcat cat]}] indexed]
-            (let [active? (contains? selected subcat)
-                  {:keys [base text]} (get category-colors
-                                           cat
-                                           {:base "160,160,160"
-                                            :text "#c0c0c0"})
-                  prev-cat (when (pos? i) (:cat (nth sorted-pairs (dec i))))]
+            (let [prev-cat (when (pos? i) (:cat (nth sorted-pairs (dec i))))]
               ^{:key subcat}
               [:<>
                (when (and prev-cat (not= prev-cat cat))
@@ -506,16 +539,9 @@
                                                   (if (contains? s subcat)
                                                     (disj s subcat)
                                                     (conj s subcat))))
-                 :sx
-                 {:height 22
-                  :fontSize "0.7rem"
-                  :letterSpacing "0.02em"
-                  :bgcolor (str "rgba(" base "," (if active? "0.22" "0.06") ")")
-                  :color text
-                  :border
-                  (str "1px solid rgba(" base "," (if active? "0.6" "0.2") ")")
-                  "@media (hover: hover)"
-                  {"&:hover" {:bgcolor (str "rgba(" base ",0.15)")}}}}]])))
+                 :sx (assoc (filter-chip-sx (contains? selected subcat))
+                            :height 22
+                            :fontSize "0.7rem")}]])))
         (when (seq selected)
           [button
            {:size "small"
@@ -531,7 +557,8 @@
   (let [init (get-in @_app-state [:bar :spirits-initial-filter])
         search-text (r/atom "")
         selected-categories (r/atom (or (:categories init) #{}))
-        selected-subcategories (r/atom (or (:subcategories init) #{}))]
+        selected-subcategories (r/atom (or (:subcategories init) #{}))
+        show-filters? (r/atom false)]
     (fn [app-state]
       (let [bar @(r/cursor app-state [:bar])
             spirits (:spirits bar)
@@ -556,11 +583,26 @@
            [:<>
             [search-text-field
              {:search-atom search-text :label "Search spirits"}]
-            [category-filter-bar selected-categories (map :category spirits)]
-            (when (seq sel-cats)
-              [subcategory-filter-bar selected-subcategories
-               (map (fn [s] {:subcat (:subcategory s) :cat (:category s)})
-                    cat-filtered)])])
+            [box {:sx {:mb 1.5}}
+             [filters-toggle-chip show-filters?
+              (+ (count sel-cats) (count sel-subcats))]]
+            (if @show-filters?
+              [:<>
+               [category-filter-bar selected-categories (map :category spirits)]
+               (when (seq sel-cats)
+                 [subcategory-filter-bar selected-subcategories
+                  (map (fn [s] {:subcat (:subcategory s) :cat (:category s)})
+                       cat-filtered)])]
+              [active-filter-chips
+               (concat (for [c (filter sel-cats spirit-categories)]
+                         {:key (str "c-" c)
+                          :label (get category-labels c c)
+                          :on-remove #(swap! selected-categories disj c)})
+                       (for [sc (sort sel-subcats)]
+                         {:key (str "s-" sc)
+                          :label sc
+                          :on-remove #(swap! selected-subcategories disj
+                                        sc)}))])])
          (if loading?
            [box {:sx {:display "flex" :justifyContent "center" :py 4}}
             [circular-progress {:color "primary"}]]

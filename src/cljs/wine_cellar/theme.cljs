@@ -1,6 +1,11 @@
 (ns wine-cellar.theme
   (:require [reagent-mui.styles :refer [create-theme]]))
 
+;; Names of wines, vintages and headings are set in the serif so they read the
+;; way a label does; everything you operate is in its sans companion.
+(def serif "'Alegreya', Georgia, serif")
+(def sans "'Alegreya Sans', 'Helvetica', 'Arial', sans-serif")
+
 (def wine-theme
   (create-theme
    {:palette {:primary {:main "#E8C3C8" ;; Lighter burgundy for primary on
@@ -32,31 +37,31 @@
                                        ;; ratings on dark background
                        :medium "#FFC107" ;; Brighter amber for medium
                        :low "#BDBDBD"} ;; Lighter gray for low
-              :tasting-window {:ready "#2E7D32" ;; Green for ready to
-                                                ;; drink
-                               :young "#1976D2" ;; Blue for too young
-                               :past "#FF9800"}} ;; Orange for past prime
-    ;; Typography improvements - more compact
-    :typography {:fontFamily
-                 "'Raleway', 'Roboto', 'Helvetica', 'Arial', sans-serif"
-                 :h1 {:fontWeight 300 :fontSize "2.25rem"}
-                 :h2 {:fontWeight 400 :fontSize "1.75rem"}
-                 :h3 {:fontWeight 400 :fontSize "1.5rem"}
-                 :h4 {:fontWeight 500 :fontSize "1.25rem"}
-                 :h5 {:fontWeight 500 :fontSize "1.1rem"}
-                 :h6 {:fontWeight 500 :fontSize "1rem"}
-                 :subtitle1 {:fontSize "0.95rem" :fontWeight 500}
-                 :subtitle2 {:fontSize "0.85rem" :fontWeight 500}
-                 :body1 {:fontSize "0.95rem"}
-                 :body2 {:fontSize "0.85rem"}}
+              ;; Taken from the glass rather than a traffic light: slate
+              ;; for a wine still closed up, straw gold when it's ready,
+              ;; tawny once it's fading.
+              :drinkingWindow
+              {:tooYoung "#9FB4C7" :ready "#D8B863" :tooOld "#D08A5C"}}
+    ;; Typography improvements - more compact. Alegreya Sans has a smaller
+    ;; x-height than Roboto, so body sizes sit a step above what they were
+    ;; to read at the same size.
+    :typography {:fontFamily sans
+                 :h1 {:fontFamily serif :fontWeight 400 :fontSize "2.25rem"}
+                 :h2 {:fontFamily serif :fontWeight 400 :fontSize "1.75rem"}
+                 :h3 {:fontFamily serif :fontWeight 500 :fontSize "1.5rem"}
+                 :h4 {:fontFamily serif :fontWeight 500 :fontSize "1.35rem"}
+                 :h5 {:fontFamily serif :fontWeight 500 :fontSize "1.2rem"}
+                 :h6 {:fontFamily serif :fontWeight 500 :fontSize "1.1rem"}
+                 :subtitle1 {:fontSize "1rem" :fontWeight 500}
+                 :subtitle2 {:fontSize "0.9rem" :fontWeight 500}
+                 :body1 {:fontSize "1rem"}
+                 :body2 {:fontSize "0.9rem"}
+                 :button {:fontSize "0.95rem"}}
     :components
-    {:MuiTypography {:styleOverrides
-                     {;; Define default styles for each variant
-                      :h2 {:fontWeight 400 :fontSize "1.75rem"}
-                      :h4 {:fontWeight 500 :fontSize "1.25rem" :color "#E8C3C8"}
-                      :subtitle1 {:fontSize "0.95rem" :fontWeight 500}
-                      :body1 {:fontSize "0.95rem"}
-                      :body2 {:fontSize "0.85rem"}}}
+    {:MuiTypography {:styleOverrides {;; Define default styles for each
+                                      ;; variant
+                                      :h4 {:color "#E8C3C8"}}}
+     :MuiTab {:styleOverrides {:root {:textTransform "none" :fontSize "1rem"}}}
      :MuiPaper {:styleOverrides {:root {:boxShadow
                                         "0px 3px 15px rgba(0,0,0,0.3)"
                                         :color "#F5F5F5"}}}
@@ -74,7 +79,7 @@
                                                                      ;; 12px
      :MuiInputLabel {:styleOverrides {:root {:fontSize "0.85rem"}}} ;; Smaller
                                                                     ;; font
-     :MuiOutlinedInput {:styleOverrides {:root {:fontSize "0.85rem"
+     :MuiOutlinedInput {:styleOverrides {:root {:fontSize "0.9rem"
                                                 :borderRadius "6px"}
                                          :input {:padding "8px 12px"}}} ;; Reduced
                                                                         ;; padding

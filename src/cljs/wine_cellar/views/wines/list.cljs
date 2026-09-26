@@ -27,7 +27,7 @@
   [grid {:container true :spacing 2}
    (for [wine wines]
      ^{:key (:id wine)}
-     [grid {:item true :xs 12 :sm 6 :md 4 :lg 3 :sx {:mb 2}}
+     [grid {:item true :xs 12 :sm 6 :lg 4 :sx {:mb 2}}
       [wine-card app-state wine]])])
 
 (defn- format-number

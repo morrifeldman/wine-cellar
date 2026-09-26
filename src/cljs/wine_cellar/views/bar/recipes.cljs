@@ -27,13 +27,14 @@
     [reagent-mui.icons.swap-horiz :refer [swap-horiz]]
     [reagent-mui.icons.menu-book :refer [menu-book]]
     [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
+    [wine-cellar.common :as common]
     [wine-cellar.utils.filters :refer [normalize-text]]
     [wine-cellar.views.bar.matching :as matching]
     [wine-cellar.views.bar.recipe-mode :as recipe-mode]
     [wine-cellar.views.bar.inventory :as inv]
     [wine-cellar.views.bar.spirits :refer
-     [category-filter-bar subcategory-filter-bar category-colors
-      category-labels]]
+     [category-filter-bar subcategory-filter-bar category-colors category-labels
+      filter-chip-sx filters-toggle-chip active-filter-chips]]
     [wine-cellar.views.components :refer
      [editable-text-field editable-autocomplete-field search-text-field
       detail-section]]
@@ -634,8 +635,7 @@
         :text-field-props {:multiline true :minRows 3 :maxRows 12}
         :display-sx {:color "text.secondary" :fontSize "0.9rem"}}]]
      ;; Ingredients section
-     [detail-section
-      {:icon local-bar :label "Ingredients" :color "rgba(139,195,74,0.7)"}
+     [detail-section {:icon local-bar :label "Ingredients"}
       (if (seq (:ingredients recipe))
         [ingredients-list app-state recipe (:ingredient-status report)
          (:inventory-items bar) (:spirits bar)]
@@ -643,16 +643,14 @@
          {:variant "body2" :sx {:color "text.secondary" :fontStyle "italic"}}
          "No ingredients yet — use Edit to add some."])]
      ;; Instructions section
-     [detail-section
-      {:icon menu-book :label "Instructions" :color "rgba(100,181,246,0.7)"}
+     [detail-section {:icon menu-book :label "Instructions"}
       [editable-text-field
        {:value (:instructions recipe)
         :on-save #(save-field! app-state recipe :instructions %)
         :empty-text "Add preparation steps..."
         :text-field-props {:multiline true :rows 3}}]]
      ;; Notes section
-     [detail-section
-      {:icon notes-icon :label "Notes" :color "rgba(255,213,79,0.7)"}
+     [detail-section {:icon notes-icon :label "Notes"}
       [editable-text-field
        {:value (:notes recipe)
         :on-save #(save-field! app-state recipe :notes %)
@@ -710,8 +708,12 @@
       [box {:sx {:flex 1 :minWidth 0}}
        [box {:sx {:display "flex" :alignItems "center" :gap 1 :flexWrap "wrap"}}
         [typography {:variant "body1" :sx {:fontWeight 600}} (:name recipe)]
-        (when (:rating recipe)
-          [recipe-rating {:value (:rating recipe) :read-only? true}])]
+        (when-let [r (:rating recipe)]
+          [typography
+           {:component "span"
+            :sx
+            {:color "text.secondary" :fontSize "0.8rem" :whiteSpace "nowrap"}}
+           (str "★ " (/ r 2))])]
        (when (seq tags)
          [box
           {:sx {:display "flex"
@@ -840,18 +842,7 @@
            :on-click
            #(swap! selected-tags
               (fn [s] (if (contains? s tag) (disj s tag) (conj s tag))))
-           :sx {:height 24
-                :fontSize "0.72rem"
-                :letterSpacing "0.02em"
-                :bgcolor
-                (if active? "rgba(232,195,200,0.22)" "rgba(232,195,200,0.06)")
-                :color "rgba(232,195,200,0.95)"
-                :border (str "1px solid "
-                             (if active?
-                               "rgba(232,195,200,0.6)"
-                               "rgba(232,195,200,0.2)"))
-                "@media (hover: hover)"
-                {"&:hover" {:bgcolor "rgba(232,195,200,0.18)"}}}}]))
+           :sx (filter-chip-sx active?)}]))
      (when (seq selected)
        [button
         {:size "small"
@@ -1067,6 +1058,7 @@
         selected-ingredients (filter-cursor :ingredients)
         include-garnishes? (filter-cursor :include-garnishes?)
         show-ingredient-filter? (filter-cursor :show-ingredient-filter?)
+        show-filters? (filter-cursor :show-filters?)
         open-ingredient-cat (filter-cursor :open-ingredient-cat)
         makeable-filter (filter-cursor :makeable)]
     (fn [app-state]
@@ -1127,15 +1119,11 @@
            [:<>
             [search-text-field
              {:search-atom search-text :label "Search recipes"}]
-            (when (seq present-spirits)
-              [category-filter-bar selected-spirits present-spirits])
-            (when (seq sel-spirits)
-              (let [sub (filter #(contains? sel-spirits (:cat %))
-                                present-subpairs)]
-                (when (seq sub)
-                  [subcategory-filter-bar selected-subspirits sub])))
-            (when (seq all-tags) [tag-filter-bar selected-tags all-tags])
             [box {:sx {:display "flex" :gap 0.75 :flexWrap "wrap"}}
+             (when (or (seq present-spirits) (seq all-tags))
+               [box {:sx {:mb 1.5}}
+                [filters-toggle-chip show-filters?
+                 (+ (count sel-spirits) (count sel-subspirits) (count sel))]])
              [makeable-filter-chip makeable-filter]
              (when (seq ingredient-vocab)
                [ingredient-filter-toggle-chip show-ingredient-filter?
@@ -1150,7 +1138,30 @@
               (let [items (filter #(= (:category %) @open-ingredient-cat)
                                   ingredient-vocab)]
                 (when (seq items)
-                  [ingredient-item-bar selected-ingredients items])))])
+                  [ingredient-item-bar selected-ingredients items])))
+            (if @show-filters?
+              [:<>
+               (when (seq present-spirits)
+                 [category-filter-bar selected-spirits present-spirits])
+               (when (seq sel-spirits)
+                 (let [sub (filter #(contains? sel-spirits (:cat %))
+                                   present-subpairs)]
+                   (when (seq sub)
+                     [subcategory-filter-bar selected-subspirits sub])))
+               (when (seq all-tags) [tag-filter-bar selected-tags all-tags])]
+              [active-filter-chips
+               (concat (for [c (filter sel-spirits common/spirit-categories)]
+                         {:key (str "c-" c)
+                          :label (get category-labels c c)
+                          :on-remove #(swap! selected-spirits disj c)})
+                       (for [sc (sort sel-subspirits)]
+                         {:key (str "s-" sc)
+                          :label sc
+                          :on-remove #(swap! selected-subspirits disj sc)})
+                       (for [t (sort sel)]
+                         {:key (str "t-" t)
+                          :label t
+                          :on-remove #(swap! selected-tags disj t)}))])])
          (if (empty? recipes)
            [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
             "No recipes yet. Save your first cocktail!"]

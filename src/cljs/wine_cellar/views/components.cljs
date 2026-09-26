@@ -41,29 +41,30 @@
    (for [[i child] (map-indexed vector children)]
      ^{:key i} [:<> (when (pos? i) [dot-sep]) child])])
 
+;; One quiet rule for every section: the headings already say what each
+;; section is, so colour-coding them only competed with the wine.
+(def section-rule "rgba(232,195,200,0.22)")
+
 (defn section-header
-  "Icon + label header used in detail views (spirits, recipes, etc)."
-  [icon-component label border-color]
+  "Icon + label header used in detail views (wines, spirits, recipes)."
+  [icon-component label]
   [box
    {:sx {:display "flex"
          :alignItems "center"
          :mb 1.5
-         :pb 1
+         :pb 0.75
          :borderBottom "1px solid rgba(255,255,255,0.06)"}}
-   [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
+   [box {:sx {:color "primary.dark" :display "flex" :mr 1}}
     [icon-component {:fontSize "small"}]]
    [typography
-    {:variant "overline"
-     :sx {:fontWeight 700
-          :letterSpacing "0.1em"
-          :color "text.secondary"
-          :lineHeight 1}} label]])
+    {:variant "h6" :component "h2" :sx {:color "primary.light" :lineHeight 1.2}}
+    label]])
 
 (defn detail-section
-  "Bordered, icon-headed section block. Children render below the header."
-  [{:keys [icon label color]} & children]
-  [box {:sx {:mt 2 :borderLeft (str "3px solid " color) :pl 1.5 :pb 2}}
-   [section-header icon label color] (into [:<>] children)])
+  "Ruled, icon-headed section block. Children render below the header."
+  [{:keys [icon label]} & children]
+  [box {:sx {:mt 3 :borderLeft (str "2px solid " section-rule) :pl 1.5 :pb 2}}
+   [section-header icon label] (into [:<>] children)])
 
 ;; Shared styles
 (def form-field-style

@@ -46,9 +46,10 @@
     [wine-cellar.nav :as nav]
     [wine-cellar.common :as common]
     [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
+    [wine-cellar.theme :as theme]
     [wine-cellar.utils.vintage :as vintage]
     [wine-cellar.views.components :refer
-     [coravin-pour-dialog drink-dialog dot-separated-row
+     [coravin-pour-dialog detail-section drink-dialog dot-separated-row
       editable-autocomplete-field editable-classification-field
       editable-text-field gift-dialog minus-menu oz-input-field
       quantity-control]]
@@ -205,7 +206,8 @@
                    (js/alert "Either Wine Name or Producer must be provided"))))
     :empty-text "Add wine name"
     :inline? true
-    :display-sx {:fontSize "1.2rem" :fontWeight 500}}])
+    :display-sx
+    {:fontFamily theme/serif :fontSize "1.35rem" :lineHeight 1.25}}])
 
 (defn editable-producer
   [app-state wine]
@@ -218,7 +220,10 @@
                    (js/alert "Either Wine Name or Producer must be provided"))))
     :empty-text "Add producer"
     :inline? true
-    :display-sx {:fontSize "1.2rem" :fontWeight 500}}])
+    :display-sx {:fontFamily theme/serif
+                 :fontSize "1.9rem"
+                 :fontWeight 700
+                 :lineHeight 1.15}}])
 
 (defn editable-vintage
   [app-state wine]
@@ -240,7 +245,12 @@
     :empty-text "Add vintage"
     :compact? true
     :inline? true
-    :display-sx {:fontSize "1.2rem" :fontWeight 500}}])
+    :display-sx {:fontFamily theme/serif
+                 :fontSize "3rem"
+                 :fontWeight 700
+                 :lineHeight 1
+                 :fontVariantNumeric "lining-nums"
+                 :color "primary.light"}}])
 
 (defn- autocomplete-editor
   [app-state wine field {:keys [options empty-text validate-fn free-solo?]}]
@@ -343,15 +353,9 @@
 
 (defn wine-identity-section
   [app-state wine]
-  [box
-   {:sx {:mt 3
-         :mb 3
-         :pb 2
-         :borderBottom "1px solid rgba(0,0,0,0.08)"
-         :display "flex"
-         :justifyContent "center"}}
-   [dot-separated-row [editable-vintage app-state wine]
-    [editable-producer app-state wine] [editable-name app-state wine]]])
+  [box {:sx {:mt 3 :mb 1 :display "flex" :flexDirection "column" :gap 0.5}}
+   [editable-vintage app-state wine] [editable-producer app-state wine]
+   [editable-name app-state wine]])
 
 (defn image-zoom-modal
   [image-data image-title on-remove]
@@ -466,27 +470,9 @@
      [grid {:item true :xs 6} [clickable-wine-image "front" (labels "front")]]
      [grid {:item true :xs 6} [clickable-wine-image "back" (labels "back")]]]))
 
-(defn- section-header
-  [icon-component label border-color]
-  [box
-   {:sx {:display "flex"
-         :alignItems "center"
-         :mb 1.5
-         :pb 1
-         :borderBottom "1px solid rgba(255,255,255,0.15)"}}
-   [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
-    [icon-component {:fontSize "small"}]]
-   [typography
-    {:variant "overline"
-     :sx {:fontWeight 700
-          :letterSpacing "0.1em"
-          :color "text.secondary"
-          :lineHeight 1}} label]])
-
 (defn wine-terroir-section
   [app-state wine]
-  [box {:sx {:mt 3 :borderLeft "3px solid rgba(139,195,74,0.7)" :pl 1.5 :pb 2}}
-   [section-header globe "Terroir" "rgba(139,195,74,0.7)"]
+  [detail-section {:icon globe :label "Terroir"}
    [dot-separated-row [editable-country app-state wine]
     [editable-region app-state wine] [editable-appellation app-state wine]
     [editable-appellation-tier app-state wine]]
@@ -497,8 +483,7 @@
 
 (defn wine-composition-section
   [app-state wine]
-  [box {:sx {:mt 3 :borderLeft "3px solid rgba(186,104,200,0.7)" :pl 1.5 :pb 2}}
-   [section-header wine-bar "Composition" "rgba(186,104,200,0.7)"]
+  [detail-section {:icon wine-bar :label "Composition"}
    [dot-separated-row [editable-styles app-state wine]
     [editable-alcohol-percentage app-state wine]
     [editable-bottle-format app-state wine]
@@ -508,8 +493,7 @@
       [dot-separated-row [editable-disgorgement-year app-state wine]
        [editable-dosage app-state wine]]
       [box {:component "span" :sx {:fontSize "1rem" :lineHeight 1}} "🫧"]])
-   [divider
-    {:sx {:my 1.5 :borderColor "rgba(186,104,200,0.7)" :borderTopWidth "3px"}}]
+   [divider {:sx {:my 1.5}}]
    [box {:sx {:mt 1}} [wine-varieties-list app-state (:id wine)]]])
 
 (defn- cellar-summary
@@ -600,9 +584,7 @@
    (let [wine-id (:id wine)
          qty (:quantity wine)
          bottle-open? (boolean (:open_bottle_opened_at wine))]
-     [box
-      {:sx {:mt 3 :borderLeft "3px solid rgba(100,181,246,0.7)" :pl 1.5 :pb 2}}
-      [section-header inventory "Cellar" "rgba(100,181,246,0.7)"]
+     [detail-section {:icon inventory :label "Cellar"}
       [box {:sx {:display "flex" :alignItems "center" :gap 1}}
        [box
         {:sx {:flex 1
@@ -713,19 +695,17 @@
 
 (defn wine-provenance-section
   [app-state wine]
-  (r/with-let
-   [open? (r/atom false)]
-   [box {:sx {:mt 3 :borderLeft "3px solid rgba(255,213,79,0.7)" :pl 1.5 :pb 2}}
-    [section-header receipt "Provenance" "rgba(255,213,79,0.7)"]
-    [box
-     {:sx {:cursor "pointer"
-           :borderRadius 1
-           :px 0.5
-           :mx -0.5
-           "&:hover" {:bgcolor "action.hover"}}
-      :onClick #(reset! open? true)}
-     [typography {:variant "body1"} (provenance-summary wine)]]
-    (when @open? [provenance-edit-modal app-state wine open?])]))
+  (r/with-let [open? (r/atom false)]
+              [detail-section {:icon receipt :label "Provenance"}
+               [box
+                {:sx {:cursor "pointer"
+                      :borderRadius 1
+                      :px 0.5
+                      :mx -0.5
+                      "&:hover" {:bgcolor "action.hover"}}
+                 :onClick #(reset! open? true)}
+                [typography {:variant "body1"} (provenance-summary wine)]]
+               (when @open? [provenance-edit-modal app-state wine open?])]))
 
 (defn wine-tasting-window-suggestion-buttons
   [app-state wine]
@@ -872,8 +852,7 @@
   [app-state wine]
   (r/with-let
    [open? (r/atom false)]
-   [box {:sx {:mt 3 :borderLeft "3px solid rgba(255,152,0,0.7)" :pl 1.5 :pb 2}}
-    [section-header schedule "Drinking Window" "rgba(255,152,0,0.7)"]
+   [detail-section {:icon schedule :label "Drinking Window"}
     [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
      (let [status (vintage/tasting-window-status wine)
            window-text (vintage/format-tasting-window-text wine)]
@@ -897,9 +876,7 @@
 (defn wine-ai-summary-section
   [app-state wine]
   (let [generating? (:generating-ai-summary? @app-state)]
-    [box
-     {:sx {:mt 3 :borderLeft "3px solid rgba(232,195,200,0.7)" :pl 1.5 :pb 2}}
-     [section-header auto-awesome "Summary" "rgba(232,195,200,0.7)"]
+    [detail-section {:icon auto-awesome :label "Summary"}
      [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
       [editable-ai-summary app-state wine]
       [box
@@ -941,8 +918,7 @@
 
 (defn wine-technical-notes-section
   [app-state wine]
-  [box {:sx {:mt 3 :borderLeft "3px solid rgba(128,203,196,0.7)" :pl 1.5 :pb 2}}
-   [section-header science "Technical Notes" "rgba(128,203,196,0.7)"]
+  [detail-section {:icon science :label "Technical Notes"}
    [technical-data-editor
     {:metadata (or (:metadata wine) {})
      :on-change
@@ -1219,9 +1195,7 @@
                      (filter #(and (= (:reason %) "coravin_pour")
                                    (> (:id %) last-drunk-id)))
                      (sort-by :id))]
-      [box
-       {:sx {:mt 3 :borderLeft "3px solid rgba(232,195,200,0.7)" :pl 1.5 :pb 2}}
-       [section-header wine-bar "Open Bottle" "rgba(232,195,200,0.7)"]
+      [detail-section {:icon wine-bar :label "Open Bottle"}
        [box
         {:sx {:display "flex" :alignItems "baseline" :gap 2 :flexWrap "wrap"}}
         [typography {:variant "body2" :color "text.secondary"}
@@ -1252,9 +1226,7 @@
   [app-state wine]
   (let [raw-history (get-in @app-state [:inventory-history (:id wine)])
         history (enrich-history-with-display-balance raw-history)]
-    [box
-     {:sx {:mt 3 :borderLeft "3px solid rgba(144,164,174,0.7)" :pl 1.5 :pb 2}}
-     [section-header history-icon "Inventory History" "rgba(144,164,174,0.7)"]
+    [detail-section {:icon history-icon :label "Inventory History"}
      (if (empty? history)
        [typography
         {:variant "body2" :color "text.secondary" :fontStyle "italic"}
@@ -1269,9 +1241,7 @@
 (defn wine-tasting-notes-section
   [app-state wine]
   (let [on-close #(nav/back!)]
-    [box
-     {:sx {:mt 3 :borderLeft "3px solid rgba(240,98,146,0.7)" :pl 1.5 :pb 2}}
-     [section-header rate-review "Tasting Notes" "rgba(240,98,146,0.7)"]
+    [detail-section {:icon rate-review :label "Tasting Notes"}
      [tasting-notes-list app-state (:id wine)]
      [tooltip {:title "Add tasting note" :placement "right" :arrow true}
       [button

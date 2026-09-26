@@ -378,14 +378,9 @@
   [fab
    {:color "primary"
     :sx {:position "fixed"
-         :bottom 16
+         :bottom "calc(16px + env(safe-area-inset-bottom))"
          :right 16
-         :z-index 1000
-         "@media (max-width:600px)" {:bottom "auto"
-                                     :top "42%"
-                                     :transform "translateY(-50%)"
-                                     :right 16
-                                     :left "auto"}}
+         :z-index 1000}
     :on-click #(smart-open-chat! app-state)} [chat]])
 
 (defn wine-chat

@@ -16,6 +16,7 @@
              [tasting-window-status tasting-window-color]]
             [wine-cellar.views.components :refer [quantity-control]]
             [wine-cellar.state :as app-state]
+            [wine-cellar.theme :as theme]
             [wine-cellar.api :as api]
             [wine-cellar.nav :as nav]))
 
@@ -35,55 +36,55 @@
        (str/join " • ")))
 
 (defn wine-thumbnail
-  [_app-state wine]
+  "The label photo, run down the card's whole left edge so the bottle is what
+   you recognise a wine by while scrolling."
+  [wine]
   [box
-   {:sx {:mr 2
-         :width 70
-         :height 130
+   {:sx {:width {:xs 96 :sm 112}
+         :flexShrink 0
+         :alignSelf "stretch"
+         :minHeight 150
+         :bgcolor "background.default"
          :display "flex"
          :alignItems "center"
-         :justifyContent "center"
-         :borderRadius 1
-         :bgcolor "background.default"}}
+         :justifyContent "center"}}
    (if (:label_thumbnail wine)
      [box
       {:component "img"
        :src (:label_thumbnail wine)
-       :sx {:width "100%"
-            :height "100%"
-            :objectFit "contain"
-            :borderRadius 1
-            :transition "transform 0.2s"
-            ":hover" {:transform "scale(1.05)"}}}]
+       :alt ""
+       :sx {:width "100%" :height "100%" :objectFit "cover" :display "block"}}]
+     [wine-bar {:sx {:color "text.disabled" :fontSize 32}}])])
+
+(defn- vintage-line
+  [wine]
+  (let [{:keys [vintage disgorgement_year]} wine]
+    [box {:sx {:display "flex" :alignItems "baseline" :gap 1 :pr 5}}
      [typography
-      {:variant "body2" :color "text.secondary" :sx {:textAlign "center"}}
-      "No Image"])])
+      {:component "span"
+       :sx {:fontFamily theme/serif
+            :fontWeight 700
+            :fontSize "1.6rem"
+            :lineHeight 1
+            :fontVariantNumeric "lining-nums"
+            :color "primary.light"}} (or vintage "NV")]
+     (when (and disgorgement_year (not= disgorgement_year vintage))
+       [typography {:component "span" :variant "body2" :color "text.secondary"}
+        (str "disgorged " disgorgement_year)])]))
 
 (defn wine-basic-info
   [wine]
-  [box {:sx {:flex 1}}
+  [box {:sx {:mb 1}} [vintage-line wine]
    [typography
-    {:variant "h6"
-     :component "h3"
-     :sx {:fontSize "1rem"
-          :fontWeight "bold"
-          :mb 0.3 ;; Reduced margin
-          :lineHeight 1.1}} ;; Reduced line height
-    (:producer wine)]
-   [typography {:variant "body1" :sx {:mb 0.3}} ;; Reduced margin
-    (:name wine)]
-   [typography {:variant "body2" :color "text.secondary"}
-    (let [vintage (:vintage wine)
-          disgorgement (:disgorgement_year wine)]
-      (cond (and (not vintage) disgorgement) (str "NV (" disgorgement " Disg.)")
-            (and vintage disgorgement) (str vintage " (" disgorgement " Disg.)")
-            vintage (str vintage)
-            :else "NV"))]])
-
-(defn wine-header
-  [app-state wine]
-  [box {:sx {:display "flex" :mb 0}} [wine-thumbnail app-state wine]
-   [wine-basic-info wine]])
+    {:component "h3"
+     :sx {:fontFamily theme/serif
+          :fontSize "1.15rem"
+          :fontWeight 700
+          :lineHeight 1.2
+          :mt 0.5}} (:producer wine)]
+   [typography
+    {:sx {:fontFamily theme/serif :fontSize "1.05rem" :lineHeight 1.25}}
+    (:name wine)]])
 
 (defn wine-geography-info
   [wine]
@@ -165,8 +166,8 @@
          :py 0.4
          :borderRadius "20px"
          :border "1px solid"
-         :bgcolor "rgba(25,118,210,0.08)"
-         :borderColor "rgba(25,118,210,0.2)"}}
+         :bgcolor "rgba(232,195,200,0.08)"
+         :borderColor "rgba(232,195,200,0.2)"}}
    [typography
     {:sx {:color (get-rating-color rating) :fontWeight "bold" :mr 0.5}}
     (str rating)]
@@ -183,8 +184,7 @@
          :py 0.4
          :borderRadius "20px"
          :border "1px solid"
-         :bgcolor "rgba(0,0,0,0.04)"
-         :borderColor "rgba(0,0,0,0.12)"}}
+         :borderColor "rgba(232,195,200,0.12)"}}
    [typography
     {:sx {:color (get-rating-color rating) :fontWeight "bold" :mr 0.5}}
     (str rating)]
@@ -198,16 +198,17 @@
         external-rating (:average_external_rating wine)]
     (when (or internal-rating external-rating)
       [box {:sx {:display "flex" :alignItems "center"}}
-       [box {:sx {:display "flex" :alignItems "center" :gap 0.5}}
+       [box
+        {:sx {:display "flex" :alignItems "center" :gap 0.5 :flexWrap "wrap"}}
         (when internal-rating [internal-rating-badge internal-rating])
         (when external-rating [external-rating-badge external-rating])]])))
 
 (defn- tasting-window-bg
   [status]
   (case status
-    :too-young "rgba(237,108,2,0.12)"
-    :ready "rgba(46,125,50,0.12)"
-    :too-old "rgba(211,47,47,0.12)"
+    :too-young "rgba(159,180,199,0.12)"
+    :ready "rgba(216,184,99,0.12)"
+    :too-old "rgba(208,138,92,0.12)"
     "transparent"))
 
 (defn wine-tasting-window
@@ -299,7 +300,11 @@
   [box {:sx {:mt 0.5}}
    ;; Top row: drinking window + quantity
    [box
-    {:sx {:display "flex" :justifyContent "space-between" :alignItems "center"}}
+    {:sx {:display "flex"
+          :justifyContent "space-between"
+          :alignItems "center"
+          :flexWrap "wrap"
+          :gap 0.5}}
     ;; Left side: drinking window
     [wine-tasting-window status drink-from-year drink-until-year]
     ;; Right side: quantity
@@ -364,16 +369,13 @@
                     (selected-wine? app-state wine-id))]
     [paper
      {:elevation (if selected? 6 2)
-      :sx (cond-> {:p 1.5 ;; Reduced padding
-                   :mb 2
+      :sx (cond-> {:mb 2
                    :borderRadius 2
                    :position "relative"
                    :overflow "hidden"
                    :transition "transform 0.2s, box-shadow 0.2s"
                    :height "100%"
                    :display "flex"
-                   :flexDirection "column"
-                   :justifyContent "space-between"
                    :borderLeft (str "3px solid "
                                     (wine-style-border-color (:style wine)))
                    :backgroundImage (wine-style-background (:style wine))
@@ -381,16 +383,11 @@
                    ":hover" {:transform "translateY(-2px)" :boxShadow 4}}
             selected? (assoc :border "1px solid rgba(144,202,249,0.65)"))
       :onClick #(nav/go-wine-detail! (:id wine))}
-     [wine-selection-checkbox app-state wine]
-     ;; Wine header with thumbnail and basic info
-     [wine-header app-state wine]
-     ;; Wine details
-     [box {:sx {:mb 0 :mt -1.5}} ;; Added negative margin to pull up
-                                 ;; details
-      [wine-details-grid wine]
-      ;; Bottom section with rating
-      [wine-bottom-info wine]
-      ;; Controls with drinking window, quantity, and verification
+     [wine-selection-checkbox app-state wine] [wine-thumbnail wine]
+     [box
+      {:sx {:flex 1 :minWidth 0 :p 1.5 :display "flex" :flexDirection "column"}}
+      [wine-basic-info wine] [wine-details-grid wine]
+      [box {:sx {:mt "auto"}} [wine-bottom-info wine]]
       [box
        {:onClick (fn [e] (.stopPropagation e)) ;; Prevent card click when
                                                ;; interacting with controls

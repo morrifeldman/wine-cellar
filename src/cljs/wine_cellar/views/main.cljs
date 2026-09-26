@@ -264,12 +264,7 @@
                         (api/fetch-model-info app-state))
          :size "large"
          :color "primary"
-         :sx {:border "1px solid"
-              :border-color "primary.main"
-              :opacity 0.8
-              :borderRadius 1
-              "&:hover" {:opacity 1 :bgcolor "rgba(232,195,200,0.08)"}}}
-        [more-vert]]
+         :aria-label "More"} [more-vert]]
        [menu
         {:anchor-el @anchor-el
          :open (boolean @anchor-el)
@@ -334,13 +329,8 @@
      {:on-click #(nav/go-bar!)
       :size "large"
       :color "primary"
-      :sx {:border "1px solid"
-           :border-color "primary.main"
-           :opacity (if active? 1 0.8)
-           :bgcolor (when active? "rgba(232,195,200,0.12)")
-           :borderRadius 1
-           "&:hover" {:opacity 1 :bgcolor "rgba(232,195,200,0.08)"}}}
-     [local-bar]]))
+      :aria-label "Bar"
+      :sx {:bgcolor (when active? "rgba(232,195,200,0.12)")}} [local-bar]]))
 
 (defn top-controls
   [app-state]
@@ -348,9 +338,7 @@
    {:sx {:display "flex"
          :justifyContent "space-between"
          :alignItems "center"
-         :mb 3
-         :pb 2
-         :borderBottom "1px solid rgba(0,0,0,0.08)"}}
+         :mb {:xs 2 :sm 3}}}
    ;; Left side
    [new-wine-or-list app-state]
    ;; Right side
@@ -384,7 +372,14 @@
 (defn main-app
   [app-state]
   (let [state @app-state]
-    [box {:sx {:p 3 :maxWidth "1200px" :mx "auto"}}
+    ;; The extra bottom padding keeps the last card clear of the chat
+    ;; button.
+    [box
+     {:sx {:px {:xs 2 :sm 3}
+           :pt {:xs 1.5 :sm 3}
+           :pb 10
+           :maxWidth "1200px"
+           :mx "auto"}}
      (when-let [{:keys [version]} (:update-available state)]
        [paper
         {:elevation 3
