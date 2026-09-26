@@ -42,9 +42,10 @@
               ;; tawny once it's fading.
               :drinkingWindow
               {:tooYoung "#9FB4C7" :ready "#D8B863" :tooOld "#D08A5C"}}
-    ;; Typography improvements - more compact. Alegreya Sans has a smaller
-    ;; x-height than Roboto, so body sizes sit a step above what they were
-    ;; to read at the same size.
+    ;; Alegreya Sans has a small x-height, so body text needs a size or two
+    ;; above what Roboto did to read the same, more so on a phone held at
+    ;; arm's length. Headings are left alone: the serif already carries
+    ;; them.
     :typography {:fontFamily sans
                  :h1 {:fontFamily serif :fontWeight 400 :fontSize "2.25rem"}
                  :h2 {:fontFamily serif :fontWeight 400 :fontSize "1.75rem"}
@@ -54,8 +55,12 @@
                  :h6 {:fontFamily serif :fontWeight 500 :fontSize "1.1rem"}
                  :subtitle1 {:fontSize "1rem" :fontWeight 500}
                  :subtitle2 {:fontSize "0.9rem" :fontWeight 500}
-                 :body1 {:fontSize "1rem"}
-                 :body2 {:fontSize "0.9rem"}
+                 :body1 {:fontSize "1.125rem"
+                         :lineHeight 1.55
+                         "@media (min-width:600px)" {:fontSize "1.0625rem"}}
+                 :body2 {:fontSize "1rem"
+                         :lineHeight 1.5
+                         "@media (min-width:600px)" {:fontSize "0.95rem"}}
                  :button {:fontSize "0.95rem"}}
     :components
     {:MuiTypography {:styleOverrides {;; Define default styles for each

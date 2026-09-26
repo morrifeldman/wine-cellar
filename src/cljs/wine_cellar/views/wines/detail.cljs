@@ -1232,7 +1232,8 @@
         {:variant "body2" :color "text.secondary" :fontStyle "italic"}
         "No inventory history recorded yet."]
        [box {:sx {:overflow-x "auto"}}
-        [table {:size "small" :sx {:width "100%" "& td" {:borderBottom "none"}}}
+        [table
+         {:size "small" :sx {:width "100%" "& td" {:borderBottom "none" :px 1}}}
          [table-body
           (for [record history]
             ^{:key (:id record)}
