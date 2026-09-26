@@ -346,7 +346,9 @@
             :empty-text "Add tasting notes, impressions..."
             :text-field-props {:multiline true :rows 2}}]]
          ;; Used-in section — recipes that call for this spirit
-         (let [used-in (filter #(matching/recipe-matches-spirit? % spirit)
+         (let [used-in (filter #(matching/recipe-matches-spirit? %
+                                                                 spirit
+                                                                 (:spirits bar))
                                (:recipes bar))]
            (when (seq used-in)
              [box

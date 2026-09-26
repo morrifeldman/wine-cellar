@@ -91,35 +91,37 @@
 ;; some other member of the category does not satisfy it.
 (def ^:private specific-categories common/grab-bag-spirit-categories)
 
+(defn- spec-covers?
+  "True when a spirit fits a spec by category (and subcategory when the spec
+   names one). For specific-categories, bottles aren't interchangeable, so a
+   subcategory-less spec covers nothing."
+  [{:keys [category subcategory]} spirit]
+  (and (same-category? (:category spirit) category)
+       (if (str/blank? subcategory)
+         (not (specific-categories (str/lower-case category)))
+         (same-subcategory? (:subcategory spirit) subcategory))))
+
+(defn- named-bottle
+  "The spirit a spec links by :spirit_id, or nil when unset or dangling."
+  [spirits {:keys [spirit_id]}]
+  (when spirit_id (some #(when (= (:id %) spirit_id) %) spirits)))
+
 (defn bottles-for-spec
   "Bottles for an ingredient's spirit spec, in precedence tiers:
    :exact = the spirit whose :id = the spec's :spirit_id (the precise product
             link, surfaced even when out of stock so the link is never hidden);
-   :sub   = owned (quantity>0) bottles in the same category (+ same subcategory
-            when the spec names one).
+   :sub   = owned (quantity>0) bottles the spec covers by category.
    No cross-subcategory substitutes are offered: subcategories are often
    different ingredients that share a category (sweet vs dry vermouth), not
    interchangeable styles — the category chip is the browse-and-judge path.
-   When the spec names a specific bottle (:spirit_id), only that bottle is
-   returned (in :exact). When no specific bottle is named, the
-   category/subcategory IS the spec, so owned matching bottles fill :sub.
-   For specific-categories, bottles aren't interchangeable, so a
-   subcategory-less spec matches nothing by category alone."
-  [spirits {:keys [category subcategory spirit_id]}]
-  (let [owned? (fn [s] (pos? (or (:quantity s) 1)))
-        exact (when spirit_id (filterv #(= (:id %) spirit_id) spirits))
-        specific? (specific-categories (some-> category
-                                               str/lower-case))]
-    (if (seq exact)
-      {:exact exact :sub []}
-      (let [in-cat (filter #(and (same-category? (:category %) category)
-                                 (owned? %))
-                           spirits)
-            sub (if (str/blank? subcategory)
-                  (if specific? [] (vec in-cat))
-                  (filterv #(same-subcategory? (:subcategory %) subcategory)
-                           in-cat))]
-        {:exact [] :sub sub}))))
+   When the spec names a specific bottle, only that bottle is returned. When
+   no specific bottle is named, the category/subcategory IS the spec."
+  [spirits spec]
+  (if-let [named (named-bottle spirits spec)]
+    {:exact [named] :sub []}
+    {:exact []
+     :sub (filterv #(and (spec-covers? spec %) (pos? (or (:quantity %) 1)))
+                   spirits)}))
 
 ;; --- Makeability ("can I make this?") ---
 
@@ -283,14 +285,13 @@
   (:makeable? (recipe-match-report recipe spirits inventory-items)))
 
 (defn recipe-matches-spirit?
-  "True when any of the recipe's spirit specs links this spirit directly by
-   :spirit_id, or matches its category (and subcategory when the spec names
-   one; a category-only spec matches any bottle of that category)."
-  [recipe spirit]
-  (boolean (some (fn [{:keys [category subcategory spirit_id]}]
-                   (or (and spirit_id (= spirit_id (:id spirit)))
-                       (and (same-category? category (:category spirit))
-                            (or (str/blank? subcategory)
-                                (same-subcategory? subcategory
-                                                   (:subcategory spirit))))))
+  "True when any of the recipe's spirit specs would pour this spirit — the
+   reverse of bottles-for-spec. A spec naming a specific bottle matches only
+   that bottle, so a Cynar recipe doesn't claim every amaro. Out-of-stock
+   bottles still match: the recipe calls for them even if you can't pour."
+  [recipe spirit spirits]
+  (boolean (some (fn [spec]
+                   (if-let [named (named-bottle spirits spec)]
+                     (= (:id named) (:id spirit))
+                     (spec-covers? spec spirit)))
                  (recipe-spirit-specs recipe))))
