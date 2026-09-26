@@ -1,6 +1,7 @@
 (ns wine-cellar.views.components.image-upload
   (:require [reagent.core :as r]
             [clojure.string :as str]
+            [wine-cellar.common :as common]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.typography :refer [typography]]
@@ -37,7 +38,7 @@
           (fn []
             (let [canvas (js/document.createElement "canvas")
                   ctx (.getContext canvas "2d")
-                  max-thumb-size 100
+                  max-thumb-size common/label-thumbnail-size
                   width (.-width img)
                   height (.-height img)
                   scale (min (/ max-thumb-size width) (/ max-thumb-size height))
@@ -46,7 +47,7 @@
               (set! (.-width canvas) new-width)
               (set! (.-height canvas) new-height)
               (.drawImage ctx img 0 0 new-width new-height)
-              (callback (.toDataURL canvas "image/jpeg" 0.7)))))
+              (callback (.toDataURL canvas "image/jpeg" 0.8)))))
     (set! (.-src img) data-url)))
 
 ;; Camera capture component

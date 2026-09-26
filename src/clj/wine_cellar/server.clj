@@ -8,12 +8,17 @@
             [wine-cellar.auth.config :as auth-config]
             [wine-cellar.config-utils :refer [backend-port production?]]
             [wine-cellar.db.setup :as db-setup]
+            [wine-cellar.db.thumbnails :as thumbnails]
             [wine-cellar.routes :refer [app]]
             [wine-cellar.scheduler]))
 
 (defn start-server!
   [port]
   (db-setup/initialize-db)
+  ;; Off the startup path: decoding a cellar's worth of full-size photos
+  ;; takes a while, and the list works with the old thumbnails in the
+  ;; meantime.
+  (future (thumbnails/rebuild-undersized-thumbnails!))
   ;; Add stdout tap handler for production logging (coexists with Portal in
   ;; dev)
   (when production? (add-tap #(println "tap>" (pr-str %))))

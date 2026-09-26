@@ -12,6 +12,12 @@
     :gemini "Gemini"
     nil "..."))
 
+(def label-thumbnail-size
+  "Longest side, in pixels, of the label thumbnail the wine list shows. The card
+   stretches it down the whole card, which on a phone is several hundred device
+   pixels tall, so anything much smaller turns to mush."
+  480)
+
 (def spirit-categories
   "Canonical spirit category list, shared by the bar UI, the recipe
    extraction tool schema, and the spirit label analysis prompt."
