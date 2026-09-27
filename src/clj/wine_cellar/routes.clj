@@ -101,6 +101,7 @@
 (s/def ::conversation-history vector?)
 (s/def ::image (s/nilable string?))
 (s/def ::provider (s/and keyword? common/ai-providers))
+(s/def ::effort (set common/ai-effort-levels))
 (s/def ::title (s/nilable string?))
 (s/def ::wine_search_state (s/nilable map?))
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
@@ -383,7 +384,7 @@
                                        :opt-un [::message ::wine-ids
                                                 ::conversation-history ::image
                                                 ::include-visible-wines?
-                                                ::include-bar?])}
+                                                ::include-bar? ::effort])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
    ["/conversations"

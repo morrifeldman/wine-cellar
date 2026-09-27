@@ -45,3 +45,28 @@
         :size size
         :on-click #(toggle-provider! app-state)
         :sx (merge base-sx sx)} display-label]])))
+
+(defn- next-effort
+  [current]
+  (let [levels common/ai-effort-levels
+        idx (.indexOf levels current)]
+    (get levels (mod (inc idx) (count levels)))))
+
+(defn effort-toggle-button
+  "Only Claude takes an effort setting, so the button hides for other providers."
+  [app-state]
+  (let [{:keys [provider effort]} (:ai @app-state)]
+    (when (and (= :anthropic provider) effort)
+      [tooltip {:title "How hard Claude thinks before answering"}
+       [button
+        {:variant "outlined"
+         :size "small"
+         :on-click #(swap! app-state update-in [:ai :effort] next-effort)
+         :sx {:textTransform "none"
+              :fontSize "0.875rem"
+              :px 1.5
+              :py 0.25
+              :borderColor "divider"
+              :color "text.primary"
+              :height "28px"
+              :lineHeight 1.2}} (str "Effort: " effort)]])))

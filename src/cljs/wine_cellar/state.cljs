@@ -41,6 +41,7 @@
    :verbose-logging
    {:enabled? false :loading? false :updating? false :error nil}
    :ai {:provider nil ; Will be set from backend default
+        :effort nil ; Claude only; also set from backend default
         :models nil}
    :chat {:open? false
           :messages []

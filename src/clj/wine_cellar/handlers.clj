@@ -598,7 +598,7 @@
     (let [body (-> request
                    :parameters
                    :body)
-          {:keys [wine-ids conversation-history image provider
+          {:keys [wine-ids conversation-history image provider effort
                   include-visible-wines? include-bar?]}
           body
           include? (if (contains? body :include-visible-wines?)
@@ -643,7 +643,8 @@
                                                  (vec enriched-wines)
                                                  [])}
                         include-bar? (assoc :bar bar)
-                        (seq web-content) (assoc :web-content web-content))
+                        (seq web-content) (assoc :web-content web-content)
+                        effort (assoc :effort effort))
               response
               (ai/chat-about-wines provider context conversation-history image)]
           (response/response response))))

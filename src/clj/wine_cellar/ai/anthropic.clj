@@ -97,28 +97,28 @@
                 :bottle_format :alcohol_percentage]
      :additionalProperties false}))
 
-(def ^:private models-without-temperature
-  "Anthropic dropped the temperature parameter with Opus 4.7, and every model
-   released since rejects it outright. Matched as substrings of the model name."
-  ["opus-4-7" "opus-4-8" "opus-5" "sonnet-5" "fable-5" "mythos-5"])
+(defstate default-effort :start (config-utils/ai-model :anthropic :effort))
 
-(defn- temperature-supported?
-  "These models 400 with \"`temperature` is deprecated for this model\" when
-   the parameter is sent, so we drop it rather than fail the request."
+(defn- haiku?
+  "Haiku 4.5 is the odd one out among the models we use: it still takes
+   temperature but rejects effort, while every newer model is the reverse."
   [model-name]
-  (not (and model-name
-            (some #(str/includes? model-name %) models-without-temperature))))
+  (str/includes? (str model-name) "haiku"))
 
 (defn- build-request-body
-  [{:keys [system messages tools output_config max_tokens temperature metadata
-           stop_sequences]} model-override]
+  "max_tokens is generous because the newer models always think before
+   answering, and that thinking counts against the limit."
+  [{:keys [system messages tools output_config max_tokens temperature effort
+           metadata stop_sequences]} model-override]
   (-> {:model model-override :max_tokens (or max_tokens 16000)}
       (cond-> system (assoc :system system))
       (assoc :messages messages)
       (cond-> (seq tools) (assoc :tools tools))
       (cond-> output_config (assoc :output_config output_config))
-      (cond-> (and temperature (temperature-supported? model-override))
-              (assoc :temperature temperature))
+      (cond-> (not (haiku? model-override)) (assoc-in [:output_config :effort]
+                                             (or effort default-effort)))
+      (cond-> (and temperature (haiku? model-override)) (assoc :temperature
+                                                               temperature))
       (cond-> metadata (assoc :metadata metadata))
       (cond-> (seq stop_sequences) (assoc :stop_sequences stop_sequences))))
 
@@ -189,29 +189,56 @@
                    (inc resumes)))
         response))))
 
+(defn- bad-reply
+  "The API answered 200 but the reply is unusable. The explicit :status keeps
+   the handler from passing that 200 through to the browser."
+  [message parsed]
+  (ex-info message {:status 502 :error message :parsed parsed}))
+
+(defn- check-stop-reason
+  "Refusals and length cut-offs both arrive as ordinary 200 replies, so without
+   this a half-finished answer would look complete."
+  [{:keys [stop_reason stop_details] :as parsed}]
+  (case stop_reason
+    "refusal" (let [{:keys [category explanation]} stop_details]
+                (throw (bad-reply
+                        (str "Claude declined to answer"
+                             (when category (str " (flagged as " category ")"))
+                             (when explanation (str ": " explanation)))
+                        parsed)))
+    "max_tokens" (throw (bad-reply
+                         "Claude's reply ran out of room before it finished"
+                         parsed))
+    "pause_turn" (throw (bad-reply
+                         "Claude's web lookups took too many rounds to finish"
+                         parsed))
+    nil))
+
 (defn call-anthropic-api
   "Makes a request to the Anthropic API with messages array and optional JSON parsing"
   ([request] (call-anthropic-api request false))
   ([request parse-json?] (call-anthropic-api request parse-json? model))
   ([request parse-json? model-override]
-   (let [{:keys [parsed] :as response-with-parsed}
-         (run-turn (build-request-body request model-override))
+   (let [{:keys [parsed]} (run-turn (build-request-body request model-override))
+         _ (check-stop-reason parsed)
          content (:content parsed)]
      (if parse-json?
-       (try (if-let [parsed-response (parse-json-content content)]
-              (do (tap> ["anthropic-parsed-response" parsed-response])
-                  parsed-response)
-              (throw (ex-info "Anthropic response missing JSON payload"
-                              response-with-parsed)))
-            (catch Exception e
-              (throw (ex-info "Failed to parse AI response as JSON"
-                              response-with-parsed
-                              e))))
+       (let [parsed-response
+             (try (parse-json-content content)
+                  (catch Exception e
+                    (throw (ex-info "Claude's reply wasn't valid JSON"
+                                    {:status 502
+                                     :error "Claude's reply wasn't valid JSON"
+                                     :parsed parsed}
+                                    e))))]
+         (when-not parsed-response
+           (throw (bad-reply "Claude's reply had no JSON in it" parsed)))
+         (tap> ["anthropic-parsed-response" parsed-response])
+         parsed-response)
        (let [text-content (extract-text-content content)]
-         (if (seq (str text-content))
+         (if (seq text-content)
            text-content
-           (throw (ex-info "Anthropic response missing assistant text"
-                           response-with-parsed))))))))
+           (throw (bad-reply "Claude's reply had no text in it" parsed))))))))
 
 (defn suggest-drinking-window
   "Suggests an optimal drinking window for a wine using Anthropic's Claude API.
@@ -221,8 +248,7 @@
   (assert (string? user) "Drinking-window prompt requires :user text")
   (let [request {:system system
                  :messages [{:role "user" :content [{:type "text" :text user}]}]
-                 :output_config (json-output drinking-window-schema)
-                 :max_tokens 4000}]
+                 :output_config (json-output drinking-window-schema)}]
     (call-anthropic-api request true)))
 
 (defn analyze-wine-label
@@ -234,8 +260,7 @@
           "Label analysis prompt requires :user-content vector")
   (let [request {:system system
                  :messages [{:role "user" :content (vec user-content)}]
-                 :output_config (json-output label-analysis-schema)
-                 :max_tokens 4000}]
+                 :output_config (json-output label-analysis-schema)}]
     (call-anthropic-api request true)))
 
 (def spirit-label-analysis-schema
@@ -285,8 +310,7 @@
           "Spirit label analysis prompt requires :user-content vector")
   (let [request {:system system
                  :messages [{:role "user" :content (vec user-content)}]
-                 :output_config (json-output spirit-label-analysis-schema)
-                 :max_tokens 4000}]
+                 :output_config (json-output spirit-label-analysis-schema)}]
     (call-anthropic-api request true)))
 
 (def web-fetch-tool
@@ -305,7 +329,7 @@
 (defn chat-about-wines
   "Chat with AI about wine collection and wine-related topics with conversation history.
    Expects {:system-text ... :context-text ... :messages [...]} prepared by ai.core."
-  [{:keys [system-text context-text messages]}]
+  [{:keys [system-text context-text messages effort]}]
   (assert (string? system-text) "Chat prompt requires :system-text string")
   (assert (string? context-text) "Chat prompt requires :context-text string")
   (assert (vector? messages) "Chat prompt requires :messages vector")
@@ -315,7 +339,7 @@
           {:type "text" :text context-text :cache_control {:type "ephemeral"}}]
          :messages messages
          :tools [web-search-tool web-fetch-tool]
-         :max_tokens 16000}]
+         :effort effort}]
     (call-anthropic-api request false)))
 
 (defn generate-wine-summary
@@ -324,9 +348,7 @@
   [{:keys [system user]}]
   (assert (string? system) "Wine-summary prompt requires :system text")
   (assert (string? user) "Wine-summary prompt requires :user text")
-  (let [request {:system system
-                 :messages [{:role "user" :content user}]
-                 :max_tokens 8000}]
+  (let [request {:system system :messages [{:role "user" :content user}]}]
     (call-anthropic-api request false)))
 
 (defn generate-conversation-title
@@ -345,9 +367,8 @@
   (assert (string? system) "Report prompt requires :system text")
   (assert (string? user) "Report prompt requires :user text")
   (let [request {:system system
-                 :messages [{:role "user" :content [{:type "text" :text user}]}]
-                 :max_tokens 8000
-                 :temperature 0.7}]
+                 :messages [{:role "user"
+                             :content [{:type "text" :text user}]}]}]
     (call-anthropic-api request false)))
 
 (def spirit-categories common/spirit-categories)
@@ -467,8 +488,7 @@
                         text
                         tag-hint))
          request {:messages [{:role "user" :content content}]
-                  :output_config (json-output extract-recipe-schema)
-                  :max_tokens 16000}]
+                  :output_config (json-output extract-recipe-schema)}]
      (call-anthropic-api request true))))
 
 (def resolve-links-schema
@@ -594,6 +614,5 @@
                  "\n\n=== Bar Inventory ===\n"
                  bar-text)
         request {:messages [{:role "user" :content content}]
-                 :output_config (json-output resolve-links-schema)
-                 :max_tokens 8000}]
+                 :output_config (json-output resolve-links-schema)}]
     (call-anthropic-api request true)))

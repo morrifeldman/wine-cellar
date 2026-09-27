@@ -23,7 +23,8 @@
 (defn chat-about-wines
   [provider context conversation-history image]
   {:pre [(map? context)]}
-  (let [{:keys [summary selected-wines web-content bar chat-mode]} context
+  (let [{:keys [summary selected-wines web-content bar chat-mode effort]}
+        context
         bar-mode? (= :bar chat-mode)
         prompt {:system-text (if bar-mode?
                                (prompts/bar-system-instructions)
@@ -36,7 +37,8 @@
                                   :web-content web-content
                                   :bar bar}))
                 :messages (prompts/conversation-messages conversation-history
-                                                         image)}]
+                                                         image)
+                :effort effort}]
     (case provider
       :openai (openai/chat-about-wines prompt)
       :anthropic (anthropic/chat-about-wines prompt)
@@ -140,7 +142,8 @@
    :small-models {:anthropic anthropic/small-model
                   :openai openai/small-model
                   :gemini gemini/small-model}
-   :default-provider default-provider})
+   :default-provider default-provider
+   :default-effort anthropic/default-effort})
 
 ;; TODO: add provider-aware wrappers for any remaining Anthropics-only helpers
 ;; as we

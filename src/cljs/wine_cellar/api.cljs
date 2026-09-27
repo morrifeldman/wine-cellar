@@ -141,15 +141,17 @@
 
 (defn fetch-model-info
   [app-state]
-  (go (let [result (<! (GET "/api/admin/model-info"
-                            "Failed to fetch model info"))]
-        (when (:success result)
-          (let [data (:data result)
-                default-provider (keyword (:default-provider data))]
-            (swap! app-state assoc-in [:ai :models] (:models data))
-            ;; Set default provider if none is currently set
-            (when-not (get-in @app-state [:ai :provider])
-              (swap! app-state assoc-in [:ai :provider] default-provider)))))))
+  (go
+   (let [result (<! (GET "/api/admin/model-info" "Failed to fetch model info"))]
+     (when (:success result)
+       (let [data (:data result)
+             default-provider (keyword (:default-provider data))]
+         (swap! app-state assoc-in [:ai :models] (:models data))
+         ;; Set default provider if none is currently set
+         (when-not (get-in @app-state [:ai :provider])
+           (swap! app-state assoc-in [:ai :provider] default-provider))
+         (when-not (get-in @app-state [:ai :effort])
+           (swap! app-state assoc-in [:ai :effort] (:default-effort data))))))))
 
 ;; Device admin endpoints
 
@@ -1121,6 +1123,7 @@
   ([app-state message wines include? conversation-history image callback]
    (let
      [provider (get-in @app-state [:ai :provider])
+      effort (get-in @app-state [:ai :effort])
       include-bar? (= :bar (get @app-state :view))
       wine-ids (->> wines
                     (map :id)
@@ -1130,6 +1133,7 @@
                        :include-visible-wines? include?
                        :include-bar? include-bar?
                        :provider provider}
+                (and effort (= :anthropic provider)) (assoc :effort effort)
                 (seq message) (assoc :message message)
                 (and include? (seq wine-ids)) (assoc :wine-ids wine-ids)
                 image (assoc :image image))
@@ -1151,7 +1155,9 @@
                                "Failed to send chat message")]
                    (if (:success result)
                      (callback (:data result))
-                     (callback fallback-msg))))))
+                     (callback (if-let [error (:error result)]
+                                 (str "Sorry, that didn't work: " error)
+                                 fallback-msg)))))))
          ;; Return a cancel function that closes the request channel
          (fn []
            (js/console.log "Cancelling chat request...")

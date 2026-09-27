@@ -3,6 +3,10 @@
 
 (def ai-providers #{:anthropic :openai :gemini})
 
+(def ai-effort-levels
+  "Claude's thinking-effort settings, from quickest to most thorough."
+  ["low" "medium" "high" "xhigh" "max"])
+
 (defn provider-label
   "Get display label for provider"
   [provider]

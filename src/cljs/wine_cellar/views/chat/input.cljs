@@ -127,7 +127,9 @@
                                          .-files
                                          (aget 0))]
                        (handle-clipboard-image file attached-image))}]
-       [ai-toggle/provider-toggle-button app-state {:sx {:mr "auto"}}]
+       [box {:sx {:display "flex" :gap 1 :mr "auto"}}
+        [ai-toggle/provider-toggle-button app-state]
+        [ai-toggle/effort-toggle-button app-state]]
        (if @disabled?
          [sending-buttons on-cancel-request]
          [idle-buttons on-send message-ref app-state on-image-capture
