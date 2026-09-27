@@ -15,99 +15,87 @@
 
 (defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
 
-(def drinking-window-tool-name "record_drinking_window")
-
-(def drinking-window-tool
+(def drinking-window-schema
+  "Matches wine-cellar.ai.prompts/drinking-window-system-prompt."
   (let
     [confidence-desc
      "Confidence level for this assessment; must be one of \"high\", \"medium\", or \"low\" per the drinking-window prompt."
      reasoning-desc
      "Brief justification focusing on the wine's peak-quality years and mentioning the broader enjoyable window."]
-    {:name drinking-window-tool-name
-     :description
-     "Structured schema matching wine-cellar.ai.prompts/drinking-window-system-prompt."
-     :input_schema
-     {:type "object"
-      :properties
-      {:drink_from_year
-       {:type "integer"
-        :description
-        "Year the optimal drinking window opens (the wine first reaches peak quality). May be a past year for already-mature wines; do not clamp to the current year."}
-       :drink_until_year
-       {:type "integer"
-        :description
-        "Last year the wine stays at peak quality (not merely drinkable). May be at or before the current year for wines already in decline."}
-       :confidence {:type "string" :description confidence-desc}
-       :reasoning {:type "string" :description reasoning-desc}}
-      :required [:drink_from_year :drink_until_year :confidence :reasoning]
-      :additionalProperties false}}))
+    {:type "object"
+     :properties
+     {:drink_from_year
+      {:type "integer"
+       :description
+       "Year the optimal drinking window opens (the wine first reaches peak quality). May be a past year for already-mature wines; do not clamp to the current year."}
+      :drink_until_year
+      {:type "integer"
+       :description
+       "Last year the wine stays at peak quality (not merely drinkable). May be at or before the current year for wines already in decline."}
+      :confidence {:type "string" :description confidence-desc}
+      :reasoning {:type "string" :description reasoning-desc}}
+     :required [:drink_from_year :drink_until_year :confidence :reasoning]
+     :additionalProperties false}))
 
-(def label-analysis-tool-name "record_wine_label")
-
-(def label-analysis-tool
+(def label-analysis-schema
+  "Matches wine-cellar.ai.prompts/label-analysis-system-prompt."
   (let [style-options (str/join ", " (sort common/wine-styles))
         designation-options (str/join ", " (sort common/wine-designations))
         format-options (str/join ", " common/bottle-formats)
         null-note
         "Return null when the label does not provide this information."]
-    {:name label-analysis-tool-name
-     :description
-     "Structured schema matching wine-cellar.ai.prompts/label-analysis-system-prompt."
-     :input_schema
-     {:type "object"
-      :properties
-      {:producer {:type ["string" "null"]
-                  :description (str "Producer or winery name. " null-note)}
-       :name {:type ["string" "null"]
-              :description (str
-                            "Specific wine name if distinct from the producer. "
-                            null-note)}
-       :vintage {:type ["integer" "null"]
-                 :description
-                 (str "Vintage year as an integer, or null for non-vintage. "
-                      null-note)}
-       :country {:type ["string" "null"]
-                 :description (str "Country of origin printed on the label. "
-                                   null-note)}
-       :region {:type ["string" "null"]
+    {:type "object"
+     :properties
+     {:producer {:type ["string" "null"]
+                 :description (str "Producer or winery name. " null-note)}
+      :name {:type ["string" "null"]
+             :description (str
+                           "Specific wine name if distinct from the producer. "
+                           null-note)}
+      :vintage {:type ["integer" "null"]
                 :description
-                (str (:region common/field-descriptions) " " null-note)}
-       :appellation {:type ["string" "null"]
-                     :description (str (:appellation common/field-descriptions)
-                                       " "
-                                       null-note)}
-       :appellation_tier
-       {:type ["string" "null"]
-        :enum (conj (vec (sort common/appellation-tiers)) nil)
-        :description
-        (str (:appellation_tier common/field-descriptions) " " null-note)}
-       :vineyard {:type ["string" "null"]
-                  :description
-                  (str (:vineyard common/field-descriptions) " " null-note)}
-       :classification
-       {:type ["string" "null"]
-        :description
-        (str (:classification common/field-descriptions) " " null-note)}
-       :style {:type ["string" "null"]
-               :description (str "Wine style wording; align with: "
-                                 style-options
-                                 ". " null-note)}
-       :designation {:type ["string" "null"]
-                     :description (str (:designation common/field-descriptions)
-                                       " Must be one of: " designation-options
-                                       ". " null-note)}
-       :bottle_format {:type ["string" "null"]
-                       :description (str "Bottle format/size. Must be one of: "
-                                         format-options
-                                         ". " null-note)}
-       :alcohol_percentage {:type ["number" "null"]
-                            :description
-                            (str "Alcohol percentage as a number (e.g. 12.5). "
-                                 null-note)}}
-      :required [:producer :name :vintage :country :region :appellation
-                 :appellation_tier :vineyard :classification :style :designation
-                 :bottle_format :alcohol_percentage]
-      :additionalProperties false}}))
+                (str "Vintage year as an integer, or null for non-vintage. "
+                     null-note)}
+      :country {:type ["string" "null"]
+                :description (str "Country of origin printed on the label. "
+                                  null-note)}
+      :region {:type ["string" "null"]
+               :description
+               (str (:region common/field-descriptions) " " null-note)}
+      :appellation {:type ["string" "null"]
+                    :description (str (:appellation common/field-descriptions)
+                                      " "
+                                      null-note)}
+      :appellation_tier
+      {:enum (conj (vec (sort common/appellation-tiers)) nil)
+       :description
+       (str (:appellation_tier common/field-descriptions) " " null-note)}
+      :vineyard {:type ["string" "null"]
+                 :description
+                 (str (:vineyard common/field-descriptions) " " null-note)}
+      :classification
+      {:type ["string" "null"]
+       :description
+       (str (:classification common/field-descriptions) " " null-note)}
+      :style {:type ["string" "null"]
+              :description (str "Wine style wording; align with: " style-options
+                                ". " null-note)}
+      :designation {:type ["string" "null"]
+                    :description (str (:designation common/field-descriptions)
+                                      " Must be one of: " designation-options
+                                      ". " null-note)}
+      :bottle_format {:type ["string" "null"]
+                      :description (str "Bottle format/size. Must be one of: "
+                                        format-options
+                                        ". " null-note)}
+      :alcohol_percentage {:type ["number" "null"]
+                           :description
+                           (str "Alcohol percentage as a number (e.g. 12.5). "
+                                null-note)}}
+     :required [:producer :name :vintage :country :region :appellation
+                :appellation_tier :vineyard :classification :style :designation
+                :bottle_format :alcohol_percentage]
+     :additionalProperties false}))
 
 (def ^:private models-without-temperature
   "Anthropic dropped the temperature parameter with Opus 4.7, and every model
@@ -122,13 +110,13 @@
             (some #(str/includes? model-name %) models-without-temperature))))
 
 (defn- build-request-body
-  [{:keys [system messages tools tool_choice max_tokens temperature metadata
+  [{:keys [system messages tools output_config max_tokens temperature metadata
            stop_sequences]} model-override]
   (-> {:model model-override :max_tokens (or max_tokens 16000)}
       (cond-> system (assoc :system system))
       (assoc :messages messages)
       (cond-> (seq tools) (assoc :tools tools))
-      (cond-> tool_choice (assoc :tool_choice tool_choice))
+      (cond-> output_config (assoc :output_config output_config))
       (cond-> (and temperature (temperature-supported? model-override))
               (assoc :temperature temperature))
       (cond-> metadata (assoc :metadata metadata))
@@ -141,12 +129,16 @@
        (remove str/blank?)
        (str/join "\n\n")))
 
+(defn- json-output
+  "Constrains the reply to JSON matching schema. Newer models such as Opus 5.5
+   reject a forced tool call, which is how we used to get structured data."
+  [schema]
+  {:format {:type "json_schema" :schema schema}})
+
 (defn- parse-json-content
   [content]
-  (if-let [tool-use (some #(when (= "tool_use" (:type %)) %) content)]
-    (:input tool-use)
-    (when-let [text (extract-text-content content)]
-      (json/read-value text json/keyword-keys-object-mapper))))
+  (when-let [text (not-empty (extract-text-content content))]
+    (json/read-value text json/keyword-keys-object-mapper)))
 
 (defn- post-anthropic
   "Sends one request to the Messages API and returns the http-kit response with
@@ -229,8 +221,7 @@
   (assert (string? user) "Drinking-window prompt requires :user text")
   (let [request {:system system
                  :messages [{:role "user" :content [{:type "text" :text user}]}]
-                 :tools [drinking-window-tool]
-                 :tool_choice {:type "tool" :name drinking-window-tool-name}
+                 :output_config (json-output drinking-window-schema)
                  :max_tokens 4000}]
     (call-anthropic-api request true)))
 
@@ -243,55 +234,47 @@
           "Label analysis prompt requires :user-content vector")
   (let [request {:system system
                  :messages [{:role "user" :content (vec user-content)}]
-                 :tools [label-analysis-tool]
-                 :tool_choice {:type "tool" :name label-analysis-tool-name}
+                 :output_config (json-output label-analysis-schema)
                  :max_tokens 4000}]
     (call-anthropic-api request true)))
 
-(def spirit-label-analysis-tool-name "record_spirit_label")
-
-(def spirit-label-analysis-tool
+(def spirit-label-analysis-schema
   (let [categories ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy"
                     "liqueur" "other"]
         null-note
         "Return null when the label does not provide this information."]
-    {:name spirit-label-analysis-tool-name
-     :description "Structured schema for spirit label extraction."
-     :input_schema
-     {:type "object"
-      :properties
-      {:name {:type ["string" "null"]
-              :description (str "Full spirit name (brand + expression). "
-                                null-note)}
-       :category {:type ["string" "null"]
-                  :enum (conj (vec categories) nil)
-                  :description (str "Spirit type. Must be one of: "
-                                    (str/join ", " categories)
-                                    ". " null-note)}
-       :subcategory {:type ["string" "null"]
-                     :description
-                     (str "More specific type (e.g. \"bourbon\", \"rye\", "
-                          "\"single malt\", \"reposado\", \"amaro\"). "
-                          null-note)}
-       :distillery {:type ["string" "null"]
-                    :description (str "Producer or distillery name. "
-                                      null-note)}
-       :country {:type ["string" "null"]
-                 :description (str "Country of origin. " null-note)}
-       :region {:type ["string" "null"]
-                :description (str
-                              "Region of production (e.g. Speyside, Jalisco). "
-                              null-note)}
-       :age_statement {:type ["string" "null"]
-                       :description (str "Age statement text if present "
-                                         "(e.g. \"12 Year\"). "
-                                         null-note)}
-       :proof {:type ["integer" "null"]
-               :description (str "Proof value as an integer (e.g. 80). "
-                                 null-note)}}
-      :required [:name :category :subcategory :distillery :country :region
-                 :age_statement :proof]
-      :additionalProperties false}}))
+    {:type "object"
+     :properties
+     {:name {:type ["string" "null"]
+             :description (str "Full spirit name (brand + expression). "
+                               null-note)}
+      :category {:enum (conj (vec categories) nil)
+                 :description (str "Spirit type. Must be one of: "
+                                   (str/join ", " categories)
+                                   ". " null-note)}
+      :subcategory {:type ["string" "null"]
+                    :description
+                    (str "More specific type (e.g. \"bourbon\", \"rye\", "
+                         "\"single malt\", \"reposado\", \"amaro\"). "
+                         null-note)}
+      :distillery {:type ["string" "null"]
+                   :description (str "Producer or distillery name. " null-note)}
+      :country {:type ["string" "null"]
+                :description (str "Country of origin. " null-note)}
+      :region {:type ["string" "null"]
+               :description (str
+                             "Region of production (e.g. Speyside, Jalisco). "
+                             null-note)}
+      :age_statement {:type ["string" "null"]
+                      :description (str "Age statement text if present "
+                                        "(e.g. \"12 Year\"). "
+                                        null-note)}
+      :proof {:type ["integer" "null"]
+              :description (str "Proof value as an integer (e.g. 80). "
+                                null-note)}}
+     :required [:name :category :subcategory :distillery :country :region
+                :age_statement :proof]
+     :additionalProperties false}))
 
 (defn analyze-spirit-label
   "Analyzes spirit label images using Anthropic's Claude API.
@@ -302,9 +285,7 @@
           "Spirit label analysis prompt requires :user-content vector")
   (let [request {:system system
                  :messages [{:role "user" :content (vec user-content)}]
-                 :tools [spirit-label-analysis-tool]
-                 :tool_choice {:type "tool"
-                               :name spirit-label-analysis-tool-name}
+                 :output_config (json-output spirit-label-analysis-schema)
                  :max_tokens 4000}]
     (call-anthropic-api request true)))
 
@@ -369,100 +350,96 @@
                  :temperature 0.7}]
     (call-anthropic-api request false)))
 
-(def extract-recipe-tool-name "save_cocktail_recipe")
-
 (def spirit-categories common/spirit-categories)
 
-(def extract-recipe-tool
-  {:name extract-recipe-tool-name
-   :description "Extracts structured cocktail recipe data from text or images."
-   :input_schema
-   {:type "object"
-    :required ["recipes"]
-    :properties
-    {:recipes
-     {:type "array"
-      :items
-      {:type "object"
-       :required ["name" "ingredients"]
-       :properties
-       {:name {:type "string"}
-        :caption {:type "string"
-                  :description
-                  (str "A one-line hook for the recipe card, at most ~12 "
-                       "words — what the drink is and why you'd reach for "
-                       "it (e.g. \"Smoke wrapping around Cynar's earthy "
-                       "bitterness.\"). Always provide it: distill it from "
-                       "the headnote when there is one, otherwise write "
-                       "your own.")}
-        :description {:type "string"
-                      :description
-                      (str "When the source includes a headnote or "
-                           "introductory text about the drink (history, "
-                           "attribution, tasting notes), transcribe it "
-                           "verbatim and in full — do not summarize or "
-                           "truncate it. Omit when the source has none; "
-                           "the caption already covers the one-liner.")}
-        :source {:type "string"
+(def extract-recipe-schema
+  {:type "object"
+   :required ["recipes"]
+   :additionalProperties false
+   :properties
+   {:recipes
+    {:type "array"
+     :items
+     {:type "object"
+      :required ["name" "ingredients"]
+      :additionalProperties false
+      :properties
+      {:name {:type "string"}
+       :caption {:type "string"
                  :description
-                 (str "The publication, book, or site name the recipe comes "
-                      "from, only when it is visible in the source material "
-                      "(e.g. 'Death & Co'); omit otherwise.")}
-        :ingredients
-        {:type "array"
-         :items {:type "object"
-                 :required ["name"]
-                 :properties {:name {:type "string"}
-                              :amount {:type "string"}
-                              :unit {:type "string"}
-                              :garnish {:type "boolean"}}}
-         :description
-         (str
-          "One entry per ingredient. For name, prefer the generic spirit/"
-          "ingredient term over a specific brand when it still makes sense in "
-          "context (e.g. 'bourbon' rather than 'Buffalo Trace', 'London dry "
-          "gin' rather than 'Tanqueray'); keep a brand only when the recipe "
-          "truly depends on that specific bottle. When the source merely "
-          "recommends a brand for a line, keep the generic name here and "
-          "record the recommendation in notes. "
-          "Set garnish to true when the "
-          "ingredient is used only as a garnish (a twist, peel, wheel, "
-          "wedge, sprig, cherry, etc. — anything in a \"Garnish:\" line or "
-          "marked \"to garnish\"); a missing garnish never blocks making the "
-          "drink, so do not flag ingredients that are juiced, muddled, or "
-          "otherwise mixed in.")}
-        :instructions {:type "string"}
-        :notes {:type "string"
+                 (str "A one-line hook for the recipe card, at most ~12 "
+                      "words — what the drink is and why you'd reach for "
+                      "it (e.g. \"Smoke wrapping around Cynar's earthy "
+                      "bitterness.\"). Always provide it: distill it from "
+                      "the headnote when there is one, otherwise write "
+                      "your own.")}
+       :description {:type "string"
+                     :description
+                     (str "When the source includes a headnote or "
+                          "introductory text about the drink (history, "
+                          "attribution, tasting notes), transcribe it "
+                          "verbatim and in full — do not summarize or "
+                          "truncate it. Omit when the source has none; "
+                          "the caption already covers the one-liner.")}
+       :source {:type "string"
                 :description
-                (str "Tips, variations, ratio tweaks, and serving "
-                     "suggestions from the source that aren't part of the "
-                     "core build (e.g. a 'notes' section, substitutions, "
-                     "'if too mellow, bump X'). Also record here any "
-                     "specific bottle/brand recommendations dropped from "
-                     "the generic ingredient names (e.g. 'Del Maguey Vida "
-                     "works well for the mezcal') — downstream linking "
-                     "uses these to mark preferred bottles. Stay faithful "
-                     "to the source; omit when it offers nothing beyond "
-                     "the build.")}
-        :tags {:type "array"
-               :maxItems 4
-               :items {:type "string"}
-               :description (str
-                             "1-3 short, lowercase tags for filtering. "
-                             "Choose only high-signal, reusable tags from "
-                             "these categories: drink family (e.g. sour, "
-                             "old-fashioned, negroni, martini, highball, "
-                             "spritz, tiki, flip) and technique (shaken, "
-                             "stirred, built). Do NOT include the base "
-                             "spirit (gin, bourbon, rum, etc.) — spirits "
-                             "are derived separately from the ingredients. "
-                             "Do NOT include subjective descriptors "
-                             "(elegant, refreshing, classic, simple), "
-                             "ratios (2:1), individual ingredients (aperol, "
-                             "egg white, simple syrup), or 'variation'/"
-                             "'-style' qualifiers. Prefer the canonical "
-                             "family name over a variant (use 'negroni', "
-                             "not 'negroni variation').")}}}}}}})
+                (str "The publication, book, or site name the recipe comes "
+                     "from, only when it is visible in the source material "
+                     "(e.g. 'Death & Co'); omit otherwise.")}
+       :ingredients
+       {:type "array"
+        :items {:type "object"
+                :required ["name"]
+                :additionalProperties false
+                :properties {:name {:type "string"}
+                             :amount {:type "string"}
+                             :unit {:type "string"}
+                             :garnish {:type "boolean"}}}
+        :description
+        (str
+         "One entry per ingredient. For name, prefer the generic spirit/"
+         "ingredient term over a specific brand when it still makes sense in "
+         "context (e.g. 'bourbon' rather than 'Buffalo Trace', 'London dry "
+         "gin' rather than 'Tanqueray'); keep a brand only when the recipe "
+         "truly depends on that specific bottle. When the source merely "
+         "recommends a brand for a line, keep the generic name here and "
+         "record the recommendation in notes. "
+         "Set garnish to true when the "
+         "ingredient is used only as a garnish (a twist, peel, wheel, "
+         "wedge, sprig, cherry, etc. — anything in a \"Garnish:\" line or "
+         "marked \"to garnish\"); a missing garnish never blocks making the "
+         "drink, so do not flag ingredients that are juiced, muddled, or "
+         "otherwise mixed in.")}
+       :instructions {:type "string"}
+       :notes {:type "string"
+               :description
+               (str "Tips, variations, ratio tweaks, and serving "
+                    "suggestions from the source that aren't part of the "
+                    "core build (e.g. a 'notes' section, substitutions, "
+                    "'if too mellow, bump X'). Also record here any "
+                    "specific bottle/brand recommendations dropped from "
+                    "the generic ingredient names (e.g. 'Del Maguey Vida "
+                    "works well for the mezcal') — downstream linking "
+                    "uses these to mark preferred bottles. Stay faithful "
+                    "to the source; omit when it offers nothing beyond "
+                    "the build.")}
+       :tags {:type "array"
+              :items {:type "string"}
+              :description (str "1-3 short, lowercase tags for filtering. "
+                                "Choose only high-signal, reusable tags from "
+                                "these categories: drink family (e.g. sour, "
+                                "old-fashioned, negroni, martini, highball, "
+                                "spritz, tiki, flip) and technique (shaken, "
+                                "stirred, built). Do NOT include the base "
+                                "spirit (gin, bourbon, rum, etc.) — spirits "
+                                "are derived separately from the ingredients. "
+                                "Do NOT include subjective descriptors "
+                                "(elegant, refreshing, classic, simple), "
+                                "ratios (2:1), individual ingredients (aperol, "
+                                "egg white, simple syrup), or 'variation'/"
+                                "'-style' qualifiers. Prefer the canonical "
+                                "family name over a variant (use 'negroni', "
+                                "not 'negroni variation').")}}}}}})
 
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from a plain-text message and/or
@@ -490,97 +467,91 @@
                         text
                         tag-hint))
          request {:messages [{:role "user" :content content}]
-                  :tools [extract-recipe-tool]
-                  :tool_choice {:type "tool" :name extract-recipe-tool-name}
+                  :output_config (json-output extract-recipe-schema)
                   :max_tokens 16000}]
      (call-anthropic-api request true))))
 
-(def resolve-links-tool-name "resolve_recipe_links")
-
-(def resolve-links-tool
-  {:name resolve-links-tool-name
-   :description
-   "Resolve an existing cocktail recipe's ingredient and spirit links to the user's bar inventory by #id, keyed to the indices shown."
-   :input_schema
-   {:type "object"
-    :properties
-    {:ingredient_links
-     {:type "array"
-      :description
-      (str
-       "Exactly one entry per ingredient index shown. inventory_item_ids = "
-       "the #ids of EVERY Mixers & Garnishes item that genuinely satisfies "
-       "that ingredient — link all equivalents, not just one (e.g. both a "
-       "demerara and a white sugar for \"sugar\", both lemon and lime for a "
-       "\"citrus garnish\"). Use an empty array when nothing matches. Do not "
-       "link the base spirit or spirituous modifiers here — those get "
-       "spirit_links entries. Set garnish to true when the ingredient is used "
-       "only as a "
-       "garnish (a twist, peel, wheel, wedge, sprig, cherry, etc.), false "
-       "when it is juiced, muddled, or otherwise mixed into the drink.")
-      :items {:type "object"
-              :required ["index" "inventory_item_ids" "garnish"]
-              :properties {:index {:type "integer"}
-                           :garnish {:type "boolean"}
-                           :inventory_item_ids {:type "array"
-                                                :items {:type "integer"}}}}}
-     :spirit_links
-     {:type "array"
-      :description
-      (str
-       "One entry per ingredient line that is a spirit, spirituous modifier, "
-       "or rinse/wash (the base spirit, vermouths, liqueurs, absinthe rinse, "
-       "etc.) — keyed by that line's ingredient index. Do NOT include entries "
-       "for juices, syrups, or garnishes — nor for dashed bitters: bitters "
-       "are stocked under Mixers & Garnishes and belong in ingredient_links "
-       "even though they contain alcohol. A line gets a spirit_links entry "
-       "OR non-empty inventory_item_ids, never both. "
-       "spirit_id = set ONLY when the ingredient line itself names a "
-       "specific brand or product (e.g. \"Beefeater\", \"Four Roses Small "
-       "Batch\", \"Campari\") that matches a bottle the user owns. For a "
-       "GENERIC spirit or style name — \"gin\", \"London Dry gin\", "
-       "\"bourbon\", \"rye\", \"blanco tequila\", \"sweet vermouth\" — leave "
-       "spirit_id null and rely on the category/subcategory match; do NOT "
-       "pin it to whatever bottle the user happens to own in that style, and "
-       "brands mentioned in the recipe text merely as options or "
-       "suggestions do not count (report those in preferred_spirit_ids "
-       "or alternate_spirit_ids instead). null is the default. "
-       "preferred_spirit_ids = the #ids of owned bottles the recipe text "
-       "recommends for this line in the drink AS WRITTEN (e.g. \"Buffalo "
-       "Trace or Old Forester 1910 are great picks here\"), in the order "
-       "mentioned. alternate_spirit_ids = the #ids of owned bottles the "
-       "text offers only as variations or conditional alternatives that "
-       "change the drink's character (\"for a smokier version, reach for "
-       "X instead\", \"X if you want it drier\") — such a bottle is NOT "
-       "preferred; it goes here, in the order mentioned. Both lists are "
-       "soft suggestions, never requirements, and a bottle appears in at "
-       "most one of them. Use empty arrays when the text recommends none; "
-       "never include a bottle the text does not mention. category/subcategory "
-       "= the style the recipe calls for, judged from the ingredient name "
-       "and recipe text. Set subcategory ONLY when the recipe actually "
-       "specifies a style (\"London Dry gin\", \"blanco tequila\", "
-       "\"rye\"); when interchangeable brands or styles are offered, there "
-       "is no style requirement. The bar inventory below supplies only the "
-       "exact spelling/capitalization of a subcategory, never a reason to "
-       "add one. Use null for subcategory when the recipe doesn't call for "
-       "a specific style — EXCEPT for the grab-bag categories liqueur and "
-       "other, whose bottles are not interchangeable: an entry there MUST "
-       "name the specific style as its subcategory (e.g. {liqueur, Triple "
-       "Sec}, {other, Absinthe}) or carry a spirit_id; if you cannot name "
-       "one, omit the entry entirely.")
-      :items {:type "object"
-              :required ["ingredient_index" "spirit_id" "category" "subcategory"
-                         "preferred_spirit_ids" "alternate_spirit_ids"]
-              :properties {:ingredient_index {:type "integer"}
-                           :spirit_id {:type ["integer" "null"]}
-                           :category {:type "string" :enum spirit-categories}
-                           :subcategory {:type ["string" "null"]}
-                           :preferred_spirit_ids {:type "array"
-                                                  :items {:type "integer"}}
-                           :alternate_spirit_ids {:type "array"
-                                                  :items {:type "integer"}}}}}}
-    :required ["ingredient_links" "spirit_links"]
-    :additionalProperties false}})
+(def resolve-links-schema
+  {:type "object"
+   :properties
+   {:ingredient_links
+    {:type "array"
+     :description
+     (str
+      "Exactly one entry per ingredient index shown. inventory_item_ids = "
+      "the #ids of EVERY Mixers & Garnishes item that genuinely satisfies "
+      "that ingredient — link all equivalents, not just one (e.g. both a "
+      "demerara and a white sugar for \"sugar\", both lemon and lime for a "
+      "\"citrus garnish\"). Use an empty array when nothing matches. Do not "
+      "link the base spirit or spirituous modifiers here — those get "
+      "spirit_links entries. Set garnish to true when the ingredient is used "
+      "only as a "
+      "garnish (a twist, peel, wheel, wedge, sprig, cherry, etc.), false "
+      "when it is juiced, muddled, or otherwise mixed into the drink.")
+     :items {:type "object"
+             :required ["index" "inventory_item_ids" "garnish"]
+             :additionalProperties false
+             :properties {:index {:type "integer"}
+                          :garnish {:type "boolean"}
+                          :inventory_item_ids {:type "array"
+                                               :items {:type "integer"}}}}}
+    :spirit_links
+    {:type "array"
+     :description
+     (str
+      "One entry per ingredient line that is a spirit, spirituous modifier, "
+      "or rinse/wash (the base spirit, vermouths, liqueurs, absinthe rinse, "
+      "etc.) — keyed by that line's ingredient index. Do NOT include entries "
+      "for juices, syrups, or garnishes — nor for dashed bitters: bitters "
+      "are stocked under Mixers & Garnishes and belong in ingredient_links "
+      "even though they contain alcohol. A line gets a spirit_links entry "
+      "OR non-empty inventory_item_ids, never both. "
+      "spirit_id = set ONLY when the ingredient line itself names a "
+      "specific brand or product (e.g. \"Beefeater\", \"Four Roses Small "
+      "Batch\", \"Campari\") that matches a bottle the user owns. For a "
+      "GENERIC spirit or style name — \"gin\", \"London Dry gin\", "
+      "\"bourbon\", \"rye\", \"blanco tequila\", \"sweet vermouth\" — leave "
+      "spirit_id null and rely on the category/subcategory match; do NOT "
+      "pin it to whatever bottle the user happens to own in that style, and "
+      "brands mentioned in the recipe text merely as options or "
+      "suggestions do not count (report those in preferred_spirit_ids "
+      "or alternate_spirit_ids instead). null is the default. "
+      "preferred_spirit_ids = the #ids of owned bottles the recipe text "
+      "recommends for this line in the drink AS WRITTEN (e.g. \"Buffalo "
+      "Trace or Old Forester 1910 are great picks here\"), in the order "
+      "mentioned. alternate_spirit_ids = the #ids of owned bottles the "
+      "text offers only as variations or conditional alternatives that "
+      "change the drink's character (\"for a smokier version, reach for "
+      "X instead\", \"X if you want it drier\") — such a bottle is NOT "
+      "preferred; it goes here, in the order mentioned. Both lists are "
+      "soft suggestions, never requirements, and a bottle appears in at "
+      "most one of them. Use empty arrays when the text recommends none; "
+      "never include a bottle the text does not mention. category/subcategory "
+      "= the style the recipe calls for, judged from the ingredient name "
+      "and recipe text. Set subcategory ONLY when the recipe actually "
+      "specifies a style (\"London Dry gin\", \"blanco tequila\", "
+      "\"rye\"); when interchangeable brands or styles are offered, there "
+      "is no style requirement. The bar inventory below supplies only the "
+      "exact spelling/capitalization of a subcategory, never a reason to "
+      "add one. Use null for subcategory when the recipe doesn't call for "
+      "a specific style — EXCEPT for the grab-bag categories liqueur and "
+      "other, whose bottles are not interchangeable: an entry there MUST "
+      "name the specific style as its subcategory (e.g. {liqueur, Triple "
+      "Sec}, {other, Absinthe}) or carry a spirit_id; if you cannot name "
+      "one, omit the entry entirely.")
+     :items {:type "object"
+             :required ["ingredient_index" "spirit_id" "category" "subcategory"
+                        "preferred_spirit_ids" "alternate_spirit_ids"]
+             :additionalProperties false
+             :properties
+             {:ingredient_index {:type "integer"}
+              :spirit_id {:type ["integer" "null"]}
+              :category {:type "string" :enum spirit-categories}
+              :subcategory {:type ["string" "null"]}
+              :preferred_spirit_ids {:type "array" :items {:type "integer"}}
+              :alternate_spirit_ids {:type "array" :items {:type "integer"}}}}}}
+   :required ["ingredient_links" "spirit_links"]
+   :additionalProperties false})
 
 (defn resolve-recipe-links
   "Resolves a recipe's ingredient and spirit links to the user's bar by #id,
@@ -623,7 +594,6 @@
                  "\n\n=== Bar Inventory ===\n"
                  bar-text)
         request {:messages [{:role "user" :content content}]
-                 :tools [resolve-links-tool]
-                 :tool_choice {:type "tool" :name resolve-links-tool-name}
+                 :output_config (json-output resolve-links-schema)
                  :max_tokens 8000}]
     (call-anthropic-api request true)))
