@@ -113,7 +113,7 @@
                 :startIcon (r/as-element [content-copy {:fontSize "small"}])
                 :onClick #(update-field :flavor-characteristics
                                         (:aroma-characteristics nose))
-                :sx {:textTransform "none" :fontSize "0.75rem"}}
+                :sx {:textTransform "none" :fontSize "0.875rem"}}
                "Copy from Nose"]])]
           [characteristics-section
            {:value (:flavor-characteristics palate)

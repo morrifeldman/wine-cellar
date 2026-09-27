@@ -31,7 +31,7 @@
                              (fn? label-fn) (label-fn provider provider-name)
                              :else (str "AI: " provider-name))
          base-sx {:textTransform "none"
-                  :fontSize "0.75rem"
+                  :fontSize "0.875rem"
                   :px 1.5
                   :py 0.25
                   :borderColor "divider"

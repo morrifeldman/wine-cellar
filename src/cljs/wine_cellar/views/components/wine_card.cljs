@@ -75,13 +75,8 @@
 (defn wine-basic-info
   [wine]
   [box {:sx {:mb 1}} [vintage-line wine]
-   [typography
-    {:component "h3"
-     :sx {:fontFamily theme/serif
-          :fontSize "1.15rem"
-          :fontWeight 700
-          :lineHeight 1.2
-          :mt 0.5}} (:producer wine)]
+   [typography {:component "h3" :sx (assoc theme/card-title :mt 0.5)}
+    (:producer wine)]
    [typography
     {:sx {:fontFamily theme/serif :fontSize "1.05rem" :lineHeight 1.25}}
     (:name wine)]])
@@ -171,8 +166,7 @@
    [typography
     {:sx {:color (get-rating-color rating) :fontWeight "bold" :mr 0.5}}
     (str rating)]
-   [typography
-    {:variant "caption" :sx {:color "text.secondary" :fontSize "0.7rem"}}
+   [typography {:variant "caption" :sx {:color "text.secondary"}}
     "(Internal)"]])
 
 (defn external-rating-badge
@@ -188,8 +182,7 @@
    [typography
     {:sx {:color (get-rating-color rating) :fontWeight "bold" :mr 0.5}}
     (str rating)]
-   [typography
-    {:variant "caption" :sx {:color "text.secondary" :fontSize "0.7rem"}}
+   [typography {:variant "caption" :sx {:color "text.secondary"}}
     "(External)"]])
 
 (defn wine-rating-display
@@ -276,7 +269,7 @@
              :borderRadius 1
              :border "1px solid rgba(232, 195, 200, 0.4)"
              :color "primary.light"
-             :fontSize "0.75rem"
+             :fontSize "0.875rem"
              :whiteSpace "nowrap"}} [wine-bar {:sx {:fontSize "0.9rem"}}]
        [box {:component "span"} (str "~" remaining "oz left")]])))
 

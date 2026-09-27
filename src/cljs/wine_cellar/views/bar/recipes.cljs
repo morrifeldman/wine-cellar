@@ -28,6 +28,7 @@
     [reagent-mui.icons.menu-book :refer [menu-book]]
     [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
     [wine-cellar.common :as common]
+    [wine-cellar.theme :as theme]
     [wine-cellar.utils.filters :refer [normalize-text]]
     [wine-cellar.views.bar.matching :as matching]
     [wine-cellar.views.bar.recipe-mode :as recipe-mode]
@@ -292,10 +293,9 @@
            :icon (when icon
                    (r/as-element
                     [icon
-                     {:sx {:fontSize "0.85rem"
+                     {:sx {:fontSize "1rem"
                            :color (str "rgba(" rgb ",0.95) !important")}}]))
-           :sx {:height 22
-                :fontSize "0.7rem"
+           :sx {:height 28
                 :letterSpacing "0.02em"
                 :opacity (if out? 0.55 1)
                 :bgcolor (str "rgba(" rgb ",0.08)")
@@ -318,15 +318,14 @@
       :clickable true
       :icon (cond star? (r/as-element
                          [star-icon
-                          {:sx {:fontSize "0.8rem"
+                          {:sx {:fontSize "1rem"
                                 :color "rgba(255,213,79,0.85) !important"}}])
                   alt? (r/as-element
                         [swap-horiz
-                         {:sx {:fontSize "0.8rem"
+                         {:sx {:fontSize "1rem"
                                :color "rgba(255,213,79,0.6) !important"}}]))
       :on-click #(nav/go-bar-spirit! (:id spirit))
-      :sx {:height 22
-           :fontSize "0.7rem"
+      :sx {:height 28
            :letterSpacing "0.02em"
            :opacity (if dim? 0.55 1)
            :bgcolor "rgba(232,195,200,0.08)"
@@ -359,8 +358,7 @@
              :size "small"
              :clickable true
              :on-click #(swap! expanded? not)
-             :sx {:height 22
-                  :fontSize "0.7rem"
+             :sx {:height 28
                   :letterSpacing "0.02em"
                   :color "rgba(232,195,200,0.7)"
                   :bgcolor "transparent"
@@ -430,8 +428,7 @@
       :clickable true
       :on-click
       #(nav/go-bar-spirit-category! category (when-not none-owned? subcategory))
-      :sx {:height 22
-           :fontSize "0.7rem"
+      :sx {:height 28
            :letterSpacing "0.02em"
            :bgcolor (str "rgba(" base ",0.14)")
            :color text
@@ -478,9 +475,8 @@
               (or (spirit-bottle-chips spirit tiers)
                   [typography
                    {:variant "body2"
-                    :sx {:color "text.secondary"
-                         :fontSize "0.78rem"
-                         :fontStyle "italic"}} "none on hand"])])
+                    :sx {:color "text.secondary" :fontStyle "italic"}}
+                   "none on hand"])])
            [ingredient-link-chips app-state inventory-items ingredient])]))
     (:ingredients recipe))])
 
@@ -524,15 +520,13 @@
                  :sx {:bgcolor "rgba(232,195,200,0.10)"
                       :color "rgba(232,195,200,0.95)"
                       :border "1px solid rgba(232,195,200,0.25)"
-                      :height 22
-                      :fontSize "0.72rem"
+                      :height 28
                       :letterSpacing "0.02em"
                       :cursor "pointer"}}])
              [typography
               {:variant "body2"
-               :sx {:color "text.secondary"
-                    :fontSize "0.78rem"
-                    :fontStyle "italic"}} "+ Add tags"])])))))
+               :sx {:color "text.secondary" :fontStyle "italic"}}
+              "+ Add tags"])])))))
 
 (defn- makeable-badge
   "Green 'Ready to make' / amber 'Missing: …' chip from a match report, with a
@@ -545,8 +539,7 @@
     {:label
      (if makeable? "Ready to make" (str "Missing: " (str/join ", " missing)))
      :size "small"
-     :sx {:height 24
-          :fontSize "0.72rem"
+     :sx {:height 28
           :letterSpacing "0.02em"
           :bgcolor
           (if makeable? "rgba(139,195,74,0.16)" "rgba(255,167,38,0.14)")
@@ -556,8 +549,7 @@
                (if makeable? "rgba(139,195,74,0.4)" "rgba(255,167,38,0.4)"))}}]
    (when (and makeable? (seq missing-garnishes))
      [typography
-      {:variant "body2"
-       :sx {:color "text.secondary" :fontSize "0.72rem" :fontStyle "italic"}}
+      {:variant "body2" :sx {:color "text.secondary" :fontStyle "italic"}}
       (str "no garnish: " (str/join ", " missing-garnishes))])])
 
 (defn- recipe-display
@@ -594,8 +586,7 @@
               :py 0.25
               "&:hover" {:bgcolor "action.hover"}}
          :on-click #(nav/close-bar-recipe!)}
-        [typography
-         {:sx {:fontSize "1.35rem" :fontWeight 600 :color "primary.main"}}
+        [typography {:sx (assoc theme/detail-title :color "primary.light")}
          (:name recipe)]]
        [tooltip {:title "Recipe mode"}
         [icon-button
@@ -610,7 +601,7 @@
          :on-save #(save-field! app-state recipe :source %)
          :empty-text "Add source"
          :inline? true
-         :display-sx {:color "text.secondary" :fontSize "0.85rem"}}]]
+         :display-sx {:color "text.secondary"}}]]
       [box {:sx {:mt 0.75 :display "flex" :alignItems "center"}}
        [recipe-rating
         {:value (:rating recipe)
@@ -633,7 +624,7 @@
         :on-save #(save-field! app-state recipe :description %)
         :empty-text "Add a description..."
         :text-field-props {:multiline true :minRows 3 :maxRows 12}
-        :display-sx {:color "text.secondary" :fontSize "0.9rem"}}]]
+        :display-sx {:color "text.secondary"}}]]
      ;; Ingredients section
      [detail-section {:icon local-bar :label "Ingredients"}
       (if (seq (:ingredients recipe))
@@ -707,12 +698,12 @@
             :gap 1}}
       [box {:sx {:flex 1 :minWidth 0}}
        [box {:sx {:display "flex" :alignItems "center" :gap 1 :flexWrap "wrap"}}
-        [typography {:variant "body1" :sx {:fontWeight 600}} (:name recipe)]
+        [typography {:sx theme/card-title} (:name recipe)]
         (when-let [r (:rating recipe)]
           [typography
            {:component "span"
-            :sx
-            {:color "text.secondary" :fontSize "0.8rem" :whiteSpace "nowrap"}}
+            :variant "body2"
+            :sx {:color "text.secondary" :whiteSpace "nowrap"}}
            (str "★ " (/ r 2))])]
        (when (seq tags)
          [box
@@ -722,14 +713,11 @@
                 :flexWrap "wrap"
                 :mt 0.25}}
           (for [tag tags]
-            ^{:key tag}
-            [chip
-             {:label tag :size "small" :sx {:height 18 :fontSize "0.7rem"}}])])
+            ^{:key tag} [chip {:label tag :size "small" :sx {:height 24}}])])
        (when-let [line (or (:caption recipe) (:description recipe))]
          [typography
           {:variant "body2"
            :sx {:color "text.secondary"
-                :fontSize "0.8rem"
                 :mt 0.5
                 :display "-webkit-box"
                 :WebkitLineClamp 2
@@ -846,7 +834,7 @@
      (when (seq selected)
        [button
         {:size "small"
-         :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+         :sx {:ml 0.5 :minWidth 0 :px 1}
          :on-click #(reset! selected-tags #{})} "clear"])]))
 
 (defn- makeable-filter-chip
@@ -865,8 +853,7 @@
       :clickable true
       :on-click
       #(swap! makeable-filter {nil :makeable :makeable :missing :missing nil})
-      :sx {:height 24
-           :fontSize "0.72rem"
+      :sx {:height 28
            :letterSpacing "0.02em"
            :mb 1.5
            :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
@@ -889,8 +876,7 @@
       :size "small"
       :clickable true
       :on-click #(swap! show-filter? not)
-      :sx {:height 24
-           :fontSize "0.72rem"
+      :sx {:height 28
            :letterSpacing "0.02em"
            :mb 1.5
            :bgcolor (if hot? "rgba(232,195,200,0.22)" "rgba(232,195,200,0.06)")
@@ -925,7 +911,7 @@
                 reachable (into #{} (mapcat val) idx)]
             (swap! selected-ingredients #(into #{} (filter reachable) %))
             (swap! open-cat #(when-not (= % "garnish") %)))))
-      :sx {:height 24
+      :sx {:height 28
            :mb 1.5
            "& .MuiChip-label" {:px 0.75}
            :bgcolor (str "rgba(139,195,74," (if on? "0.22" "0.06") ")")
@@ -962,8 +948,7 @@
            :size "small"
            :clickable true
            :on-click #(swap! open-cat (fn [c] (when-not (= c cat) cat)))
-           :sx {:height 22
-                :fontSize "0.7rem"
+           :sx {:height 28
                 :letterSpacing "0.02em"
                 :bgcolor (str "rgba(" rgb "," (if hot? "0.22" "0.06") ")")
                 :color (str "rgba(" rgb ",0.95)")
@@ -974,7 +959,7 @@
      (when (seq sel)
        [button
         {:size "small"
-         :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+         :sx {:ml 0.5 :minWidth 0 :px 1}
          :on-click #(reset! selected-ingredients #{})} "clear"])]))
 
 (defn- ingredient-item-bar
@@ -1000,8 +985,7 @@
                                                     (if (contains? s (:id item))
                                                       (disj s (:id item))
                                                       (conj s (:id item)))))
-           :sx {:height 22
-                :fontSize "0.7rem"
+           :sx {:height 28
                 :letterSpacing "0.02em"
                 :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
                 :color (str "rgba(" rgb ",0.95)")
@@ -1025,7 +1009,6 @@
        :on-click #(api/refresh-all-recipe-links app-state)
        :sx {:color "text.secondary"
             :textTransform "none"
-            :fontSize "0.78rem"
             ;; while running the button is disabled but doubles as the
             ;; progress readout — keep it readable, not text.disabled
             "&.Mui-disabled" {:color "text.secondary"}}}
@@ -1043,7 +1026,7 @@
          :color "error"
          :on-click
          #(swap! app-state assoc-in [:bar :refresh-progress :stop?] true)
-         :sx {:textTransform "none" :fontSize "0.78rem"}} "Stop"])]))
+         :sx {:textTransform "none"}} "Stop"])]))
 
 (defn recipes-tab
   [_app-state]

@@ -62,8 +62,8 @@
    "& .MuiToggleButton-root"
    {:color "rgba(255,255,255,0.72)"
     :border "none"
-    :textTransform "uppercase"
-    :fontSize "0.75rem"
+    :textTransform "none"
+    :fontSize "0.875rem"
     :fontWeight 600
     :px 1.5
     :py 0.5

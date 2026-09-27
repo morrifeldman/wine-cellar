@@ -56,11 +56,8 @@
    [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
     [icon-component {:fontSize "small"}]]
    [typography
-    {:variant "overline"
-     :sx {:fontWeight 700
-          :letterSpacing "0.1em"
-          :color "text.secondary"
-          :lineHeight 1}} label]])
+    {:variant "h6" :component "h3" :sx {:color "primary.light" :lineHeight 1}}
+    label]])
 
 (defn- add-item-form
   [app-state form-data]
@@ -200,8 +197,7 @@
                  "&:active" {:transform "scale(0.96)"}}}
            [typography
             {:variant "body2"
-             :sx {:fontSize "0.85rem"
-                  :fontWeight (if have? 500 400)
+             :sx {:fontWeight (if have? 500 400)
                   :color (if have? "text.primary" "text.secondary")
                   :opacity (if have? 1 0.6)}} (:name item)]])))))
 

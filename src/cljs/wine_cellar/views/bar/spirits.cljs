@@ -20,6 +20,7 @@
             [reagent-mui.icons.keyboard-arrow-up :refer [keyboard-arrow-up]]
             [reagent-mui.icons.keyboard-arrow-down :refer [keyboard-arrow-down]]
             [wine-cellar.common :as common]
+            [wine-cellar.theme :as theme]
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.views.bar.matching :as matching]
             [wine-cellar.api :as api]
@@ -183,8 +184,7 @@
            :on-change #(reset! category-val (-> %
                                                 .-target
                                                 .-value))
-           :sx {:fontSize "0.875rem"
-                :minWidth 100
+           :sx {:minWidth 100
                 :color (if (str/blank? @category-val)
                          "text.secondary"
                          "text.primary")}}
@@ -224,13 +224,13 @@
              #(api/update-spirit app-state (:id spirit) {:distillery %})
              :empty-text "Add distillery"
              :inline? true
-             :display-sx {:fontSize "1.2rem" :fontWeight 500}}]
+             :display-sx theme/detail-title}]
            [editable-text-field
             {:value (:name spirit)
              :on-save #(api/update-spirit app-state (:id spirit) {:name %})
              :empty-text "Add name"
              :inline? true
-             :display-sx {:fontSize "1.2rem" :fontWeight 500}}]
+             :display-sx theme/detail-subtitle}]
            [editable-autocomplete-field
             {:value (:category spirit)
              :options spirit-categories
@@ -364,8 +364,7 @@
                    :size "small"
                    :clickable true
                    :on-click #(nav/go-bar-recipe! (:id r))
-                   :sx {:height 24
-                        :fontSize "0.72rem"
+                   :sx {:height 28
                         :letterSpacing "0.02em"
                         :bgcolor "rgba(232,195,200,0.08)"
                         :color "rgba(232,195,200,0.95)"
@@ -405,19 +404,16 @@
            :opacity (if finished? 0.45 1)
            "&:hover" {:bgcolor "action.hover"}}
       :on-click #(nav/go-bar-spirit! (:id spirit))}
-     [typography {:variant "body1" :sx {:fontWeight 600 :lineHeight 1.2}}
+     [typography {:sx theme/card-title}
       (->> [(:distillery spirit) (:name spirit) (:category spirit)]
            (filter seq)
            (str/join " · "))]
-     [typography
-      {:variant "body2"
-       :sx {:color "text.secondary" :fontSize "0.8rem" :mt 0.25}}
+     [typography {:variant "body2" :sx {:color "text.secondary" :mt 0.25}}
       (spirit-meta spirit)]
      (when (and (:notes spirit) (not= (:notes spirit) ""))
        [typography
         {:variant "body2"
          :sx {:color "text.secondary"
-              :fontSize "0.75rem"
               :mt 0.5
               :fontStyle "italic"
               :overflow "hidden"
@@ -429,8 +425,7 @@
   brighter chip rather than as a color per category."
   [active?]
   (let [bg (if active? "#E8C3C8" "rgba(232,195,200,0.06)")]
-    {:height 24
-     :fontSize "0.72rem"
+    {:height 28
      :letterSpacing "0.02em"
      :bgcolor bg
      :color (if active? "#150A0C" "rgba(232,195,200,0.95)")
@@ -497,7 +492,7 @@
      (when (seq selected)
        [button
         {:size "small"
-         :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+         :sx {:ml 0.5 :minWidth 0 :px 1}
          :on-click #(reset! selected-categories #{})} "clear"])]))
 
 (defn subcategory-filter-bar
@@ -540,12 +535,12 @@
                                                     (disj s subcat)
                                                     (conj s subcat))))
                  :sx (assoc (filter-chip-sx (contains? selected subcat))
-                            :height 22
-                            :fontSize "0.7rem")}]])))
+                            :height
+                            28)}]])))
         (when (seq selected)
           [button
            {:size "small"
-            :sx {:ml 0.5 :fontSize "0.7rem" :minWidth 0 :px 1}
+            :sx {:ml 0.5 :minWidth 0 :px 1}
             :on-click #(reset! selected-subcategories #{})} "clear"])]])))
 
 (defn spirits-tab

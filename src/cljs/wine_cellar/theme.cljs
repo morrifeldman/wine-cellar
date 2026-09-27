@@ -6,6 +6,14 @@
 (def serif "'Alegreya', Georgia, serif")
 (def sans "'Alegreya Sans', 'Helvetica', 'Arial', sans-serif")
 
+;; One set of name styles for everything in the cellar and the bar, so a
+;; spirit or a recipe is named the same way a wine is.
+(def card-title
+  {:fontFamily serif :fontWeight 700 :fontSize "1.15rem" :lineHeight 1.2})
+(def detail-title
+  {:fontFamily serif :fontWeight 700 :fontSize "1.9rem" :lineHeight 1.15})
+(def detail-subtitle {:fontFamily serif :fontSize "1.35rem" :lineHeight 1.25})
+
 (def wine-theme
   (create-theme
    {:palette {:primary {:main "#E8C3C8" ;; Lighter burgundy for primary on
@@ -61,6 +69,7 @@
                  :body2 {:fontSize "1rem"
                          :lineHeight 1.5
                          "@media (min-width:600px)" {:fontSize "0.95rem"}}
+                 :caption {:fontSize "0.875rem"}
                  :button {:fontSize "0.95rem"}}
     :components
     {:MuiTypography {:styleOverrides {;; Define default styles for each
@@ -76,15 +85,15 @@
                                          "&.Mui-disabled"
                                          {:color "text.disabled"
                                           :borderColor "text.disabled"}}
+                                  :sizeSmall {:fontSize "0.875rem"}
                                   :contained {:boxShadow "none"}
                                   :outlined {:borderWidth "1.5px"}}}
      ;; More compact form controls
      :MuiFormControl {:styleOverrides {:root {:marginBottom "8px"}}} ;; Reduced
                                                                      ;; from
                                                                      ;; 12px
-     :MuiInputLabel {:styleOverrides {:root {:fontSize "0.85rem"}}} ;; Smaller
-                                                                    ;; font
-     :MuiOutlinedInput {:styleOverrides {:root {:fontSize "0.9rem"
+     :MuiInputLabel {:styleOverrides {:root {:fontSize "0.95rem"}}}
+     :MuiOutlinedInput {:styleOverrides {:root {:fontSize "1rem"
                                                 :borderRadius "6px"}
                                          :input {:padding "8px 12px"}}} ;; Reduced
                                                                         ;; padding
@@ -99,21 +108,18 @@
        :clearIndicator {:visibility "visible" :color "#D0D0D0"}}}
      :MuiFormLabel {:styleOverrides {:root {"&.Mui-disabled"
                                             {:color "text.secondary"}}}}
-     :MuiSelect {:styleOverrides {:root {:fontSize "0.85rem"}}}
-     :MuiMenuItem {:styleOverrides {:root {:fontSize "0.85rem"
-                                           :minHeight "32px"}}} ;; Reduced
-                                                                ;; height
+     :MuiSelect {:styleOverrides {:root {:fontSize "1rem"}}}
+     :MuiMenuItem {:styleOverrides {:root {:fontSize "1rem" :minHeight "32px"}}} ;; Reduced
+                                                                                 ;; height
      :MuiFormHelperText {:styleOverrides {:root {:marginTop "0"
-                                                 :fontSize "0.7rem"
-                                                 :lineHeight "1.2"}}} ;; Smaller
-                                                                      ;; helper
-                                                                      ;; text
+                                                 :fontSize "0.8125rem"
+                                                 :lineHeight "1.3"}}}
      :MuiTableCell {:styleOverrides {:root {:padding "8px 12px"} ;; Reduced
                                                                  ;; padding
                                      :head {:fontWeight 600
                                             :backgroundColor
                                             "rgba(114,47,55,0.2)"}}}
-     :MuiChip {:styleOverrides {:root {:borderRadius "4px"}
+     :MuiChip {:styleOverrides {:root {:borderRadius "4px" :fontSize "0.875rem"}
                                 :filled {:backgroundColor
                                          "rgba(232,195,200,0.2)"}}}
      :MuiCard {:styleOverrides {:root {:borderRadius "8px" ;; Reduced from

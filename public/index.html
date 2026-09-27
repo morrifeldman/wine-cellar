@@ -22,6 +22,11 @@
       font-family: "Alegreya Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: #150A0C; /* Darker wine-colored background */
     }
+    /* Browsers give form controls their own system font, so a plain <button>
+       outside MUI would otherwise show up in Arial. */
+    button, input, select, textarea {
+      font-family: inherit;
+    }
     /* Boot placeholder shown until the app bundle mounts (replaced by React) */
     #boot-placeholder {
       position: fixed;

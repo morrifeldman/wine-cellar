@@ -206,8 +206,7 @@
                    (js/alert "Either Wine Name or Producer must be provided"))))
     :empty-text "Add wine name"
     :inline? true
-    :display-sx
-    {:fontFamily theme/serif :fontSize "1.35rem" :lineHeight 1.25}}])
+    :display-sx theme/detail-subtitle}])
 
 (defn editable-producer
   [app-state wine]
@@ -220,10 +219,7 @@
                    (js/alert "Either Wine Name or Producer must be provided"))))
     :empty-text "Add producer"
     :inline? true
-    :display-sx {:fontFamily theme/serif
-                 :fontSize "1.9rem"
-                 :fontWeight 700
-                 :lineHeight 1.15}}])
+    :display-sx theme/detail-title}])
 
 (defn editable-vintage
   [app-state wine]

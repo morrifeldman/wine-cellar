@@ -524,7 +524,7 @@
    :border "none"
    :cursor "pointer"
    :color "text.secondary"
-   :fontSize "0.8rem"
+   :fontSize "0.875rem"
    :whiteSpace "nowrap"
    "&:hover" {:backgroundColor "action.hover"}})
 
