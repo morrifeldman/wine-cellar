@@ -103,7 +103,7 @@
     (fn [chat]
       (-> chat
           (assoc :context-mode (if (= :summary mode) :summary :wines))
-          (dissoc :reopened-list-ids)))))
+          (dissoc :held-list-ids)))))
 
 (defn toggle-wine-selection!
   "Add or remove a wine id from the multi-select set. The URL holds the set, so

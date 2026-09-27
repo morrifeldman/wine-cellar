@@ -65,30 +65,35 @@
         summary-context))))
 
 (defn chat-context
-  "What the chat sees now, as {:wine-ids :label :source}. A reopened
-   conversation keeps its own wines for as long as the list still shows what
-   it showed when the conversation was opened; any change to the list hands
-   the chat back to it. :listed is what the list would give."
+  "What the chat sees now, as {:wine-ids :label :source}. A held conversation
+   (one just reopened, or one the user chose to keep on its wines) keeps them
+   for as long as the list still shows what it showed when the hold began; any
+   change to the list hands the chat back to it. :listed is what the list
+   would give."
   [app-state]
   (let [state @app-state
         listed (list-context app-state)
-        reopened-list-ids (get-in state [:chat :reopened-list-ids])]
+        held-list-ids (get-in state [:chat :held-list-ids])]
     (cond (= :summary (state-core/context-mode state))
           (assoc summary-context :source :summary :listed listed)
-          (and reopened-list-ids (= reopened-list-ids (:wine-ids listed)))
+          (and held-list-ids (= held-list-ids (:wine-ids listed)))
           (assoc (conversation-context state)
                  :source :conversation
                  :listed listed)
           :else (assoc listed :source :list :listed listed))))
 
+(defn- keep-conversation-context!
+  "Keep the chat on what the conversation was discussing rather than whatever
+   the list shows now."
+  [app-state]
+  (swap! app-state assoc-in
+    [:chat :held-list-ids]
+    (:wine-ids (list-context app-state))))
+
 (defn hold-conversation-context!
-  "Make the chat discuss what the conversation being opened was discussing,
-   rather than whatever the list shows."
   [app-state]
   (state-core/set-context-mode! app-state :wines)
-  (swap! app-state assoc-in
-    [:chat :reopened-list-ids]
-    (:wine-ids (list-context app-state))))
+  (keep-conversation-context! app-state))
 
 (defn same-note?
   [a b]
@@ -166,8 +171,25 @@
       :size "small"
       :variant "outlined"
       :color "secondary"
-      :onClick #(swap! app-state update :chat dissoc :reopened-list-ids)
+      :onClick #(swap! app-state update :chat dissoc :held-list-ids)
       :sx {:height 20 :fontSize "0.65rem" :maxWidth "100%"}}]))
+
+(defn- keep-chip
+  [app-state {:keys [wine-ids label]}]
+  [chip
+   {:label (if (seq wine-ids) (str "Keep " label) "Keep summary only")
+    :size "small"
+    :variant "outlined"
+    :color "secondary"
+    :onClick #(keep-conversation-context! app-state)
+    :sx {:height 20 :fontSize "0.65rem" :maxWidth "100%"}}])
+
+(defn- previous-caption
+  [{:keys [label]}]
+  [typography
+   {:variant "caption"
+    :sx (merge caption-sx {:color "text.secondary" :whiteSpace "nowrap"})}
+   (str label " →")])
 
 (defn context-bar
   "Shows what the chat sees and lets the user narrow it to the cellar summary
@@ -176,7 +198,13 @@
   (let [{:keys [wine-ids source listed] :as context} (chat-context app-state)
         summary? (empty? wine-ids)
         offer-list? (and (= :conversation source)
-                         (not= wine-ids (:wine-ids listed)))]
+                         (not= wine-ids (:wine-ids listed)))
+        ;; The list has moved away from what the conversation was about, so
+        ;; the next message will change the wines; say so before it's sent.
+        previous (when (and (= :list source)
+                            (seq (get-in @app-state [:chat :messages])))
+                   (let [previous (conversation-context @app-state)]
+                     (when (not= wine-ids (:wine-ids previous)) previous)))]
     [box
      {:sx {:display "flex"
            :align-items "center"
@@ -190,7 +218,8 @@
            [typography
             {:variant "caption"
              :sx (merge caption-sx {:color "text.secondary"})} "Summary only"]
-           :else [:<> [wines-caption context]
+           :else [:<> (when previous [previous-caption previous])
+                  [wines-caption context]
                   [tooltip {:title "Chat about the cellar summary only"}
                    [icon-button
                     {:size "small"
@@ -198,4 +227,5 @@
                      :onClick #(state-core/set-context-mode! app-state :summary)
                      :sx {:p 0.25 :color "text.secondary"}}
                     [close {:sx {:fontSize "0.8rem"}}]]]])
-     (when offer-list? [switch-to-list-chip app-state listed])]))
+     (when offer-list? [switch-to-list-chip app-state listed])
+     (when previous [keep-chip app-state previous])]))

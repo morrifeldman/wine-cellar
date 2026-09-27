@@ -1001,7 +1001,7 @@
                          (assoc-in [:chat :active-conversation] nil)
                          (assoc-in [:chat :messages] [])
                          (assoc-in [:chat :messages-loading?] false)
-                         (update :chat dissoc :reopened-list-ids))
+                         (update :chat dissoc :held-list-ids))
                      base-state))))
              (tap> ["conversation-deleted" conversation-id])
              (load-conversations! app-state {:force? true}))
