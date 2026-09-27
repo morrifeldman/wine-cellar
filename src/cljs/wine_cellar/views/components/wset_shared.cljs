@@ -26,6 +26,20 @@
       (str (str/upper-case (subs lower 0 1)) (subs lower 1)))
     value))
 
+(defn- filled?
+  "Whether a WSET value holds anything to show. Saved notes keep every section
+   with blank strings in it, which would otherwise count as content."
+  [v]
+  (cond (string? v) (not (str/blank? v))
+        (map? v) (boolean (some filled? (vals v)))
+        (coll? v) (boolean (some filled? v))
+        :else (some? v)))
+
+(defn- filled-section
+  "The named section with its blank fields dropped, or nil if none are left."
+  [wset-data k]
+  (not-empty (into {} (filter (comp filled? val)) (get wset-data k))))
+
 (defn radio-group-field
   "Radio group for one WSET enum."
   [{:keys [label value options on-change]}]
@@ -82,13 +96,12 @@
 (defn wset-display
   "Simple display of WSET structured data"
   [wset-data]
-  (when wset-data
-    [box {:sx {:mt 2 :p 2 :backgroundColor "background.paper" :borderRadius 1}}
-     [typography {:variant "h6" :sx {:mb 1 :color "primary.main"}}
-      "WSET Structured Tasting"]
+  (when (filled? (select-keys wset-data
+                              [:appearance :nose :palate :conclusions]))
+    [box
      ;; Appearance section
-     (when-let [appearance (:appearance wset-data)]
-       [box {:sx {:mb 2}}
+     (when-let [appearance (filled-section wset-data :appearance)]
+       [box {:sx {:mt 1.5}}
         [typography {:variant "subtitle2" :sx {:fontWeight "bold" :mb 1}}
          "Appearance"]
         [grid {:container true :spacing 1}
@@ -105,8 +118,8 @@
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
            (:other_observations appearance)])])
      ;; Nose section
-     (when-let [nose (:nose wset-data)]
-       [box {:sx {:mb 2}}
+     (when-let [nose (filled-section wset-data :nose)]
+       [box {:sx {:mt 1.5}}
         [typography {:variant "subtitle2" :sx {:fontWeight "bold" :mb 1}}
          "Nose"]
         [grid {:container true :spacing 1}
@@ -131,8 +144,8 @@
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
            (:other_observations nose)])])
      ;; Palate section
-     (when-let [palate (:palate wset-data)]
-       [box {:sx {:mb 2}}
+     (when-let [palate (filled-section wset-data :palate)]
+       [box {:sx {:mt 1.5}}
         [typography {:variant "subtitle2" :sx {:fontWeight "bold" :mb 1}}
          "Palate"]
         [grid {:container true :spacing 1}
@@ -182,8 +195,8 @@
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
            (:other_observations palate)])])
      ;; Conclusions section
-     (when-let [conclusions (:conclusions wset-data)]
-       [box {:sx {:mb 2}}
+     (when-let [conclusions (filled-section wset-data :conclusions)]
+       [box {:sx {:mt 1.5}}
         [typography {:variant "subtitle2" :sx {:fontWeight "bold" :mb 1}}
          "Conclusions"]
         [grid {:container true :spacing 1}

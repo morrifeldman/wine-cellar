@@ -68,7 +68,9 @@
 
 ;; Shared styles
 (def form-field-style
-  {:min-width "180px" :width "75%" :backgroundColor "container.main"})
+  ;; The fill goes on the input itself: on the whole field it would also
+  ;; sit behind the helper text as a grey slab.
+  {:width "100%" "& .MuiInputBase-root" {:backgroundColor "container.main"}})
 
 ;; Helper components for quantity control
 

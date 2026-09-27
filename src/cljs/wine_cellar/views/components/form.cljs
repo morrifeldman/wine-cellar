@@ -27,35 +27,13 @@
   "A container for forms with consistent styling and a title"
   [{:keys [title elevation on-submit]} & children]
   [paper
-   {:elevation (or elevation 1)
-    :sx {:p 2 ;; Reduced from p 4
-         :borderRadius 2
-         :mb 2 ;; Reduced from mb 4
-         :position "relative"
-         :overflow "hidden"
-         :backgroundImage
-         "linear-gradient(to right, rgba(114,47,55,0.03), rgba(255,255,255,0))"
-         :borderLeft "4px solid rgba(114,47,55,0.5)"}}
+   {:elevation (or elevation 1) :sx {:p {:xs 2 :sm 3} :borderRadius 2 :mb 2}}
    [:form {:on-submit (fn [e] (.preventDefault e) (when on-submit (on-submit)))}
-    [grid {:container true :spacing 1} ;; Reduced from spacing 2
+    [grid {:container true :spacing 1}
      [grid {:item true :xs 12}
       [typography
-       {:variant "h5"
-        :component "h2"
-        :sx {:mb 1.5 ;; Reduced from mb 3
-             :pb 0.5 ;; Reduced from pb 1
-             :borderBottom "1px solid rgba(0,0,0,0.08)"
-             :color "primary.main"
-             :display "flex"
-             :alignItems "center"}}
-       [box
-        {:component "span"
-         :sx {:width "6px" ;; Reduced from 8px
-              :height "6px" ;; Reduced from 8px
-              :borderRadius "50%"
-              :backgroundColor "primary.main"
-              :display "inline-block"
-              :mr 1}}] title]]
+       {:variant "h5" :component "h2" :sx {:mb 1 :color "primary.light"}}
+       title]]
      (map-indexed (fn [idx child]
                     ^{:key (str "form-item-" idx)}
                     [grid {:item true :xs 12} child])
@@ -118,29 +96,19 @@
                 children)])
 
 (defn form-divider
-  "A visual divider between form sections"
+  "Heading for a group of fields, set like the section headings on the detail
+   pages."
   [title]
-  [grid {:item true :xs 12 :sx {:mt 2 :mb 1}} ;; Reduced from mt 4 mb 2
-   [box {:sx {:display "flex" :alignItems "center"}}
-    [box
-     {:sx {:flex "0 0 auto"
-           :mr 1.5 ;; Reduced from mr 2
-           :height "18px" ;; Reduced from 24px
-           :width "3px" ;; Reduced from 4px
-           :backgroundColor "secondary.main"
-           :borderRadius "2px"}}]
+  [grid {:item true :xs 12 :sx {:mt 3 :mb 0.5}}
+   [box
+    {:sx {:display "flex"
+          :alignItems "center"
+          :pb 0.75
+          :borderBottom "1px solid rgba(255,255,255,0.06)"}}
     [typography
-     {:variant "subtitle1"
-      :sx {:fontWeight "bold" :color "text.primary" :fontSize "0.9rem"}} ;; Added
-                                                                         ;; smaller
-                                                                         ;; font
-                                                                         ;; size
-     title]
-    [box
-     {:sx {:flex "1 1 auto"
-           :ml 1.5 ;; Reduced from ml 2
-           :height "1px"
-           :backgroundColor "divider"}}]]])
+     {:variant "h6"
+      :component "h3"
+      :sx {:color "primary.light" :lineHeight 1.2}} title]]])
 
 ;; Input field components
 (defn text-field

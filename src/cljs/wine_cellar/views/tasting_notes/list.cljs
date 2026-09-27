@@ -1,5 +1,6 @@
 (ns wine-cellar.views.tasting-notes.list
-  (:require [reagent-mui.material.box :refer [box]]
+  (:require [clojure.string :as str]
+            [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.paper :refer [paper]]
@@ -45,13 +46,15 @@
          [typography {:variant "subtitle1" :sx {:fontWeight "bold"}}
           (format-date (:tasting_date note))])]
       [grid {:item true :xs 3 :sx {:textAlign "right"}}
-       [typography
-        {:variant "subtitle1"
-         :sx {:color (get-rating-color (:rating note)) :fontWeight "bold"}}
-        (str (:rating note) "/100")]]
-      [grid {:item true :xs 12 :sx {:mt 1}}
-       [typography {:variant "body1" :sx {:whiteSpace "pre-wrap"}}
-        (:notes note)] [wset-display (:wset_data note)]]]]))
+       (when (:rating note)
+         [typography
+          {:variant "subtitle1"
+           :sx {:color (get-rating-color (:rating note)) :fontWeight "bold"}}
+          (str (:rating note) "/100")])]
+      [grid {:item true :xs 12}
+       (when-not (str/blank? (:notes note))
+         [typography {:variant "body1" :sx {:mt 1 :whiteSpace "pre-wrap"}}
+          (:notes note)]) [wset-display (:wset_data note)]]]]))
 
 (defn tasting-notes-list
   [app-state wine-id]
@@ -71,9 +74,7 @@
              [tasting-note-item app-state wine-id note])])
         ;; Divider between personal and external sections
         (when (and (seq personal-notes) (seq external-notes))
-          [divider
-           {:sx
-            {:my 2 :borderColor "rgba(240,98,146,0.7)" :borderTopWidth "3px"}}])
+          [divider {:sx {:my 2}}])
         ;; External notes section
         (when (seq external-notes)
           [box

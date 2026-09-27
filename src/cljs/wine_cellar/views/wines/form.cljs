@@ -44,13 +44,13 @@
 (defn disgorgement-year
   [app-state new-wine]
   [year-field
-   {:label "Disgorgement Year"
+   {:label "Disgorgement year"
     :free-solo true
     :value (:disgorgement_year new-wine)
     :options (if-let [vintage (:vintage new-wine)]
                (filter #(>= % vintage) (vintage/default-vintage-years 0))
                (vintage/default-vintage-years))
-    :helper-text "Year when the sparkling wine was disgorged"
+    :helper-text "For sparkling wine"
     :on-change #(swap! app-state assoc-in
                   [:new-wine :disgorgement_year]
                   (when-not (empty? %) (js/parseInt % 10)))}])
@@ -79,12 +79,12 @@
                    (vintage/valid-tasting-window? drink-from-year
                                                   drink-until-year))]
     [year-field
-     {:label "Drink From Year"
+     {:label "Drink from"
       :free-solo true
       :value drink-from-year
       :options (vintage/default-drink-from-years)
       :error (boolean invalid?)
-      :helper-text (or invalid? "Year when the wine is/was ready to drink")
+      :helper-text (or invalid? "First year it's ready to drink")
       :on-change #(swap! app-state assoc-in
                     [:new-wine :drink_from_year]
                     (when-not (empty? %) (js/parseInt % 10)))}]))
@@ -97,12 +97,12 @@
                    (vintage/valid-tasting-window? drink-from-year
                                                   drink-until-year))]
     [year-field
-     {:label "Drink Until Year"
+     {:label "Drink until"
       :free-solo true
       :value drink-until-year
       :options (vintage/default-drink-until-years)
       :error (boolean invalid?)
-      :helper-text (or invalid? "Year when the wine should be consumed by")
+      :helper-text (or invalid? "Last year to drink it")
       :on-change #(swap! app-state assoc-in
                     [:new-wine :drink_until_year]
                     (when-not (empty? %) (js/parseInt % 10)))}]))
@@ -176,9 +176,9 @@
                                  (fn [_] (js/parseInt (:quantity new-wine) 10)))
                          (assoc :tasting_window_commentary commentary)
                          (assoc :create-classification-if-needed true))))))))]
-    [form-container {:title "Add New Wine" :on-submit submit-handler}
+    [form-container {:title "Add a wine" :on-submit submit-handler}
      ;; Wine Label Images Section
-     [form-divider "Wine Label Images"]
+     [form-divider "Label photos"]
      [form-row
       [box {:sx {:width "100%" :display "flex" :flexDirection "column" :gap 2}}
        [image-upload
@@ -234,7 +234,7 @@
                             :new-wine
                             (fn [wine] (dissoc wine :back_label_image)))}]]
      ;; Basic Information Section
-     [form-divider "Basic Information"]
+     [form-divider "The wine"]
      [form-row
       ;; uncontrolled: text lives in the DOM; blur commits to app-state
       ;; (for the Suggest button's ready? gate) and the reset-key remounts
@@ -244,7 +244,7 @@
         :initial-value (:producer new-wine)
         :reset-key (str "producer-" (:producer new-wine))
         :input-ref producer-ref
-        :helper-text "Either Name or Producer required"
+        :helper-text "Fill in a producer, a name, or both"
         :on-blur
         #(swap! app-state assoc-in [:new-wine :producer] (clean-str %))}]
       [uncontrolled-text-field
@@ -252,7 +252,7 @@
         :initial-value (:name new-wine)
         :reset-key (str "name-" (:name new-wine))
         :input-ref name-ref
-        :helper-text "Either Name or Producer required"
+        :helper-text "Fill in a producer, a name, or both"
         :on-blur #(swap! app-state assoc-in [:new-wine :name] (clean-str %))}]
       [select-field
        {:label "Style"
@@ -271,18 +271,18 @@
         :options common/closure-type-options
         :on-change #(swap! app-state assoc-in [:new-wine :closure_type] %)}]
       [select-field
-       {:label "Bottle Format"
+       {:label "Bottle format"
         :value (:bottle_format new-wine)
         :required false
         :multiple false
         :options common/bottle-formats
         :on-change #(swap! app-state assoc-in [:new-wine :bottle_format] %)}]]
      ;; Wine Classification Section
-     [form-divider "Grape Varieties"]
+     [form-divider "Grapes"]
      [form-row
       [typography {:variant "body2" :color "text.secondary"}
        "You can add grape varieties after creating the wine."]]
-     [form-divider "Wine Classification"]
+     [form-divider "Where it's from"]
      ;; Classification dropdowns with free-solo mode
      [form-row
       ^{:key "select-country"}
@@ -303,7 +303,7 @@
       [smart-select-field app-state [:new-wine :appellation_tier] :free-solo
        true :disabled
        (or (empty? (:country new-wine)) (empty? (:region new-wine))) :label
-       "Appellation Tier" :tooltip (:appellation_tier common/field-descriptions)
+       "Appellation tier" :tooltip (:appellation_tier common/field-descriptions)
        :options (sort common/appellation-tiers) :get-option-label
        (fn [option]
          (if-let [full-name (get common/appellation-tier-names option)]
@@ -329,9 +329,7 @@
                                         (:region new-wine)
                                         (:appellation new-wine)
                                         (:classification new-wine)) :label
-       "Designation" :helper-text
-       (str "Must be one of: " (str/join ", " (sort common/wine-designations)))
-       :on-blur
+       "Designation" :on-blur
        #(when (and (:designation new-wine)
                    (seq (:designation new-wine))
                    (not (contains? common/wine-designations
@@ -410,7 +408,7 @@
       [drink-until-year app-state new-wine]]
      [form-row
       [uncontrolled-text-area-field
-       {:label "Tasting Window Commentary"
+       {:label "Drinking window notes"
         :rows 4
         :initial-value (:tasting_window_commentary new-wine)
         ;; remount when Suggest/Analyze writes a new commentary so the
@@ -419,7 +417,7 @@
         :reset-key (str "twc-" (:tasting_window_commentary new-wine))
         :input-ref window-commentary-ref}]]
      ;; Additional Information Section
-     [form-divider "Additional Information"]
+     [form-divider "Purchase and storage"]
      [form-row
       [uncontrolled-text-field
        {:label "Location"
@@ -427,7 +425,8 @@
         :initial-value (:location new-wine)
         :reset-key (str "location-" (:location new-wine))
         :input-ref location-ref
-        :helper-text common/format-location-error
+        :helper-text
+        "A letter and a number, like B3. Leave empty for a restaurant or tasting."
         ;; validates on blur (when the commit lands in app-state)
         :error (boolean (and (seq (:location new-wine))
                              (not (common/valid-location? (:location
@@ -450,9 +449,9 @@
                  (str (:price new-wine)))
         :on-change #(swap! app-state assoc-in [:new-wine :price] %)}]
       [smart-select-field app-state [:new-wine :purveyor] :free-solo true :label
-       "Purchased From" :options (unique-purveyors (:wines @app-state))]
+       "Purchased from" :options (unique-purveyors (:wines @app-state))]
       [date-field
-       {:label "Purchase Date"
+       {:label "Purchase date"
         :value (:purchase_date new-wine)
         :on-change #(swap! app-state assoc-in [:new-wine :purchase_date] %)}]]
      ;; Form actions
