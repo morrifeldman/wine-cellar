@@ -30,10 +30,16 @@
          "&redirect_uri="
          (java.net.URLEncoder/encode (:redirect-uri oauth-client) "UTF-8")
          "&response_type=code"
-         "&scope=" (java.net.URLEncoder/encode (str/join " "
-                                                         (:scope oauth-client))
-                                               "UTF-8")
-         "&state=" (UUID/randomUUID))))
+         "&scope="
+         (java.net.URLEncoder/encode (str/join " " (:scope oauth-client))
+                                     "UTF-8")
+         "&state="
+         (UUID/randomUUID)
+         ;; Naming the account lets Google sign straight back in without
+         ;; showing its account picker. The picker would otherwise stay in
+         ;; history behind the app, so Back after a login lands on it.
+         (when-let [hint (get-in request [:cookies "login-hint" :value])]
+           (str "&login_hint=" (java.net.URLEncoder/encode hint "UTF-8"))))))
 
 (defn redirect-to-google
   [request]
@@ -120,6 +126,12 @@
                      :max-age (* 7 24 60 60) ; 7 days
                      :same-site :lax
                      :path "/"})
+          (assoc-in [:cookies "login-hint"]
+                    {:value (:email user-info)
+                     :http-only true
+                     :max-age (* 365 24 60 60)
+                     :same-site :lax
+                     :path "/"})
           (assoc :session (dissoc (:session request) :oauth-state))))
     (do (tap> ["token-exchange-failed"])
         (response/bad-request "Failed to authenticate with Google"))))
@@ -202,5 +214,8 @@
                  :http-only true
                  :max-age 0 ; Expire immediately
                  :same-site :lax
-                 :path "/"})))
+                 :path "/"})
+      ;; Logging out is how you switch accounts, so the next login should
+      ;; offer the picker again.
+      (assoc-in [:cookies "login-hint"] {:value "" :max-age 0 :path "/"})))
 #_(spit "device.jwt" (create-jwt-token {:email "esp32@winecellar"}))

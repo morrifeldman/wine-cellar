@@ -52,8 +52,10 @@
     (= 401 (:status response))
     (do (js/console.log "Authentication required, redirecting to login")
         ;; Don't try to parse the response body if it's not valid JSON
-        (js/setTimeout #(set! (.-location js/window)
-                              (str api-base-url "/auth/google"))
+        ;; Replace, so the page that just failed doesn't sit in history
+        ;; behind the login and come back on Back.
+        (js/setTimeout #(.replace (.-location js/window)
+                                  (str api-base-url "/auth/google"))
                        100)
         {:success false :error "Authentication required"})
     ;; Otherwise, handle the error
