@@ -145,7 +145,10 @@
   (nav/show-only-selected! (not (:show-selected-wines? @app-state))))
 
 (defn clear-selected-wines!
-  "Remove all manually selected wines and exit selected-only view."
+  "Remove all manually selected wines and exit selected-only view. A chat that
+   was about just those wines falls back to the filtered list, as it would
+   have if opened without a selection."
   [app-state]
-  (set-context-mode! app-state :summary)
+  (when (= :selection (context-mode @app-state))
+    (set-context-mode! app-state :selection+filters))
   (nav/set-selected-wines! #{}))
