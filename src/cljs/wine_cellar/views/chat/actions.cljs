@@ -274,11 +274,24 @@
             (swap! app-state update :chat dissoc :draft-message)
             (when on-edit-complete (on-edit-complete)))))))
 
+(defn ask-again!
+  "Answer the question the conversation ends on."
+  [app-state messages is-sending? cancel-fn-atom]
+  (when (and (not @is-sending?) (chat-utils/unanswered-question? @app-state))
+    (reset! is-sending? true)
+    (enqueue-ai-followup! app-state
+                          messages
+                          (:text (last @messages))
+                          (chat-context/context-wines app-state)
+                          (state-core/include-wines? @app-state)
+                          is-sending?
+                          cancel-fn-atom)))
+
 (defn fork-conversation!
-  "Start a new conversation holding every message up to `message-id`. Forking
-   at a question asks it again, so the same question can be compared across
-   effort levels or providers."
-  [app-state messages message-id is-sending? cancel-fn-atom]
+  "Start a new conversation holding every message up to `message-id`. A fork
+   that ends on a question waits for Send, so effort or provider can be
+   changed before it is asked again."
+  [app-state messages message-id is-sending?]
   (let [conversation-id (get-in @app-state [:chat :active-conversation-id])
         message-idx (chat-utils/find-message-index @messages message-id)]
     (when (and (integer? conversation-id) message-idx (not @is-sending?))
@@ -287,20 +300,10 @@
        conversation-id
        (inc message-idx)
        (fn [api-messages]
-         (let [forked (mapv chat-utils/api-message->ui api-messages)
-               question (peek forked)]
+         (let [forked (mapv chat-utils/api-message->ui api-messages)]
            (reset! messages forked)
            (swap! app-state assoc-in [:chat :messages] forked)
-           (chat-utils/set-scroll-intent! app-state {:type :bottom})
-           (when (:is-user question)
-             (reset! is-sending? true)
-             (enqueue-ai-followup! app-state
-                                   messages
-                                   (:text question)
-                                   (chat-context/context-wines app-state)
-                                   (state-core/include-wines? @app-state)
-                                   is-sending?
-                                   cancel-fn-atom))))))))
+           (chat-utils/set-scroll-intent! app-state {:type :bottom})))))))
 
 (defn clear-chat!
   ([app-state messages] (clear-chat! app-state messages nil nil))

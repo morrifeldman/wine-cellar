@@ -10,7 +10,7 @@
             [reagent-mui.icons.camera-alt :refer [camera-alt]]
             [reagent-mui.icons.photo-library :refer [photo-library]]
             [wine-cellar.views.chat.utils :refer
-             [handle-clipboard-image handle-paste-event]]
+             [handle-clipboard-image handle-paste-event unanswered-question?]]
             [wine-cellar.views.chat.message :refer [attached-image-preview]]
             [wine-cellar.views.components.ai-provider-toggle :as ai-toggle]))
 
@@ -96,7 +96,9 @@
      :variant "contained"
      :on-click #(when @message-ref
                   (let [msg (.-value @message-ref)]
-                    (when (or (seq (str msg)) @attached-image)
+                    (when (or (seq (str msg))
+                              @attached-image
+                              (unanswered-question? @app-state))
                       (on-send msg)
                       (set! (.-value @message-ref) "")
                       (swap! app-state update :chat dissoc :draft-message))))}
@@ -166,13 +168,15 @@
        :sx {"& .MuiOutlinedInput-root" {:backgroundColor "background.default"
                                         :border "none"
                                         :borderRadius 2}}
-       :placeholder (if has-image?
-                      "Add a message to go with your image..."
-                      (let [is-mobile? (and js/navigator.maxTouchPoints
-                                            (> js/navigator.maxTouchPoints 0))]
-                        (if is-mobile?
-                          "Type your message here..."
-                          "Type your message here... (or paste a screenshot)")))
+       :placeholder
+       (cond has-image? "Add a message to go with your image..."
+             (unanswered-question? @app-state)
+             "Press Send to ask again, or type a new message..."
+             :else (let [is-mobile? (and js/navigator.maxTouchPoints
+                                         (> js/navigator.maxTouchPoints 0))]
+                     (if is-mobile?
+                       "Type your message here..."
+                       "Type your message here... (or paste a screenshot)")))
        :disabled @disabled?
        :on-key-down
        (fn [e]
@@ -183,7 +187,9 @@
              (.preventDefault e)
              (when @message-ref
                (let [msg (.-value @message-ref)]
-                 (when (or (seq (str msg)) @attached-image)
+                 (when (or (seq (str msg))
+                           @attached-image
+                           (unanswered-question? @app-state))
                    (on-send msg)
                    (set! (.-value @message-ref) "")
                    (swap! app-state update :chat dissoc :draft-message)))))))

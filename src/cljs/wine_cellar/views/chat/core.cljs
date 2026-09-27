@@ -160,21 +160,28 @@
         edit-state
         handle-send (fn [message-text]
                       (chat-utils/set-scroll-intent! app-state {:type :bottom})
-                      (if (is-editing?)
-                        (chat-actions/handle-edit-send app-state
-                                                       editing-message-id
-                                                       message-ref
-                                                       messages
-                                                       is-sending?
-                                                       cancel-fn-atom
-                                                       handle-commit)
-                        (do (chat-actions/handle-send-message app-state
-                                                              message-text
-                                                              messages
-                                                              is-sending?
-                                                              cancel-fn-atom
-                                                              @pending-image)
-                            (reset! pending-image nil))))
+                      (cond (is-editing?) (when (seq message-text)
+                                            (chat-actions/handle-edit-send
+                                             app-state
+                                             editing-message-id
+                                             message-ref
+                                             messages
+                                             is-sending?
+                                             cancel-fn-atom
+                                             handle-commit))
+                            (and (empty? message-text) (not @pending-image))
+                            (chat-actions/ask-again! app-state
+                                                     messages
+                                                     is-sending?
+                                                     cancel-fn-atom)
+                            :else (do (chat-actions/handle-send-message
+                                       app-state
+                                       message-text
+                                       messages
+                                       is-sending?
+                                       cancel-fn-atom
+                                       @pending-image)
+                                      (reset! pending-image nil))))
         handle-cancel-request (fn []
                                 (when-let [cancel @cancel-fn-atom] (cancel))
                                 (reset! cancel-fn-atom nil)
@@ -188,13 +195,9 @@
         (fn [] (reset! show-camera? false) (reset! pending-image nil))
         handle-image-remove (fn [] (reset! pending-image nil))
         message-edit-handler (fn [id text] (handle-edit id text message-ref))
-        message-fork-handler (fn [id]
-                               (chat-actions/fork-conversation!
-                                app-state
-                                messages
-                                id
-                                is-sending?
-                                cancel-fn-atom))]
+        message-fork-handler
+        (fn [id]
+          (chat-actions/fork-conversation! app-state messages id is-sending?))]
     (fn [app-state]
       (let [state @app-state
             chat-state (:chat state)

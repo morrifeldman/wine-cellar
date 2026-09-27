@@ -67,6 +67,12 @@
                         js/Date.parse
                         js/Date.)}))
 
+(defn unanswered-question?
+  "True when the conversation ends on the user's message, as it does after
+   forking at a question or cancelling a request."
+  [state]
+  (boolean (:is-user (last (get-in state [:chat :messages])))))
+
 (defn find-message-index
   [messages message-id]
   (->> messages
