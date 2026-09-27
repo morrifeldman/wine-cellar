@@ -41,18 +41,6 @@
         (map (fn [c] [c (str (str/upper-case (subs c 0 1)) (subs c 1))])
              spirit-categories)))
 
-(def category-colors
-  {"whiskey" {:base "180,120,60" :text "#e8c890"}
-   "gin" {:base "120,180,120" :text "#b0d8b0"}
-   "rum" {:base "200,140,80" :text "#e8c090"}
-   "vodka" {:base "160,180,200" :text "#c8d8e8"}
-   "tequila" {:base "180,200,100" :text "#d0e080"}
-   "mezcal" {:base "160,180,80" :text "#c0d070"}
-   "brandy" {:base "180,100,80" :text "#d8a080"}
-   "liqueur" {:base "200,120,160" :text "#e8a0c0"}
-   "vermouth" {:base "200,180,80" :text "#e8d070"}
-   "other" {:base "160,160,160" :text "#c0c0c0"}})
-
 (defn- spirit-search-text
   [s]
   (->> [(:name s) (:category s) (:subcategory s) (:distillery s) (:country s)

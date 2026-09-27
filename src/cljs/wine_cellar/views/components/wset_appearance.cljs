@@ -3,32 +3,13 @@
     [reagent.core :as r]
     [reagent-mui.material.grid :refer [grid]]
     [reagent-mui.material.typography :refer [typography]]
-    [reagent-mui.material.radio-group :refer [radio-group]]
-    [reagent-mui.material.form-control-label :refer [form-control-label]]
-    [reagent-mui.material.radio :refer [radio]]
     [reagent-mui.material.collapse :refer [collapse]]
     [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.icons.expand-more :refer [expand-more]]
     [wine-cellar.common :refer [wset-lexicon]]
+    [wine-cellar.views.components.wset-shared :refer [radio-group-field]]
     [wine-cellar.views.components.form :refer [uncontrolled-text-area-field]]
     [wine-cellar.views.components.wine-color :refer [wine-color-selector]]))
-
-(defn- radio-group-field
-  "Simple radio group for WSET enum selections"
-  [{:keys [label value options on-change]}]
-  [grid {:item true :xs 12 :sm 6}
-   [typography {:variant "subtitle2" :gutterBottom true} label]
-   [radio-group
-    {:value (or value "")
-     :onChange #(on-change (-> %
-                               .-target
-                               .-value))}
-    (for [option options]
-      ^{:key option}
-      [form-control-label
-       {:value option
-        :control (r/as-element [radio {:size "small"}])
-        :label option}])]])
 
 
 (defn wset-appearance-section

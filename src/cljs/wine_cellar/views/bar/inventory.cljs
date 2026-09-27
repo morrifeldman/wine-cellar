@@ -21,6 +21,7 @@
             [reagent-mui.icons.local-florist :refer [local-florist]]
             [reagent-mui.icons.more-horiz :refer [more-horiz]]
             [wine-cellar.api :as api]
+            [wine-cellar.views.components :refer [detail-section]]
             [wine-cellar.dom :as dom]
             [wine-cellar.nav :as nav]))
 
@@ -36,28 +37,18 @@
 (def category-order
   ["fruit" "juice" "soda" "syrup" "bitters" "garnish" "other"])
 
-(def category-meta
-  {"fruit" {:icon filter-vintage :color "rgba(255,152,0,0.7)"}
-   "juice" {:icon local-drink :color "rgba(255,213,79,0.7)"}
-   "soda" {:icon sports-bar :color "rgba(100,181,246,0.7)"}
-   "syrup" {:icon opacity :color "rgba(240,98,146,0.7)"}
-   "bitters" {:icon science :color "rgba(128,203,196,0.7)"}
-   "garnish" {:icon local-florist :color "rgba(139,195,74,0.7)"}
-   "other" {:icon more-horiz :color "rgba(144,164,174,0.7)"}})
+(def category-icons
+  {"fruit" filter-vintage
+   "juice" local-drink
+   "soda" sports-bar
+   "syrup" opacity
+   "bitters" science
+   "garnish" local-florist
+   "other" more-horiz})
 
-(defn- section-header
-  [icon-component label border-color]
-  [box
-   {:sx {:display "flex"
-         :alignItems "center"
-         :mb 1
-         :pb 1
-         :borderBottom "1px solid rgba(255,255,255,0.06)"}}
-   [box {:sx {:color border-color :display "flex" :mr 1 :opacity 0.85}}
-    [icon-component {:fontSize "small"}]]
-   [typography
-    {:variant "h6" :component "h3" :sx {:color "primary.light" :lineHeight 1}}
-    label]])
+;; Mixers on hand all light up in the one accent: which shelf an item lives on
+;; is already said by the section it sits in.
+(def item-color "rgba(232,195,200,0.7)")
 
 (defn- add-item-form
   [app-state form-data]
@@ -204,18 +195,14 @@
 
 (defn- category-section
   [app-state category items editing-id highlighted]
-  (let [label (get category-labels category category)
-        {:keys [icon color]} (get category-meta
-                                  category
-                                  {:icon more-horiz
-                                   :color "rgba(144,164,174,0.7)"})]
-    [box {:sx {:mt 3 :borderLeft (str "3px solid " color) :pl 1.5 :pb 1}}
-     [section-header icon label color]
-     [box {:sx {:display "flex" :flexWrap "wrap" :gap 1}}
-      (for [item items]
-        ^{:key (:id item)}
-        [inventory-item app-state item editing-id color
-         (contains? highlighted (:id item))])]]))
+  [detail-section
+   {:icon (get category-icons category more-horiz)
+    :label (get category-labels category category)}
+   [box {:sx {:display "flex" :flexWrap "wrap" :gap 1}}
+    (for [item items]
+      ^{:key (:id item)}
+      [inventory-item app-state item editing-id item-color
+       (contains? highlighted (:id item))])]])
 
 (defn inventory-tab
   [app-state]

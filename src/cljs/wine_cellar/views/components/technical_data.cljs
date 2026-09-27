@@ -108,10 +108,8 @@
                 {:variant "caption"
                  :sx {:fontWeight "bold"
                       :color "text.secondary"
-                      :textTransform "uppercase"
                       :display "block"
-                      :mb 0.5
-                      :letterSpacing "0.05em"}} (common/humanize-key k)]
+                      :mb 0.5}} (common/humanize-key k)]
                [typography {:variant "body2" :sx {:whiteSpace "pre-wrap"}}
                 (str v)]])])
          ;; Add button

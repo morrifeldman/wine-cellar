@@ -28,12 +28,8 @@
               :borderRadius "4px"
               :boxShadow "0 4px 6px rgba(0, 0, 0, 0.3)"
               :minWidth "180px"}}
-     [:p
-      {:style {:color "#9e9e9e"
-               :margin "0 0 8px 0"
-               :fontSize "0.75rem"
-               :textTransform "uppercase"
-               :letterSpacing "0.05em"}} (str "Year " label)]
+     [:p {:style {:color "#9e9e9e" :margin "0 0 8px 0" :fontSize "0.875rem"}}
+      (str "Year " label)]
      (doall (map-indexed (fn [idx item]
                            (let [name (:name item)
                                  value (:value item)

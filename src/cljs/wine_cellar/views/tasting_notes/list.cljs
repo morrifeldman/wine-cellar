@@ -7,6 +7,7 @@
             [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.nav :as nav]
             [wine-cellar.utils.formatting :refer [format-date]]
+            [wine-cellar.views.components :refer [section-rule]]
             [wine-cellar.views.components.wset-shared :refer [wset-display]]))
 
 (defn get-rating-color
@@ -22,9 +23,7 @@
      {:elevation 1
       :sx {:p 2
            :mb 2
-           :borderLeft (if is-external
-                         "4px solid rgba(100,181,246,0.7)"
-                         "4px solid rgba(128,203,196,0.7)")
+           :borderLeft (str "2px solid " section-rule)
            :cursor "pointer"
            "&:hover" {:boxShadow 3}}
       :onClick #(nav/open-modal! :note (:id note))}

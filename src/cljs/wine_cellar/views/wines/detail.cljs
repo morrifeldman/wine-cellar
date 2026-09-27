@@ -929,7 +929,8 @@
 (defn history-change-cell
   [record]
   [table-cell
-   {:sx {:color (if (pos? (:change_amount record)) "success.main" "#ff5252")
+   {:sx {:color
+         (if (pos? (:change_amount record)) "secondary.light" "error.light")
          :fontWeight "bold"}}
    (if (pos? (:change_amount record))
      (str "+" (:change_amount record))

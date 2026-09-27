@@ -34,8 +34,8 @@
     [wine-cellar.views.bar.recipe-mode :as recipe-mode]
     [wine-cellar.views.bar.inventory :as inv]
     [wine-cellar.views.bar.spirits :refer
-     [category-filter-bar subcategory-filter-bar category-colors category-labels
-      filter-chip-sx filters-toggle-chip active-filter-chips]]
+     [category-filter-bar subcategory-filter-bar category-labels filter-chip-sx
+      filters-toggle-chip active-filter-chips]]
     [wine-cellar.views.components :refer
      [editable-text-field editable-autocomplete-field search-text-field
       detail-section]]
@@ -251,14 +251,10 @@
     :missing-garnish {:glyph "~" :color "text.secondary"}
     {:glyph "✓" :color "rgba(139,195,74,0.85)"}))
 
-(defn- category-rgb
-  "The bare \"R,G,B\" triple from an inventory category-meta rgba() color, so we
-   can build chip bg/border/text at our own alpha levels."
-  [category]
-  (let [color (:color (get inv/category-meta
-                           category
-                           (get inv/category-meta "other")))]
-    (second (re-find #"rgba\(([\d, ]+?),\s*[\d.]+\)" color))))
+(def ^:private chip-rgb
+  "The accent as a bare R,G,B triple, so chips can build their fill, border and
+   text at their own alpha levels."
+  "232,195,200")
 
 (defn- ingredient-link-chips
   "Chips for the inventory items an ingredient is linked to, colored and iconed
@@ -277,10 +273,10 @@
       [box {:sx {:display "flex" :flexWrap "wrap" :gap 0.5 :mt 0.25 :mb 0.25}}
        (for [item linked
              :let [out? (not (:have_it item))
-                   rgb (category-rgb (:category item))
-                   icon (:icon (get inv/category-meta
-                                    (:category item)
-                                    (get inv/category-meta "other")))]]
+                   rgb chip-rgb
+                   icon (get inv/category-icons
+                             (:category item)
+                             (get inv/category-icons "other"))]]
          ^{:key (:id item)}
          [chip
           {:label (str (:name item) (when out? " · out of stock"))
@@ -412,9 +408,7 @@
    owned (per the bottles-for-spec tiers), opens the whole category instead so
    the user can browse it and judge substitutions themselves."
   [{:keys [category subcategory]} {:keys [exact sub]}]
-  (let [{:keys [base text]}
-        (get category-colors category {:base "160,160,160" :text "#c0c0c0"})
-        owned? (fn [b] (pos? (or (:quantity b) 1)))
+  (let [owned? (fn [b] (pos? (or (:quantity b) 1)))
         none-owned? (and (empty? (filter owned? exact)) (empty? sub))
         ;; "other" is a catch-all; when a subcategory names the spirit
         ;; (e.g. "Absinthe") show just that rather than "Absinthe Other".
@@ -430,11 +424,11 @@
       #(nav/go-bar-spirit-category! category (when-not none-owned? subcategory))
       :sx {:height 28
            :letterSpacing "0.02em"
-           :bgcolor (str "rgba(" base ",0.14)")
-           :color text
-           :border (str "1px solid rgba(" base ",0.35)")
-           "@media (hover: hover)" {"&:hover"
-                                    {:bgcolor (str "rgba(" base ",0.24)")}}}}]))
+           :bgcolor (str "rgba(" chip-rgb ",0.14)")
+           :color (str "rgba(" chip-rgb ",0.95)")
+           :border (str "1px solid rgba(" chip-rgb ",0.35)")
+           "@media (hover: hover)"
+           {"&:hover" {:bgcolor (str "rgba(" chip-rgb ",0.24)")}}}}]))
 
 (defn- ingredients-list
   [app-state recipe statuses inventory-items spirits]
@@ -940,7 +934,7 @@
        (let [n (count (filter #(contains? sel (:id %)) (by-cat cat)))
              open? (= open cat)
              hot? (or open? (pos? n))
-             rgb (category-rgb cat)]
+             rgb chip-rgb]
          ^{:key cat}
          [chip
           {:label (str (get inv/category-labels cat cat)
@@ -975,7 +969,7 @@
            :ml 2}}
      (for [item items]
        (let [active? (contains? sel (:id item))
-             rgb (category-rgb (:category item))]
+             rgb chip-rgb]
          ^{:key (:id item)}
          [chip
           {:label (:name item)

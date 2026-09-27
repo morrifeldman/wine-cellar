@@ -9,11 +9,39 @@
     [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.material.switch :refer [switch]]
     [reagent-mui.material.form-control-label :refer [form-control-label]]
+    [reagent-mui.material.radio :refer [radio]]
+    [reagent-mui.material.radio-group :refer [radio-group]]
     [reagent-mui.icons.expand-more :refer [expand-more]]
     [clojure.string :as str]
     [wine-cellar.common :refer [wset-lexicon]]
     [wine-cellar.views.components.form :refer [select-field]]
     [wine-cellar.views.components.wine-color :refer [wine-color-display]]))
+
+(defn wset-label
+  "The WSET vocabulary is stored in capitals, as the spec prints it; show it
+   in sentence case like the rest of the app."
+  [value]
+  (if (and (string? value) (seq value))
+    (let [lower (str/lower-case value)]
+      (str (str/upper-case (subs lower 0 1)) (subs lower 1)))
+    value))
+
+(defn radio-group-field
+  "Radio group for one WSET enum."
+  [{:keys [label value options on-change]}]
+  [grid {:item true :xs 12 :sm 6}
+   [typography {:variant "subtitle2" :gutterBottom true} label]
+   [radio-group
+    {:value (or value "")
+     :onChange #(on-change (-> %
+                               .-target
+                               .-value))}
+    (for [option options]
+      ^{:key option}
+      [form-control-label
+       {:value option
+        :control (r/as-element [radio {:size "small"}])
+        :label (wset-label option)}])]])
 
 (defn normalize-characteristics
   "Flatten and clean a WSET characteristics section (primary/secondary/tertiary)."
@@ -37,7 +65,8 @@
       (for [value items]
         ^{:key (str label "-" value)}
         [grid {:item true}
-         [chip {:label value :size "small" :variant "outlined"}]])]]))
+         [chip
+          {:label (wset-label value) :size "small" :variant "outlined"}]])]]))
 
 (defn sensory-characteristics-display
   [{:keys [data primary-label secondary-label tertiary-label]}]
@@ -65,7 +94,7 @@
         [grid {:container true :spacing 1}
          (when (:clarity appearance)
            [grid {:item true}
-            [chip {:label (:clarity appearance) :size "small"}]])
+            [chip {:label (wset-label (:clarity appearance)) :size "small"}]])
          (when (and (:colour appearance) (:intensity appearance))
            [grid {:item true}
             [wine-color-display
@@ -82,14 +111,16 @@
          "Nose"]
         [grid {:container true :spacing 1}
          (when (:condition nose)
-           [grid {:item true} [chip {:label (:condition nose) :size "small"}]])
+           [grid {:item true}
+            [chip {:label (wset-label (:condition nose)) :size "small"}]])
          (when (:intensity nose)
            [grid {:item true}
             [chip
-             {:label (str "Intensity: " (:intensity nose)) :size "small"}]])
+             {:label (str "Intensity: " (wset-label (:intensity nose)))
+              :size "small"}]])
          (when (:development nose)
            [grid {:item true}
-            [chip {:label (:development nose) :size "small"}]])]
+            [chip {:label (wset-label (:development nose)) :size "small"}]])]
         (when-let [aroma-data (:aroma-characteristics nose)]
           [sensory-characteristics-display
            {:data aroma-data
@@ -108,27 +139,39 @@
          (when (:sweetness palate)
            [grid {:item true}
             [chip
-             {:label (str "Sweetness: " (:sweetness palate)) :size "small"}]])
+             {:label (str "Sweetness: " (wset-label (:sweetness palate)))
+              :size "small"}]])
          (when (:acidity palate)
            [grid {:item true}
-            [chip {:label (str "Acidity: " (:acidity palate)) :size "small"}]])
+            [chip
+             {:label (str "Acidity: " (wset-label (:acidity palate)))
+              :size "small"}]])
          (when (:tannin palate)
            [grid {:item true}
-            [chip {:label (str "Tannin: " (:tannin palate)) :size "small"}]])
+            [chip
+             {:label (str "Tannin: " (wset-label (:tannin palate)))
+              :size "small"}]])
          (when (:alcohol palate)
            [grid {:item true}
-            [chip {:label (str "Alcohol: " (:alcohol palate)) :size "small"}]])
+            [chip
+             {:label (str "Alcohol: " (wset-label (:alcohol palate)))
+              :size "small"}]])
          (when (:body palate)
            [grid {:item true}
-            [chip {:label (str "Body: " (:body palate)) :size "small"}]])
+            [chip
+             {:label (str "Body: " (wset-label (:body palate)))
+              :size "small"}]])
          (when (:flavor-intensity palate)
            [grid {:item true}
             [chip
-             {:label (str "Flavor Intensity: " (:flavor-intensity palate))
+             {:label (str "Flavor intensity: "
+                          (wset-label (:flavor-intensity palate)))
               :size "small"}]])
          (when (:finish palate)
            [grid {:item true}
-            [chip {:label (str "Finish: " (:finish palate)) :size "small"}]])]
+            [chip
+             {:label (str "Finish: " (wset-label (:finish palate)))
+              :size "small"}]])]
         (when-let [flavor-data (:flavor-characteristics palate)]
           [sensory-characteristics-display
            {:data flavor-data
@@ -147,12 +190,12 @@
          (when (:quality-level conclusions)
            [grid {:item true}
             [chip
-             {:label (str "Quality: " (:quality-level conclusions))
+             {:label (str "Quality: " (wset-label (:quality-level conclusions)))
               :size "small"}]])
          (when (:readiness conclusions)
            [grid {:item true}
             [chip
-             {:label (str "Readiness: " (:readiness conclusions))
+             {:label (str "Readiness: " (wset-label (:readiness conclusions)))
               :size "small"}]])]
         (when (:final_comments conclusions)
           [typography {:variant "body2" :sx {:mt 1 :fontStyle "italic"}}
@@ -175,6 +218,7 @@
                   {:label label
                    :value (filter #(@dynamic-options %) (or all-values []))
                    :options (vec @dynamic-options)
+                   :get-option-label wset-label
                    :multiple true
                    :free-solo true
                    :required false

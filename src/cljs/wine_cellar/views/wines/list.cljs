@@ -110,9 +110,7 @@
     {:elevation 1
      :sx
      {:p 2 :height "100%" :display "flex" :flexDirection "column" :gap 0.75}}
-    [typography
-     {:variant "overline" :color "text.secondary" :sx {:letterSpacing "0.08em"}}
-     title]
+    [typography {:variant "body2" :color "text.secondary"} title]
     [typography
      {:variant "h4" :color (or color "primary") :sx {:fontWeight 600}} value]
     (when subtitle
@@ -142,10 +140,7 @@
      [typography
       {:variant "caption"
        :color "text.secondary"
-       :sx {:textTransform "uppercase"
-            :letterSpacing "0.08em"
-            :display "block"
-            :mb 1}} "All History / In Stock / Selected"]
+       :sx {:display "block" :mb 1}} "All History / In Stock / Selected"]
      [grid {:container true :spacing 3}
       [stats-summary-card {:title "Wines" :value wines-text}]
       [stats-summary-card {:title "Bottles" :value bottles-text}]
