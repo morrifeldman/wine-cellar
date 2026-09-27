@@ -235,7 +235,7 @@
   [summary-data]
   (str/join "\n" (summary->text-lines summary-data)))
 
-(defn- selected-wines-context
+(defn selected-wines-context
   [wines]
   (when (seq wines)
     (let [wine-count (count wines)
@@ -328,19 +328,18 @@
                         [spirits-section inventory-section recipes-section])))))
 
 (defn wine-collection-context
-  "Wraps the condensed cellar snapshot with optional selected wines details.
+  "Wraps the condensed cellar snapshot. The wines under discussion are not
+   here: they travel as context notes inside the conversation, so this text
+   stays the same from turn to turn and the prompt cache holds.
    Accepts optional :web-content map of {url -> text} to append after cellar data.
    Accepts optional :bar map with spirits, inventory-items, recipes."
-  [{:keys [summary selected-wines web-content bar]}]
+  [{:keys [summary web-content bar]}]
   (let [summary-text (condensed-summary-text summary)
-        selection-text (selected-wines-context selected-wines)
         base (str "Here is information about the user's wine collection:\n\n"
                   summary-text)
-        with-selection (if selection-text (str base "\n\n" selection-text) base)
         bar-text (bar-context-text bar)
-        with-bar (if bar-text
-                   (str with-selection "\n\n=== Bar Inventory ===\n" bar-text)
-                   with-selection)
+        with-bar
+        (if bar-text (str base "\n\n=== Bar Inventory ===\n" bar-text) base)
         web-section (when (seq web-content)
                       (str "\n\nWEB PAGE CONTENT:\n"
                            (str/join "\n\n"
@@ -390,6 +389,8 @@
    "When you mention a specific wine from the user's collection, link to it using this syntax: [Wine Name and Vintage](wine:ID). "
    "The ID must be taken from the {ID: ...} tag in the provided data. Do not show the ID number itself in the visible text of the link. "
    "For example: 'I recommend the [Chateau Margaux 2015](wine:123) for this pairing.'\n\n"
+   "Details of the specific wines under discussion arrive inside the user's messages, in notes "
+   "that start with [Wine context update]. The most recent note says which wines are in focus now.\n\n"
    "You can search the web and open pages yourself. Use that whenever the answer depends on "
    "something current — what a wine site is offering today, a recent vintage report, what a bottle "
    "is selling for, or a link the user pasted — and name the source you got it from.\n\n"
@@ -405,18 +406,38 @@
           (str/replace #"^data:image/jpeg;base64," "")
           (str/replace #"^data:image/png;base64," "")))
 
+(defn- context-note-text
+  [{:keys [wine_ids text]}]
+  (let [wine-count (count wine_ids)]
+    (cond (zero? wine-count)
+          (str "[Wine context update — no specific wines are in focus now; "
+               "answer from the cellar summary.]")
+          (= 1 wine-count)
+          (str
+           "[Wine context update — from here on we're discussing this wine:]\n"
+           text)
+          :else (str
+                 "[Wine context update — from here on we're discussing these "
+                 wine-count
+                 " wines:]\n" text))))
+
 (defn conversation-messages
   "Normalizes conversation history into provider-agnostic chat messages.
    Each message is a map with :role (\"user\" or \"assistant\") and :content, where
-   :content is either a string or a vector containing {:type \"text\" ...} / {:type \"image\" ...}."
+   :content is either a string or a vector containing {:type \"text\" ...} / {:type \"image\" ...}.
+   A user message's context note goes in front of its text, inside the same
+   turn, so the roles keep alternating."
   ([conversation-history] (conversation-messages conversation-history nil))
   ([conversation-history image]
    (let [base (mapv (fn [msg]
-                      (let [role (if (or (:is-user msg) (:is_user msg))
-                                   "user"
-                                   "assistant")
+                      (let [user? (or (:is-user msg) (:is_user msg))
+                            note (or (:context-note msg) (:context_note msg))
                             content (or (:content msg) (:text msg) "")]
-                        {:role role :content content}))
+                        {:role (if user? "user" "assistant")
+                         :content
+                         (if (and user? note)
+                           (str (context-note-text note) "\n\n" content)
+                           content)}))
                     conversation-history)]
      (if (and image (seq base) (= "user" (:role (peek base))))
        (let [idx (dec (count base))

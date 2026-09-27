@@ -13,12 +13,11 @@
             [reagent-mui.icons.chat :refer [chat]]
             [reagent-mui.icons.forum :refer [forum]]
             [reagent-mui.icons.close :refer [close]]
-            [reagent-mui.icons.clear-all :refer [clear-all]]
+            [reagent-mui.icons.add :refer [add]]
             [wine-cellar.views.components.image-upload :refer [camera-capture]]
             [reagent-mui.material.typography :refer [typography]]
             [wine-cellar.views.wines.filters :as wine-filters]
-            [wine-cellar.utils.filters :refer
-             [filtered-sorted-wines filters-active?]]
+            [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
             [wine-cellar.api :as api]
             [wine-cellar.nav :as nav]
             [wine-cellar.state :as state-core]
@@ -67,13 +66,14 @@
       [box
        {:sx {:display "flex" :align-items "center" :gap (if is-mobile? 0.5 1)}}
        conversation-toggle
-       [tooltip {:title "Clear chat history"}
+       [tooltip {:title "New chat"}
         [icon-button
          {:on-click #(chat-actions/clear-chat! app-state
                                                messages
                                                message-ref
                                                pending-image)
-          :sx {:color "secondary.main"}} [clear-all]]]
+          :aria-label "New chat"
+          :sx {:color "secondary.main"}} [add]]]
        [tooltip {:title "Close"}
         [icon-button
          {:on-click #(chat-actions/close-chat! app-state message-ref)
@@ -211,7 +211,6 @@
             deleting-id (:deleting-conversation-id chat-state)
             pinning-id (:pinning-conversation-id chat-state)
             renaming-id (:renaming-conversation-id chat-state)
-            context-wine-list (chat-context/context-wines app-state)
             conversation-messages (vec (or (:messages chat-state) []))
             wines (or (:wines state) [])
             show-out-of-stock? (:show-out-of-stock? state)
@@ -219,35 +218,18 @@
                          wines
                          (filter #(pos? (or (:quantity %) 0)) wines))
             total-count (count base-wines)
-            context-mode (state-core/context-mode state)
-            filters-active? (= context-mode :selection+filters)
-            visible-wines (when filters-active?
-                            (or (filtered-sorted-wines app-state) []))
-            visible-count (if filters-active? (count visible-wines) 0)
-            context-count (count context-wine-list)
-            manual-count (count (chat-context/manual-context-wines state))
-            indicator-props (chat-context/context-indicator-props context-mode
-                                                                  context-count
-                                                                  manual-count)
-            change-context-mode! (fn [mode]
-                                   (state-core/set-context-mode! app-state mode)
-                                   (when-let [_conversation-id
-                                              (:active-conversation-id
-                                               (:chat @app-state))]
-                                     (chat-context/sync-conversation-context!
-                                      app-state
-                                      (chat-context/context-wines app-state))))
+            wines-mode? (= :wines (state-core/context-mode state))
+            visible-count
+            (if wines-mode? (count (filtered-sorted-wines app-state)) 0)
             bar-view? (= :bar (:view state))
             context-indicator (if bar-view?
                                 [typography
                                  {:variant "caption"
                                   :sx {:color "text.secondary"
                                        :fontSize "0.7rem"}} "Bar inventory"]
-                                [chat-context/indicator-button context-mode
-                                 indicator-props change-context-mode!
-                                 manual-count])
+                                [chat-context/context-bar app-state])
             filter-count-info {:visible visible-count :total total-count}
-            filter-panel (when (and (not bar-view?) filters-active?)
+            filter-panel (when (and (not bar-view?) wines-mode?)
                            (wine-filters/filter-bar app-state
                                                     filter-count-info
                                                     {:paper-sx
@@ -368,34 +350,19 @@
                             :header-props header-props
                             :content-props content-props})))))
 
-(defn- smart-open-chat!
-  [app-state]
-  ;; A wine detail page, or a selection with no filters to narrow it,
-  ;; starts
-  ;; with just those wines. Otherwise filters apply: to the selection when
-  ;; there is one, or to the whole cellar.
-  (state-core/set-context-mode! app-state
-                                (let [state @app-state]
-                                  (if (or (:selected-wine-id state)
-                                          (and (seq (:selected-wine-ids state))
-                                               (not (filters-active? state))))
-                                    :selection
-                                    :selection+filters)))
-  ;; on-navigate opens the chat from the URL, and Back closes it again
-  (nav/open-modal! :chat))
-
 (defn wine-chat-fab
   "Floating action button for wine chat"
-  [app-state]
+  []
   [fab
    {:color "primary"
     :sx {:position "fixed"
          :bottom "calc(16px + env(safe-area-inset-bottom))"
          :right 16
          :z-index 1000}
-    :on-click #(smart-open-chat! app-state)} [chat]])
+    ;; on-navigate opens the chat from the URL, and Back closes it again
+    :on-click #(nav/open-modal! :chat)} [chat]])
 
 (defn wine-chat
   "Main wine chat component with FAB and dialog"
   [app-state]
-  [:div [wine-chat-fab app-state] [chat-dialog app-state]])
+  [:div [wine-chat-fab] [chat-dialog app-state]])

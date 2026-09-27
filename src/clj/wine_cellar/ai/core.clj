@@ -20,25 +20,28 @@
                                :valid-providers common/ai-providers})))
             provider))
 
+(defn wines-context-text
+  "The details of these wines as chat context, rendered from the database."
+  [wine-ids]
+  (some-> (seq wine-ids)
+          db-api/get-enriched-wines-by-ids
+          prompts/selected-wines-context))
+
 (defn chat-about-wines
   [provider context conversation-history image]
   {:pre [(map? context)]}
-  (let [{:keys [summary selected-wines web-content bar chat-mode effort]}
-        context
+  (let [{:keys [summary web-content bar chat-mode effort]} context
         bar-mode? (= :bar chat-mode)
-        prompt {:system-text (if bar-mode?
-                               (prompts/bar-system-instructions)
-                               (prompts/wine-system-instructions))
-                :context-text (if bar-mode?
-                                (prompts/bar-chat-context context)
-                                (prompts/wine-collection-context
-                                 {:summary summary
-                                  :selected-wines selected-wines
-                                  :web-content web-content
-                                  :bar bar}))
-                :messages (prompts/conversation-messages conversation-history
-                                                         image)
-                :effort effort}]
+        prompt
+        {:system-text (if bar-mode?
+                        (prompts/bar-system-instructions)
+                        (prompts/wine-system-instructions))
+         :context-text (if bar-mode?
+                         (prompts/bar-chat-context context)
+                         (prompts/wine-collection-context
+                          {:summary summary :web-content web-content :bar bar}))
+         :messages (prompts/conversation-messages conversation-history image)
+         :effort effort}]
     (case provider
       :openai (openai/chat-about-wines prompt)
       :anthropic (anthropic/chat-about-wines prompt)

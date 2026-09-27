@@ -592,29 +592,44 @@
 
 ;; Chat Handlers
 
+(defn- complete-context-note
+  "A note is a snapshot of the wines as Claude saw them when they came into
+   the conversation, so it carries their rendered details, not just ids."
+  [{:keys [label wine_ids text]}]
+  (let [wine-ids (vec (remove nil? wine_ids))]
+    {:label label
+     :wine_ids wine-ids
+     :text (or text (ai/wines-context-text wine-ids))}))
+
+(defn- complete-history-notes
+  "A note whose message was saved moments ago may not have its text back in
+   the browser yet; render it the same way saving it did."
+  [conversation-history]
+  (mapv (fn [msg]
+          (if-let [note (or (:context-note msg) (:context_note msg))]
+            (-> msg
+                (dissoc :context_note)
+                (assoc :context-note (complete-context-note note)))
+            msg))
+        conversation-history))
+
 (defn chat-with-ai
   [request]
   (try
     (let [body (-> request
                    :parameters
                    :body)
-          {:keys [wine-ids conversation-history image provider effort
-                  include-visible-wines? include-bar?]}
-          body
-          include? (if (contains? body :include-visible-wines?)
-                     (boolean include-visible-wines?)
-                     false)
+          {:keys [image provider effort include-bar?]} body
+          conversation-history (complete-history-notes (:conversation-history
+                                                        body))
           include-bar? (boolean include-bar?)
-          selected-ids (if include? (vec (remove nil? wine-ids)) [])
           message (or (some #(when (or (:is-user %) (:is_user %))
                                (or (:content %) (:text %)))
                             (reverse conversation-history))
                       "")]
       (if (and (empty? conversation-history) (empty? image))
         {:status 400 :body {:error "Conversation history or image is required"}}
-        (let [enriched-wines (when (and (not include-bar?) (seq selected-ids))
-                               (db-api/get-enriched-wines-by-ids selected-ids))
-              cellar-wines (when-not include-bar?
+        (let [cellar-wines (when-not include-bar?
                              (or (db-api/get-wines-for-list) []))
               condensed (when-not include-bar?
                           (summary/condensed-summary cellar-wines))
@@ -637,11 +652,7 @@
                   (fn [[url result]] (when-let [text (:ok result)] [url text]))
                   (map vector urls (pmap web-fetch/fetch-url-content urls)))))
               context (cond-> {:chat-mode (if include-bar? :bar :wine)
-                               :summary condensed
-                               :selected-wines (if (and include?
-                                                        (not include-bar?))
-                                                 (vec enriched-wines)
-                                                 [])}
+                               :summary condensed}
                         include-bar? (assoc :bar bar)
                         (seq web-content) (assoc :web-content web-content)
                         effort (assoc :effort effort))
@@ -720,23 +731,27 @@
   (with-conversation
    request
    (fn [conversation-id conversation]
-     (let [{:keys [is_user content image_data tokens_used]}
+     (let [{:keys [is_user content image_data tokens_used context_note]}
            (get-in request [:parameters :body])
-           message {:conversation_id conversation-id
-                    :is_user (boolean is_user)
-                    :content content
-                    :image_data image_data
-                    :tokens_used tokens_used}
+           message (cond-> {:conversation_id conversation-id
+                            :is_user (boolean is_user)
+                            :content content
+                            :image_data image_data
+                            :tokens_used tokens_used}
+                     context_note (assoc :context_note
+                                         (complete-context-note context_note)))
            inserted (db-api/append-conversation-message! message)
            title-needed? (and (:is_user inserted)
                               (str/blank? (:title conversation))
                               (not (str/blank? content)))
            updated-conversation
-           (when title-needed?
-             (when-let [title (ai/generate-conversation-title (:provider
-                                                               conversation)
-                                                              content)]
-               (db-api/update-conversation! conversation-id {:title title})))]
+           (or (when title-needed?
+                 (when-let [title (ai/generate-conversation-title (:provider
+                                                                   conversation)
+                                                                  content)]
+                   (db-api/update-conversation! conversation-id
+                                                {:title title})))
+               (when context_note (db-api/get-conversation conversation-id)))]
        (-> (response/response (cond-> {:message inserted}
                                 updated-conversation
                                 (assoc :conversation updated-conversation)))
@@ -749,11 +764,15 @@
    (fn [conversation-id _]
      (let [message-id (get-in request [:parameters :path :message-id])
            body (get-in request [:parameters :body])
-           {:keys [content image truncate_after? tokens_used]} body
+           {:keys [content image truncate_after? tokens_used context_note]} body
            payload (cond-> {:conversation_id conversation-id
                             :message_id message-id
                             :content content}
                      (contains? body :image) (assoc :image_data image)
+                     (contains? body :context_note)
+                     (assoc :context_note
+                            (some-> context_note
+                                    complete-context-note))
                      (contains? body :tokens_used) (assoc :tokens_used
                                                           tokens_used)
                      (true? truncate_after?) (assoc :truncate_after? true))]

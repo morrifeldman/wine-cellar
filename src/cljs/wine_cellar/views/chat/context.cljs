@@ -1,174 +1,201 @@
 (ns wine-cellar.views.chat.context
-  (:require [reagent-mui.material.typography :refer [typography]]
+  (:require [clojure.string :as string]
+            [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.chip :refer [chip]]
+            [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.tooltip :refer [tooltip]]
-            [wine-cellar.api :as api]
-            [wine-cellar.nav :as nav]
+            [reagent-mui.icons.close :refer [close]]
             [wine-cellar.state :as state-core]
-            [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
+            [wine-cellar.utils.filters :refer
+             [filtered-sorted-wines filters-active?]]))
 
-(defn manual-context-wines
-  [state]
-  (let [base-selected-ids (or (:selected-wine-ids state) #{})
-        selected-ids (cond-> base-selected-ids
-                       (:selected-wine-id state) (conj (:selected-wine-id
-                                                        state)))]
-    (if (seq selected-ids)
-      (let [wines (or (:wines state) [])]
-        (vec (filter #(contains? selected-ids (:id %)) wines)))
-      [])))
+(def ^:private summary-context {:wine-ids [] :label "Summary only"})
 
-(defn context-wines
-  "Derive the set of wines currently in chat context."
+(defn- wines-label
+  ([wine-count] (wines-label wine-count nil))
+  ([wine-count qualifier]
+   (if (zero? wine-count)
+     "No wines match"
+     (str wine-count
+          (when qualifier (str " " qualifier))
+          (if (= 1 wine-count) " wine" " wines")))))
+
+(defn- wine-name
+  [{:keys [producer name vintage]}]
+  (let [text (string/join " " (remove string/blank? [producer name vintage]))]
+    (when-not (string/blank? text) text)))
+
+(defn list-context
+  "The wines the list offers the chat: the wine page being viewed, else the
+   checked wines that the filters and history toggle leave visible, else
+   everything visible."
   [app-state]
   (let [state @app-state
-        mode (state-core/context-mode state)
-        manual-wines (manual-context-wines state)
-        visible-wines (if (= mode :selection+filters)
-                        (vec (or (filtered-sorted-wines app-state) []))
-                        [])]
-    (case mode
-      :summary []
-      :selection manual-wines
-      ;; With a selection, filters narrow it (intersection);
-      ;; without one, context is just the filtered wines.
-      :selection+filters (if (seq manual-wines)
-                           (let [manual-ids (set (map :id manual-wines))]
-                             (vec (filter #(contains? manual-ids (:id %))
-                                          visible-wines)))
-                           visible-wines)
-      [])))
+        visible-ids (map :id (filtered-sorted-wines app-state))
+        wine-id (:selected-wine-id state)
+        checked (:selected-wine-ids state)]
+    (cond wine-id {:wine-ids [wine-id]
+                   :label (or (some #(when (= wine-id (:id %)) (wine-name %))
+                                    (:wines state))
+                              (wines-label 1))}
+          (seq checked) (let [ids (vec (sort (filter checked visible-ids)))]
+                          {:wine-ids ids
+                           :label (wines-label (count ids) "selected")})
+          :else (let [ids (vec (sort visible-ids))]
+                  {:wine-ids ids
+                   :label (str (wines-label (count ids))
+                               (when (and (seq ids) (filters-active? state))
+                                 " (filtered)"))}))))
 
-(defn- context-label-element
-  [mode context-count manual-count]
-  (case mode
-    :summary "Summary only"
-    :selection (if (pos? manual-count)
-                 [:<> [:span {:style {:fontWeight 700}} (str manual-count)]
-                  (if (= manual-count 1) " wine selected" " wines selected")]
-                 "No wines selected")
-    :selection+filters (if (pos? context-count)
-                         [:<>
-                          [:span {:style {:fontWeight 700}} (str context-count)]
-                          (if (pos? manual-count)
-                            " wines (selected + filters)"
-                            " wines (filtered)")]
-                         "No wines match the filters")
-    "Summary only"))
+(defn- note-context
+  [{:keys [wine_ids label]}]
+  {:wine-ids (vec (sort wine_ids)) :label label})
 
-(defn context-indicator-props
-  [mode context-count manual-count]
-  (let [label (context-label-element mode context-count manual-count)]
-    (case mode
-      :summary {:color "text.secondary" :label label}
-      :selection (if (pos? manual-count)
-                   {:color "success.main" :label label}
-                   {:color "text.secondary" :label label})
-      :selection+filters
-      (cond (zero? context-count) {:color "text.secondary" :label label}
-            (> context-count 50) {:color "common.white"
-                                  :label label
-                                  :sx {:backgroundColor "error.main"
-                                       :padding "2px 6px"
-                                       :borderRadius "999px"}}
-            (<= context-count 15) {:color "success.main" :label label}
-            (<= context-count 50) {:color "warning.main" :label label}
-            :else {:color "text.secondary" :label label})
-      {:color "text.secondary" :label label})))
+(defn- conversation-context
+  "What the active conversation was last discussing: its latest context note,
+   or for a conversation from before notes existed, the wines it recorded."
+  [state]
+  (if-let [note (some :context-note
+                      (rseq (vec (get-in state [:chat :messages]))))]
+    (note-context note)
+    (let [wine-ids (get-in state [:chat :active-conversation :wine_ids])]
+      (if (seq wine-ids)
+        {:wine-ids (vec (sort wine-ids)) :label (wines-label (count wine-ids))}
+        summary-context))))
 
-(defn build-wine-search-state
-  [app-state context-mode]
+(defn chat-context
+  "What the chat sees now, as {:wine-ids :label :source}. A reopened
+   conversation keeps its own wines for as long as the list still shows what
+   it showed when the conversation was opened; any change to the list hands
+   the chat back to it. :listed is what the list would give."
+  [app-state]
   (let [state @app-state
-        include? (contains? #{:selection :selection+filters} context-mode)]
-    {:filters (:filters state)
-     :sort (:sort state)
-     :show-out-of-stock? (:show-out-of-stock? state)
-     :selected-wine-id (:selected-wine-id state)
-     :selected-wine-ids (-> (:selected-wine-ids state)
-                            (or #{})
-                            (cond-> (:selected-wine-id state)
-                                    (conj (:selected-wine-id state)))
-                            vec)
-     :show-selected-wines? (:show-selected-wines? state)
-     :context-mode context-mode
-     :include-visible-wines? include?}))
+        listed (list-context app-state)
+        reopened-list-ids (get-in state [:chat :reopened-list-ids])]
+    (cond (= :summary (state-core/context-mode state))
+          (assoc summary-context :source :summary :listed listed)
+          (and reopened-list-ids (= reopened-list-ids (:wine-ids listed)))
+          (assoc (conversation-context state)
+                 :source :conversation
+                 :listed listed)
+          :else (assoc listed :source :list :listed listed))))
 
-(defn apply-wine-search-state!
-  [app-state search-state]
-  (when (map? search-state)
-    (swap! app-state (fn [state]
-                       (-> state
-                           (cond-> (contains? search-state :filters)
-                                   (assoc :filters
-                                          (update (:filters search-state)
-                                                  :tasting-window
-                                                  keyword)))
-                           (cond-> (contains? search-state :sort)
-                                   (assoc :sort (:sort search-state)))
-                           (cond-> (contains? search-state :show-out-of-stock?)
-                                   (assoc :show-out-of-stock?
-                                          (:show-out-of-stock? search-state)))
-                           (cond-> (contains? search-state :selected-wine-id)
-                                   (assoc :selected-wine-id
-                                          (:selected-wine-id search-state))))))
-    ;; The wines this conversation was about go back in the URL rather than
-    ;; straight into app-state: the URL owns the selection now, and
-    ;; anything written past it would be wiped by the next navigation.
-    (when (contains? search-state :selected-wine-ids)
-      (nav/set-selected-wines! (into #{} (:selected-wine-ids search-state)))
-      (nav/show-only-selected! (boolean (:show-selected-wines? search-state))))
-    (cond (contains? search-state :context-mode)
-          (when-let [mode (:context-mode search-state)]
-            (state-core/set-context-mode! app-state (keyword mode)))
-          (contains? search-state :include-visible-wines?)
-          (let [mode (if (:include-visible-wines? search-state)
-                       :selection+filters
-                       (if (or (seq (:selected-wine-ids search-state))
-                               (:selected-wine-id search-state))
-                         :selection
-                         :summary))]
-            (state-core/set-context-mode! app-state mode)))))
+(defn hold-conversation-context!
+  "Make the chat discuss what the conversation being opened was discussing,
+   rather than whatever the list shows."
+  [app-state]
+  (state-core/set-context-mode! app-state :wines)
+  (swap! app-state assoc-in
+    [:chat :reopened-list-ids]
+    (:wine-ids (list-context app-state))))
 
-(defn sync-conversation-context!
-  ([app-state wines]
-   (when-let [conversation-id (get-in @app-state
-                                      [:chat :active-conversation-id])]
-     (sync-conversation-context! app-state wines conversation-id)))
-  ([app-state wines conversation-id]
-   (let [state @app-state
-         context-mode (state-core/context-mode state)
-         wine-ids (->> wines
-                       (map :id)
-                       (remove nil?)
-                       vec)
-         search-state (build-wine-search-state app-state context-mode)]
-     (api/update-conversation-context! app-state
-                                       conversation-id
-                                       {:wine-ids wine-ids
-                                        :wine-search-state search-state}))))
+(defn same-note?
+  [a b]
+  (= (some-> a
+             :wine_ids
+             sort
+             vec)
+     (some-> b
+             :wine_ids
+             sort
+             vec)))
 
-(defn indicator-button
-  [context-mode indicator-props change-context-mode! manual-count]
-  (let [{:keys [color label sx]} indicator-props
-        ;; Nothing selected — no point stopping on :selection
-        context-cycle (if (pos? manual-count)
-                        [:summary :selection :selection+filters]
-                        [:summary :selection+filters])
-        cycle-context-mode!
-        (fn []
-          (let [indexed (map-indexed vector context-cycle)
-                idx (or (some (fn [[i mode]] (when (= mode context-mode) i))
-                              indexed)
-                        0)
-                next-mode (nth context-cycle
-                               (mod (inc idx) (count context-cycle)))]
-            (change-context-mode! next-mode)))]
-    [tooltip {:title "Cycle Context"}
-     [typography
-      {:variant "caption"
-       :onClick cycle-context-mode!
-       :sx (merge {:color color
-                   :fontSize "0.7rem"
-                   :lineHeight 1.2
-                   :cursor "pointer"
-                   "&:hover" {:opacity 0.8}}
-                  sx)} label]]))
+(defn context-note
+  "The context note a user turn needs, given the messages before it. Claude
+   learns which wines are in focus only from these notes, so one is due
+   whenever what the chat sees differs from the latest note — or, with no
+   note yet, whenever there are wines to see."
+  [app-state prior-messages]
+  (when-not (= :bar (:view @app-state))
+    (let [{:keys [wine-ids label]} (chat-context app-state)
+          latest (some :context-note (rseq (vec prior-messages)))]
+      (when (if latest
+              (not= wine-ids (:wine-ids (note-context latest)))
+              (seq wine-ids))
+        {:label (if (seq wine-ids) label (:label summary-context))
+         :wine_ids wine-ids}))))
+
+(defn- count-sx
+  [wine-count]
+  (cond (zero? wine-count) {:color "text.secondary"}
+        (> wine-count 50) {:color "common.white"
+                           :backgroundColor "error.main"
+                           :padding "2px 6px"
+                           :borderRadius "999px"}
+        (<= wine-count 15) {:color "success.main"}
+        :else {:color "warning.main"}))
+
+(def ^:private caption-sx {:fontSize "0.7rem" :lineHeight 1.2})
+
+(defn- wines-caption
+  [{:keys [wine-ids label]}]
+  (let [wine-count (count wine-ids)
+        count-text (str wine-count " ")]
+    [typography
+     {:variant "caption" :sx (merge caption-sx (count-sx wine-count))}
+     (if (string/starts-with? label count-text)
+       [:<> [:span {:style {:fontWeight 700}} (str wine-count)]
+        (subs label (dec (count count-text)))]
+       label)]))
+
+(defn- summary-caption
+  [app-state]
+  [tooltip {:title "Include wines"}
+   [typography
+    {:variant "caption"
+     :role "button"
+     :aria-label "Include wines"
+     :tabIndex 0
+     :onClick #(state-core/set-context-mode! app-state :wines)
+     :onKeyDown #(when (#{"Enter" " "} (.-key %))
+                   (.preventDefault %)
+                   (state-core/set-context-mode! app-state :wines))
+     :sx (merge
+          caption-sx
+          {:color "text.secondary" :cursor "pointer" "&:hover" {:opacity 0.8}})}
+    "Summary only"]])
+
+(defn- switch-to-list-chip
+  [app-state listed]
+  (let [wine-count (count (:wine-ids listed))]
+    [chip
+     {:label (if (pos? wine-count)
+               (str "Switch to the " (wines-label wine-count) " in your list")
+               "Use your current list")
+      :size "small"
+      :variant "outlined"
+      :color "secondary"
+      :onClick #(swap! app-state update :chat dissoc :reopened-list-ids)
+      :sx {:height 20 :fontSize "0.65rem" :maxWidth "100%"}}]))
+
+(defn context-bar
+  "Shows what the chat sees and lets the user narrow it to the cellar summary
+   or widen it back to wines."
+  [app-state]
+  (let [{:keys [wine-ids source listed] :as context} (chat-context app-state)
+        summary? (empty? wine-ids)
+        offer-list? (and (= :conversation source)
+                         (not= wine-ids (:wine-ids listed)))]
+    [box
+     {:sx {:display "flex"
+           :align-items "center"
+           :gap 0.5
+           :flex-wrap "wrap"
+           :minWidth 0}}
+     (cond (= :summary source) [summary-caption app-state]
+           ;; The reopened conversation had moved to the summary; the chip
+           ;; beside this is the way back to wines.
+           (and summary? (= :conversation source))
+           [typography
+            {:variant "caption"
+             :sx (merge caption-sx {:color "text.secondary"})} "Summary only"]
+           :else [:<> [wines-caption context]
+                  [tooltip {:title "Chat about the cellar summary only"}
+                   [icon-button
+                    {:size "small"
+                     :aria-label "Chat about the cellar summary only"
+                     :onClick #(state-core/set-context-mode! app-state :summary)
+                     :sx {:p 0.25 :color "text.secondary"}}
+                    [close {:sx {:fontSize "0.8rem"}}]]]])
+     (when offer-list? [switch-to-list-chip app-state listed])]))

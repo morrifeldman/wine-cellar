@@ -6,37 +6,18 @@
             [wine-cellar.views.chat.context :as chat-context]
             [wine-cellar.views.chat.utils :as chat-utils]))
 
-(declare send-chat-message)
-
-(defn- build-wine-search-state
-  [app-state context-mode]
-  (chat-context/build-wine-search-state app-state context-mode))
-
 (defn ensure-conversation!
   "Ensure an active conversation exists before persisting messages."
-  [app-state wines callback]
+  [app-state callback]
   (let [conversation-id (get-in @app-state [:chat :active-conversation-id])
         creating? (get-in @app-state [:chat :creating-conversation?])]
-    (cond conversation-id (do (swap! app-state assoc-in
-                                [:chat :active-conversation-id]
-                                conversation-id)
-                              (callback conversation-id))
-          creating?
-          (js/setTimeout #(ensure-conversation! app-state wines callback) 100)
+    (cond conversation-id (callback conversation-id)
+          creating? (js/setTimeout #(ensure-conversation! app-state callback)
+                                   100)
           :else
-          (let [state @app-state
-                context-mode (state-core/context-mode state)
-                wine-ids (->> wines
-                              (map :id)
-                              (remove nil?)
-                              vec)
-                chat-type (if (= :bar (:view state)) "bar" "wine")
-                payload (cond-> {:wine_search_state (build-wine-search-state
-                                                     app-state
-                                                     context-mode)
-                                 :provider (get-in @app-state [:ai :provider])
-                                 :chat_type chat-type}
-                          (seq wine-ids) (assoc :wine_ids wine-ids))]
+          (let [chat-type (if (= :bar (:view @app-state)) "bar" "wine")
+                payload {:provider (get-in @app-state [:ai :provider])
+                         :chat_type chat-type}]
             (swap! app-state assoc-in [:chat :creating-conversation?] true)
             (api/create-conversation!
              app-state
@@ -48,100 +29,105 @@
                  (tap> ["ensure-conversation-failed" error]))))))))
 
 (defn persist-conversation-message!
-  "Persist a chat message (user or AI) to the backend conversation store."
-  ([app-state wines message-map]
-   (persist-conversation-message! app-state wines message-map nil))
-  ([app-state wines message-map after-save]
-   (ensure-conversation! app-state
-                         wines
-                         (fn [conversation-id]
-                           (api/append-conversation-message!
-                            app-state
-                            conversation-id
-                            message-map
-                            (fn [{:keys [success error]}]
-                              (if success
-                                (when after-save (after-save conversation-id))
-                                (tap> ["conversation-message-persist-failed"
-                                       error]))))))))
+  "Persist a chat message (user or AI) to the backend conversation store.
+   `after-save` gets the conversation id and the saved message."
+  ([app-state message-map]
+   (persist-conversation-message! app-state message-map nil))
+  ([app-state message-map after-save]
+   (ensure-conversation!
+    app-state
+    (fn [conversation-id]
+      (api/append-conversation-message!
+       app-state
+       conversation-id
+       message-map
+       (fn [{:keys [success message error]}]
+         (if success
+           (when after-save (after-save conversation-id message))
+           (tap> ["conversation-message-persist-failed" error]))))))))
 
-(defn send-chat-message
-  "Send a message to the AI chat endpoint with conversation history and optional image.
-   Provider is read from app-state by api.cljs.
-   Returns a cancel function."
-  ([app-state message wines include? conversation-history callback]
-   (send-chat-message app-state
-                      message
-                      wines
-                      include?
-                      conversation-history
-                      nil
-                      callback))
-  ([app-state message wines include? conversation-history image callback]
-   (tap> ["send-chat-message" message conversation-history
-          {:include? include?}])
-   (api/send-chat-message app-state
-                          message
-                          wines
-                          include?
-                          conversation-history
-                          image
-                          callback)))
+(defn- update-message!
+  [app-state messages message-id f & args]
+  (let [updated
+        (swap! messages (fn [current]
+                          (mapv #(if (= message-id (:id %)) (apply f % args) %)
+                                current)))]
+    (swap! app-state assoc-in [:chat :messages] updated)))
+
+(defn- adopt-saved-message!
+  "Give a just-sent message its database id, so it can be edited or asked
+   again, and the rendered text of its context note, so later requests show
+   Claude the same snapshot."
+  [app-state messages local-id saved]
+  (when saved
+    (update-message! app-state
+                     messages
+                     local-id
+                     (fn [message]
+                       (cond-> (assoc message :id (:id saved))
+                         (:context_note saved)
+                         (assoc :context-note (:context_note saved)))))))
+
+(defn- with-context-note
+  [message note]
+  (if note (assoc message :context-note note) (dissoc message :context-note)))
+
+(defn- persist-ai-reply!
+  [app-state response]
+  (persist-conversation-message!
+   app-state
+   {:is_user false :content response}
+   (fn [conversation-id _]
+     (when conversation-id
+       (api/update-conversation-provider! app-state
+                                          conversation-id
+                                          (get-in @app-state [:ai :provider])))
+     (api/load-conversations! app-state {:force? true}))))
+
+(defn- request-ai-reply!
+  "Ask the AI to answer the conversation as it stands in `messages`."
+  ([app-state messages is-sending? cancel-fn-atom]
+   (request-ai-reply! app-state messages is-sending? cancel-fn-atom nil))
+  ([app-state messages is-sending? cancel-fn-atom image]
+   (reset! cancel-fn-atom
+     (api/send-chat-message
+      app-state
+      @messages
+      image
+      (fn [response]
+        (reset! cancel-fn-atom nil)
+        (let [ai-message {:id (random-uuid)
+                          :text response
+                          :is-user false
+                          :timestamp (.getTime (js/Date.))}]
+          (swap! messages conj ai-message)
+          (swap! app-state assoc-in [:chat :messages] @messages)
+          (chat-utils/set-scroll-intent! app-state {:type :ai-top})
+          (persist-ai-reply! app-state response)
+          (reset! is-sending? false)))))))
 
 (defn handle-send-message
   "Handle sending a message to the AI assistant with optional image"
   [app-state message-text messages is-sending? cancel-fn-atom & [image]]
   (when (and (not @is-sending?) (or (seq message-text) image))
     (reset! is-sending? true)
-    (let [state @app-state
-          user-message {:id (random-uuid)
-                        :text (or message-text "")
-                        :is-user true
-                        :timestamp (.getTime (js/Date.))}
-          include? (state-core/include-wines? state)
-          wines (chat-context/context-wines app-state)]
+    (let [note (chat-context/context-note app-state @messages)
+          user-message (with-context-note {:id (random-uuid)
+                                           :text (or message-text "")
+                                           :is-user true
+                                           :timestamp (.getTime (js/Date.))}
+                                          note)]
       (swap! messages conj user-message)
       (swap! app-state assoc-in [:chat :messages] @messages)
       (chat-utils/set-scroll-intent! app-state {:type :bottom})
       (persist-conversation-message!
        app-state
-       wines
        (cond-> {:is_user true :content (or message-text "")}
-         image (assoc :image_data image))
-       (fn [conversation-id]
-         (chat-context/sync-conversation-context! app-state
-                                                  wines
-                                                  conversation-id)))
-      (let [cancel-fn
-            (send-chat-message
-             app-state
-             message-text
-             wines
-             include?
-             @messages
-             image
-             (fn [response]
-               (reset! cancel-fn-atom nil)
-               (let [ai-message {:id (random-uuid)
-                                 :text response
-                                 :is-user false
-                                 :timestamp (.getTime (js/Date.))}]
-                 (swap! messages conj ai-message)
-                 (swap! app-state assoc-in [:chat :messages] @messages)
-                 (chat-utils/set-scroll-intent! app-state {:type :ai-top})
-                 (persist-conversation-message!
-                  app-state
-                  wines
-                  {:is_user false :content response}
-                  (fn [conversation-id]
-                    (when conversation-id
-                      (api/update-conversation-provider!
-                       app-state
-                       conversation-id
-                       (get-in @app-state [:ai :provider])))
-                    (api/load-conversations! app-state {:force? true})))
-                 (reset! is-sending? false))))]
-        (reset! cancel-fn-atom cancel-fn)))))
+         image (assoc :image_data image)
+         note (assoc :context_note note))
+       (fn [_ saved]
+         (adopt-saved-message! app-state messages (:id user-message) saved)))
+      (request-ai-reply! app-state messages is-sending? cancel-fn-atom image))))
 
 (defn commit-local-edit!
   [app-state messages editing-message-id message-ref on-edit-complete
@@ -174,43 +160,6 @@
   (remove-deleted-messages! app-state messages deleted-message-ids)
   data)
 
-(defn sync-context-if-needed!
-  [app-state wines conversation-id]
-  (when (and (integer? conversation-id) wines)
-    (chat-context/sync-conversation-context! app-state wines conversation-id)))
-
-(defn enqueue-ai-followup!
-  [app-state messages message-text wines include? is-sending? cancel-fn-atom]
-  (let [history @messages
-        cancel-fn (send-chat-message
-                   app-state
-                   message-text
-                   wines
-                   include?
-                   history
-                   (fn [response]
-                     (reset! cancel-fn-atom nil)
-                     (let [ai-message {:id (random-uuid)
-                                       :text response
-                                       :is-user false
-                                       :timestamp (.getTime (js/Date.))}]
-                       (swap! messages conj ai-message)
-                       (swap! app-state assoc-in [:chat :messages] @messages)
-                       (chat-utils/set-scroll-intent! app-state {:type :ai-top})
-                       (persist-conversation-message!
-                        app-state
-                        wines
-                        {:is_user false :content response}
-                        (fn [conversation-id]
-                          (when conversation-id
-                            (api/update-conversation-provider!
-                             app-state
-                             conversation-id
-                             (get-in @app-state [:ai :provider])))
-                          (api/load-conversations! app-state {:force? true})))
-                       (reset! is-sending? false))))]
-    (reset! cancel-fn-atom cancel-fn)))
-
 (defn handle-edit-send
   [app-state editing-message-id message-ref messages is-sending? cancel-fn-atom
    on-edit-complete]
@@ -220,11 +169,17 @@
                                                           @editing-message-id)]
         (let [current @messages
               original-message (nth current message-idx)
-              updated-local (assoc original-message :text message-text)
-              new-history (conj (vec (take message-idx current)) updated-local)
-              state @app-state
-              include? (state-core/include-wines? state)
-              wines (chat-context/context-wines app-state)
+              prior (subvec (vec current) 0 message-idx)
+              note
+              (let [wanted (chat-context/context-note app-state prior)
+                    existing (:context-note original-message)]
+                ;; Keep the snapshot Claude already saw when the edit
+                ;; leaves the wines unchanged
+                (if (chat-context/same-note? wanted existing) existing wanted))
+              updated-local (-> original-message
+                                (assoc :text message-text)
+                                (with-context-note note))
+              new-history (conj prior updated-local)
               conversation-id (get-in @app-state
                                       [:chat :active-conversation-id])
               message-db-id (:id original-message)]
@@ -235,17 +190,13 @@
                               on-edit-complete
                               is-sending?
                               new-history)
-          (let [follow-up #(enqueue-ai-followup! app-state
-                                                 messages
-                                                 message-text
-                                                 wines
-                                                 include?
-                                                 is-sending?
-                                                 cancel-fn-atom)
+          (let [follow-up #(request-ai-reply! app-state
+                                              messages
+                                              is-sending?
+                                              cancel-fn-atom)
                 handle-update-success
                 (fn [data]
                   (apply-server-edit! app-state messages message-idx data)
-                  (sync-context-if-needed! app-state wines conversation-id)
                   (follow-up))
                 handle-update-error
                 (fn [error-msg]
@@ -259,7 +210,7 @@
                app-state
                conversation-id
                message-db-id
-               {:content message-text :truncate_after? true}
+               {:content message-text :context_note note :truncate_after? true}
                (fn [{:keys [success data error]}]
                  (if success
                    (handle-update-success data)
@@ -279,13 +230,32 @@
   [app-state messages is-sending? cancel-fn-atom]
   (when (and (not @is-sending?) (chat-utils/unanswered-question? @app-state))
     (reset! is-sending? true)
-    (enqueue-ai-followup! app-state
-                          messages
-                          (:text (last @messages))
-                          (chat-context/context-wines app-state)
-                          (state-core/include-wines? @app-state)
-                          is-sending?
-                          cancel-fn-atom)))
+    (let [history (vec @messages)
+          question (peek history)
+          note (chat-context/context-note app-state (pop history))
+          conversation-id (get-in @app-state [:chat :active-conversation-id])]
+      ;; The question already carries the note for the context it was asked
+      ;; in; it only needs a new one if the context has changed since.
+      (when-not (chat-context/same-note? note (:context-note question))
+        (update-message! app-state
+                         messages
+                         (:id question)
+                         with-context-note
+                         note)
+        (when (and (integer? conversation-id) (integer? (:id question)))
+          (api/update-conversation-message!
+           app-state
+           conversation-id
+           (:id question)
+           {:content (:text question) :context_note note}
+           (fn [{:keys [success data]}]
+             (when success
+               (update-message! app-state
+                                messages
+                                (:id question)
+                                with-context-note
+                                (get-in data [:message :context_note])))))))
+      (request-ai-reply! app-state messages is-sending? cancel-fn-atom))))
 
 (defn fork-conversation!
   "Start a new conversation holding every message up to `message-id`. A fork
@@ -311,7 +281,7 @@
    (reset! messages [])
    (when (and message-ref @message-ref) (set! (.-value @message-ref) ""))
    (when pending-image (reset! pending-image nil))
-   (state-core/set-context-mode! app-state :selection+filters)
+   (state-core/set-context-mode! app-state :wines)
    (swap! app-state (fn [state]
                       (-> state
                           (assoc-in [:chat :messages] [])
@@ -364,6 +334,5 @@
        (swap! app-state assoc-in [:ai :provider] (keyword provider)))
      (reset! messages [])
      (swap! app-state assoc-in [:chat :messages] [])
-     (when-let [search-state (:wine_search_state conversation)]
-       (chat-context/apply-wine-search-state! app-state search-state))
+     (chat-context/hold-conversation-context! app-state)
      (api/fetch-conversation-messages! app-state id))))

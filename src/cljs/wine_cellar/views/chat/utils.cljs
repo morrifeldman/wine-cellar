@@ -63,6 +63,7 @@
     {:id (:id message)
      :text (:content message)
      :is-user (:is_user message)
+     :context-note (:context_note message)
      :timestamp (some-> (:created_at message)
                         js/Date.parse
                         js/Date.)}))

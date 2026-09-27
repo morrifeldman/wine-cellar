@@ -134,6 +134,24 @@
                [[] global-offset] ; Vector literal.
                (map-indexed vector parts)))))))))) ; Vector literal.
 
+(defn- context-divider
+  [{:keys [wine_ids label]}]
+  [box
+   {:sx
+    {:display "flex"
+     :align-items "center"
+     :gap 1
+     :my 1.5
+     :color "text.secondary"
+     "&::before, &::after"
+     {:content "\"\"" :flex 1 :borderTop "1px solid" :borderColor "divider"}}}
+   [typography
+    {:variant "caption"
+     :sx {:fontSize "0.68rem" :letterSpacing "0.04em" :opacity 0.85}}
+    (if (seq wine_ids)
+      (str "Now discussing " label)
+      "Summary only from here")]])
+
 (defn message-bubble
   "Renders a single chat message bubble"
   [{:keys [text is-user timestamp id]} on-edit on-fork app-state global-offset
@@ -304,5 +322,9 @@
                        (let [msg-id (:id message)
                              global-offset (nth prefix-match-counts idx)]
                          ^{:key msg-id}
-                         [message-bubble message edit-handler on-fork app-state
-                          global-offset last-ai-id]))))]]))})))
+                         [:<>
+                          (when-let [note (and (:is-user message)
+                                               (:context-note message))]
+                            [context-divider note])
+                          [message-bubble message edit-handler on-fork app-state
+                           global-offset last-ai-id]]))))]]))})))

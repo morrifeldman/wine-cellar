@@ -56,8 +56,7 @@
           :renaming-conversation-id nil
           :deleting-conversation-id nil
           :sidebar-open? false
-          :context-mode :summary
-          :include-visible-wines? false
+          :context-mode :wines
           :error nil}
    :sensor-readings {:latest []
                      :series []
@@ -89,47 +88,22 @@
          :new-recipe {:ingredients []}
          :recipe-filters default-recipe-filters}})
 
-(def ^:private context-modes #{:summary :selection :selection+filters})
-
-(def ^:private context-mode-default :summary)
-
-(defn- normalize-context-mode
-  [mode]
-  (if (context-modes mode) mode context-mode-default))
-
-(defn- context-mode->include?
-  [mode]
-  (contains? #{:selection :selection+filters} mode))
-
 (defn context-mode
-  "Return the effective chat context mode from state."
+  "Whether the chat sees wines (:wines) or only the cellar summary (:summary)."
   [state]
-  (let [mode (get-in state [:chat :context-mode])]
-    (cond (context-modes mode) mode
-          (get-in state [:chat :include-visible-wines?]) :selection+filters
-          (seq (:selected-wine-ids state)) :selection
-          (:selected-wine-id state) :selection
-          :else context-mode-default)))
+  (if (= :summary (get-in state [:chat :context-mode])) :summary :wines))
 
 (defn set-context-mode!
-  "Update chat context mode and keep legacy include flag in sync."
+  "Choose between :wines and :summary. Either choice is a deliberate pick of
+   what to talk about, so a reopened conversation stops holding on to its own
+   wines."
   [app-state mode]
-  (let [mode (normalize-context-mode mode)]
-    (swap! app-state (fn [state]
-                       (-> state
-                           (assoc-in [:chat :context-mode] mode)
-                           (assoc-in [:chat :include-visible-wines?]
-                                     (context-mode->include? mode)))))))
-
-(defn include-wines?
-  "Whether the current context should include any wines when chatting."
-  [state]
-  (context-mode->include? (context-mode state)))
-
-(defn filters-enabled?
-  "Whether the current context should include filtered wines."
-  [state]
-  (= :selection+filters (context-mode state)))
+  (swap! app-state update
+    :chat
+    (fn [chat]
+      (-> chat
+          (assoc :context-mode (if (= :summary mode) :summary :wines))
+          (dissoc :reopened-list-ids)))))
 
 (defn toggle-wine-selection!
   "Add or remove a wine id from the multi-select set. The URL holds the set, so
@@ -145,10 +119,6 @@
   (nav/show-only-selected! (not (:show-selected-wines? @app-state))))
 
 (defn clear-selected-wines!
-  "Remove all manually selected wines and exit selected-only view. A chat that
-   was about just those wines falls back to the filtered list, as it would
-   have if opened without a selection."
-  [app-state]
-  (when (= :selection (context-mode @app-state))
-    (set-context-mode! app-state :selection+filters))
+  "Remove all manually selected wines and exit selected-only view."
+  [_app-state]
   (nav/set-selected-wines! #{}))

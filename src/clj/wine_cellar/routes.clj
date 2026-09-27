@@ -106,7 +106,6 @@
 (s/def ::wine_search_state (s/nilable map?))
 (s/def ::auto_tags (s/nilable (s/coll-of string?)))
 (s/def ::pinned boolean?)
-(s/def ::include-visible-wines? boolean?)
 (s/def ::include-bar? boolean?)
 (s/def ::chat_type string?)
 (s/def ::conversation-create
@@ -116,13 +115,15 @@
 (s/def ::conversation-update
   (s/keys :opt-un [::provider ::title ::wine_ids ::wine_search_state ::auto_tags
                    ::pinned]))
+(s/def ::context_note (s/nilable map?))
 (s/def ::conversation-message
-  (s/keys :req-un [::is_user ::content] :opt-un [::image ::tokens_used]))
+  (s/keys :req-un [::is_user ::content]
+          :opt-un [::image ::tokens_used ::context_note]))
 (s/def ::truncate_after? boolean?)
 (s/def ::message_count pos-int?)
 (s/def ::conversation-message-update
   (s/keys :req-un [::content]
-          :opt-un [::image ::tokens_used ::truncate_after?]))
+          :opt-un [::image ::tokens_used ::truncate_after? ::context_note]))
 (s/def ::tasting-source string?)
 (s/def ::tasting-sources (s/coll-of ::tasting-source))
 (s/def ::enabled? boolean?)
@@ -382,10 +383,9 @@
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"
             :parameters {:body (s/keys :req-un [::provider]
-                                       :opt-un [::message ::wine-ids
-                                                ::conversation-history ::image
-                                                ::include-visible-wines?
-                                                ::include-bar? ::effort])}
+                                       :opt-un [::message ::conversation-history
+                                                ::image ::include-bar?
+                                                ::effort])}
             :responses {200 {:body string?} 400 {:body map?} 500 {:body map?}}
             :handler handlers/chat-with-ai}}]
    ["/conversations"

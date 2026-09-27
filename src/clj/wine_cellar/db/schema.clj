@@ -81,13 +81,13 @@
 
 (def ai-conversation-messages-table-schema
   {:create-table [:ai_conversation_messages :if-not-exists]
-   :with-columns [[:id :integer :generated :by-default :as :identity
-                   :primary-key] [:conversation_id :integer [:not nil]]
-                  [:is_user :boolean [:not nil]] [:content :text [:not nil]]
-                  [:image_data :bytea] [:tokens_used :integer]
-                  [:created_at :timestamp [:default [:now]]]
-                  [[:foreign-key :conversation_id] :references
-                   [:ai_conversations :id] :on-delete :cascade]]})
+   :with-columns
+   [[:id :integer :generated :by-default :as :identity :primary-key]
+    [:conversation_id :integer [:not nil]] [:is_user :boolean [:not nil]]
+    [:content :text [:not nil]] [:image_data :bytea] [:tokens_used :integer]
+    [:context_note :jsonb] [:created_at :timestamp [:default [:now]]]
+    [[:foreign-key :conversation_id] :references [:ai_conversations :id]
+     :on-delete :cascade]]})
 
 (def ensure-messages-fts-column
   {:raw

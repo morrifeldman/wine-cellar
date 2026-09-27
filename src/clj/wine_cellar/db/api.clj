@@ -114,9 +114,17 @@
                               #(sql-cast :jsonb
                                          (json/write-value-as-string %)))))
 
+(defn- context-note->db
+  [note]
+  (some->> note
+           json/write-value-as-string
+           (sql-cast :jsonb)))
+
 (defn conversation-message->db-message
-  [{:keys [image_data] :as message}]
-  (cond-> message image_data (update :image_data base64->bytes)))
+  [{:keys [image_data context_note] :as message}]
+  (cond-> message
+    image_data (update :image_data base64->bytes)
+    context_note (update :context_note context-note->db)))
 
 (defn db-conversation-message->message
   [{:keys [image_data] :as message}]
@@ -276,9 +284,26 @@
            {:select :* :from :ai_conversations :where [:= :id conversation-id]})
           db-conversation->conversation))
 
+(defn- latest-context-note
+  [tx conversation-id]
+  (:context_note (q-one tx
+                        {:select :context_note
+                         :from :ai_conversation_messages
+                         :where [:and [:= :conversation_id conversation-id]
+                                 [:not= :context_note nil]]
+                         :order-by [[:created_at :desc] [:id :desc]]
+                         :limit 1})))
+
+(defn- current-wine-ids
+  "The conversation's wine_ids follow its latest context note. Conversations
+   from before notes existed keep whatever wine_ids they already had."
+  [tx conversation-id]
+  (when-let [note (latest-context-note tx conversation-id)]
+    {:wine_ids (->pg-array (or (:wine_ids note) []))}))
+
 (defn append-conversation-message!
   "Insert a message and update parent metadata atomically."
-  [{:keys [conversation_id tokens_used] :as message}]
+  [{:keys [conversation_id tokens_used context_note] :as message}]
   (jdbc/with-transaction
    [tx ds]
    (let [inserted (q-one tx
@@ -288,9 +313,11 @@
          token-inc (or tokens_used 0)]
      (q-one tx
             {:update :ai_conversations
-             :set {:last_message_at [:now]
-                   :updated_at [:now]
-                   :total_tokens_used [:+ :total_tokens_used token-inc]}
+             :set (cond-> {:last_message_at [:now]
+                           :updated_at [:now]
+                           :total_tokens_used [:+ :total_tokens_used token-inc]}
+                    context_note (assoc :wine_ids
+                                        (->pg-array (:wine_ids context_note))))
              :where [:= :id conversation_id]
              :returning :*})
      (db-conversation-message->message inserted))))
@@ -305,9 +332,10 @@
                          [[:max :created_at] :last_created_at]]
                 :from :ai_conversation_messages
                 :where [:= :conversation_id conversation-id]})
-        metadata {:total_tokens_used total_tokens
-                  :updated_at [:now]
-                  :last_message_at (or last_created_at [:now])}]
+        metadata (merge {:total_tokens_used total_tokens
+                         :updated_at [:now]
+                         :last_message_at (or last_created_at [:now])}
+                        (current-wine-ids tx conversation-id))]
     (some-> (q-one tx
                    {:update :ai_conversations
                     :set metadata
@@ -319,7 +347,7 @@
   "Update an existing conversation message and optionally truncate later messages.
    Returns the updated message, any deleted message ids, and the refreshed conversation."
   [{:keys [conversation_id message_id content image_data tokens_used
-           truncate_after?]
+           context_note truncate_after?]
     :as opts}]
   (jdbc/with-transaction
    [tx ds]
@@ -327,7 +355,9 @@
                    (contains? opts :image_data)
                    (assoc :image_data (base64->bytes image_data))
                    (contains? opts :tokens_used) (assoc :tokens_used
-                                                        tokens_used))
+                                                        tokens_used)
+                   (contains? opts :context_note)
+                   (assoc :context_note (context-note->db context_note)))
          updated (some-> (q-one tx
                                 {:update :ai_conversation_messages
                                  :set set-map
@@ -369,7 +399,7 @@
                           :returning :*})
                   db-conversation->conversation)
          message-columns [:is_user :content :image_data :tokens_used
-                          :created_at]
+                          :context_note :created_at]
          kept-ids {:select :id
                    :from :ai_conversation_messages
                    :where [:= :conversation_id conversation-id]
@@ -383,7 +413,14 @@
                              :from :ai_conversation_messages
                              :where [:in :id kept-ids]
                              :order-by [[:created_at :asc] [:id :asc]]}]})
-     {:conversation fork
+     {:conversation (if-let [wine-ids (current-wine-ids tx (:id fork))]
+                      (db-conversation->conversation
+                       (q-one tx
+                              {:update :ai_conversations
+                               :set wine-ids
+                               :where [:= :id (:id fork)]
+                               :returning :*}))
+                      fork)
       :messages (q-many tx
                         {:select :*
                          :from :ai_conversation_messages
