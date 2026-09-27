@@ -138,9 +138,8 @@
         value-text (format-breakdown value #(format-currency (or % 0)))]
     [:<>
      [typography
-      {:variant "caption"
-       :color "text.secondary"
-       :sx {:display "block" :mb 1}} "All History / In Stock / Selected"]
+      {:variant "caption" :color "text.secondary" :sx {:display "block" :mb 1}}
+      "All History / In Stock / Selected"]
      [grid {:container true :spacing 3}
       [stats-summary-card {:title "Wines" :value wines-text}]
       [stats-summary-card {:title "Bottles" :value bottles-text}]
@@ -409,7 +408,7 @@
                                   (filter #(pos? (or (:quantity %) 0)) wines))
                      visible-count (count visible-wines)
                      ;; Denominator is always the whole (in-stock)
-                     ;; cellar — the Selected (n) button already
+                     ;; cellar — the selection chip already
                      ;; shows the selection count
                      total-count (count base-wines)
                      selection-count (count (or selected-ids #{}))]

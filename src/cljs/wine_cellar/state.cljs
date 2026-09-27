@@ -113,11 +113,6 @@
     (nav/set-selected-wines!
      (if checked? (conj ids wine-id) (disj ids wine-id)))))
 
-(defn toggle-selected-only!
-  "Flip between the whole list and only the checked wines."
-  [app-state]
-  (nav/show-only-selected! (not (:show-selected-wines? @app-state))))
-
 (defn clear-selected-wines!
   "Remove all manually selected wines and exit selected-only view."
   [_app-state]

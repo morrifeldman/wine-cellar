@@ -1,37 +1,40 @@
 (ns wine-cellar.views.wines.filters
-  (:require [clojure.string :as str]
-            [reagent.core :as r]
-            [wine-cellar.utils.formatting :refer
-             [unique-countries regions-for-country unique-varieties]]
-            [wine-cellar.common :as common]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.text-field :refer [text-field]]
-            [reagent-mui.material.select :refer [select]]
-            [reagent-mui.material.menu-item :refer [menu-item]]
-            [reagent-mui.material.form-control :refer [form-control]]
-            [reagent-mui.material.input-label :refer [input-label]]
-            [reagent-mui.material.slider :refer [slider]]
-            [reagent-mui.material.grid :refer [grid]]
-            [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.collapse :refer [collapse]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.material.tooltip :refer [tooltip]]
-            [reagent-mui.icons.expand-more :refer [expand-more]]
-            [reagent-mui.icons.expand-less :refer [expand-less]]
-            [reagent-mui.icons.history :refer [history]]
-            [reagent-mui.icons.restart-alt :refer [restart-alt]]
-            [reagent-mui.icons.wine-bar :refer [wine-bar]]
-            [reagent-mui.material.checkbox :refer [checkbox]]
-            [reagent-mui.material.form-control-label :refer
-             [form-control-label]]
-            [reagent-mui.material.form-group :refer [form-group]]
-            [reagent-mui.icons.sort :refer [sort] :rename {sort sort-icon}]
-            [reagent-mui.material.popover :refer [popover]]
-            [reagent-mui.material.list-item-text :refer [list-item-text]]
-            [wine-cellar.utils.vintage :refer [tasting-window-label]]
-            [wine-cellar.state :as app-state-core]))
+  (:require
+    [clojure.string :as str]
+    [reagent.core :as r]
+    [wine-cellar.utils.formatting :refer
+     [unique-countries regions-for-country unique-varieties]]
+    [wine-cellar.common :as common]
+    [reagent-mui.material.button :refer [button]]
+    [reagent-mui.material.chip :refer [chip]]
+    [reagent-mui.material.text-field :refer [text-field]]
+    [reagent-mui.material.select :refer [select]]
+    [reagent-mui.material.menu-item :refer [menu-item]]
+    [reagent-mui.material.form-control :refer [form-control]]
+    [reagent-mui.material.input-label :refer [input-label]]
+    [reagent-mui.material.slider :refer [slider]]
+    [reagent-mui.material.grid :refer [grid]]
+    [reagent-mui.material.paper :refer [paper]]
+    [reagent-mui.material.typography :refer [typography]]
+    [reagent-mui.material.box :refer [box]]
+    [reagent-mui.material.collapse :refer [collapse]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.material.tooltip :refer [tooltip]]
+    [reagent-mui.icons.expand-more :refer [expand-more]]
+    [reagent-mui.icons.expand-less :refer [expand-less]]
+    [reagent-mui.icons.history :refer [history]]
+    [reagent-mui.icons.restart-alt :refer [restart-alt]]
+    [reagent-mui.icons.wine-bar :refer [wine-bar]]
+    [reagent-mui.material.checkbox :refer [checkbox]]
+    [reagent-mui.material.form-control-label :refer [form-control-label]]
+    [reagent-mui.material.form-group :refer [form-group]]
+    [reagent-mui.icons.sort :refer [sort] :rename {sort sort-icon}]
+    [reagent-mui.material.popover :refer [popover]]
+    [reagent-mui.material.list-item-text :refer [list-item-text]]
+    [wine-cellar.utils.vintage :refer [tasting-window-label]]
+    [wine-cellar.nav :as nav]
+    [wine-cellar.state :as app-state-core]
+    [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
 (defn- fmt-n [v] (.toLocaleString (js/Number. (or v 0)) "en-US"))
 
@@ -376,22 +379,26 @@
                          #(swap! app-state update :show-out-of-stock? not)}
                         [history {:fontSize "small"}]]]]
          clear-btn [clear-filters-btn app-state]
+         checked-shown (count (filter (comp (or (:selected-wine-ids state) #{})
+                                            :id)
+                                      (filtered-sorted-wines app-state)))
          selection-buttons
-         (cond-> []
-           (pos? selected-count)
-           (conj [button
-                  {:variant (if show-selected? "contained" "outlined")
-                   :size "small"
-                   :color (if show-selected? "primary" "secondary")
-                   :onClick #(app-state-core/toggle-selected-only! app-state)}
-                  (str "Selected (" selected-count ")")])
-           (pos? selected-count) (conj [button
-                                        {:variant "outlined"
-                                         :size "small"
-                                         :color "secondary"
-                                         :onClick
-                                         #(app-state-core/clear-selected-wines!
-                                           app-state)} "Clear Selection"]))]
+         (when (pos? selected-count)
+           [[chip
+             {:label (if (< checked-shown selected-count)
+                       (str checked-shown " of " selected-count " selected")
+                       (str selected-count " selected"))
+              :size "small"
+              :variant "outlined"
+              :color "secondary"
+              :onDelete #(app-state-core/clear-selected-wines! app-state)}]
+            ;; Only a report's "show these wines" link narrows the list
+            ;; to the checked wines; this is the way back out.
+            (when show-selected?
+              [button
+               {:size "small"
+                :color "secondary"
+                :onClick #(nav/show-only-selected! false)} "Show all"])])]
      (if compact?
        [box {:sx {:display "flex" :flexDirection "column" :gap gap :mb 0.75}}
         [box
