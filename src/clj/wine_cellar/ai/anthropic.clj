@@ -109,7 +109,7 @@
   "max_tokens is generous because the newer models always think before
    answering, and that thinking counts against the limit."
   [{:keys [system messages tools output_config max_tokens temperature effort
-           metadata stop_sequences]} model-override]
+           metadata stop_sequences cache_control]} model-override]
   (-> {:model model-override :max_tokens (or max_tokens 16000)}
       (cond-> system (assoc :system system))
       (assoc :messages messages)
@@ -120,6 +120,7 @@
       (cond-> (and temperature (haiku? model-override)) (assoc :temperature
                                                                temperature))
       (cond-> metadata (assoc :metadata metadata))
+      (cond-> cache_control (assoc :cache_control cache_control))
       (cond-> (seq stop_sequences) (assoc :stop_sequences stop_sequences))))
 
 (defn- extract-text-content
@@ -339,6 +340,10 @@
           {:type "text" :text context-text :cache_control {:type "ephemeral"}}]
          :messages messages
          :tools [web-search-tool web-fetch-tool]
+         ;; Every turn resends the whole conversation; caching up to the
+         ;; newest message lets the next turn read it back at a tenth of
+         ;; the price instead of paying for it again.
+         :cache_control {:type "ephemeral"}
          :effort effort}]
     (call-anthropic-api request false)))
 
