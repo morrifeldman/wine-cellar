@@ -1,7 +1,5 @@
 const VERSION_URL = '/version.json';
 const CACHE_PREFIX = 'wine-cellar-assets-';
-// Use /index.html (a direct 200) rather than '/', which 302-redirects to it.
-// Redirected responses cannot be cached or returned for a navigation request.
 const SHELL_URL = '/index.html';
 const CORE_ASSETS = [SHELL_URL, '/js/main.js'];
 

@@ -834,8 +834,14 @@
       coercion/coerce-response-middleware swagger/swagger-feature
       auth/wrap-auth]}})
   ; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
-  (ring/routes (ring/create-file-handler {:path "/" :root "public"})
+  (ring/routes (ring/create-file-handler
+                ;; With no index files, / falls through to the index.html
+                ;; handler below. Otherwise reitit redirects / to
+                ;; /index.html, a path in the address bar that the app has
+                ;; no route for.
+                {:path "/" :root "public" :index-files []})
                (fn [{:keys [request-method]}]
                  (when (= :get request-method)
-                   (response/file-response "public/index.html")))
+                   (-> (response/file-response "public/index.html")
+                       (response/content-type "text/html"))))
                (ring/create-default-handler))))
