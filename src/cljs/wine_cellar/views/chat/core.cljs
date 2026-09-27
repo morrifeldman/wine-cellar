@@ -370,18 +370,17 @@
 
 (defn- smart-open-chat!
   [app-state]
-  ;; From a wine detail page or an unfiltered selected-wines view,
-  ;; start with just those wines in context. With both a selection
-  ;; and active filters, start in :selection+filters (their
-  ;; intersection). Otherwise default to :selection+filters.
-  (state-core/set-context-mode!
-   app-state
-   (let [state @app-state
-         has-selection? (seq (:selected-wine-ids state))]
-     (cond (:selected-wine-id state) :selection
-           (and has-selection? (filters-active? state)) :selection+filters
-           (and has-selection? (:show-selected-wines? state)) :selection
-           :else :selection+filters)))
+  ;; A wine detail page, or a selection with no filters to narrow it,
+  ;; starts
+  ;; with just those wines. Otherwise filters apply: to the selection when
+  ;; there is one, or to the whole cellar.
+  (state-core/set-context-mode! app-state
+                                (let [state @app-state]
+                                  (if (or (:selected-wine-id state)
+                                          (and (seq (:selected-wine-ids state))
+                                               (not (filters-active? state))))
+                                    :selection
+                                    :selection+filters)))
   ;; on-navigate opens the chat from the URL, and Back closes it again
   (nav/open-modal! :chat))
 
