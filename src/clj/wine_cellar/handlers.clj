@@ -760,6 +760,16 @@
        (-> (response/response (db-api/update-conversation-message! payload))
            (response/status 200))))))
 
+(defn fork-conversation
+  [request]
+  (with-conversation
+   request
+   (fn [conversation-id _]
+     (let [message-count (get-in request [:parameters :body :message_count])]
+       (-> (response/response (db-api/fork-conversation! conversation-id
+                                                         message-count))
+           (response/status 201))))))
+
 (defn delete-conversation
   [request]
   (with-conversation request

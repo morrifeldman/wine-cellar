@@ -7,6 +7,8 @@
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.icon-button :refer [icon-button]]
+            [reagent-mui.material.tooltip :refer [tooltip]]
+            [reagent-mui.icons.call-split :refer [call-split]]
             [reagent-mui.icons.edit :refer [edit]]
             [reagent-mui.icons.close :refer [close]]
             [reagent-mui.icons.save :refer [save]]
@@ -134,7 +136,7 @@
 
 (defn message-bubble
   "Renders a single chat message bubble"
-  [{:keys [text is-user timestamp id]} on-edit app-state global-offset
+  [{:keys [text is-user timestamp id]} on-edit on-fork app-state global-offset
    last-ai-id]
   (let [chat-state (:chat @app-state)
         search-term (:local-search-term chat-state)
@@ -168,12 +170,21 @@
                          search-term
                          global-offset
                          current-match-idx)]
-      (when timestamp
-        [typography ; Vector literal.
-         {:variant "caption"
-          :sx {:display "block" :mt 0.5 :opacity 0.7 :font-size "0.7em"}} ; Map
-                                                                          ; literal.
-         (.toLocaleTimeString (js/Date. timestamp))])
+      [box {:sx {:display "flex" :align-items "center" :gap 0.5 :mt 0.5}}
+       (when timestamp
+         [typography {:variant "caption" :sx {:opacity 0.7 :font-size "0.7em"}}
+          (.toLocaleTimeString (js/Date. timestamp))])
+       (when on-fork
+         [tooltip
+          {:title (if is-user
+                    "Fork here and ask again"
+                    "Fork a new conversation from here")}
+          [icon-button
+           {:size "small"
+            :aria-label "Fork conversation"
+            :sx {:p 0.25 :color "inherit" :opacity 0.7 :&:hover {:opacity 1}}
+            :on-click (fn [e] (.stopPropagation e) (on-fork id))}
+           [call-split {:sx {:font-size edit-icon-size}}]]])]
       (when (and is-user on-edit)
         [icon-button
          {:size "small"
@@ -239,7 +250,7 @@
 (defn list-view
   "Scrollable container for chat messages. Scroll behavior is controlled
    declaratively via [:chat :scroll-intent] in app-state."
-  [messages on-edit app-state]
+  [messages on-edit on-fork app-state]
   (let [scroll-ref (r/atom nil)
         messages-atom messages
         edit-handler on-edit]
@@ -293,5 +304,5 @@
                        (let [msg-id (:id message)
                              global-offset (nth prefix-match-counts idx)]
                          ^{:key msg-id}
-                         [message-bubble message edit-handler app-state
+                         [message-bubble message edit-handler on-fork app-state
                           global-offset last-ai-id]))))]]))})))

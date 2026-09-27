@@ -351,6 +351,45 @@
         :deleted-message-ids (vec (map :id deleted))
         :conversation conversation}))))
 
+(defn fork-conversation!
+  "Copy a conversation and its first `message-count` messages into a new
+   conversation. Returns the new conversation and its messages."
+  [conversation-id message-count]
+  (jdbc/with-transaction
+   [tx ds]
+   (let [copied-columns [:user_email :wine_ids :wine_search_state :auto_tags
+                         :provider :chat_type]
+         fork (-> (q-one tx
+                         {:insert-into
+                          [[:ai_conversations (conj copied-columns :title)]
+                           {:select (conj copied-columns
+                                          [[:|| :title [:inline " (fork)"]]])
+                            :from :ai_conversations
+                            :where [:= :id conversation-id]}]
+                          :returning :*})
+                  db-conversation->conversation)
+         message-columns [:is_user :content :image_data :tokens_used
+                          :created_at]
+         kept-ids {:select :id
+                   :from :ai_conversation_messages
+                   :where [:= :conversation_id conversation-id]
+                   :order-by [[:created_at :asc] [:id :asc]]
+                   :limit message-count}]
+     (q-many tx
+             {:insert-into [[:ai_conversation_messages
+                             (conj message-columns :conversation_id)]
+                            {:select (conj message-columns
+                                           [[:inline (:id fork)]])
+                             :from :ai_conversation_messages
+                             :where [:in :id kept-ids]
+                             :order-by [[:created_at :asc] [:id :asc]]}]})
+     {:conversation fork
+      :messages (q-many tx
+                        {:select :*
+                         :from :ai_conversation_messages
+                         :where [:= :conversation_id (:id fork)]
+                         :order-by [[:created_at :asc] [:id :asc]]})})))
+
 (defn list-messages-for-conversation
   [conversation-id]
   (q-many {:select :*

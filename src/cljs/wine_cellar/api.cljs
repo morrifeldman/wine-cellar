@@ -1020,6 +1020,27 @@
              (load-conversations! app-state {:force? true}))
          (chat-error! app-state "conversation-delete-error" result))))))
 
+(defn fork-conversation!
+  "Copy the first `message-count` messages of a conversation into a new one and
+   make it the active conversation. Calls back with the new messages."
+  [app-state conversation-id message-count callback]
+  (go (let [result (<! (POST (str "/api/conversations/" conversation-id "/fork")
+                             {:message_count message-count}
+                             "Failed to fork conversation"))]
+        (if (:success result)
+          (let [{:keys [conversation messages]} (:data result)]
+            (swap! app-state
+              (fn [state]
+                (-> state
+                    (update-in [:chat :conversations]
+                               #(upsert-conversation (or % []) conversation))
+                    (assoc-in [:chat :active-conversation] conversation)
+                    (assoc-in [:chat :active-conversation-id]
+                              (:id conversation))
+                    (assoc-in [:chat :error] nil))))
+            (callback messages))
+          (chat-error! app-state "conversation-fork-error" result)))))
+
 (defn append-conversation-message!
   ([app-state conversation-id message]
    (append-conversation-message! app-state conversation-id message nil))

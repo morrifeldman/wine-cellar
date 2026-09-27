@@ -119,6 +119,7 @@
 (s/def ::conversation-message
   (s/keys :req-un [::is_user ::content] :opt-un [::image ::tokens_used]))
 (s/def ::truncate_after? boolean?)
+(s/def ::message_count pos-int?)
 (s/def ::conversation-message-update
   (s/keys :req-un [::content]
           :opt-un [::image ::tokens_used ::truncate_after?]))
@@ -424,6 +425,14 @@
       :responses
       {201 {:body map?} 403 {:body map?} 404 {:body map?} 500 {:body map?}}
       :handler handlers/append-conversation-message}}]
+   ["/conversations/:id/fork"
+    {:parameters {:path {:id int?}}
+     :post
+     {:summary "Copy a conversation up to and including one of its messages"
+      :parameters {:body (s/keys :req-un [::message_count])}
+      :responses
+      {201 {:body map?} 403 {:body map?} 404 {:body map?} 500 {:body map?}}
+      :handler handlers/fork-conversation}}]
    ["/conversations/:id/messages/:message-id"
     {:parameters {:path {:id int? :message-id int?}}
      :put {:summary "Update a conversation message"

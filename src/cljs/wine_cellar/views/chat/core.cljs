@@ -81,9 +81,10 @@
 
 (defn- chat-main-column
   [{:keys [sidebar-open? show-camera? handle-camera-capture handle-camera-cancel
-           messages message-edit-handler handle-send is-sending? app-state
-           handle-image-capture pending-image handle-image-remove message-ref
-           is-editing? handle-cancel filter-panel on-cancel-request]}]
+           messages message-edit-handler message-fork-handler handle-send
+           is-sending? app-state handle-image-capture pending-image
+           handle-image-remove message-ref is-editing? handle-cancel
+           filter-panel on-cancel-request]}]
   (let
     [components
      (->
@@ -91,7 +92,8 @@
        (cond-> filter-panel (conj filter-panel))
        (cond-> @show-camera? (conj [camera-capture handle-camera-capture
                                     handle-camera-cancel]))
-       (conj [chat-message/list-view messages message-edit-handler app-state])
+       (conj [chat-message/list-view messages message-edit-handler
+              message-fork-handler app-state])
        (cond->
          (is-editing?)
          (conj
@@ -185,7 +187,14 @@
         handle-camera-cancel
         (fn [] (reset! show-camera? false) (reset! pending-image nil))
         handle-image-remove (fn [] (reset! pending-image nil))
-        message-edit-handler (fn [id text] (handle-edit id text message-ref))]
+        message-edit-handler (fn [id text] (handle-edit id text message-ref))
+        message-fork-handler (fn [id]
+                               (chat-actions/fork-conversation!
+                                app-state
+                                messages
+                                id
+                                is-sending?
+                                cancel-fn-atom))]
     (fn [app-state]
       (let [state @app-state
             chat-state (:chat state)
@@ -296,6 +305,7 @@
                           :handle-camera-cancel handle-camera-cancel
                           :messages messages
                           :message-edit-handler message-edit-handler
+                          :message-fork-handler message-fork-handler
                           :handle-send handle-send
                           :is-sending? is-sending?
                           :app-state app-state
