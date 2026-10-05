@@ -104,6 +104,10 @@
    (sql-execute-helper
     tx
     {:raw
+     ["ALTER TABLE cocktail_recipes ADD COLUMN IF NOT EXISTS timers jsonb;"]})
+   (sql-execute-helper
+    tx
+    {:raw
      ["ALTER TABLE ai_conversation_messages ADD COLUMN IF NOT EXISTS context_note jsonb;"]})
    (sql-execute-helper
     tx

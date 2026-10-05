@@ -212,6 +212,18 @@
           "Mark all wines as unverified? This will require you to verify them individually.")
          (api/mark-all-wines-unverified app-state)))}
     "Mark All Wines Unverified"]
+   [menu-item
+    {:disabled (:reextracting-recipe-timers? @app-state)
+     :on-click
+     (fn []
+       (close-menu!)
+       (when
+         (js/confirm
+          "Re-read the stir and shake timers for every recipe? This replaces the current timers and uses AI API credits.")
+         (api/reextract-recipe-timers app-state)))}
+    (if (:reextracting-recipe-timers? @app-state)
+      "Re-reading Recipe Timers..."
+      "Re-read Recipe Timers")]
    [regenerate-menu-item app-state close-menu!
     {:flag :regenerating-drinking-windows?
      :api-fn api/regenerate-filtered-drinking-windows

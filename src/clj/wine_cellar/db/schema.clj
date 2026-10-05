@@ -246,7 +246,7 @@
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:name :varchar [:not nil]] [:caption :varchar] [:description :text]
     [:ingredients :jsonb [:not nil] [:default [:raw "'[]'::jsonb"]]]
-    [:instructions :text] [:notes :text] [:tags :varchar :array]
-    [:source :varchar] [:rating :integer]
+    [:instructions :text] [:timers :jsonb] [:notes :text]
+    [:tags :varchar :array] [:source :varchar] [:rating :integer]
     [:created_at :timestamptz [:default [:now]]]
     [:updated_at :timestamptz [:default [:now]]]]})

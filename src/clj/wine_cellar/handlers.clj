@@ -481,15 +481,38 @@
                        (response/response recipe)
                        (not-found "Recipe"))))
 
+(defn- recipe-timers
+  [instructions]
+  (if (str/blank? instructions) [] (ai/extract-recipe-timers instructions)))
+
+(defn- with-timers
+  "Timers are read from the instructions, so a recipe typed in by hand or
+   given new instructions needs them read again. When the AI call fails, the
+   recipe keeps whatever timers it had."
+  [recipe]
+  (if-let [timers (recipe-timers (:instructions recipe))]
+    (assoc recipe :timers timers)
+    recipe))
+
 (defn create-cocktail-recipe
   [{{body :body} :parameters}]
-  (with-server-error {:status 201 :body (db-api/create-cocktail-recipe! body)}))
+  (with-server-error {:status 201
+                      :body (db-api/create-cocktail-recipe!
+                             (cond-> body
+                               (not (contains? body :timers)) with-timers))}))
 
 (defn update-cocktail-recipe
   [{{{:keys [id]} :path body :body} :parameters}]
-  (with-server-error (if (db-api/get-cocktail-recipe id)
-                       (response/response (db-api/update-cocktail-recipe! id
-                                                                          body))
+  (with-server-error (if-let [existing (db-api/get-cocktail-recipe id)]
+                       (response/response (db-api/update-cocktail-recipe!
+                                           id
+                                           (cond-> body
+                                             (and (contains? body :instructions)
+                                                  (not (contains? body :timers))
+                                                  (not= (:instructions body)
+                                                        (:instructions
+                                                         existing)))
+                                             with-timers)))
                        (not-found "Recipe"))))
 
 (defn delete-cocktail-recipe
@@ -861,6 +884,24 @@
                        {:status 200
                         :body {:message "All wines marked as unverified"
                                :wines-updated updated-count}})))
+
+(defn reextract-recipe-timers
+  "Admin: re-reads every recipe's timed steps from its saved instructions,
+   overwriting the stored timers, so a change to the timer prompt reaches old
+   recipes too."
+  [_]
+  (with-server-error
+   (let [results
+         (->> (db-api/get-cocktail-recipes)
+              (pmap (fn [{:keys [id instructions]}]
+                      (when-let [timers (recipe-timers instructions)]
+                        (db-api/update-cocktail-recipe! id {:timers timers}))))
+              doall)
+         updated (count (remove nil? results))]
+     {:status 200
+      :body {:message (str "Re-read timers for " updated " recipes")
+             :recipes-updated updated
+             :recipes-failed (- (count results) updated)}})))
 
 (defn get-verbose-logging-state
   [_]

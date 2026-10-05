@@ -1230,10 +1230,11 @@
 
 ;; Bar: Cocktail Recipes
 (defn- recipe->db-recipe
-  [{:keys [ingredients tags] :as recipe}]
+  [{:keys [ingredients timers tags] :as recipe}]
   (cond-> recipe
     ingredients (update :ingredients
                         #(sql-cast :jsonb (json/write-value-as-string %)))
+    timers (update :timers #(sql-cast :jsonb (json/write-value-as-string %)))
     tags (update :tags #(->pg-array %))))
 
 (defn get-cocktail-recipes

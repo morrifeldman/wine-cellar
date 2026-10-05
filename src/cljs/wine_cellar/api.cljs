@@ -1589,6 +1589,23 @@
              (do (swap! app-state assoc-in [:bar :error] (:error result))
                  (reject (:error result)))))))))
 
+(defn reextract-recipe-timers
+  [app-state]
+  (swap! app-state assoc :reextracting-recipe-timers? true)
+  (go (let [result (<! (POST "/api/admin/reextract-recipe-timers"
+                             {}
+                             "Failed to re-read recipe timers"))]
+        (swap! app-state dissoc :reextracting-recipe-timers?)
+        (if (:success result)
+          (let [{:keys [recipes-updated recipes-failed]} (:data result)]
+            (fetch-bar-data app-state)
+            (swap! app-state assoc
+              :success
+              (str "Re-read timers for " recipes-updated
+                   " recipes" (when (pos? recipes-failed)
+                                (str "; " recipes-failed " failed")))))
+          (swap! app-state assoc :error (:error result))))))
+
 (defn refresh-recipe-links
   "Re-resolves one recipe's spirit/ingredient links against current inventory.
    Returns a JS Promise resolving to the updated recipe."

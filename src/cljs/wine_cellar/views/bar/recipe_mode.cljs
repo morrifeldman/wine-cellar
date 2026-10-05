@@ -10,6 +10,7 @@
             [reagent-mui.icons.close :refer [close]]))
 
 (defonce ^:private wake-lock-sentinel (atom nil))
+(defonce ^:private audio-context (atom nil))
 (defonce ^:private mode-active? (atom false))
 
 (defn- request-wake-lock!
@@ -33,6 +34,104 @@
   []
   (when (and @mode-active? (= "visible" (.-visibilityState js/document)))
     (request-wake-lock!)))
+
+(defn- unlock-audio!
+  "Browsers only let a page play sound once the user has tapped something, so
+   the audio context is created and resumed on the tap that starts a timer,
+   ready for the beep when it ends."
+  []
+  (when-let [AudioContext (or (.-AudioContext js/window)
+                              (.-webkitAudioContext js/window))]
+    (when-not @audio-context (reset! audio-context (AudioContext.)))
+    (.resume @audio-context)))
+
+(defn- beep!
+  []
+  (when-let [ctx @audio-context]
+    (doseq [offset [0 0.3 0.6]]
+      (let [start (+ (.-currentTime ctx) offset)
+            osc (.createOscillator ctx)
+            gain (.createGain ctx)]
+        (set! (.. osc -frequency -value) 880)
+        (.setValueAtTime (.-gain gain) 0.3 start)
+        (.setValueAtTime (.-gain gain) 0 (+ start 0.18))
+        (.connect osc gain)
+        (.connect gain (.-destination ctx))
+        (.start osc start)
+        (.stop osc (+ start 0.2))))))
+
+(defn- finish-timer!
+  []
+  (beep!)
+  ;; iPhones can't vibrate from a web page; the beep and flash cover them
+  (when (.-vibrate js/navigator) (.vibrate js/navigator #js [300 150 300])))
+
+(defn- step-timer
+  "Tap to start, tap again to cancel. Counts against an end time rather than
+   ticks, because a phone slows timers down when it is busy."
+  [{:keys [action seconds]}]
+  (r/with-let
+   [state (r/atom {:status :idle}) interval (atom nil) stop!
+    (fn []
+      (some-> @interval
+              js/clearInterval)
+      (reset! interval nil)) tick!
+    (fn []
+      (let [remaining (- (:ends-at @state) (js/Date.now))]
+        (if (pos? remaining)
+          (swap! state assoc :remaining-ms remaining)
+          (do (stop!) (reset! state {:status :done}) (finish-timer!))))) start!
+    (fn []
+      (unlock-audio!)
+      (reset! state {:status :running
+                     :ends-at (+ (js/Date.now) (* 1000 seconds))
+                     :remaining-ms (* 1000 seconds)})
+      (reset! interval (js/setInterval tick! 100)))]
+   (let [{:keys [status remaining-ms]} @state
+         elapsed-pct
+         (if (= status :running) (- 100 (/ remaining-ms seconds 10)) 0)]
+     [box
+      {:component "button"
+       :data-testid "step-timer"
+       :on-click #(case status
+                    :idle (start!)
+                    (do (stop!) (reset! state {:status :idle})))
+       :sx {:flex "1 1 140px"
+            :minHeight 84
+            :px 2
+            :py 1.25
+            :border 2
+            :borderColor "primary.main"
+            :borderRadius 2
+            :color "text.primary"
+            :font "inherit"
+            :cursor "pointer"
+            :textAlign "center"
+            :background (str "linear-gradient(to right, rgba(232,195,200,0.22) "
+                             elapsed-pct
+                             "%, transparent "
+                             elapsed-pct
+                             "%)")
+            :animation (when (= status :done) "stepTimerFlash 0.6s 5")
+            "@keyframes stepTimerFlash"
+            {"0%, 100%" {:backgroundColor "transparent"}
+             "50%" {:backgroundColor "rgba(232,195,200,0.5)"}}}}
+      [typography
+       {:sx {:fontSize "1rem"
+             :letterSpacing "0.08em"
+             :textTransform "uppercase"
+             :color "text.secondary"}} action]
+      [typography
+       {:sx {:fontSize "2rem"
+             :fontWeight 700
+             :lineHeight 1.2
+             :color "primary.main"
+             :fontVariantNumeric "tabular-nums"}}
+       (case status
+         :idle (str seconds "s")
+         :running (js/Math.ceil (/ remaining-ms 1000))
+         :done "Done")]])
+   (finally (stop!))))
 
 (defn- ingredient-line
   [{:keys [amount unit name]}]
@@ -96,6 +195,10 @@
             ^{:key idx}
             [typography {:sx {:fontSize "1.3rem" :lineHeight 1.5 :mb 1.5}}
              line])])
+       (when-let [timers (seq (:timers recipe))]
+         [box {:sx {:display "flex" :flexWrap "wrap" :gap 1.5 :mb 3}}
+          (for [[idx timer] (map-indexed vector timers)]
+            ^{:key idx} [step-timer timer])])
        (when-let [notes (:notes recipe)]
          [typography
           {:sx {:fontSize "1.05rem"

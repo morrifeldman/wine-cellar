@@ -129,6 +129,13 @@
    (try (anthropic/extract-cocktail-recipe text existing-tags image)
         (catch Exception e (tap> ["❌ extract-cocktail-recipe failed" e]) nil))))
 
+(defn extract-recipe-timers
+  "Returns the timed steps in a recipe's instructions, or nil on failure.
+   Always uses Anthropic."
+  [instructions]
+  (try (anthropic/extract-recipe-timers instructions)
+       (catch Exception e (tap> ["❌ extract-recipe-timers failed" e]) nil)))
+
 (defn resolve-recipe-links
   "Resolves a recipe's ingredient/spirit links to the bar by #id, keyed by
    index. Always uses Anthropic. Returns {:ingredient_links [...]

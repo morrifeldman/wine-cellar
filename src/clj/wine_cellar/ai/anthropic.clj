@@ -378,6 +378,24 @@
 
 (def spirit-categories common/spirit-categories)
 
+(def recipe-timers-property
+  {:type "array"
+   :description
+   (str
+    "The steps a bartender would time, in the order they happen: "
+    "stirring with ice, shaking, dry shaking, whip shaking, and the like. "
+    "action is a short label such as \"Stir\", \"Shake\" or \"Dry "
+    "shake\". Use the time the recipe gives, taking the upper end of a "
+    "range. When it gives none (\"stir until chilled\"), use a standard "
+    "time: stir 30, shake 12, dry shake 10, whip shake 5 seconds. Leave out "
+    "steps nobody times, such as building in the glass, topping with soda "
+    "and stirring it in, muddling, or swizzling. Use an empty array when "
+    "nothing is timed.")
+   :items {:type "object"
+           :required ["action" "seconds"]
+           :additionalProperties false
+           :properties {:action {:type "string"} :seconds {:type "integer"}}}})
+
 (def extract-recipe-schema
   {:type "object"
    :required ["recipes"]
@@ -437,6 +455,7 @@
          "drink, so do not flag ingredients that are juiced, muddled, or "
          "otherwise mixed in.")}
        :instructions {:type "string"}
+       :timers recipe-timers-property
        :notes {:type "string"
                :description
                (str "Tips, variations, ratio tweaks, and serving "
@@ -495,6 +514,25 @@
          request {:messages [{:role "user" :content content}]
                   :output_config (json-output extract-recipe-schema)}]
      (call-anthropic-api request true))))
+
+(defn extract-recipe-timers
+  "Reads a recipe's saved instructions and returns its timed steps, so recipes
+   saved before timers existed, or whose instructions were edited, get them
+   without going back to the source."
+  [instructions]
+  {:pre [(string? instructions)]}
+  (let [request {:messages [{:role "user"
+                             :content (str
+                                       "List the timed steps in these cocktail "
+                                       "instructions:\n\n"
+                                       instructions)}]
+                 :max_tokens 1000
+                 :output_config
+                 (json-output {:type "object"
+                               :required ["timers"]
+                               :additionalProperties false
+                               :properties {:timers recipe-timers-property}})}]
+    (:timers (call-anthropic-api request true small-model))))
 
 (def resolve-links-schema
   {:type "object"

@@ -190,6 +190,10 @@
           :opt-un [::amount ::unit ::garnish ::inventory_item_ids ::spirit]))
 (s/def ::ingredients (s/coll-of ::ingredient))
 (s/def ::instructions (s/nilable string?))
+(s/def ::action string?)
+(s/def ::seconds pos-int?)
+(s/def ::timer (s/keys :req-un [::action ::seconds]))
+(s/def ::timers (s/nilable (s/coll-of ::timer)))
 (s/def ::tags (s/nilable (s/coll-of string?)))
 (s/def ::description (s/nilable string?))
 (s/def ::caption (s/nilable string?))
@@ -212,13 +216,13 @@
 
 (def cocktail-recipe-schema
   (s/keys :req-un [::name ::ingredients]
-          :opt-un [::caption ::description ::instructions ::notes ::tags
-                   ::source ::rating]))
+          :opt-un [::caption ::description ::instructions ::timers ::notes
+                   ::tags ::source ::rating]))
 
 (def cocktail-recipe-update-schema
   (s/keys :opt-un
-          [::name ::ingredients ::caption ::description ::instructions ::notes
-           ::tags ::source ::rating]))
+          [::name ::ingredients ::caption ::description ::instructions ::timers
+           ::notes ::tags ::source ::rating]))
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 
@@ -553,6 +557,10 @@
              "Admin: Mark all wines as unverified for inventory verification"
              :responses {200 {:body map?} 500 {:body map?}}
              :handler handlers/mark-all-wines-unverified}}]
+    ["/reextract-recipe-timers"
+     {:post {:summary "Admin: Re-read every recipe's timed steps with AI"
+             :responses {200 {:body map?} 500 {:body map?}}
+             :handler handlers/reextract-recipe-timers}}]
     ["/devices"
      {:get {:summary "Admin: List provisioned devices"
             :responses {200 {:body vector?} 500 {:body map?}}
