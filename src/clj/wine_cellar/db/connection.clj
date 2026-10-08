@@ -1,6 +1,7 @@
 (ns wine-cellar.db.connection
   (:require [clojure.string :as str]
             [mount.core :refer [defstate]]
+            [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [jsonista.core :as json]
@@ -72,3 +73,13 @@
 (defstate ds :start (jdbc/get-datasource (get-db-config)))
 
 (def db-opts {:builder-fn rs/as-unqualified-maps})
+
+;; The recurring `(jdbc/execute*! ds (sql/format ...) db-opts)` shape, so call
+;; sites can stay focused on the honeysql map.
+(defn q-one
+  ([query] (q-one ds query))
+  ([tx-or-ds query] (jdbc/execute-one! tx-or-ds (sql/format query) db-opts)))
+
+(defn q-many
+  ([query] (q-many ds query))
+  ([tx-or-ds query] (jdbc/execute! tx-or-ds (sql/format query) db-opts)))

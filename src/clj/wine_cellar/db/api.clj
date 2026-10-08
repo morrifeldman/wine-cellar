@@ -4,21 +4,10 @@
             [next.jdbc :as jdbc]
             [jsonista.core :as json]
             [wine-cellar.common :as common]
-            [wine-cellar.db.connection :refer [db-opts ds]])
+            [wine-cellar.db.connection :refer [db-opts ds q-many q-one]])
   (:import [java.sql Date Timestamp]
            [java.time Instant]
            [java.util Base64]))
-
-;; Query helpers — wrap the recurring `(jdbc/execute*! ds (sql/format ...)
-;; db-opts)`
-;; shape so call sites can stay focused on the honeysql map.
-(defn- q-one
-  ([query] (q-one ds query))
-  ([tx-or-ds query] (jdbc/execute-one! tx-or-ds (sql/format query) db-opts)))
-
-(defn- q-many
-  ([query] (q-many ds query))
-  ([tx-or-ds query] (jdbc/execute! tx-or-ds (sql/format query) db-opts)))
 
 ;; Single-row CRUD on tables keyed by :id. Callers convert rows to and from
 ;; their table's column types.
@@ -61,6 +50,13 @@
       {:raw (str "'{" (str/join "," items) "}'")})))
 
 (defn sql-cast [sql-type field] [:cast field sql-type])
+
+(defn- ->jsonb
+  "Encodes a value for a jsonb column; nil stays nil (NULL)."
+  [v]
+  (some->> v
+           json/write-value-as-string
+           (sql-cast :jsonb)))
 
 (defn- ->sql-date
   [^String date-string]
@@ -108,8 +104,7 @@
   (cond-> wine
     purchase_date (update :purchase_date ->sql-date)
     style (update :style (partial sql-cast :wine_style))
-    metadata (update :metadata
-                     #(sql-cast :jsonb (json/write-value-as-string %)))
+    metadata (update :metadata ->jsonb)
     label_image (update :label_image base64->bytes)
     label_thumbnail (update :label_thumbnail base64->bytes)
     back_label_image (update :back_label_image base64->bytes)))
@@ -118,8 +113,7 @@
   [{:keys [tasting_date wset_data] :as note}]
   (cond-> note
     tasting_date (update :tasting_date ->sql-date)
-    wset_data (update :wset_data
-                      #(sql-cast :jsonb (json/write-value-as-string %)))))
+    wset_data (update :wset_data ->jsonb)))
 
 (defn conversation->db-conversation
   [{:keys [wine_ids auto_tags wine_search_state] :as conversation}]
@@ -133,21 +127,13 @@
                     (string? value) (str/lower-case value)
                     (nil? value) nil
                     :else (str value))))
-    wine_search_state (update :wine_search_state
-                              #(sql-cast :jsonb
-                                         (json/write-value-as-string %)))))
-
-(defn- context-note->db
-  [note]
-  (some->> note
-           json/write-value-as-string
-           (sql-cast :jsonb)))
+    wine_search_state (update :wine_search_state ->jsonb)))
 
 (defn conversation-message->db-message
   [{:keys [image_data context_note] :as message}]
   (cond-> message
     image_data (update :image_data base64->bytes)
-    context_note (update :context_note context-note->db)))
+    context_note (update :context_note ->jsonb)))
 
 (defn db-conversation-message->message
   [{:keys [image_data] :as message}]
@@ -174,8 +160,7 @@
   [{:keys [measured_at temperatures] :as condition}]
   (cond-> condition
     measured_at (update :measured_at ->sql-timestamp)
-    temperatures (update :temperatures
-                         #(sql-cast :jsonb (json/write-value-as-string %)))))
+    temperatures (update :temperatures ->jsonb)))
 
 (defn db-sensor-reading->reading
   [{:keys [measured_at created_at] :as row}]
@@ -191,10 +176,8 @@
 (defn device->db-device
   [{:keys [capabilities sensor_config token_expires_at last_seen] :as device}]
   (cond-> device
-    capabilities (update :capabilities
-                         #(sql-cast :jsonb (json/write-value-as-string %)))
-    sensor_config (update :sensor_config
-                          #(sql-cast :jsonb (json/write-value-as-string %)))
+    capabilities (update :capabilities ->jsonb)
+    sensor_config (update :sensor_config ->jsonb)
     (instance? Instant token_expires_at) (update :token_expires_at
                                                  instant->sql-timestamp)
     (instance? Instant last_seen) (update :last_seen instant->sql-timestamp)))
@@ -382,7 +365,7 @@
                    (contains? opts :tokens_used) (assoc :tokens_used
                                                         tokens_used)
                    (contains? opts :context_note)
-                   (assoc :context_note (context-note->db context_note)))
+                   (assoc :context_note (->jsonb context_note)))
          updated (some-> (q-one tx
                                 {:update :ai_conversation_messages
                                  :set set-map
@@ -1233,9 +1216,8 @@
 (defn- recipe->db-recipe
   [{:keys [ingredients timers tags] :as recipe}]
   (cond-> recipe
-    ingredients (update :ingredients
-                        #(sql-cast :jsonb (json/write-value-as-string %)))
-    timers (update :timers #(sql-cast :jsonb (json/write-value-as-string %)))
+    ingredients (update :ingredients ->jsonb)
+    timers (update :timers ->jsonb)
     tags (update :tags #(->pg-array %))))
 
 (defn get-cocktail-recipes
