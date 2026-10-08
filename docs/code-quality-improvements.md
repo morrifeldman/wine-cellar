@@ -33,7 +33,7 @@ below.
 - [x] B2 JWT `iat`/`exp` in milliseconds: fixed for user tokens
 - [ ] B2b Same for device tokens. Blocked on firmware: on a 401 the ESP32 wipes its tokens and has to be claimed again, and after a boot without SNTP it trusts its stored access token. Make the firmware try a refresh before wiping, flash it, then switch `devices.clj` (and `touch-device!`) to seconds.
 - [x] B13 `create-wine` not atomic; returns raw image bytes
-- [ ] B11 SSRF guard in `web_fetch`
+- [x] B11 SSRF guard in `web_fetch`
 - [x] B12 Raw SQL search regex in `list-conversations-for-user`
 - [x] B14 `pass` subprocess on every request in dev
 - [x] B15 Leaky `tap>` logs; Gemini key in URL (raw PostgreSQL messages sent to clients move to 1.1)

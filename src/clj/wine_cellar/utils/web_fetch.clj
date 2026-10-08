@@ -12,34 +12,59 @@
 
 (def ^:private max-html-chars 8000)
 
+(defn- public-address?
+  [^java.net.InetAddress addr]
+  (let [b (.getAddress addr)]
+    (not (or (.isLoopbackAddress addr)
+             (.isAnyLocalAddress addr)
+             (.isLinkLocalAddress addr) ; includes 169.254.169.254 metadata
+             (.isSiteLocalAddress addr) ; 10/8, 172.16/12, 192.168/16
+             (.isMulticastAddress addr)
+             ;; IPv6 unique local, fc00::/7 (Fly's private network is
+             ;; fdaa::)
+             (and (= 16 (alength b)) (= 0xfc (bit-and (aget b 0) 0xfe)))
+             ;; IPv4 carrier-grade NAT, 100.64.0.0/10
+             (and (= 4 (alength b))
+                  (= 100 (bit-and (aget b 0) 0xff))
+                  (= 64 (bit-and (aget b 1) 0xc0)))))))
+
 (defn safe-url?
-  "Returns true if the URL is a valid http/https URL pointing to a public host.
-   Blocks private/loopback IPs and non-http schemes (SSRF protection)."
+  "True for an http(s) URL whose host resolves only to public addresses.
+   Blocks loopback, private, link-local and unique-local targets (SSRF)."
   [url]
   (try (let [uri (java.net.URI. url)
              scheme (some-> uri
                             .getScheme
                             str/lower-case)
-             host (some-> uri
-                          .getHost
-                          str/lower-case)]
+             host (.getHost uri)]
          (and (contains? #{"http" "https"} scheme)
-              (some? host)
               (not (str/blank? host))
-              ;; Block loopback
-              (not (= host "localhost"))
-              (not (str/starts-with? host "127."))
-              (not (= host "::1"))
-              ;; Block private RFC-1918 ranges
-              (not (str/starts-with? host "10."))
-              (not (re-matches #"172\.(1[6-9]|2\d|3[01])\..+" host))
-              (not (str/starts-with? host "192.168."))
-              ;; Block link-local
-              (not (str/starts-with? host "169.254."))
-              ;; Block metadata services
-              (not (= host "metadata.google.internal"))
-              (not (str/starts-with? host "fd"))))
+              (every? public-address?
+                      (java.net.InetAddress/getAllByName host))))
        (catch Exception _ false)))
+
+(def ^:private max-redirects 5)
+
+(defn- http-get
+  "GETs url, following redirects only to URLs that pass `allowed?`, which
+   every hop must. Returns the http-kit response, or {:error msg}."
+  ([url] (http-get url safe-url?))
+  ([url allowed?]
+   (loop [url url
+          hops 0]
+     (if-not (allowed? url)
+       {:error (str "URL not allowed: " url)}
+       (let [{:keys [status headers] :as response}
+             @(http/get url
+                        {:timeout fetch-timeout-ms
+                         :headers {"User-Agent" user-agent}
+                         :follow-redirects false})
+             location (:location headers)]
+         (cond (not (and (<= 300 (or status 0) 399) location)) response
+               (>= hops max-redirects) {:error "Too many redirects"}
+               :else (recur (str (.resolve (java.net.URI. url)
+                                           ^String location))
+                            (inc hops))))))))
 
 (defn- format-shopify-product
   [{:keys [title vendor price body_html tags]}]
@@ -59,11 +84,7 @@
 
 (defn- fetch-shopify-json
   [url]
-  (try (let [{:keys [status body error]} @(http/get url
-                                                    {:timeout fetch-timeout-ms
-                                                     :headers {"User-Agent"
-                                                               user-agent}
-                                                     :follow-redirects true})]
+  (try (let [{:keys [status body error]} (http-get url)]
          (when (and (nil? error) (= 200 status) body)
            (json/read-value body json/keyword-keys-object-mapper)))
        (catch Exception _ nil)))
@@ -155,11 +176,7 @@
                           (str origin "/products.json?limit=1")))]
           {:ok shopify-text}
           ;; 2. Fall back to raw HTML
-          (let [{:keys [status body error]}
-                @(http/get url
-                           {:timeout fetch-timeout-ms
-                            :headers {"User-Agent" user-agent}
-                            :follow-redirects true})]
+          (let [{:keys [status body error]} (http-get url)]
             (cond error {:error (str "Fetch error: " error)}
                   (not= 200 status) {:error (str "HTTP " status)}
                   :else (let [text (strip-html (str body))
