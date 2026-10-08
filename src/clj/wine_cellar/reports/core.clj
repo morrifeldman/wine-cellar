@@ -66,7 +66,7 @@
            :order-by [[:created_at :desc]]}))
 
 (defn- select-highlight-wine
-  [_tx drink-now-wines]
+  [drink-now-wines]
   (when (seq drink-now-wines) (rand-nth (take 20 drink-now-wines))))
 
 (defn- generate-report-data
@@ -77,7 +77,7 @@
         past-prime (fetch-past-prime-wines tx current-year)
         recent-added (fetch-recently-added-wines tx last-week)
         recent-activity (fetch-recent-activity tx last-week)
-        highlight (select-highlight-wine tx drink-now)]
+        highlight (select-highlight-wine drink-now)]
     {:generated-at (str today)
      :period-start (str last-week)
      :period-end (str today)
@@ -111,7 +111,8 @@
           :do-update-set {:summary_data [:cast data-json :jsonb]
                           :ai_commentary ai-text
                           :highlight_wine_id highlight-id
-                          :updated_at [:now]}}))
+                          :updated_at [:now]}
+          :returning :*}))
 
 (defn list-reports
   []
@@ -145,7 +146,9 @@
                                  (:recently-added-ids summary-data)))
           stale? (and existing (not has-ids?))
           should-generate? (or (nil? existing) stale? force?)
-          selected-provider :anthropic]
+          ;; The configured default, like the rest of the app before the
+          ;; user picks a provider in the UI.
+          selected-provider ai/default-provider]
       (if (not should-generate?)
         (do (tap> "Returning existing report from database") existing)
         (let
@@ -169,8 +172,4 @@
                (tap> ["AI Report Generation Failed:" (.getMessage e)])
                "The sommelier is currently unavailable to provide commentary, but your cellar statistics have been updated."))
            highlight-id (get-in data [:highlight-wine :id])]
-          (save-report! tx report-date data-json ai-response highlight-id)
-          (q-one tx
-                 {:select [:*]
-                  :from :cellar_reports
-                  :where [:= :report_date report-date]})))))))
+          (save-report! tx report-date data-json ai-response highlight-id)))))))

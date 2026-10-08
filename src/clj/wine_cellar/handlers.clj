@@ -812,49 +812,50 @@
 (defn- merge-sensor-config!
   "Auto-populate sensor_config on the device with any new sensor addresses
   discovered in the temperatures payload. Existing labels are preserved."
-  [device-id temperatures]
-  (when (and device-id (map? temperatures) (seq temperatures))
-    (try (let [device (db-api/get-device device-id)
-               existing (or (:sensor_config device) {})
+  [device temperatures]
+  (when (and device (map? temperatures) (seq temperatures))
+    (try (let [existing (or (:sensor_config device) {})
                new-keys (remove #(contains? existing (keyword %))
-                                (keys temperatures))
-               merged (reduce (fn [cfg k] (assoc cfg (keyword k) {}))
-                              existing
-                              new-keys)]
+                                (keys temperatures))]
            (when (seq new-keys)
-             (db-api/update-device! device-id {:sensor_config merged})))
-         (catch Exception _ nil))))
+             (db-api/update-device!
+              (:device_id device)
+              {:sensor_config
+               (reduce #(assoc %1 (keyword %2) {}) existing new-keys)})))
+         ;; Labels are a convenience; never lose a reading over them.
+         (catch Exception e (tap> ["merge-sensor-config! failed" e])))))
+
+(defn- active-device!
+  "The device behind a device token, marked as seen. Throws unless it is
+   registered and active."
+  [device-id request]
+  (let [device (db-api/get-device device-id)]
+    (cond (nil? device) (http/throw-status 404 "Device is not registered")
+          (not= "active" (:status device))
+          (http/throw-status 403 "Device is not active"))
+    (touch-device! device-id request)
+    device))
 
 (defn ingest-sensor-reading
   [request]
   (let [payload (get-in request [:parameters :body])
-        token-device-id (device-id-from-token request)
-        payload-device-id (:device_id payload)]
-    (cond
-      (not (measurement-present? payload))
-      (http/bad-request "At least one measurement value is required")
-      (and token-device-id (not= token-device-id payload-device-id))
-      {:status 403
-       :body {:error "device_id does not match the authenticated device"}}
-      :else
-      (let [device-status
-            (when token-device-id
-              (let [device (db-api/get-device token-device-id)]
-                (cond (nil? device) {:status 404
-                                     :body {:error "Device is not registered"}}
-                      (not= "active" (:status device))
-                      {:status 403 :body {:error "Device is not active"}}
-                      :else (do (touch-device! token-device-id request) nil))))
-            recorded-by (or token-device-id
-                            (get-in request [:user :email])
-                            (get-in request [:user :sub]))]
-        (if device-status
-          device-status
-          (let [record (db-api/create-sensor-reading!
-                        (cond-> payload
-                          recorded-by (assoc :recorded_by recorded-by)))]
-            (merge-sensor-config! (:device_id payload) (:temperatures payload))
-            (http/created record)))))))
+        token-device-id (device-id-from-token request)]
+    (cond (not (measurement-present? payload))
+          (http/bad-request "At least one measurement value is required")
+          (and token-device-id (not= token-device-id (:device_id payload)))
+          {:status 403
+           :body {:error "device_id does not match the authenticated device"}}
+          :else (let [device (if token-device-id
+                               (active-device! token-device-id request)
+                               (db-api/get-device (:device_id payload)))
+                      recorded-by (or token-device-id
+                                      (get-in request [:user :email])
+                                      (get-in request [:user :sub]))
+                      record (db-api/create-sensor-reading!
+                              (cond-> payload
+                                recorded-by (assoc :recorded_by recorded-by)))]
+                  (merge-sensor-config! device (:temperatures payload))
+                  (http/created record)))))
 
 (defn list-sensor-readings
   [request]
