@@ -64,9 +64,8 @@
         ;; For active conversation, use client-side match count for
         ;; consistency with navigation counter
         chat-state (:chat @app-state)
-        display-match-count (if (and active? (seq (:search-matches chat-state)))
-                              (count (:search-matches chat-state))
-                              match_count)]
+        matches (when active? (chat-utils/search-matches chat-state))
+        display-match-count (if (seq matches) (count matches) match_count)]
     [box
      {:on-click #(if on-select
                    (on-select conversation)
@@ -138,7 +137,7 @@
   [app-state search-text handle-search]
   (let [chat-state (:chat @app-state)
         term (:local-search-term chat-state)
-        matches (:search-matches chat-state [])
+        matches (chat-utils/search-matches chat-state)
         current-idx (:current-match-index chat-state 0)
         total (count matches)
         search-val search-text

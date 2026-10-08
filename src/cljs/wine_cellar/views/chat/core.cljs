@@ -262,9 +262,10 @@
                     current-search (:sidebar-search-text (:chat @app-state))]
                 (swap! app-state assoc-in [:chat :saved-scroll-pos] nil)
                 (when (seq current-search)
-                  (swap! app-state assoc-in
-                    [:chat :local-search-term]
-                    current-search)
+                  (swap! app-state update
+                    :chat assoc
+                    :local-search-term current-search
+                    :current-match-index 0)
                   (chat-utils/set-scroll-intent! app-state
                                                  {:type :search-match}))
                 (chat-actions/open-conversation! app-state
@@ -327,15 +328,6 @@
                            #(swap! app-state update :chat dissoc :error)}]
         (when (not= @messages conversation-messages)
           (reset! messages conversation-messages))
-        ;; Automatically update search matches when messages or term change
-        (let [term (get-in state [:chat :local-search-term])
-              current-matches (get-in state [:chat :search-matches])]
-          (when (and (seq term) @messages)
-            (let [new-matches (chat-utils/calculate-matches @messages term)]
-              (when (not= new-matches current-matches)
-                (swap! app-state assoc-in [:chat :search-matches] new-matches)
-                (when (empty? current-matches)
-                  (swap! app-state assoc-in [:chat :current-match-index] 0))))))
         (when (and is-open
                    active-id
                    (not messages-loading?)

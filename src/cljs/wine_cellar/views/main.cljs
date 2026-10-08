@@ -119,6 +119,86 @@
                     :borderRadius 1}}]]])
          [typography {:variant "body1"} starting-text])])))
 
+(defn- admin-actions
+  "The admin menu's actions, top to bottom. A map is a plain item (the menu
+  closes, then act runs); a vector is rendered as given."
+  [app-state close-menu!]
+  (let [state @app-state
+        debugging? (pd/debugging?)
+        {verbose? :enabled? verbose-updating? :updating?} (:verbose-logging
+                                                           state)
+        timers-busy? (:reextracting-recipe-timers? state)
+        confirming (fn [opts] #(confirm! app-state opts))]
+    (cond-> [{:label "Devices" :act nav/go-devices!}
+             {:label "Grape Varieties" :act nav/go-grape-varieties!}
+             {:label "Classifications" :act nav/go-classifications!}
+             {:label "SQL Query" :act nav/go-admin-sql!}
+             {:label (if (:show-debug-controls? state)
+                       "Hide Debug Controls"
+                       "Show Debug Controls")
+              :act #(swap! app-state update :show-debug-controls? not)}
+             {:label
+              (if debugging? "Stop Portal Debugging" "Start Portal Debugging")
+              :act #(pd/toggle-debugging! app-state)}
+             {:label (str (if verbose? "Disable" "Enable")
+                          " verbose backend logging"
+                          (when verbose-updating? "…"))
+              :disabled? verbose-updating?
+              :act #(api/set-verbose-logging-state app-state (not verbose?))}]
+      debugging? (into [{:label "Open Portal" :act pd/reconnect-if-needed}
+                        {:label "Tap> app-state" :act #(tap> app-state)}
+                        {:label "Watch App State"
+                         :act #(pd/watch-app-state app-state)}
+                        {:label "Unwatch App State"
+                         :act #(pd/unwatch-app-state app-state)}])
+      :always
+      (into
+       [{:label (if (:show-verification-checkboxes? state)
+                  "Hide Verification Checkboxes"
+                  "Show Verification Checkboxes")
+         :act #(swap! app-state update :show-verification-checkboxes? not)}
+        {:label "Mark All Wines Unverified"
+         :act (confirming
+               {:title "Mark all wines unverified?"
+                :message "You will then need to verify each wine individually."
+                :confirm-label "Mark unverified"
+                :on-confirm #(api/mark-all-wines-unverified app-state)})}
+        {:label
+         (if timers-busy? "Re-reading Recipe Timers..." "Re-read Recipe Timers")
+         :disabled? timers-busy?
+         :act
+         (confirming
+          {:title "Re-read recipe timers?"
+           :message
+           "This replaces the stir and shake timers on every recipe and uses AI API credits."
+           :confirm-label "Re-read"
+           :on-confirm #(api/reextract-recipe-timers app-state)})}
+        ^{:key "regen-windows"}
+        [regenerate-menu-item app-state close-menu!
+         {:flag :regenerating-drinking-windows?
+          :api-fn api/regenerate-filtered-drinking-windows
+          :noun "drinking windows"
+          :label "Regenerate Filtered Drinking Windows"
+          :running-label "Regenerating Drinking Windows..."}]
+        ^{:key "regen-summaries"}
+        [regenerate-menu-item app-state close-menu!
+         {:flag :regenerating-wine-summaries?
+          :api-fn api/regenerate-filtered-wine-summaries
+          :noun "wine summaries"
+          :label "Regenerate Filtered Wine Summaries"
+          :running-label "Regenerating Wine Summaries..."}]
+        {:label "Logout" :act api/logout :sx {:color "secondary.main"}}
+        {:label "🔥 Reset Database"
+         :sx {:color "error.main"}
+         :act
+         (confirming
+          {:title "Reset the database?"
+           :message
+           "This DELETES ALL DATA and recreates the database schema. It cannot be undone."
+           :confirm-label "Delete everything"
+           :danger? true
+           :on-confirm #(api/reset-database app-state)})}]))))
+
 (defn admin-menu-items
   [app-state close-menu!]
   [:<>
@@ -147,106 +227,15 @@
                   :fontSize "0.75rem"
                   :color "rgba(255, 255, 255, 0.7)"
                   :font-family "monospace"}} model])]) [divider]
-   [menu-item {:on-click (fn [] (close-menu!) (nav/go-devices!))} "Devices"]
-   [menu-item {:on-click (fn [] (close-menu!) (nav/go-grape-varieties!))}
-    "Grape Varieties"]
-   [menu-item {:on-click (fn [] (close-menu!) (nav/go-classifications!))}
-    "Classifications"]
-   [menu-item {:on-click (fn [] (close-menu!) (nav/go-admin-sql!))} "SQL Query"]
-   [menu-item
-    {:on-click
-     (fn [] (close-menu!) (swap! app-state update :show-debug-controls? not))}
-    (if (:show-debug-controls? @app-state)
-      "Hide Debug Controls"
-      "Show Debug Controls")]
-   [menu-item {:on-click (fn [] (close-menu!) (pd/toggle-debugging! app-state))}
-    (if (pd/debugging?) "Stop Portal Debugging" "Start Portal Debugging")]
-   (let [verbose-logging (get @app-state :verbose-logging)
-         verbose-enabled? (:enabled? verbose-logging)
-         verbose-updating? (:updating? verbose-logging)]
-     [menu-item
-      {:disabled verbose-updating?
-       :on-click (fn []
-                   (close-menu!)
-                   (api/set-verbose-logging-state app-state
-                                                  (not verbose-enabled?)))}
-      (str (if verbose-enabled? "Disable" "Enable")
-           " verbose backend logging"
-           (when verbose-updating? "…"))])
-   (when (pd/debugging?)
-     [menu-item {:on-click (fn [] (close-menu!) (pd/reconnect-if-needed))}
-      "Open Portal"])
-   (when (pd/debugging?)
-     [menu-item {:on-click (fn [] (close-menu!) (tap> app-state))}
-      "Tap> app-state"])
-   (when (pd/debugging?)
-     [menu-item {:on-click (fn [] (close-menu!) (pd/watch-app-state app-state))}
-      "Watch App State"])
-   (when (pd/debugging?)
-     [menu-item
-      {:on-click (fn [] (close-menu!) (pd/unwatch-app-state app-state))}
-      "Unwatch App State"])
-   [menu-item
-    {:on-click (fn []
-                 (close-menu!)
-                 (swap! app-state update :show-verification-checkboxes? not))}
-    (if (:show-verification-checkboxes? @app-state)
-      "Hide Verification Checkboxes"
-      "Show Verification Checkboxes")]
-   [menu-item
-    {:on-click (fn []
-                 (close-menu!)
-                 (confirm!
-                  app-state
-                  {:title "Mark all wines unverified?"
-                   :message
-                   "You will then need to verify each wine individually."
-                   :confirm-label "Mark unverified"
-                   :on-confirm #(api/mark-all-wines-unverified app-state)}))}
-    "Mark All Wines Unverified"]
-   [menu-item
-    {:disabled (:reextracting-recipe-timers? @app-state)
-     :on-click
-     (fn []
-       (close-menu!)
-       (confirm!
-        app-state
-        {:title "Re-read recipe timers?"
-         :message
-         "This replaces the stir and shake timers on every recipe and uses AI API credits."
-         :confirm-label "Re-read"
-         :on-confirm #(api/reextract-recipe-timers app-state)}))}
-    (if (:reextracting-recipe-timers? @app-state)
-      "Re-reading Recipe Timers..."
-      "Re-read Recipe Timers")]
-   [regenerate-menu-item app-state close-menu!
-    {:flag :regenerating-drinking-windows?
-     :api-fn api/regenerate-filtered-drinking-windows
-     :noun "drinking windows"
-     :label "Regenerate Filtered Drinking Windows"
-     :running-label "Regenerating Drinking Windows..."}]
-   [regenerate-menu-item app-state close-menu!
-    {:flag :regenerating-wine-summaries?
-     :api-fn api/regenerate-filtered-wine-summaries
-     :noun "wine summaries"
-     :label "Regenerate Filtered Wine Summaries"
-     :running-label "Regenerating Wine Summaries..."}]
-   [menu-item
-    {:on-click (fn [] (close-menu!) (api/logout)) :sx {:color "secondary.main"}}
-    "Logout"]
-   [menu-item
-    {:on-click
-     (fn []
-       (close-menu!)
-       (confirm!
-        app-state
-        {:title "Reset the database?"
-         :message
-         "This DELETES ALL DATA and recreates the database schema. It cannot be undone."
-         :confirm-label "Delete everything"
-         :danger? true
-         :on-confirm #(api/reset-database app-state)}))
-     :sx {:color "error.main"}} "🔥 Reset Database"]])
+   (for [item (admin-actions app-state close-menu!)]
+     (if (map? item)
+       (let [{:keys [label act disabled? sx]} item]
+         ^{:key label}
+         [menu-item
+          {:disabled (boolean disabled?)
+           :sx sx
+           :on-click (fn [] (close-menu!) (act))} label])
+       item))])
 
 (defn admin-menu
   [app-state]
