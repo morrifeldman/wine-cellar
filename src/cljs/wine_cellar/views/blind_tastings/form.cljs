@@ -13,7 +13,7 @@
             [reagent-mui.material.autocomplete :refer [autocomplete]]
             [reagent-mui.material.chip :refer [chip]]
             [wine-cellar.api :as api]
-            [wine-cellar.common :refer [wine-styles style->info]]
+            [wine-cellar.common :as common :refer [wine-styles style->info]]
             [wine-cellar.utils.mui :refer [safe-js-props]]
             [wine-cellar.views.components.form :refer
              [date-field number-field select-field uncontrolled-text-field]]
@@ -133,8 +133,8 @@
             {:label "Guessed Vintage"
              :fullWidth true
              :placeholder "YYYY"
-             :min 1900
-             :max 2100
+             :min common/earliest-vintage
+             :max (common/current-year)
              :value (or (:guessed_vintage form-data) "")
              :on-change (fn [val]
                           (let [parsed (js/parseInt val)]
@@ -218,8 +218,8 @@
         [grid {:item true :xs 12 :sm 6}
          [number-field
           {:label "Rating (1-100)"
-           :min 1
-           :max 100
+           :min (first common/rating-range)
+           :max (second common/rating-range)
            :value (:rating form-data)
            :on-change #(swap! app-state assoc-in
                          [:blind-tastings :form :rating]

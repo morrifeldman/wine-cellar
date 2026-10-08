@@ -1,5 +1,6 @@
 (ns wine-cellar.views.wines.detail.drinking-window
-  (:require [clojure.string :as str]
+  (:require [wine-cellar.common :as common]
+            [clojure.string :as str]
             [reagent-mui.icons.schedule :refer [schedule]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
@@ -117,7 +118,7 @@
        (let [from (when-not (str/blank? @from-val) (js/parseInt @from-val 10))
              until (when-not (str/blank? @until-val)
                      (js/parseInt @until-val 10))
-             err (vintage/valid-tasting-window? from until)]
+             err (common/tasting-window-error from until)]
          (if err
            (reset! error-msg err)
            (do (api/update-wine app-state

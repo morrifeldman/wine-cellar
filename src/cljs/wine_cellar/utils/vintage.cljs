@@ -76,32 +76,6 @@
     ;; Then decades for older wines
     (map #(str (+ 1900 (* % 10))) (range 9 -1 -1)))))
 
-(defn valid-vintage?
-  "Validates that a vintage is a valid year (between 1800 and current year) or nil for NV"
-  [year]
-  (cond (nil? year) nil ; nil is valid for NV wines
-        (js/isNaN year) "Vintage must be a valid year or NV"
-        (< year 1800) "Vintage must be after 1800"
-        (> year (current-year)) "Vintage cannot be in the future"
-        :else nil))
-
-(defn valid-tasting-year?
-  [year]
-  (cond (js/isNaN year) "Tasting year must be a valid year"
-        (< year 1800) "Tasting year must be after 1800"
-        (> year 2100) "Tasting year cannot be in the future"
-        :else nil))
-
-(defn valid-tasting-window?
-  [drink-from-year drink-until-year]
-  (if (or (nil? drink-from-year) (nil? drink-until-year))
-    nil
-    (or (valid-tasting-year? drink-from-year)
-        (valid-tasting-year? drink-until-year)
-        (cond (> drink-from-year drink-until-year)
-              "Drink from year must be less than or equal to drink until year"
-              :else nil))))
-
 (defn format-tasting-window-text
   [wine]
   (let [from-year (:drink_from_year wine)

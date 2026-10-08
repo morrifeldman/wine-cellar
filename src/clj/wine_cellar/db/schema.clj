@@ -56,7 +56,7 @@
    :with-columns
    [[:id :integer :generated :by-default :as :identity :primary-key]
     [:wine_id :integer] [:tasting_date :date] [:notes :text]
-    [:rating :integer [:check [:and [:>= :rating 1] [:<= :rating 100]]]]
+    [:rating :integer [:check (into [:between :rating] common/rating-range)]]
     [:is_external :boolean [:default false]] [:source :varchar]
     [:is_blind :boolean [:default false]] [:wset_data :jsonb]
     [:created_at :timestamp [:default [:now]]]

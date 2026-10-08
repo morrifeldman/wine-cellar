@@ -51,7 +51,10 @@
 
 (def tap-middleware {:name ::tap :wrap tap-middleware-wrap})
 
-;; Specs for individual fields
+;; Specs for individual fields. Numeric ranges come from common, which the
+;; frontend forms and the schema CHECKs share.
+(defn- in-range [range] #(common/in-range? range %))
+
 (s/def ::producer string?)
 (s/def ::country string?)
 (s/def ::region string?)
@@ -60,22 +63,27 @@
 (s/def ::classification (s/nilable string?))
 (s/def ::vineyard (s/nilable string?))
 (s/def ::name string?)
-(s/def ::vintage (s/nilable int?))
+(s/def ::vintage (s/nilable (s/and int? #(nil? (common/vintage-error %)))))
 (s/def ::style (set common/wine-styles))
 (s/def ::designation (s/nilable (set common/wine-designations)))
 (s/def ::designations (s/coll-of (set common/wine-designations)))
 (s/def ::location (s/nilable (s/and string? #(common/valid-location? %))))
-(s/def ::quantity int?)
-(s/def ::original_quantity (s/nilable int?))
-(s/def ::price (s/nilable number?))
+(s/def ::quantity nat-int?)
+(s/def ::original_quantity (s/nilable nat-int?))
+(s/def ::price (s/nilable (s/and number? (complement neg?))))
 (s/def ::purchase_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
-(s/def ::rating (s/nilable (s/int-in 1 101))) ;; Ratings from 1-100
-(s/def ::drink_from_year (s/nilable int?))
-(s/def ::drink_until_year (s/nilable int?))
-(s/def ::alcohol_percentage (s/nilable number?))
-(s/def ::disgorgement_year (s/nilable int?))
-(s/def ::dosage (s/nilable number?))
+(s/def ::rating (s/nilable (s/and int? (in-range common/rating-range))))
+(s/def ::drink_from_year
+  (s/nilable (s/and int? (in-range common/tasting-year-range))))
+(s/def ::drink_until_year
+  (s/nilable (s/and int? (in-range common/tasting-year-range))))
+(s/def ::alcohol_percentage
+  (s/nilable (s/and number? (in-range common/alcohol-range))))
+(s/def ::disgorgement_year
+  (s/nilable
+   (s/and int? #(<= common/earliest-disgorgement % (common/current-year)))))
+(s/def ::dosage (s/nilable (s/and number? (in-range common/dosage-range))))
 (s/def ::tasting_window_commentary (s/nilable string?))
 (s/def ::verified boolean?)
 (s/def ::ai_summary (s/nilable string?))
@@ -222,7 +230,8 @@
 
 ;; Recipes are rated 1-10 (half stars, stored doubled), unlike wines' 1-100.
 ;; The key is still :rating, so the spec lives under its own namespace.
-(s/def :wine-cellar.routes.recipe/rating (s/nilable (s/int-in 1 11)))
+(s/def :wine-cellar.routes.recipe/rating
+  (s/nilable (s/and int? (in-range common/recipe-rating-range))))
 
 (def cocktail-recipe-schema
   (s/keys :req-un [::name ::ingredients]

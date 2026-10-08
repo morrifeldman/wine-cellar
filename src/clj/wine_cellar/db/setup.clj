@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
+            [wine-cellar.common :as common]
             [wine-cellar.db.api :as db-api]
             [wine-cellar.db.connection :refer [db-opts ds q-one]]
             [wine-cellar.db.schema :as schema]))
@@ -95,7 +96,9 @@
     {:raw
      ["ALTER TABLE cocktail_recipes ADD COLUMN IF NOT EXISTS rating integer; "
       "ALTER TABLE cocktail_recipes DROP CONSTRAINT IF EXISTS cocktail_recipes_rating_check; "
-      "ALTER TABLE cocktail_recipes ADD CONSTRAINT cocktail_recipes_rating_check CHECK (rating IS NULL OR (rating BETWEEN 1 AND 10));"]})
+      "ALTER TABLE cocktail_recipes ADD CONSTRAINT cocktail_recipes_rating_check CHECK (rating IS NULL OR (rating BETWEEN "
+      [:inline (first common/recipe-rating-range)] " AND "
+      [:inline (second common/recipe-rating-range)] "));"]})
    (sql-execute-helper
     tx
     {:raw ["ALTER TABLE cocktail_recipes DROP COLUMN IF EXISTS spirit_tags;"]})

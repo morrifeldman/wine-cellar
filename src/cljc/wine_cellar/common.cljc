@@ -227,6 +227,51 @@
 
 (def closure-types (set closure-type-options))
 
+;; Numeric ranges, inclusive. The backend specs, the schema CHECKs and the
+;; frontend forms all read these, so a rule changes in one place.
+(defn current-year
+  []
+  #?(:clj (.getValue (java.time.Year/now))
+     :cljs (.getFullYear (js/Date.))))
+
+(def earliest-vintage 1800)
+(def rating-range [1 100])
+(def recipe-rating-range [1 10])
+(def tasting-year-range [1800 2100])
+(def alcohol-range [0 100])
+(def dosage-range [0 200])
+(def earliest-disgorgement 1900)
+
+(defn in-range? [[lo hi] n] (and (number? n) (<= lo n hi)))
+
+(defn vintage-error
+  "nil when year is a plausible vintage (or nil, for NV), else why not."
+  [year]
+  (cond (nil? year) nil
+        (not (and (number? year)
+                  (== year
+                      (#?(:clj Math/floor
+                          :cljs js/Math.floor)
+                       year))))
+        "Vintage must be a valid year or NV"
+        (< year earliest-vintage)
+        (str "Vintage must be " earliest-vintage " or later")
+        (> year (current-year)) "Vintage cannot be in the future"))
+
+(defn tasting-window-error
+  "nil when the drinking window is sound, else why not. Either end may be
+  open."
+  [from until]
+  (let [[lo hi] tasting-year-range
+        year-error
+        (fn [y]
+          (when (and (some? y) (not (in-range? tasting-year-range y)))
+            (str "Drinking window years must be between " lo " and " hi)))]
+    (or (year-error from)
+        (year-error until)
+        (when (and from until (> from until))
+          "Drink from year must be less than or equal to drink until year"))))
+
 ;; Location validation
 (defn valid-location?
   [location]
