@@ -22,7 +22,7 @@ below.
 - [x] B17 A fresh database failed to seed classifications (`:designations` has no column)
 
 **Phase 1: bugs (§0)**
-- [ ] B4 Restock never updates `original_quantity`
+- [x] B4 Restock never updates `original_quantity`
 - [ ] B5 Frontend fallback error message is never shown
 - [ ] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
 - [ ] B7 `drop-tables` skips the bar, report and inventory history tables

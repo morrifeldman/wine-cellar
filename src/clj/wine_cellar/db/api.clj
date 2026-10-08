@@ -528,14 +528,13 @@
           current-original-quantity (:original_quantity wine 0)
           new-quantity (+ current-quantity adjustment)
           actual-reason (or reason (if (neg? adjustment) "drunk" "return"))
-          new-original-quantity (if (= actual-reason "restock")
+          restock? (= actual-reason "restock")
+          new-original-quantity (if restock?
                                   (+ current-original-quantity adjustment)
                                   current-original-quantity)
           update-map (cond-> {:quantity new-quantity :updated_at [:now]}
-                       (= actual-reason "Restock")
-                       (assoc :original_quantity
-                              [:+ [:coalesce :original_quantity 0]
-                               adjustment]))]
+                       restock? (assoc :original_quantity
+                                       new-original-quantity))]
       (q-one tx
              {:insert-into :inventory_history
               :values [(cond-> {:wine_id id
