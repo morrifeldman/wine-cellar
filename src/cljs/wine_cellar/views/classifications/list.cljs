@@ -18,6 +18,7 @@
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.arrow-back :refer [arrow-back]]
             [wine-cellar.api :as api]
+            [wine-cellar.views.components.confirm :refer [confirm!]]
             [wine-cellar.nav :as nav]
             [wine-cellar.views.components.classification-fields :refer
              [classification-fields]]
@@ -44,31 +45,6 @@
                        (swap! app-state dissoc :editing-classification))
         :color "primary"} "Save"]]]))
 
-(defn delete-confirmation-dialog
-  [app-state]
-  (let [classification (:deleting-classification @app-state)]
-    [dialog
-     {:open (boolean classification)
-      :on-close #(swap! app-state dissoc :deleting-classification)}
-     [dialog-title "Confirm Deletion"]
-     [dialog-content
-      [typography
-       (str "Are you sure you want to delete the classification for "
-            (:country classification)
-            " - "
-            (:region classification)
-            (when-let [appellation (:appellation classification)]
-              (str " - " appellation))
-            "?")]]
-     [dialog-actions
-      [button {:on-click #(swap! app-state dissoc :deleting-classification)}
-       "Cancel"]
-      [button
-       {:on-click #(api/delete-classification app-state
-                                              (:id (:deleting-classification
-                                                    @app-state)))
-        :color "error"} "Delete"]]]))
-
 (defn classification-actions
   [classification app-state]
   [box {:sx {:display "flex" :gap 1}}
@@ -81,7 +57,19 @@
     {:size "small"
      :color "error"
      :start-icon (r/as-element [delete])
-     :on-click #(swap! app-state assoc :deleting-classification classification)}
+     :on-click
+     #(confirm!
+       app-state
+       {:title "Delete this classification?"
+        :message (str (:country classification)
+                      " - "
+                      (:region classification)
+                      (when-let [appellation (:appellation classification)]
+                        (str " - " appellation)))
+        :confirm-label "Delete"
+        :danger? true
+        :on-confirm
+        (fn [] (api/delete-classification app-state (:id classification)))})}
     "Delete"]])
 
 (defn classification-table-row
@@ -137,5 +125,4 @@
          :on-close #(swap! app-state dissoc :editing-classification)
          :max-width "md"
          :full-width true} [edit-classification-form app-state]])
-     [delete-confirmation-dialog app-state]
      [classifications-table classifications app-state]]))

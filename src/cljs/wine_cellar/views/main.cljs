@@ -30,6 +30,7 @@
     [reagent-mui.material.tooltip :refer [tooltip]]
     [reagent.core :as r]
     [wine-cellar.views.components.banner :refer [dismissable-banner]]
+    [wine-cellar.views.components.confirm :refer [confirm! confirm-dialog]]
     [reagent-mui.icons.add :refer [add]]
     [reagent-mui.icons.arrow-back :refer [arrow-back]]
     [reagent-mui.icons.more-vert :refer [more-vert]]
@@ -70,11 +71,14 @@
       (close-menu!)
       (let [filtered-count
             (count (wine-cellar.utils.filters/filtered-sorted-wines app-state))]
-        (when (js/confirm (str "Regenerate " noun
-                               " for " filtered-count
-                               " currently visible wines? This may take several"
-                               " minutes and will use AI API credits."))
-          (api-fn app-state))))}
+        (confirm! app-state
+                  {:title (str "Regenerate " noun "?")
+                   :message (str "Regenerate " noun
+                                 " for " filtered-count
+                                 " currently visible wines? This may take"
+                                 " several minutes and uses AI API credits.")
+                   :confirm-label "Regenerate"
+                   :on-confirm #(api-fn app-state)})))}
    (if (get @app-state flag) running-label label)])
 
 (defn- job-progress-card
@@ -190,23 +194,28 @@
       "Hide Verification Checkboxes"
       "Show Verification Checkboxes")]
    [menu-item
-    {:on-click
-     (fn []
-       (close-menu!)
-       (when
-         (js/confirm
-          "Mark all wines as unverified? This will require you to verify them individually.")
-         (api/mark-all-wines-unverified app-state)))}
+    {:on-click (fn []
+                 (close-menu!)
+                 (confirm!
+                  app-state
+                  {:title "Mark all wines unverified?"
+                   :message
+                   "You will then need to verify each wine individually."
+                   :confirm-label "Mark unverified"
+                   :on-confirm #(api/mark-all-wines-unverified app-state)}))}
     "Mark All Wines Unverified"]
    [menu-item
     {:disabled (:reextracting-recipe-timers? @app-state)
      :on-click
      (fn []
        (close-menu!)
-       (when
-         (js/confirm
-          "Re-read the stir and shake timers for every recipe? This replaces the current timers and uses AI API credits.")
-         (api/reextract-recipe-timers app-state)))}
+       (confirm!
+        app-state
+        {:title "Re-read recipe timers?"
+         :message
+         "This replaces the stir and shake timers on every recipe and uses AI API credits."
+         :confirm-label "Re-read"
+         :on-confirm #(api/reextract-recipe-timers app-state)}))}
     (if (:reextracting-recipe-timers? @app-state)
       "Re-reading Recipe Timers..."
       "Re-read Recipe Timers")]
@@ -229,10 +238,14 @@
     {:on-click
      (fn []
        (close-menu!)
-       (when
-         (js/confirm
-          "⚠️ DANGER: This will DELETE ALL DATA and reset the database schema!\n\nAre you absolutely sure you want to continue?")
-         (api/reset-database app-state)))
+       (confirm!
+        app-state
+        {:title "Reset the database?"
+         :message
+         "This DELETES ALL DATA and recreates the database schema. It cannot be undone."
+         :confirm-label "Delete everything"
+         :danger? true
+         :on-confirm #(api/reset-database app-state)}))
      :sx {:color "error.main"}} "🔥 Reset Database"]])
 
 (defn admin-menu
@@ -450,4 +463,5 @@
                                      [wine-form app-state]]
            :else [:div [top-controls app-state] [wine-list app-state]])
      (when (:show-debug-controls? state) [debug-sidebar app-state])
-     [report-modal app-state] [wine-chat app-state]]))
+     [report-modal app-state] [wine-chat app-state]
+     [confirm-dialog app-state]]))

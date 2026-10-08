@@ -64,7 +64,7 @@ below.
 
 **Phase 4: shared UI (§3)**
 - [ ] 3.1 Theme tokens + `tint-chip`
-- [ ] 3.2 `confirm!` dialog
+- [x] 3.2 `confirm!` dialog
 - [ ] 3.3 `form-dialog` + `ai-button`
 - [ ] 3.4 Wine detail field table; split `detail.cljs`
 - [ ] 3.5 `list-page`, `empty-state`, `detail-actions`, `summary-card`

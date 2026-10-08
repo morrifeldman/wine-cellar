@@ -6,10 +6,6 @@
             [reagent-mui.material.card-content :refer [card-content]]
             [reagent-mui.material.card-header :refer [card-header]]
             [reagent-mui.material.container :refer [container]]
-            [reagent-mui.material.dialog :refer [dialog]]
-            [reagent-mui.material.dialog-actions :refer [dialog-actions]]
-            [reagent-mui.material.dialog-content :refer [dialog-content]]
-            [reagent-mui.material.dialog-title :refer [dialog-title]]
             [reagent-mui.material.divider :refer [divider]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.list :refer [list]]
@@ -21,6 +17,7 @@
             [reagent-mui.icons.delete :refer [delete]]
             [reagent-mui.icons.edit :refer [edit]]
             [wine-cellar.api :as api]
+            [wine-cellar.views.components.confirm :refer [confirm!]]
             [wine-cellar.views.components.form :refer
              [text-field form-container form-actions]]))
 
@@ -68,32 +65,6 @@
                      :editing-variety-id nil
                      :new-grape-variety {})}]]))
 
-(defn delete-confirmation-dialog
-  [app-state]
-  (let [variety-id (:deleting-variety-id @app-state)
-        variety (when variety-id
-                  (first (filter #(= (:id %) variety-id)
-                                 (:grape-varieties @app-state))))]
-    [dialog
-     {:open (boolean variety-id)
-      :on-close #(swap! app-state assoc :deleting-variety-id nil)}
-     [dialog-title "Confirm Deletion"]
-     [dialog-content
-      [typography
-       (str "Are you sure you want to delete the grape variety '"
-            (:name variety)
-            "'? This action cannot be undone.")]]
-     [dialog-actions
-      [button {:on-click #(swap! app-state assoc :deleting-variety-id nil)}
-       "Cancel"]
-      [button
-       {:color "error"
-        :variant "contained"
-        :on-click (fn []
-                    (api/delete-grape-variety app-state variety-id)
-                    (swap! app-state assoc :deleting-variety-id nil))}
-       "Delete"]]]))
-
 (defn grape-varieties-list
   [app-state]
   (let [varieties (:grape-varieties @app-state)]
@@ -119,23 +90,31 @@
             [list-item
              {:disablePadding true
               :secondaryAction
-              (r/as-element [box
-                             [icon-button
-                              {:edge "end"
-                               :aria-label "edit"
-                               :on-click #(swap! app-state assoc
-                                            :editing-variety-id (:id variety)
-                                            :editing-variety variety
-                                            :show-variety-form? true)} [edit]]
-                             [icon-button
-                              {:edge "end"
-                               :aria-label "delete"
-                               :on-click #(swap! app-state assoc
-                                            :deleting-variety-id
-                                            (:id variety))} [delete]]])}
+              (r/as-element
+               [box
+                [icon-button
+                 {:edge "end"
+                  :aria-label "edit"
+                  :on-click #(swap! app-state assoc
+                               :editing-variety-id (:id variety)
+                               :editing-variety variety
+                               :show-variety-form? true)} [edit]]
+                [icon-button
+                 {:edge "end"
+                  :aria-label "delete"
+                  :on-click
+                  #(confirm!
+                    app-state
+                    {:title (str "Delete " (:name variety) "?")
+                     :message "This grape variety will be gone for good."
+                     :confirm-label "Delete"
+                     :danger? true
+                     :on-confirm (fn []
+                                   (api/delete-grape-variety app-state
+                                                             (:id variety)))})}
+                 [delete]]])}
              [list-item-button
-              [list-item-text {:primary (:name variety)}]]])])]]
-     [delete-confirmation-dialog app-state]]))
+              [list-item-text {:primary (:name variety)}]]])])]]]))
 
 (defn grape-varieties-page
   [app-state]

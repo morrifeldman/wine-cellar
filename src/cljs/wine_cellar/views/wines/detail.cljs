@@ -42,6 +42,7 @@
     [reagent-mui.material.table-row :refer [table-row]]
     [reagent.core :as r]
     [wine-cellar.api :as api]
+    [wine-cellar.views.components.confirm :refer [confirm!]]
     [wine-cellar.nav :as nav]
     [wine-cellar.common :as common]
     [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
@@ -1020,13 +1021,19 @@
      [button
       {:color "error"
        :sx {:mr "auto"}
-       :onClick
-       (fn []
-         (when
-           (js/confirm
-            "Delete this pour? The open bottle's running total will adjust.")
-           (api/delete-inventory-history app-state wine-id (:id record))
-           (on-close)))} "Delete"] [button {:onClick on-close} "Cancel"]
+       :onClick (fn []
+                  (confirm!
+                   app-state
+                   {:title "Delete this pour?"
+                    :message "The open bottle's running total will adjust."
+                    :confirm-label "Delete"
+                    :danger? true
+                    :on-confirm (fn []
+                                  (api/delete-inventory-history app-state
+                                                                wine-id
+                                                                (:id record))
+                                  (on-close))}))} "Delete"]
+     [button {:onClick on-close} "Cancel"]
      [button
       {:variant "contained"
        :onClick (fn []
@@ -1105,12 +1112,19 @@
        [button
         {:color "error"
          :sx {:mr "auto"}
-         :onClick
-         (fn []
-           (when (js/confirm
-                  "Delete this history record? Quantity will NOT change.")
-             (api/delete-inventory-history app-state wine-id (:id record))
-             (on-close)))} "Delete"] [button {:onClick on-close} "Cancel"]
+         :onClick (fn []
+                    (confirm! app-state
+                              {:title "Delete this history record?"
+                               :message "The wine's quantity will NOT change."
+                               :confirm-label "Delete"
+                               :danger? true
+                               :on-confirm (fn []
+                                             (api/delete-inventory-history
+                                              app-state
+                                              wine-id
+                                              (:id record))
+                                             (on-close))}))} "Delete"]
+       [button {:onClick on-close} "Cancel"]
        [button
         {:variant "contained"
          :onClick (fn []
@@ -1290,25 +1304,26 @@
    [typography {:sx {:ml 2}} "Loading wine details..."]])
 
 
-(defn delete-wine-confirmation-text
-  "Generate confirmation text for wine deletion"
-  [selected-wine]
-  (str "Are you sure you want to delete "
-       (or (:producer selected-wine) "")
-       (when (and (:producer selected-wine) (:name selected-wine)) " ")
-       (or (:name selected-wine) "")
-       (when (:vintage selected-wine) (str " " (:vintage selected-wine)))
-       "? This action cannot be undone."))
-
 (defn delete-button-click-handler
   "Handle delete wine button click"
   [app-state selected-wine-id selected-wine]
   (fn []
-    (when (js/confirm (delete-wine-confirmation-text selected-wine))
-      ;; A failed delete is already on the banner; stay on the wine.
-      (.then (api/delete-wine app-state selected-wine-id)
-             #(nav/replace-wines!)
-             (fn [_])))))
+    (confirm! app-state
+              {:title (str "Delete "
+                           (str/join " "
+                                     (remove nil?
+                                             [(:producer selected-wine)
+                                              (:name selected-wine)
+                                              (:vintage selected-wine)]))
+                           "?")
+               :message "This wine and its history will be gone for good."
+               :confirm-label "Delete"
+               :danger? true
+               ;; A failed delete is already on the banner; stay on the
+               ;; wine.
+               :on-confirm #(.then (api/delete-wine app-state selected-wine-id)
+                                   (fn [_] (nav/replace-wines!))
+                                   (fn [_]))})))
 
 (defn share-wine-url
   "Build a shareable URL for the given wine id"

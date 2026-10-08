@@ -24,6 +24,7 @@
             [wine-cellar.utils.filters :refer [normalize-text]]
             [wine-cellar.views.bar.matching :as matching]
             [wine-cellar.api :as api]
+            [wine-cellar.views.components.confirm :refer [confirm!]]
             [wine-cellar.dom :as dom]
             [wine-cellar.nav :as nav]
             [wine-cellar.views.components :refer
@@ -364,10 +365,16 @@
           [button
            {:variant "outlined"
             :color "error"
-            :on-click #(when (js/confirm (str "Delete " (:name spirit) "?"))
-                         (api/delete-spirit app-state (:id spirit))
-                         (nav/close-bar-spirit!))} "Delete"]
-          [box {:sx {:flex 1}}]
+            :on-click #(confirm! app-state
+                                 {:title (str "Delete " (:name spirit) "?")
+                                  :message "This bottle will be gone for good."
+                                  :confirm-label "Delete"
+                                  :danger? true
+                                  :on-confirm (fn []
+                                                (api/delete-spirit app-state
+                                                                   (:id spirit))
+                                                (nav/close-bar-spirit!))})}
+           "Delete"] [box {:sx {:flex 1}}]
           [button {:variant "contained" :on-click #(nav/close-bar-spirit!)}
            "Done"]]]))))
 

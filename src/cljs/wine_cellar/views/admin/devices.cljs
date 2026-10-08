@@ -8,7 +8,8 @@
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.stack :refer [stack]]
             [reagent-mui.material.divider :refer [divider]]
-            [wine-cellar.api :as api]))
+            [wine-cellar.api :as api]
+            [wine-cellar.views.components.confirm :refer [confirm!]]))
 
 (defn status-chip
   [status]
@@ -102,9 +103,15 @@
          {:variant "text"
           :size "small"
           :color "error"
-          :on-click #(when (js/confirm (str "Delete device " device_id "?"))
-                       (api/delete-device app-state device_id))} "Delete"]]
-       [sensor-config-editor device_id sensor_config app-state]])))
+          :on-click #(confirm!
+                      app-state
+                      {:title (str "Delete device " device_id "?")
+                       :message "It will have to be claimed and approved again."
+                       :confirm-label "Delete"
+                       :danger? true
+                       :on-confirm (fn []
+                                     (api/delete-device app-state device_id))})}
+         "Delete"]] [sensor-config-editor device_id sensor_config app-state]])))
 
 (defn devices-page
   [app-state]

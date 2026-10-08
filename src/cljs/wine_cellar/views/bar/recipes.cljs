@@ -42,6 +42,7 @@
     [wine-cellar.views.components.form :refer
      [ref-value uncontrolled-text-field uncontrolled-text-area-field]]
     [wine-cellar.api :as api]
+    [wine-cellar.views.components.confirm :refer [confirm!]]
     [wine-cellar.dom :as dom]
     [wine-cellar.nav :as nav]))
 
@@ -646,10 +647,17 @@
       [button
        {:variant "outlined"
         :color "error"
-        :on-click #(when (js/confirm (str "Delete \"" (:name recipe) "\"?"))
-                     (nav/close-bar-recipe!)
-                     (api/delete-cocktail-recipe app-state (:id recipe)))}
-       "Delete"] [box {:sx {:flex 1}}]
+        :on-click #(confirm! app-state
+                             {:title (str "Delete \"" (:name recipe) "\"?")
+                              :message "This recipe will be gone for good."
+                              :confirm-label "Delete"
+                              :danger? true
+                              :on-confirm (fn []
+                                            (nav/close-bar-recipe!)
+                                            (api/delete-cocktail-recipe
+                                             app-state
+                                             (:id recipe)))})} "Delete"]
+      [box {:sx {:flex 1}}]
       (let [refreshing? (= (:id recipe)
                            (get-in @app-state [:bar :refreshing-recipe-id]))]
         [button

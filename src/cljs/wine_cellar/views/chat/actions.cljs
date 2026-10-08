@@ -1,6 +1,7 @@
 (ns wine-cellar.views.chat.actions
   (:require [clojure.string :as string]
             [wine-cellar.api :as api]
+            [wine-cellar.views.components.confirm :refer [confirm!]]
             [wine-cellar.nav :as nav]
             [wine-cellar.state :as state-core]
             [wine-cellar.views.chat.context :as chat-context]
@@ -293,11 +294,14 @@
 
 (defn delete-conversation-with-confirm!
   [app-state {:keys [id title]}]
-  (when (and id
-             (js/confirm (str "Delete conversation \""
-                              (or title (str "Conversation " id))
-                              "\"? This cannot be undone.")))
-    (api/delete-conversation! app-state id)))
+  (when id
+    (confirm! app-state
+              {:title
+               (str "Delete \"" (or title (str "Conversation " id)) "\"?")
+               :message "This conversation will be gone for good."
+               :confirm-label "Delete"
+               :danger? true
+               :on-confirm #(api/delete-conversation! app-state id)})))
 
 (defn rename-conversation-with-prompt!
   [app-state {:keys [id title]}]
