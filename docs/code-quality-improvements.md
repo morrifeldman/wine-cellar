@@ -35,7 +35,7 @@ below.
 - [x] B13 `create-wine` not atomic; returns raw image bytes
 - [ ] B11 SSRF guard in `web_fetch`
 - [x] B12 Raw SQL search regex in `list-conversations-for-user`
-- [ ] B14 `pass` subprocess on every request in dev
+- [x] B14 `pass` subprocess on every request in dev
 - [ ] B15 Leaky `tap>` logs; Gemini key in URL
 - [ ] B16 `:secure` cookies; Anthropic key check
 - [ ] B1/B3 Allowlist, `require-admin`, device-token scope (low priority, see §0)
