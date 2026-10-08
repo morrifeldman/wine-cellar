@@ -313,19 +313,20 @@
    (go
     (let [result (<! (GET "/api/wines/list" "Failed to fetch wines"))]
       (if (:success result)
-        (do
-          (js/console.log "Success! Wines count:" (count (:data result)))
-          (swap! app-state
-            (fn [state]
-              (let [existing-by-id
-                    (into {} (map (juxt :id identity)) (:wines state))
-                    merged-wines (mapv (fn [wine]
-                                         (if-let [existing (get existing-by-id
-                                                                (:id wine))]
-                                           (merge wine existing)
-                                           wine))
-                                       (:data result))]
-                (assoc state :wines merged-wines :loading? false :error nil)))))
+        (do (js/console.log "Success! Wines count:" (count (:data result)))
+            (swap! app-state
+              (fn [state]
+                (let [existing-by-id
+                      (into {} (map (juxt :id identity)) (:wines state))
+                      ;; Fresh values win; fields loaded elsewhere (images,
+                      ;; detail-only data) are kept.
+                      merged-wines
+                      (mapv (fn [wine]
+                              (merge (get existing-by-id (:id wine)) wine))
+                            (:data result))]
+                  ;; Leave :error alone: it may be a message someone else
+                  ;; just set, like a bulk job's failures.
+                  (assoc state :wines merged-wines :loading? false)))))
         (do (js/console.log "Error fetching wines:" (:error result))
             (swap! app-state assoc :error (:error result) :loading? false)))))))
 

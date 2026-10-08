@@ -26,6 +26,8 @@ below.
 - [x] B5 Frontend fallback error message is never shown
 - [x] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
 - [x] B18 Every request-validation error came back as an opaque 500 (`tap-middleware` rewrapped exceptions)
+- [x] B19 A bulk job's failure message was wiped by the `fetch-wines` it starts, which cleared `:error`
+- [x] B20 `fetch-wines` merged old state over fresh data, so in-app refetches (e.g. after a bulk job) showed stale values
 - [x] B7 `drop-tables` skips the bar, report and inventory history tables
 - [x] B8 Image MIME type hard-coded to JPEG: not a live bug, since the browser re-encodes every image as JPEG (`file->jpeg-data-url`). The provider-neutral image format is still part of 5.4.
 - [x] B9 Check the tasting-window CHECK constraint: correct as is. HoneySQL renders `[:= col]` as `col IS NULL`.
