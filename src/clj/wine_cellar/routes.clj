@@ -222,15 +222,19 @@
 (def bar-inventory-item-schema
   (s/keys :req-un [::name ::category] :opt-un [::have_it ::sort_order]))
 
+;; Recipes are rated 1-10 (half stars, stored doubled), unlike wines' 1-100.
+;; The key is still :rating, so the spec lives under its own namespace.
+(s/def :wine-cellar.routes.recipe/rating (s/nilable (s/int-in 1 11)))
+
 (def cocktail-recipe-schema
   (s/keys :req-un [::name ::ingredients]
           :opt-un [::caption ::description ::instructions ::timers ::notes
-                   ::tags ::source ::rating]))
+                   ::tags ::source :wine-cellar.routes.recipe/rating]))
 
 (def cocktail-recipe-update-schema
   (s/keys :opt-un
           [::name ::ingredients ::caption ::description ::instructions ::timers
-           ::notes ::tags ::source ::rating]))
+           ::notes ::tags ::source :wine-cellar.routes.recipe/rating]))
 
 (def grape-variety-schema (s/keys :req-un [::variety_name]))
 

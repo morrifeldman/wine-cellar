@@ -27,9 +27,9 @@ below.
 - [x] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
 - [x] B18 Every request-validation error came back as an opaque 500 (`tap-middleware` rewrapped exceptions)
 - [x] B7 `drop-tables` skips the bar, report and inventory history tables
-- [ ] B8 Image MIME type hard-coded to JPEG
-- [ ] B9 Check the tasting-window CHECK constraint
-- [ ] B10 Recipe rating range: spec allows 1–100, DB allows 1–10
+- [x] B8 Image MIME type hard-coded to JPEG: not a live bug, since the browser re-encodes every image as JPEG (`file->jpeg-data-url`). The provider-neutral image format is still part of 5.4.
+- [x] B9 Check the tasting-window CHECK constraint: correct as is. HoneySQL renders `[:= col]` as `col IS NULL`.
+- [x] B10 Recipe rating range: spec allows 1–100, DB allows 1–10
 - [ ] B2 JWT `iat`/`exp` in milliseconds
 - [ ] B13 `create-wine` not atomic; returns raw image bytes
 - [ ] B11 SSRF guard in `web_fetch`
