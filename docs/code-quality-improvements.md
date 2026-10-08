@@ -60,7 +60,7 @@ below.
 - [x] 2.2 `replace-by-id` / `remove-by-id` / `prepend`, plus `bar-change!` for the bar lists. A full resource table wasn't worth it once `request!` made each call a few lines.
 - [x] 2.3 One error / loading / toast convention: errors go to the app-wide banner, except in Devices, chat and photo import, which cover the banner and show their own. Loading flags are `request!`'s `:loading`.
 - [x] 2.4 Chat, job polling and AI-call duplication in `api.cljs`. Left: `send-chat-message` keeps its raw channel for cancelling; page lifecycle (`load-wine-detail-page`) still lives in `api.cljs`.
-- [ ] 2.5 App-state grouping; memoized `filtered-sorted-wines`
+- [x] 2.5 Memoized `filtered-sorted-wines`. Not done: regrouping app-state keys, which would touch most views for little gain now that `request!` owns the loading and error keys.
 
 **Phase 4: shared UI (§3)**
 - [ ] 3.1 Theme tokens + `tint-chip`

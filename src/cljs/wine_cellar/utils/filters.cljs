@@ -152,20 +152,18 @@
                  (seq columns)))))
 
 ;; Main filtering and sorting function
-(defn filtered-sorted-wines
-  [app-state]
-  (let [wines (:wines @app-state)
-        {:keys [search country region styles style varieties variety
+(defn- compute-filtered-sorted-wines
+  [{:keys [wines filters sort show-out-of-stock?]}]
+  (let [{:keys [search country region styles style varieties variety
                 tasting-window price-range verification columns]}
-        (:filters @app-state)
+        filters
         style-values (cond (sequential? styles) styles
                            (some? style) [style]
                            :else styles)
         variety-values (cond (sequential? varieties) varieties
                              (some? variety) [variety]
                              :else varieties)
-        {:keys [field direction]} (:sort @app-state)
-        show-out-of-stock? (:show-out-of-stock? @app-state)]
+        {:keys [field direction]} sort]
     (as-> wines w
       ;; Filter out zero-quantity wines if show-out-of-stock? is false
       (if show-out-of-stock? w (filter #(pos? (:quantity %)) w))
@@ -180,4 +178,23 @@
       (filter #(matches-verification-status? % verification) w)
       (filter #(matches-columns? % columns) w)
       ;; Apply sorting
-      (apply-sorting w field direction))))
+      (apply-sorting w field direction)
+      (vec w))))
+
+(defonce ^:private last-filtered (atom nil))
+
+(defn filtered-sorted-wines
+  "The wines the list shows, filtered and sorted. Several components ask for
+   it on each render, so the last result is kept until one of its inputs
+   changes."
+  [app-state]
+  (let [input-keys [:wines :filters :sort :show-out-of-stock?]
+        inputs (select-keys @app-state input-keys)
+        [cached-inputs result] @last-filtered]
+    (if (and cached-inputs
+             (every? #(identical? (get inputs %) (get cached-inputs %))
+                     input-keys))
+      result
+      (let [result (compute-filtered-sorted-wines inputs)]
+        (reset! last-filtered [inputs result])
+        result))))
