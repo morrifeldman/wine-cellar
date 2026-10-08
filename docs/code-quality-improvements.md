@@ -65,7 +65,7 @@ below.
 **Phase 4: shared UI (§3)**
 - [x] 3.1 Theme tokens (`theme/tint`, `theme/gold`) + `theme/chip-sx` for the bar chips. Chart palettes, wine-colour swatches and the dev debug panel keep their own colours.
 - [x] 3.2 `confirm!` dialog
-- [ ] 3.3 `form-dialog` + `ai-button`
+- [x] 3.3 `form-dialog` + `ai-button`
 - [ ] 3.4 Wine detail field table; split `detail.cljs`
 - [ ] 3.5 `list-page`, `empty-state`, `detail-actions`, `summary-card`
 - [ ] 3.6–3.10 Bar editing paradigm, dates, state placement, long components

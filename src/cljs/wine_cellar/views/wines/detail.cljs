@@ -32,9 +32,8 @@
     [reagent-mui.material.divider :refer [divider]]
     [reagent-mui.material.autocomplete :refer [autocomplete]]
     [reagent-mui.material.dialog :refer [dialog]]
-    [reagent-mui.material.dialog-title :refer [dialog-title]]
     [reagent-mui.material.dialog-content :refer [dialog-content]]
-    [reagent-mui.material.dialog-actions :refer [dialog-actions]]
+    [wine-cellar.views.components.form-dialog :refer [form-dialog]]
     ["@mui/material/TextField" :default TextField]
     [reagent-mui.material.table :refer [table]]
     [reagent-mui.material.table-body :refer [table-body]]
@@ -522,54 +521,50 @@
   (r/with-let
    [laid-down-val (r/atom (when-let [q (:original_quantity wine)] (str q)))
     location-val (r/atom (or (:location wine) "")) error-msg (r/atom nil)]
-   [dialog
-    {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
-    [dialog-title "Cellar Stock"]
-    [dialog-content
-     [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
-      (let [open? (boolean (:open_bottle_opened_at wine))
-            full (max 0 (- (:quantity wine) (if open? 1 0)))]
-        [box {:sx {:display "flex" :flexDirection "column"}}
-         [quantity-control app-state (:id wine) (:quantity wine) (str full)
-          (:original_quantity wine)] (when open? [open-bottle-level wine])])
-      [box {:sx {:borderTop "1px solid rgba(255,255,255,0.08)" :mt 0.5}}]
-      [text-field
-       {:value (or @laid-down-val "")
-        :label "Laid Down"
-        :type "number"
-        :fullWidth true
-        :size "small"
-        :error (boolean @error-msg)
-        :helperText (or @error-msg "Bottles originally purchased or laid down")
-        :onChange (fn [e]
-                    (reset! laid-down-val (.. e -target -value))
-                    (reset! error-msg nil))}]
-      [text-field
-       {:value (or @location-val "")
-        :label "Location"
-        :fullWidth true
-        :size "small"
-        :placeholder "e.g. E2, Rack 2, Wine Fridge"
-        :onChange (fn [e] (reset! location-val (.. e -target -value)))}]]]
-    [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick
-       (fn []
-         (let [location (when-not (str/blank? @location-val) @location-val)
-               laid-down (when-not (str/blank? @laid-down-val)
-                           (js/parseInt @laid-down-val 10))
-               current-qty (:quantity wine)]
-           (if (and laid-down
-                    (not (js/isNaN laid-down))
-                    (< laid-down current-qty))
-             (reset! error-msg (str "Can't set laid down to " laid-down
-                                    " — current stock is " current-qty))
-             (do (api/update-wine app-state
-                                  (:id wine)
-                                  {:location location
-                                   :original_quantity laid-down})
-                 (reset! open? false)))))} "Save"]]]))
+   [form-dialog
+    {:open? true
+     :title "Cellar Stock"
+     :on-close #(reset! open? false)
+     :on-save (fn []
+                (let [location (when-not (str/blank? @location-val)
+                                 @location-val)
+                      laid-down (when-not (str/blank? @laid-down-val)
+                                  (js/parseInt @laid-down-val 10))
+                      current-qty (:quantity wine)]
+                  (if (and laid-down
+                           (not (js/isNaN laid-down))
+                           (< laid-down current-qty))
+                    (reset! error-msg (str "Can't set laid down to " laid-down
+                                           " — current stock is " current-qty))
+                    (do (api/update-wine app-state
+                                         (:id wine)
+                                         {:location location
+                                          :original_quantity laid-down})
+                        (reset! open? false)))))}
+    (let [open? (boolean (:open_bottle_opened_at wine))
+          full (max 0 (- (:quantity wine) (if open? 1 0)))]
+      [box {:sx {:display "flex" :flexDirection "column"}}
+       [quantity-control app-state (:id wine) (:quantity wine) (str full)
+        (:original_quantity wine)] (when open? [open-bottle-level wine])])
+    [box {:sx {:borderTop "1px solid rgba(255,255,255,0.08)" :mt 0.5}}]
+    [text-field
+     {:value (or @laid-down-val "")
+      :label "Laid Down"
+      :type "number"
+      :fullWidth true
+      :size "small"
+      :error (boolean @error-msg)
+      :helperText (or @error-msg "Bottles originally purchased or laid down")
+      :onChange (fn [e]
+                  (reset! laid-down-val (.. e -target -value))
+                  (reset! error-msg nil))}]
+    [text-field
+     {:value (or @location-val "")
+      :label "Location"
+      :fullWidth true
+      :size "small"
+      :placeholder "e.g. E2, Rack 2, Wine Fridge"
+      :onChange (fn [e] (reset! location-val (.. e -target -value)))}]]))
 
 (defn wine-cellar-section
   [app-state wine]
@@ -642,51 +637,47 @@
                                  (distinct)
                                  (sort)
                                  (vec))]
-     [dialog
-      {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
-      [dialog-title "Purchase Details"]
-      [dialog-content
-       [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-        [text-field
-         {:value (or @price-val "")
-          :type "number"
-          :label "Price"
-          :fullWidth true
-          :InputProps {:startAdornment "$"}
-          :onChange (fn [e] (reset! price-val (.. e -target -value)))}]
-        [autocomplete
-         {:freeSolo true
-          :options existing-purveyors
-          :value @purveyor-val
-          :onChange (fn [_ v] (when v (reset! purveyor-val v)))
-          :onInputChange (fn [_ v _] (reset! purveyor-val v))
-          :renderInput (fn [params]
-                         (let [props (gobj/clone params)]
-                           (gobj/set props "label" "Purchased From")
-                           (gobj/set props "variant" "outlined")
-                           (gobj/set props "fullWidth" true)
-                           (r/create-element TextField props)))}]
-        [text-field
-         {:value (or @date-val "")
-          :type "date"
-          :label "Purchase Date"
-          :fullWidth true
-          :InputLabelProps {:shrink true}
-          :onChange (fn [e] (reset! date-val (.. e -target -value)))}]]]
-      [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
-       [button
-        {:variant "contained"
-         :onClick (fn []
-                    (let [price (when-not (str/blank? @price-val)
-                                  (js/parseFloat @price-val))
-                          purveyor (when-not (str/blank? @purveyor-val)
-                                     @purveyor-val)
-                          date (when-not (str/blank? @date-val) @date-val)]
-                      (api/update-wine
-                       app-state
-                       (:id wine)
-                       {:price price :purveyor purveyor :purchase_date date})
-                      (reset! open? false)))} "Save"]]])))
+     [form-dialog
+      {:open? true
+       :title "Purchase Details"
+       :on-close #(reset! open? false)
+       :on-save (fn []
+                  (let [price (when-not (str/blank? @price-val)
+                                (js/parseFloat @price-val))
+                        purveyor (when-not (str/blank? @purveyor-val)
+                                   @purveyor-val)
+                        date (when-not (str/blank? @date-val) @date-val)]
+                    (api/update-wine
+                     app-state
+                     (:id wine)
+                     {:price price :purveyor purveyor :purchase_date date})
+                    (reset! open? false)))}
+      [text-field
+       {:value (or @price-val "")
+        :type "number"
+        :label "Price"
+        :fullWidth true
+        :InputProps {:startAdornment "$"}
+        :onChange (fn [e] (reset! price-val (.. e -target -value)))}]
+      [autocomplete
+       {:freeSolo true
+        :options existing-purveyors
+        :value @purveyor-val
+        :onChange (fn [_ v] (when v (reset! purveyor-val v)))
+        :onInputChange (fn [_ v _] (reset! purveyor-val v))
+        :renderInput (fn [params]
+                       (let [props (gobj/clone params)]
+                         (gobj/set props "label" "Purchased From")
+                         (gobj/set props "variant" "outlined")
+                         (gobj/set props "fullWidth" true)
+                         (r/create-element TextField props)))}]
+      [text-field
+       {:value (or @date-val "")
+        :type "date"
+        :label "Purchase Date"
+        :fullWidth true
+        :InputLabelProps {:shrink true}
+        :onChange (fn [e] (reset! date-val (.. e -target -value)))}]])))
 
 (defn wine-provenance-section
   [app-state wine]
@@ -795,45 +786,39 @@
    [from-val (r/atom (when-let [y (:drink_from_year wine)] (str y))) until-val
     (r/atom (when-let [y (:drink_until_year wine)] (str y))) error-msg
     (r/atom nil)]
-   [dialog
-    {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
-    [dialog-title "Drinking Window"]
-    [dialog-content
-     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-      [text-field
-       {:value (or @from-val "")
-        :type "number"
-        :label "Drink From Year"
-        :fullWidth true
-        :onChange (fn [e]
-                    (reset! from-val (.. e -target -value))
-                    (reset! error-msg nil))}]
-      [text-field
-       {:value (or @until-val "")
-        :type "number"
-        :label "Drink Until Year"
-        :fullWidth true
-        :error (boolean @error-msg)
-        :helperText @error-msg
-        :onChange (fn [e]
-                    (reset! until-val (.. e -target -value))
-                    (reset! error-msg nil))}]]]
-    [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (let [from (when-not (str/blank? @from-val)
-                               (js/parseInt @from-val 10))
-                        until (when-not (str/blank? @until-val)
-                                (js/parseInt @until-val 10))
-                        err (vintage/valid-tasting-window? from until)]
-                    (if err
-                      (reset! error-msg err)
-                      (do (api/update-wine app-state
-                                           (:id wine)
-                                           {:drink_from_year from
-                                            :drink_until_year until})
-                          (reset! open? false)))))} "Save"]]]))
+   [form-dialog
+    {:open? true
+     :title "Drinking Window"
+     :on-close #(reset! open? false)
+     :on-save
+     (fn []
+       (let [from (when-not (str/blank? @from-val) (js/parseInt @from-val 10))
+             until (when-not (str/blank? @until-val)
+                     (js/parseInt @until-val 10))
+             err (vintage/valid-tasting-window? from until)]
+         (if err
+           (reset! error-msg err)
+           (do (api/update-wine app-state
+                                (:id wine)
+                                {:drink_from_year from :drink_until_year until})
+               (reset! open? false)))))}
+    [text-field
+     {:value (or @from-val "")
+      :type "number"
+      :label "Drink From Year"
+      :fullWidth true
+      :onChange
+      (fn [e] (reset! from-val (.. e -target -value)) (reset! error-msg nil))}]
+    [text-field
+     {:value (or @until-val "")
+      :type "number"
+      :label "Drink Until Year"
+      :fullWidth true
+      :error (boolean @error-msg)
+      :helperText @error-msg
+      :onChange (fn [e]
+                  (reset! until-val (.. e -target -value))
+                  (reset! error-msg nil))}]]))
 
 (defn wine-tasting-window-section
   [app-state wine]
@@ -979,33 +964,12 @@
     other-state
     (r/atom {:occurred_at (format-date-iso (:occurred_at record))
              :notes (or (:notes record) "")})]
-   [dialog {:open @open? :onClose on-close :maxWidth "sm" :fullWidth true}
-    [dialog-title "Edit Coravin Pour"]
-    [dialog-content
-     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-      [oz-input-field oz-atom
-       {:helper-text "Editing this updates the open bottle's running total."}]
-      [text-field
-       {:type "date"
-        :label "Date"
-        :value (:occurred_at @other-state)
-        :onChange #(swap! other-state assoc :occurred_at (.. % -target -value))
-        :fullWidth true
-        :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
-             {:filter "invert(0.7)" :opacity 0.7}}}]
-      [text-field
-       {:label "Notes"
-        :value (:notes @other-state)
-        :onChange #(swap! other-state assoc :notes (.. % -target -value))
-        :multiline true
-        :rows 3
-        :fullWidth true
-        :variant "outlined"}]]]
-    [dialog-actions
-     [button
-      {:color "error"
-       :sx {:mr "auto"}
-       :onClick (fn []
+   [form-dialog
+    {:open? @open?
+     :title "Edit Coravin Pour"
+     :on-close on-close
+     :max-width "sm"
+     :on-delete (fn []
                   (confirm!
                    app-state
                    {:title "Delete this pour?"
@@ -1016,22 +980,37 @@
                                   (api/delete-inventory-history app-state
                                                                 wine-id
                                                                 (:id record))
-                                  (on-close))}))} "Delete"]
-     [button {:onClick on-close} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (let [amount (js/parseFloat @oz-atom)]
-                    (when (and (not (js/isNaN amount)) (pos? amount))
-                      (api/update-inventory-history
-                       app-state
-                       wine-id
-                       (:id record)
-                       {:oz amount
-                        :occurred_at (:occurred_at @other-state)
-                        :notes (when-not (str/blank? (:notes @other-state))
-                                 (str/trim (:notes @other-state)))})
-                      (on-close))))} "Save"]]]))
+                                  (on-close))}))
+     :on-save (fn []
+                (let [amount (js/parseFloat @oz-atom)]
+                  (when (and (not (js/isNaN amount)) (pos? amount))
+                    (api/update-inventory-history
+                     app-state
+                     wine-id
+                     (:id record)
+                     {:oz amount
+                      :occurred_at (:occurred_at @other-state)
+                      :notes (when-not (str/blank? (:notes @other-state))
+                               (str/trim (:notes @other-state)))})
+                    (on-close))))}
+    [oz-input-field oz-atom
+     {:helper-text "Editing this updates the open bottle's running total."}]
+    [text-field
+     {:type "date"
+      :label "Date"
+      :value (:occurred_at @other-state)
+      :onChange #(swap! other-state assoc :occurred_at (.. % -target -value))
+      :fullWidth true
+      :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
+           {:filter "invert(0.7)" :opacity 0.7}}}]
+    [text-field
+     {:label "Notes"
+      :value (:notes @other-state)
+      :onChange #(swap! other-state assoc :notes (.. % -target -value))
+      :multiline true
+      :rows 3
+      :fullWidth true
+      :variant "outlined"}]]))
 
 (defn history-edit-dialog
   [app-state wine-id record open? on-close]
@@ -1049,54 +1028,12 @@
                               :reason-display display-label
                               :bottles (str (abs (:change_amount record)))
                               :notes (:notes record)})))
-     [dialog {:open @open? :onClose on-close :maxWidth "sm" :fullWidth true}
-      [dialog-title "Edit History Record"]
-      [dialog-content
-       [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-        [text-field
-         {:type "date"
-          :label "Date"
-          :value (:occurred_at @local-state)
-          :onChange
-          #(swap! local-state assoc :occurred_at (.. % -target -value))
-          :fullWidth true
-          :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
-               {:filter "invert(0.7)" :opacity 0.7}}}]
-        [text-field
-         {:type "number"
-          :label "Bottles"
-          :value (:bottles @local-state)
-          :onChange #(swap! local-state assoc :bottles (.. % -target -value))
-          :fullWidth true
-          :helperText "Changing this adjusts your cellar quantity"
-          :InputProps {:inputProps {:step "1" :min "1"}}}]
-        [autocomplete
-         {:freeSolo true
-          :options (sort (vals common/inventory-reasons))
-          :value (:reason-display @local-state)
-          :onInputChange
-          (fn [_ new-display _]
-            (let [k (get history-reason-display->key new-display new-display)]
-              (swap! local-state assoc :reason k :reason-display new-display)))
-          :renderInput (fn [params]
-                         (let [props (gobj/clone params)]
-                           (gobj/set props "label" "Reason")
-                           (gobj/set props "variant" "outlined")
-                           (gobj/set props "fullWidth" true)
-                           (r/create-element TextField props)))}]
-        [text-field
-         {:label "Notes"
-          :value (:notes @local-state)
-          :onChange #(swap! local-state assoc :notes (.. % -target -value))
-          :multiline true
-          :rows 4
-          :fullWidth true
-          :variant "outlined"}]]]
-      [dialog-actions
-       [button
-        {:color "error"
-         :sx {:mr "auto"}
-         :onClick (fn []
+     [form-dialog
+      {:open? @open?
+       :title "Edit History Record"
+       :on-close on-close
+       :max-width "sm"
+       :on-delete (fn []
                     (confirm! app-state
                               {:title "Delete this history record?"
                                :message "The wine's quantity will NOT change."
@@ -1107,20 +1044,56 @@
                                               app-state
                                               wine-id
                                               (:id record))
-                                             (on-close))}))} "Delete"]
-       [button {:onClick on-close} "Cancel"]
-       [button
-        {:variant "contained"
-         :onClick (fn []
-                    (let [n (js/parseInt (:bottles @local-state) 10)
-                          sign (if (neg? (:change_amount record)) -1 1)]
-                      (when (and (not (js/isNaN n)) (pos? n))
-                        (api/update-inventory-history
-                         app-state
-                         wine-id
-                         (:id record)
-                         (assoc @local-state :change_amount (* sign n)))
-                        (on-close))))} "Save Changes"]]])))
+                                             (on-close))}))
+       :save-label "Save Changes"
+       :on-save (fn []
+                  (let [n (js/parseInt (:bottles @local-state) 10)
+                        sign (if (neg? (:change_amount record)) -1 1)]
+                    (when (and (not (js/isNaN n)) (pos? n))
+                      (api/update-inventory-history
+                       app-state
+                       wine-id
+                       (:id record)
+                       (assoc @local-state :change_amount (* sign n)))
+                      (on-close))))}
+      [text-field
+       {:type "date"
+        :label "Date"
+        :value (:occurred_at @local-state)
+        :onChange #(swap! local-state assoc :occurred_at (.. % -target -value))
+        :fullWidth true
+        :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
+             {:filter "invert(0.7)" :opacity 0.7}}}]
+      [text-field
+       {:type "number"
+        :label "Bottles"
+        :value (:bottles @local-state)
+        :onChange #(swap! local-state assoc :bottles (.. % -target -value))
+        :fullWidth true
+        :helperText "Changing this adjusts your cellar quantity"
+        :InputProps {:inputProps {:step "1" :min "1"}}}]
+      [autocomplete
+       {:freeSolo true
+        :options (sort (vals common/inventory-reasons))
+        :value (:reason-display @local-state)
+        :onInputChange
+        (fn [_ new-display _]
+          (let [k (get history-reason-display->key new-display new-display)]
+            (swap! local-state assoc :reason k :reason-display new-display)))
+        :renderInput (fn [params]
+                       (let [props (gobj/clone params)]
+                         (gobj/set props "label" "Reason")
+                         (gobj/set props "variant" "outlined")
+                         (gobj/set props "fullWidth" true)
+                         (r/create-element TextField props)))}]
+      [text-field
+       {:label "Notes"
+        :value (:notes @local-state)
+        :onChange #(swap! local-state assoc :notes (.. % -target -value))
+        :multiline true
+        :rows 4
+        :fullWidth true
+        :variant "outlined"}]])))
 
 
 (defn- pour-notes-text
