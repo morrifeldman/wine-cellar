@@ -1,6 +1,7 @@
 (ns wine-cellar.ai.openai
   "OpenAI Responses client for wine-related chat interactions."
   (:require [clojure.string :as str]
+            [wine-cellar.ai.errors :as errors]
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
             [org.httpkit.client :as http]
@@ -144,33 +145,36 @@
                     (assoc :model (or (:model request) model))
                     (assoc :reasoning {:effort "low"}))]
     (tap> ["openai-request" payload])
-    (let [{:keys [status body] :as response}
+    (let [{:keys [status body]}
           (deref (http/post responses-url
                             {:headers {"authorization" (str "Bearer " api-key)
                                        "content-type" "application/json"}
                              :body (json/write-value-as-string payload)
                              :as :text
                              :timeout 60000}))
-          parsed (when body (json/read-value body json-mapper))
-          response-with-parsed (assoc response :parsed parsed)]
+          parsed (when body (json/read-value body json-mapper))]
       (if (= 200 status)
         (if parse-json?
-          (try (if-let [json-output (extract-json-output parsed)]
-                 (do (tap> ["parsed openai-response" json-output]) json-output)
-                 (throw (ex-info "OpenAI response missing JSON content"
-                                 response-with-parsed)))
-               (catch Exception e
-                 (throw (ex-info "Failed to parse OpenAI JSON response"
-                                 response-with-parsed
-                                 e))))
+          (try
+            (if-let [json-output (extract-json-output parsed)]
+              (do (tap> ["parsed openai-response" json-output]) json-output)
+              (throw (errors/upstream-error "OpenAI"
+                                            "response missing JSON content")))
+            (catch Exception e
+              (throw (errors/upstream-error "OpenAI"
+                                            "couldn't parse the JSON response"
+                                            {:cause e}))))
           (let [text (extract-text parsed)]
             (if (seq (str text))
               text
-              (throw (ex-info "OpenAI response missing assistant text"
-                              response-with-parsed)))))
-        (do (tap> ["OpenAI Responses API Call Failed" response-with-parsed])
-            (throw (ex-info "OpenAI Responses API call failed"
-                            response-with-parsed)))))))
+              (throw (errors/upstream-error
+                      "OpenAI"
+                      "response missing assistant text")))))
+        (do (tap> ["OpenAI Responses API Call Failed"
+                   {:status status :body parsed}])
+            (throw (errors/upstream-error "OpenAI"
+                                          "API call failed"
+                                          {:status status :parsed parsed})))))))
 
 (defn chat-about-wines
   [prompt]

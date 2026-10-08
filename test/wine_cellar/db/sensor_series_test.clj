@@ -6,9 +6,9 @@
 (use-fixtures :once ts/with-system)
 
 (deftest readings-are-bucketed-with-avg-min-max
-  (doseq [[at temp hum co2] [["2026-01-01T10:05:00Z" 12.0 60.0 400.0]
-                             ["2026-01-01T10:35:00Z" 14.0 70.0 600.0]
-                             ["2026-01-01T11:10:00Z" 13.0 65.0 500.0]]]
+  (doseq [[at _temp hum co2] [["2026-01-01T10:05:00Z" 12.0 60.0 400.0]
+                              ["2026-01-01T10:35:00Z" 14.0 70.0 600.0]
+                              ["2026-01-01T11:10:00Z" 13.0 65.0 500.0]]]
     (db/create-sensor-reading! {:device_id "zz-series"
                                 :measured_at at
                                 :temperatures {:probe 1}

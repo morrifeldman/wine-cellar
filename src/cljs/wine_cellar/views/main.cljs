@@ -29,7 +29,7 @@
     [reagent-mui.material.divider :refer [divider]]
     [reagent-mui.material.tooltip :refer [tooltip]]
     [reagent.core :as r]
-    [reagent-mui.icons.close :refer [close]]
+    [wine-cellar.views.components.banner :refer [dismissable-banner]]
     [reagent-mui.icons.add :refer [add]]
     [reagent-mui.icons.arrow-back :refer [arrow-back]]
     [reagent-mui.icons.more-vert :refer [more-vert]]
@@ -48,20 +48,6 @@
   []
   (boolean (and (exists? js/navigator)
                 (pos? (or (.-maxTouchPoints js/navigator) 0)))))
-
-(defn- dismissable-banner
-  [{:keys [text severity on-dismiss aria-label]}]
-  (let [bg (str severity ".light")
-        fg (str severity ".dark")]
-    [paper
-     {:elevation 3 :sx {:p 2 :mb 3 :bgcolor bg :color fg :position "relative"}}
-     [box {:sx {:display "flex" :alignItems "flex-start"}}
-      [typography {:variant "body1" :sx {:flex 1 :pr 2}} text]
-      [icon-button
-       {:aria-label aria-label
-        :size "small"
-        :onClick on-dismiss
-        :sx {:color fg}} [close {:fontSize "small"}]]]]))
 
 (defn- back-to-wine-list-button
   []

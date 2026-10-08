@@ -122,3 +122,48 @@ test('a failed request shows its message on the banner', async ({ page }) => {
   expect(out).toEqual({ rejected: 'Spirit not found', banner: 'Spirit not found' });
   await expect(page.getByText('Spirit not found')).toBeVisible();
 });
+
+test('conversations: create, save, rename, pin, fork, edit, delete', async ({ page }) => {
+  await install(page);
+  const out = await page.evaluate(async () => {
+    const r = {};
+    const conv = await t.call('create_conversation_BANG_', t.m({ provider: 'anthropic', chat_type: 'wine', title: 'ZZ chat' }));
+    r.active = t.get(['chat', 'active-conversation-id']) === conv.id;
+    // An assistant message, so the server doesn't ask a model for a title.
+    const msg = await t.call('append_conversation_message_BANG_', conv.id, t.m({ is_user: false, content: 'ZZ hello' }));
+    r.saved = msg.content;
+    await t.call('append_conversation_message_BANG_', conv.id, t.m({ is_user: false, content: 'ZZ second' }));
+    await t.call('rename_conversation_BANG_', conv.id, 'ZZ renamed');
+    r.title = t.get(['chat', 'conversations']).find(c => c.id === conv.id).title;
+    await t.call('set_conversation_pinned_BANG_', conv.id, true);
+    r.pinned = t.get(['chat', 'conversations']).find(c => c.id === conv.id).pinned;
+    await t.call('fetch_conversation_messages_BANG_', conv.id);
+    r.loaded = t.get(['chat', 'messages']).map(m => m.text);
+    const edited = await t.call('update_conversation_message_BANG_', conv.id, msg.id, t.m({ content: 'ZZ edited', truncate_after: true }));
+    r.edited = edited.message.content;
+    const forked = await t.call('fork_conversation_BANG_', conv.id, 1);
+    r.forked = forked.map(m => m.content);
+    const forkId = t.get(['chat', 'active-conversation-id']);
+    r.forkActive = forkId !== conv.id;
+    await t.call('delete_conversation_BANG_', forkId);
+    await t.call('delete_conversation_BANG_', conv.id);
+    await t.settle();
+    r.gone = !t.get(['chat', 'conversations']).some(c => c.id === conv.id || c.id === forkId);
+    r.chatError = t.get(['chat', 'error']);
+    return r;
+  });
+  expect(out).toEqual({
+    active: true, saved: 'ZZ hello', title: 'ZZ renamed', pinned: true,
+    loaded: ['ZZ hello', 'ZZ second'], edited: 'ZZ edited', forked: ['ZZ edited'],
+    forkActive: true, gone: true, chatError: null,
+  });
+});
+
+test('a failed chat request shows in the chat dialog', async ({ page }) => {
+  await install(page);
+  await page.evaluate(async () => {
+    await t.call('rename_conversation_BANG_', 999999, 'nope');
+    cljs.core.swap_BANG_.call(null, t.st, cljs.core.assoc_in, cljs.core.vec([t.kw('chat'), t.kw('open?')]), true);
+  });
+  await expect(page.getByRole('dialog').getByText('Conversation not found')).toBeVisible();
+});

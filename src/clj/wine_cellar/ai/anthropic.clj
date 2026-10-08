@@ -1,5 +1,6 @@
 (ns wine-cellar.ai.anthropic
   (:require [clojure.string :as str]
+            [wine-cellar.ai.errors :as errors]
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
             [org.httpkit.client :as http]
@@ -171,10 +172,12 @@
     (when error
       (tap> ["anthropic-request-error" error])
       (throw
-       (ex-info "Anthropic API request failed" response-with-parsed error)))
+       (errors/upstream-error "Anthropic" "API request failed" {:cause error})))
     (when (not= 200 status)
       (tap> ["anthropic-request-non-200" {:status status :body parsed}])
-      (throw (ex-info "Anthropic API request failed" response-with-parsed)))
+      (throw (errors/upstream-error "Anthropic"
+                                    "API request failed"
+                                    {:status status :parsed parsed})))
     response-with-parsed))
 
 (def ^:private max-pause-turn-resumes

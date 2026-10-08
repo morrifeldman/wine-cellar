@@ -19,14 +19,12 @@
                 payload {:provider (get-in @app-state [:ai :provider])
                          :chat_type chat-type}]
             (swap! app-state assoc-in [:chat :creating-conversation?] true)
-            (api/create-conversation!
-             app-state
-             payload
-             (fn [{:keys [success conversation error]}]
-               (swap! app-state assoc-in [:chat :creating-conversation?] false)
-               (if success
-                 (callback (:id conversation))
-                 (tap> ["ensure-conversation-failed" error]))))))))
+            ;; A failure shows in the chat dialog.
+            (-> (api/create-conversation! app-state payload)
+                (.then #(callback (:id %)) (fn [_]))
+                (.finally #(swap! app-state assoc-in
+                             [:chat :creating-conversation?]
+                             false)))))))
 
 (defn persist-conversation-message!
   "Persist a chat message (user or AI) to the backend conversation store.
@@ -37,14 +35,10 @@
    (ensure-conversation!
     app-state
     (fn [conversation-id]
-      (api/append-conversation-message!
-       app-state
-       conversation-id
-       message-map
-       (fn [{:keys [success message error]}]
-         (if success
-           (when after-save (after-save conversation-id message))
-           (tap> ["conversation-message-persist-failed" error]))))))))
+      (.then
+       (api/append-conversation-message! app-state conversation-id message-map)
+       #(when after-save (after-save conversation-id %))
+       (fn [_]))))))
 
 (defn- update-message!
   [app-state messages message-id f & args]
@@ -198,24 +192,22 @@
                 (fn [data]
                   (apply-server-edit! app-state messages message-idx data)
                   (follow-up))
-                handle-update-error
-                (fn [error-msg]
-                  (reset! is-sending? false)
-                  (swap! app-state assoc-in [:chat :error] error-msg)
-                  (when (integer? conversation-id)
-                    (api/fetch-conversation-messages! app-state
-                                                      conversation-id)))]
+                ;; The failure itself already shows in the chat dialog.
+                handle-update-error (fn [_]
+                                      (reset! is-sending? false)
+                                      (when (integer? conversation-id)
+                                        (api/fetch-conversation-messages!
+                                         app-state
+                                         conversation-id)))]
             (if (and (integer? conversation-id) (integer? message-db-id))
-              (api/update-conversation-message!
-               app-state
-               conversation-id
-               message-db-id
-               {:content message-text :context_note note :truncate_after? true}
-               (fn [{:keys [success data error]}]
-                 (if success
-                   (handle-update-success data)
-                   (handle-update-error (or error
-                                            "Failed to update message")))))
+              (.then (api/update-conversation-message! app-state
+                                                       conversation-id
+                                                       message-db-id
+                                                       {:content message-text
+                                                        :context_note note
+                                                        :truncate_after? true})
+                     handle-update-success
+                     handle-update-error)
               (do (tap> ["conversation-message-update-skipped"
                          {:conversation-id conversation-id
                           :message-id message-db-id}])
@@ -243,18 +235,17 @@
                          with-context-note
                          note)
         (when (and (integer? conversation-id) (integer? (:id question)))
-          (api/update-conversation-message!
-           app-state
-           conversation-id
-           (:id question)
-           {:content (:text question) :context_note note}
-           (fn [{:keys [success data]}]
-             (when success
-               (update-message! app-state
-                                messages
-                                (:id question)
-                                with-context-note
-                                (get-in data [:message :context_note])))))))
+          (.then (api/update-conversation-message! app-state
+                                                   conversation-id
+                                                   (:id question)
+                                                   {:content (:text question)
+                                                    :context_note note})
+                 #(update-message! app-state
+                                   messages
+                                   (:id question)
+                                   with-context-note
+                                   (get-in % [:message :context_note]))
+                 (fn [_]))))
       (request-ai-reply! app-state messages is-sending? cancel-fn-atom))))
 
 (defn fork-conversation!
@@ -265,15 +256,14 @@
   (let [conversation-id (get-in @app-state [:chat :active-conversation-id])
         message-idx (chat-utils/find-message-index @messages message-id)]
     (when (and (integer? conversation-id) message-idx (not @is-sending?))
-      (api/fork-conversation!
-       app-state
-       conversation-id
-       (inc message-idx)
+      (.then
+       (api/fork-conversation! app-state conversation-id (inc message-idx))
        (fn [api-messages]
          (let [forked (mapv chat-utils/api-message->ui api-messages)]
            (reset! messages forked)
            (swap! app-state assoc-in [:chat :messages] forked)
-           (chat-utils/set-scroll-intent! app-state {:type :bottom})))))))
+           (chat-utils/set-scroll-intent! app-state {:type :bottom})))
+       (fn [_])))))
 
 (defn clear-chat!
   ([app-state messages] (clear-chat! app-state messages nil nil))

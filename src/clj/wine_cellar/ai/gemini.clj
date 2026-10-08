@@ -1,5 +1,6 @@
 (ns wine-cellar.ai.gemini
   (:require [clojure.string :as str]
+            [wine-cellar.ai.errors :as errors]
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
             [org.httpkit.client :as http]
@@ -79,13 +80,15 @@
                        :as :text
                        :timeout 180000})]
       (when error
-        (throw (ex-info "Gemini API network error" {:status 500 :error error})))
+        (throw
+         (errors/upstream-error "Gemini" "API network error" {:cause error})))
       (let [parsed (try (json/read-value body json-mapper)
                         (catch Exception _ body))]
         (when (not= 200 status)
           (tap> ["gemini-error" parsed])
-          (throw (ex-info "Gemini API returned error"
-                          {:status status :error parsed})))
+          (throw (errors/upstream-error "Gemini"
+                                        "API returned an error"
+                                        {:status status :parsed parsed})))
         (let [candidate (first (:candidates parsed))
               parts (get-in candidate [:content :parts])
               ;; A grounded answer comes back split across several parts,

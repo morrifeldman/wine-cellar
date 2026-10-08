@@ -709,299 +709,216 @@
   (let [without (remove #(= (:id %) (:id conversation)) conversations)]
     (sort-conversations (cons conversation without))))
 
-(defn- chat-error!
-  "Handle a failed chat API result: tap, set :chat :error, optional callback."
-  ([app-state tap-label result] (chat-error! app-state tap-label result nil))
-  ([app-state tap-label result callback]
-   (tap> [tap-label (:error result)])
-   (swap! app-state assoc-in [:chat :error] (:error result))
-   (when callback (callback {:success false :error (:error result)}))))
-
 (defn- apply-conversation-update!
-  [state conversation]
-  (let [chat (:chat state)
-        convs (or (:conversations chat) [])
-        updated (upsert-conversation convs conversation)
-        active? (= (:active-conversation-id chat) (:id conversation))
-        base (-> state
-                 (assoc-in [:chat :conversations] updated)
-                 (assoc-in [:chat :error] nil))]
-    (if active?
-      (-> base
-          (assoc-in [:chat :active-conversation] conversation)
-          (cond-> (:provider conversation) (assoc-in [:ai :provider]
-                                            (keyword (:provider
-                                                      conversation)))))
-      base)))
+  "Puts a conversation from the server into the list, and when it is the open
+   one makes it active and adopts its provider."
+  ([state conversation]
+   (apply-conversation-update! state
+                               conversation
+                               (= (get-in state [:chat :active-conversation-id])
+                                  (:id conversation))))
+  ([state conversation make-active?]
+   (cond-> (update-in state
+                      [:chat :conversations]
+                      #(upsert-conversation (or % []) conversation))
+     make-active? (-> (update :chat assoc
+                              :active-conversation conversation
+                              :active-conversation-id (:id conversation))
+                      (cond-> (:provider conversation)
+                              (assoc-in [:ai :provider]
+                               (keyword (:provider conversation))))))))
+
+(defn- chat-request!
+  "A conversation request; failures show in the chat dialog."
+  [app-state opts]
+  (request! app-state (assoc opts :error-path [:chat :error])))
+
+(defn- conversation-url [id & more] (apply str "/api/conversations/" id more))
+
+(defn- busy-with!
+  "Marks [:chat busy-key] with the conversation id while `promise` runs, so
+   the sidebar can show a spinner on that one row."
+  [app-state busy-key conversation-id promise]
+  (swap! app-state assoc-in [:chat busy-key] conversation-id)
+  (-> promise
+      (.finally #(swap! app-state assoc-in [:chat busy-key] nil))
+      (.catch (fn [_])))
+  promise)
 
 (defn load-conversations!
   "Fetch conversations for the authenticated user and store them in app state."
   ([app-state] (load-conversations! app-state {}))
-  ([app-state opts]
-   (let [{:keys [force? search-text] :or {force? false}} opts
-         chat-state (:chat @app-state)
-         loading? (:conversation-loading? chat-state)
-         loaded? (:conversations-loaded? chat-state)
-         chat-type (if (= :bar (:view @app-state)) "bar" "wine")
-         query (encode-query-params (cond-> {:chat_type chat-type}
-                                      search-text (assoc :search-text
-                                                         search-text)))]
-     (when (and (not loading?) (or force? (not loaded?) search-text))
-       (swap! app-state (fn [state]
-                          (-> state
-                              (assoc-in [:chat :conversation-loading?] true)
-                              (assoc-in [:chat :conversations-loaded?] false))))
-       (go
-        (let [result (<! (GET (str "/api/conversations" query)
-                              "Failed to load conversations"))]
-          (if (:success result)
-            (let [conversations (vec (:data result))
-                  sorted (sort-conversations conversations)]
-              (tap> ["conversations-loaded" (count conversations)])
-              (swap! app-state
-                (fn [state]
-                  (let [active-id (get-in state [:chat :active-conversation-id])
-                        active (some #(when (= (:id %) active-id) %) sorted)]
-                    (-> state
-                        (assoc-in [:chat :conversation-loading?] false)
-                        (assoc-in [:chat :conversations-loaded?] true)
-                        (assoc-in [:chat :conversations] sorted)
-                        (assoc-in [:chat :active-conversation] active)
-                        (cond-> (:provider active) (assoc-in [:ai :provider]
-                                                    (keyword (:provider
-                                                              active))))
-                        (assoc-in [:chat :error] nil))))))
-            (do
-              (swap! app-state (fn [state]
-                                 (-> state
-                                     (assoc-in [:chat :conversation-loading?]
-                                               false)
-                                     (assoc-in [:chat :conversations-loaded?]
-                                               true))))
-              (chat-error! app-state "conversations-load-error" result)))))))))
+  ([app-state {:keys [force? search-text]}]
+   (let [{:keys [conversation-loading? conversations-loaded?]} (:chat
+                                                                @app-state)
+         chat-type (if (= :bar (:view @app-state)) "bar" "wine")]
+     (when (and (not conversation-loading?)
+                (or force? (not conversations-loaded?) search-text))
+       (swap! app-state assoc-in [:chat :conversations-loaded?] false)
+       (-> (chat-request!
+            app-state
+            {:url (str "/api/conversations"
+                       (encode-query-params {:chat_type chat-type
+                                             :search-text search-text}))
+             :error-msg "Failed to load conversations"
+             :loading [:chat :conversation-loading?]
+             :on-success
+             (fn [state conversations]
+               (let [sorted (sort-conversations conversations)
+                     active-id (get-in state [:chat :active-conversation-id])
+                     active (some #(when (= (:id %) active-id) %) sorted)]
+                 (cond-> (update state
+                                 :chat assoc
+                                 :conversations sorted
+                                 :active-conversation active)
+                   (:provider active) (assoc-in [:ai :provider]
+                                       (keyword (:provider active))))))})
+           (.finally
+            #(swap! app-state assoc-in [:chat :conversations-loaded?] true))
+           (.catch (fn [_])))))))
 
 (defn create-conversation!
-  ([app-state payload] (create-conversation! app-state payload nil))
-  ([app-state payload callback]
-   (go
-    (let [result (<! (POST "/api/conversations"
-                           payload
-                           "Failed to create conversation"))]
-      (if (:success result)
-        (let [conversation (:data result)]
-          (tap> ["conversation-created" (:id conversation)])
-          (swap! app-state
-            (fn [state]
-              (-> state
-                  (assoc-in [:chat :conversations]
-                            (upsert-conversation
-                             (or (get-in state [:chat :conversations]) [])
-                             conversation))
-                  (assoc-in [:chat :active-conversation] conversation)
-                  (assoc-in [:chat :active-conversation-id] (:id conversation))
-                  (cond-> (:provider conversation) (assoc-in [:ai :provider]
-                                                    (keyword (:provider
-                                                              conversation))))
-                  (assoc-in [:chat :conversations-loaded?] true)
-                  (assoc-in [:chat :error] nil))))
-          (when callback (callback {:success true :conversation conversation})))
-        (chat-error! app-state "conversation-create-error" result callback))))))
+  "Creates a conversation and makes it the open one. Promise of the
+   conversation."
+  [app-state payload]
+  (chat-request! app-state
+                 {:method :post
+                  :url "/api/conversations"
+                  :body payload
+                  :error-msg "Failed to create conversation"
+                  :on-success #(-> %1
+                                   (apply-conversation-update! %2 true)
+                                   (assoc-in [:chat :conversations-loaded?]
+                                             true))}))
+
+(defn- update-conversation!
+  [app-state conversation-id changes busy-key]
+  (when conversation-id
+    (cond->> (chat-request! app-state
+                            {:method :put
+                             :url (conversation-url conversation-id)
+                             :body changes
+                             :error-msg "Failed to update conversation"
+                             :on-success apply-conversation-update!})
+      busy-key (busy-with! app-state busy-key conversation-id))))
 
 (defn rename-conversation!
-  ([app-state conversation-id title]
-   (rename-conversation! app-state conversation-id title nil))
-  ([app-state conversation-id title callback]
-   (when conversation-id
-     (swap! app-state assoc-in
-       [:chat :renaming-conversation-id]
-       conversation-id)
-     (go (let [result (<! (PUT (str "/api/conversations/" conversation-id)
-                               {:title title}
-                               "Failed to update conversation"))]
-           (swap! app-state assoc-in [:chat :renaming-conversation-id] nil)
-           (if (:success result)
-             (let [conversation (:data result)]
-               (tap> ["conversation-renamed" (:id conversation)])
-               (swap! app-state apply-conversation-update! conversation)
-               (when callback
-                 (callback {:success true :conversation conversation})))
-             (chat-error! app-state
-                          "conversation-rename-error"
-                          result
-                          callback)))))))
+  [app-state conversation-id title]
+  (update-conversation! app-state
+                        conversation-id
+                        {:title title}
+                        :renaming-conversation-id))
 
 (defn set-conversation-pinned!
   [app-state conversation-id pinned?]
-  (when conversation-id
-    (swap! app-state assoc-in [:chat :pinning-conversation-id] conversation-id)
-    (go (let [result (<! (PUT (str "/api/conversations/" conversation-id)
-                              {:pinned pinned?}
-                              "Failed to update conversation"))]
-          (swap! app-state assoc-in [:chat :pinning-conversation-id] nil)
-          (if (:success result)
-            (let [conversation (:data result)]
-              (tap> ["conversation-pinned"
-                     {:id (:id conversation) :pinned (:pinned conversation)}])
-              (swap! app-state apply-conversation-update! conversation)
-              (load-conversations! app-state {:force? true}))
-            (chat-error! app-state "conversation-pin-error" result))))))
+  (some-> (update-conversation! app-state
+                                conversation-id
+                                {:pinned pinned?}
+                                :pinning-conversation-id)
+          ;; pinning reorders the list
+          (.then #(load-conversations! app-state {:force? true}) (fn [_]))))
 
 (defn update-conversation-provider!
   [app-state conversation-id provider]
-  (when (and conversation-id provider)
-    (go (let [result (<! (PUT (str "/api/conversations/" conversation-id)
-                              {:provider provider}
-                              "Failed to update conversation"))]
-          (if (:success result)
-            (swap! app-state apply-conversation-update! (:data result))
-            (swap! app-state assoc-in [:chat :error] (:error result)))))))
+  (when provider
+    (update-conversation! app-state conversation-id {:provider provider} nil)))
+
+(defn- remove-conversation
+  "State without the conversation; closes it if it was open."
+  [state conversation-id]
+  (let [open? (= conversation-id
+                 (get-in state [:chat :active-conversation-id]))]
+    (cond->
+      (update-in state [:chat :conversations] remove-by-id conversation-id)
+      open? (update :chat
+                    #(-> %
+                         (assoc :active-conversation-id nil
+                                :active-conversation nil
+                                :messages []
+                                :messages-loading? false)
+                         (dissoc :held-list-ids))))))
 
 (defn delete-conversation!
   [app-state conversation-id]
   (when conversation-id
-    (swap! app-state assoc-in [:chat :deleting-conversation-id] conversation-id)
-    (go
-     (let [result (<! (DELETE (str "/api/conversations/" conversation-id)
-                              "Failed to delete conversation"))]
-       (swap! app-state assoc-in [:chat :deleting-conversation-id] nil)
-       (if (:success result)
-         (do (swap! app-state
-               (fn [state]
-                 (let [chat (:chat state)
-                       filtered (->> (:conversations chat)
-                                     (remove #(= (:id %) conversation-id)))
-                       sorted (sort-conversations filtered)
-                       active? (= (:active-conversation-id chat)
-                                  conversation-id)
-                       base-state (-> state
-                                      (assoc-in [:chat :conversations] sorted)
-                                      (assoc-in [:chat :conversations-loaded?]
-                                                false)
-                                      (assoc-in [:chat :error] nil))]
-                   (if active?
-                     (-> base-state
-                         (assoc-in [:chat :active-conversation-id] nil)
-                         (assoc-in [:chat :active-conversation] nil)
-                         (assoc-in [:chat :messages] [])
-                         (assoc-in [:chat :messages-loading?] false)
-                         (update :chat dissoc :held-list-ids))
-                     base-state))))
-             (tap> ["conversation-deleted" conversation-id])
-             (load-conversations! app-state {:force? true}))
-         (chat-error! app-state "conversation-delete-error" result))))))
+    (busy-with! app-state
+                :deleting-conversation-id
+                conversation-id
+                (chat-request!
+                 app-state
+                 {:method :delete
+                  :url (conversation-url conversation-id)
+                  :error-msg "Failed to delete conversation"
+                  :on-success (fn [state _]
+                                (remove-conversation state conversation-id))
+                  :after #(load-conversations! app-state {:force? true})}))))
 
 (defn fork-conversation!
   "Copy the first `message-count` messages of a conversation into a new one and
-   make it the active conversation. Calls back with the new messages."
-  [app-state conversation-id message-count callback]
-  (go (let [result (<! (POST (str "/api/conversations/" conversation-id "/fork")
-                             {:message_count message-count}
-                             "Failed to fork conversation"))]
-        (if (:success result)
-          (let [{:keys [conversation messages]} (:data result)]
-            (swap! app-state
-              (fn [state]
-                (-> state
-                    (update-in [:chat :conversations]
-                               #(upsert-conversation (or % []) conversation))
-                    (assoc-in [:chat :active-conversation] conversation)
-                    (assoc-in [:chat :active-conversation-id]
-                              (:id conversation))
-                    (assoc-in [:chat :error] nil))))
-            (callback messages))
-          (chat-error! app-state "conversation-fork-error" result)))))
+   make it the active conversation. Promise of the new messages."
+  [app-state conversation-id message-count]
+  (-> (chat-request! app-state
+                     {:method :post
+                      :url (conversation-url conversation-id "/fork")
+                      :body {:message_count message-count}
+                      :error-msg "Failed to fork conversation"
+                      :on-success
+                      #(apply-conversation-update! %1 (:conversation %2) true)})
+      (.then #(:messages %))))
 
 (defn append-conversation-message!
-  ([app-state conversation-id message]
-   (append-conversation-message! app-state conversation-id message nil))
-  ([app-state conversation-id message callback]
-   (let [payload (cond-> message
-                   (nil? (:image_data message)) (dissoc :image_data)
-                   (nil? (:tokens_used message)) (dissoc :tokens_used)
-                   (nil? (:context_note message)) (dissoc :context_note))]
-     (go
-      (let [result (<! (POST
-                        (str "/api/conversations/" conversation-id "/messages")
-                        payload
-                        "Failed to save conversation message"))]
-        (if (:success result)
-          (let [saved (:data result)
-                message (:message saved)
-                conversation (:conversation saved)
-                message (or message saved)]
-            (tap> ["conversation-message-saved" (:id message)])
-            (when conversation
-              (swap! app-state apply-conversation-update! conversation))
-            (swap! app-state assoc-in [:chat :error] nil)
-            (when callback
-              (callback
-               {:success true :message message :conversation conversation})))
-          (chat-error! app-state
-                       "conversation-message-save-error"
-                       result
-                       callback)))))))
+  "Saves a message. Promise of the saved message."
+  [app-state conversation-id message]
+  (-> (chat-request! app-state
+                     {:method :post
+                      :url (conversation-url conversation-id "/messages")
+                      :body (into {} (remove (comp nil? val)) message)
+                      :error-msg "Failed to save conversation message"
+                      :on-success (fn [state {:keys [conversation]}]
+                                    (cond-> state
+                                      conversation (apply-conversation-update!
+                                                    conversation)))})
+      (.then #(:message %))))
 
 (defn update-conversation-message!
-  ([app-state conversation-id message-id message]
-   (update-conversation-message! app-state
-                                 conversation-id
-                                 message-id
-                                 message
-                                 nil))
-  ([app-state conversation-id message-id message callback]
-   (let [payload
-         (cond-> {:content (:content message)}
-           (contains? message :image_data) (assoc :image (:image_data message))
-           (contains? message :tokens_used) (assoc :tokens_used
-                                                   (:tokens_used message))
-           (contains? message :context_note) (assoc :context_note
-                                                    (:context_note message))
-           (true? (:truncate_after? message)) (assoc :truncate_after? true))]
-     (go
-      (let [result (<! (PUT (str "/api/conversations/" conversation-id
-                                 "/messages/" message-id)
-                            payload
-                            "Failed to update conversation message"))]
-        (if (:success result)
-          (let [data (:data result)
-                conversation (:conversation data)]
-            (tap> ["conversation-message-updated"
-                   {:conversation-id conversation-id
-                    :message-id message-id
-                    :deleted (count (:deleted-message-ids data))}])
-            (when conversation
-              (swap! app-state apply-conversation-update! conversation))
-            (swap! app-state assoc-in [:chat :error] nil)
-            (when callback (callback {:success true :data data})))
-          (chat-error! app-state
-                       "conversation-message-update-error"
-                       result
-                       callback)))))))
+  "Edits a saved message; with :truncate_after? true, also drops every message
+   after it. Promise of the server's {:message :conversation
+   :deleted-message-ids}."
+  [app-state conversation-id message-id message]
+  (chat-request!
+   app-state
+   {:method :put
+    :url (conversation-url conversation-id "/messages/" message-id)
+    :body (cond-> {:content (:content message)}
+            (contains? message :image_data) (assoc :image (:image_data message))
+            (contains? message :tokens_used) (assoc :tokens_used
+                                                    (:tokens_used message))
+            (contains? message :context_note) (assoc :context_note
+                                                     (:context_note message))
+            (true? (:truncate_after? message)) (assoc :truncate_after? true))
+    :error-msg "Failed to update conversation message"
+    :on-success (fn [state {:keys [conversation]}]
+                  (cond-> state
+                    conversation (apply-conversation-update! conversation)))}))
 
 (defn fetch-conversation-messages!
   [app-state conversation-id]
-  (swap! app-state assoc-in [:chat :messages-loading?] true)
-  (go
-   (let [result (<! (GET (str "/api/conversations/" conversation-id "/messages")
-                         "Failed to load conversation messages"))]
-     (swap! app-state assoc-in [:chat :messages-loading?] false)
-     (if (:success result)
-       (let [messages (:data result)]
-         (tap> ["conversation-messages-loaded"
-                {:conversation-id conversation-id :count (count messages)}])
-         (swap! app-state assoc-in
-           [:chat :messages]
-           (mapv (fn [m]
-                   {:id (:id m)
-                    :text (:content m)
-                    :is-user (:is_user m)
-                    :context-note (:context_note m)
-                    :timestamp (some-> (:created_at m)
-                                       js/Date.parse
-                                       js/Date.)})
-                 messages))
-         (swap! app-state assoc-in [:chat :error] nil))
-       (chat-error! app-state "conversation-messages-load-error" result)))))
+  (chat-request! app-state
+                 {:url (conversation-url conversation-id "/messages")
+                  :error-msg "Failed to load conversation messages"
+                  :loading [:chat :messages-loading?]
+                  :on-success (fn [state messages]
+                                (assoc-in state
+                                 [:chat :messages]
+                                 (mapv (fn [m]
+                                         {:id (:id m)
+                                          :text (:content m)
+                                          :is-user (:is_user m)
+                                          :context-note (:context_note m)
+                                          :timestamp (some-> (:created_at m)
+                                                             js/Date.parse
+                                                             js/Date.)})
+                                       messages)))}))
 
 (defn send-chat-message
   "Send the conversation history to the AI chat endpoint. The wines under

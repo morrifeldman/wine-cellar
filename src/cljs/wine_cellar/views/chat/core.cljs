@@ -1,5 +1,6 @@
 (ns wine-cellar.views.chat.core
   (:require [reagent.core :as r]
+            [wine-cellar.views.components.banner :refer [dismissable-banner]]
             [reagent-mui.material.fab :refer [fab]]
             [reagent-mui.material.dialog :refer [dialog]]
             [reagent-mui.material.dialog-title :refer [dialog-title]]
@@ -113,9 +114,17 @@
     (into [grid {:item true :xs 12 :md (if sidebar-open? 8 12)}] components)))
 
 (defn- chat-dialog-content
-  [{:keys [dialog-content-ref sidebar main-column]}]
+  [{:keys [dialog-content-ref sidebar main-column error on-dismiss-error]}]
   [dialog-content
    {:ref #(reset! dialog-content-ref %) :sx {:pt 1.5 :pb 1.5 :px 2}}
+   ;; The dialog covers the page's own banner, so chat failures show here.
+   (when error
+     [dismissable-banner
+      {:text error
+       :severity "error"
+       :aria-label "Dismiss chat error"
+       :on-dismiss on-dismiss-error
+       :sx {:mb 2}}])
    (into [grid {:container true :spacing 2}]
          (cond-> []
            sidebar (conj sidebar)
@@ -312,7 +321,10 @@
                           :context-indicator context-indicator}
             content-props {:dialog-content-ref dialog-content-ref
                            :sidebar sidebar
-                           :main-column main-column}]
+                           :main-column main-column
+                           :error (:error chat-state)
+                           :on-dismiss-error
+                           #(swap! app-state update :chat dissoc :error)}]
         (when (not= @messages conversation-messages)
           (reset! messages conversation-messages))
         ;; Automatically update search matches when messages or term change
