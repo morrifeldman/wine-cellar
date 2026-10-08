@@ -12,13 +12,11 @@ risk and payoff, and later tiers get easier once earlier ones land.
 
 ## Tier 1: bugs and security (small, do first)
 
-- [ ] **Login allow-list.** Any Google account can sign in and gets the whole
-  API, including `/api/admin/sql` and `/reset-database`. Check
-  `email_verified` and an allowed-emails list in `handle-successful-auth`
-  (`auth/core.clj`). Gate `/api/admin/*` on `get-admin-email`, which is unused.
 - [ ] **Device tokens are full user tokens.** `verify-token` ignores
   `:aud`/`:type`, so the ESP32 token can call any `/api` route. Only accept
-  device tokens on sensor ingest, and reject user tokens there.
+  device tokens on sensor ingest, and reject user tokens there. This matters
+  even with Google's test-user list: the device token never goes through
+  Google login.
 - [ ] **Restock casing bug.** `adjust-quantity` (`db/api.clj` ~531/536)
   compares `"restock"` once and `"Restock"` once, so `wines.original_quantity`
   never bumps. Use one `restock?` binding.
@@ -57,6 +55,12 @@ risk and payoff, and later tiers get easier once earlier ones land.
   `routes.clj`.
 - [ ] Split `handlers.clj` by domain (wines, bar, conversations, devices,
   admin, ai).
+- [ ] App-side login allow-list (defence in depth; low priority). Today the
+  Google OAuth consent screen is in Testing mode, and its test-user list is
+  what limits sign-in. The app itself checks no email and never reads
+  `ADMIN_EMAIL`. If the consent screen is ever published, check
+  `email_verified` and an `ALLOWED_EMAILS` list (defaulting to `ADMIN_EMAIL`,
+  failing closed) in `handle-successful-auth` and on every token.
 - [ ] Logging: one `log/event` helper with redaction. Stop tapping JWT user
   info and full bodies in verbose mode, and remove duplicate taps.
 
@@ -151,3 +155,14 @@ Most of these shrink on their own once tiers 3 and 5 land.
 - [ ] `verify` skill: use a relative path instead of `/home/morri/...`. Add a
   `playwright.config` and an `npm test` script.
 - [ ] Archive the stale feature write-ups in `docs/`.
+- [ ] Deploy docs: README line ~147 wrongly says to put the runtime env vars in
+  GitHub secrets. They are Fly secrets, set by hand. Say so in
+  `docs/environment-variables.md`, and note that Google login access is
+  controlled by the consent screen's test-user list.
+- [ ] `deploy.yml`: use repo variables for the app name and region (so the
+  logged `fly.toml` is readable), `envsubst '$FLY_APP_NAME
+  $FLY_PRIMARY_REGION'`, and pin `setup-flyctl` to a release tag.
+- [ ] Optional AI keys: pass `:fallback nil` for `OPENAI_API_KEY` and
+  `GEMINI_API_KEY` so a missing key gives the friendly error instead of
+  failing boot. Send the Gemini key in the `x-goog-api-key` header, not the
+  URL.
