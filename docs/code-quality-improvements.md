@@ -50,7 +50,7 @@ below.
 - [x] 1.6 Merge the two bulk jobs
 - [x] 1.4 `->jsonb` and shared `q-one`/`q-many`. Not done: a global timestamp `ReadableColumn`, which would change every timestamp's JSON format the frontend reads. The codec maps weren't worth it once `->jsonb` existed.
 - [x] 1.5 Inventory mutations share `record-history!`
-- [ ] 1.7 Smaller backend items
+- [x] 1.7 Smaller backend items: sensor ingestion, reports provider, recipe-links namespace, sensor series columns, aliases. Skipped: a `current-user` helper (the ways the user is read differ for good reasons) and the claim-code 401-vs-422 split (device-facing vs admin-facing).
 
 **Phase 3: frontend plumbing (§2)**
 - [ ] 2.1 `request!` helper

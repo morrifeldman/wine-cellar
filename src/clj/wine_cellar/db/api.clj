@@ -979,6 +979,9 @@
    "6h" 21600 ;; 6 hours
    "1d" 86400}) ;; 1 day
 
+(def ^:private series-metrics
+  ["humidity_pct" "pressure_hpa" "illuminance_lux" "co2_ppm" "battery_mv"])
+
 (defn sensor-reading-series
   "Return aggregated sensor readings bucketed by the requested interval. Results
   always include :device_id and :bucket_start (ISO string). Metrics include
@@ -1001,27 +1004,21 @@
               from (conj from)
               to (conj to))
      where-clause (str/join " AND " conditions)
+     stat-columns (str/join ", "
+                            (for [metric series-metrics
+                                  stat ["avg" "min" "max"]]
+                              (str "b." stat "_" metric)))
+     aggregates (str/join ", "
+                          (for [metric series-metrics
+                                stat ["avg" "min" "max"]]
+                            (format "%s(%s) AS %s_%s" stat metric stat metric)))
      sql-str
      (str
       "WITH buckets AS ("
       "  SELECT device_id, "
       bucket-expr
-      " AS bucket_start,"
-      "    AVG(humidity_pct) AS avg_humidity_pct,"
-      "    MIN(humidity_pct) AS min_humidity_pct,"
-      "    MAX(humidity_pct) AS max_humidity_pct,"
-      "    AVG(pressure_hpa) AS avg_pressure_hpa,"
-      "    MIN(pressure_hpa) AS min_pressure_hpa,"
-      "    MAX(pressure_hpa) AS max_pressure_hpa,"
-      "    AVG(illuminance_lux) AS avg_illuminance_lux,"
-      "    MIN(illuminance_lux) AS min_illuminance_lux,"
-      "    MAX(illuminance_lux) AS max_illuminance_lux,"
-      "    AVG(co2_ppm) AS avg_co2_ppm,"
-      "    MIN(co2_ppm) AS min_co2_ppm,"
-      "    MAX(co2_ppm) AS max_co2_ppm,"
-      "    AVG(battery_mv) AS avg_battery_mv,"
-      "    MIN(battery_mv) AS min_battery_mv,"
-      "    MAX(battery_mv) AS max_battery_mv"
+      " AS bucket_start, "
+      aggregates
       "  FROM sensor_readings sr"
       "  WHERE "
       where-clause
@@ -1039,19 +1036,17 @@
       "  WHERE "
       where-clause
       "  GROUP BY sr.device_id, bucket_start, st.sensor_addr"
-      "), temp_json AS (" "  SELECT device_id, bucket_start,"
+      "), temp_json AS ("
+      "  SELECT device_id, bucket_start,"
       "    jsonb_object_agg(sensor_addr, round(avg_val::numeric, 2)) AS avg_temperatures,"
       "    jsonb_object_agg(sensor_addr, round(min_val::numeric, 2)) AS min_temperatures,"
       "    jsonb_object_agg(sensor_addr, round(max_val::numeric, 2)) AS max_temperatures"
       "  FROM temp_agg"
-      "  GROUP BY device_id, bucket_start" ")"
+      "  GROUP BY device_id, bucket_start"
+      ")"
       " SELECT b.device_id, b.bucket_start,"
-      "   t.avg_temperatures, t.min_temperatures, t.max_temperatures,"
-      "   b.avg_humidity_pct, b.min_humidity_pct, b.max_humidity_pct,"
-      "   b.avg_pressure_hpa, b.min_pressure_hpa, b.max_pressure_hpa,"
-      "   b.avg_illuminance_lux, b.min_illuminance_lux, b.max_illuminance_lux,"
-      "   b.avg_co2_ppm, b.min_co2_ppm, b.max_co2_ppm,"
-      "   b.avg_battery_mv, b.min_battery_mv, b.max_battery_mv"
+      "   t.avg_temperatures, t.min_temperatures, t.max_temperatures, "
+      stat-columns
       " FROM buckets b"
       " LEFT JOIN temp_json t ON b.device_id = t.device_id AND b.bucket_start = t.bucket_start"
       " ORDER BY b.bucket_start ASC, b.device_id ASC")
