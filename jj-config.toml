@@ -13,6 +13,7 @@ patterns = [
   "glob:dev/**/*.cljc",
   "glob:dev/**/*.cljs",
   "glob:scripts/**/*.clj",
+  "glob:test/**/*.clj",
   "deps.edn",
   "shadow-cljs.edn",
 ]

@@ -100,12 +100,13 @@
 
 (defn create-jwt-token
   [user-info]
-  (tap> ["create-jwt-token" user-info])
+  (tap> ["create-jwt-token" (:email user-info)])
   (let [jwt-secret (config/get-jwt-secret)
         now (Instant/now)
+        ;; JWT times are epoch seconds; buddy checks :exp against seconds.
         claims (assoc user-info
-                      :iat (inst-ms now)
-                      :exp (inst-ms (.plus now 7 ChronoUnit/DAYS)))]
+                      :iat (.getEpochSecond now)
+                      :exp (.getEpochSecond (.plus now 7 ChronoUnit/DAYS)))]
     (jwt/sign claims jwt-secret {:alg :hs256})))
 
 (defn- handle-successful-auth
@@ -115,7 +116,7 @@
     (let [access-token (:access_token token-response)
           _ (tap> ["access-token-received" "REDACTED"])
           user-info (get-user-info access-token)
-          _ (tap> ["user-info-received" user-info])
+          _ (tap> ["user-info-received" (:email user-info)])
           jwt-token (create-jwt-token user-info)
           _ (tap> ["jwt-token" "REDACTED"])
           frontend-url (config-utils/frontend-url request)]
@@ -125,12 +126,14 @@
                      :http-only true
                      :max-age (* 7 24 60 60) ; 7 days
                      :same-site :lax
+                     :secure config-utils/production?
                      :path "/"})
           (assoc-in [:cookies "login-hint"]
                     {:value (:email user-info)
                      :http-only true
                      :max-age (* 365 24 60 60)
                      :same-site :lax
+                     :secure config-utils/production?
                      :path "/"})
           (assoc :session (dissoc (:session request) :oauth-state))))
     (do (tap> ["token-exchange-failed"])
@@ -138,8 +141,8 @@
 
 (defn handle-google-callback
   [request]
-  (tap> ["handle-google-callback" (:query-params request) "session"
-         (:session request)])
+  ;; Not the query params: they carry the one-time OAuth code.
+  (tap> ["handle-google-callback"])
   (let [code (get-in request [:query-params "code"])
         state (get-in request [:query-params "state"])
         session-state (get-in request [:session :oauth-state])
@@ -214,6 +217,7 @@
                  :http-only true
                  :max-age 0 ; Expire immediately
                  :same-site :lax
+                 :secure config-utils/production?
                  :path "/"})
       ;; Logging out is how you switch accounts, so the next login should
       ;; offer the picker again.

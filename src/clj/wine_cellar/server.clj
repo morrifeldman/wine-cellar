@@ -9,6 +9,7 @@
             [wine-cellar.config-utils :refer [backend-port production?]]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.db.thumbnails :as thumbnails]
+            [wine-cellar.logging :as logging]
             [wine-cellar.routes :refer [app]]
             [wine-cellar.scheduler]))
 
@@ -21,7 +22,8 @@
   (future (thumbnails/rebuild-undersized-thumbnails!))
   ;; Add stdout tap handler for production logging (coexists with Portal in
   ;; dev)
-  (when production? (add-tap #(println "tap>" (pr-str %))))
+  (when production?
+    (add-tap #(println "tap>" (pr-str (logging/shorten-for-log %)))))
   (let [session-store (cookie-store {:key (.getBytes
                                            (auth-config/get-cookie-store-key))})
         wrapped-app (-> app
@@ -30,6 +32,7 @@
                         (wrap-session {:store session-store
                                        :cookie-attrs {:http-only true
                                                       :same-site :lax
+                                                      :secure production?
                                                       :path "/"}}))
         server (http-kit/run-server wrapped-app {:port port})]
     (println "Started http server on port:" port)

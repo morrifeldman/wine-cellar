@@ -20,6 +20,9 @@ async function makePageWithAuth({ headless = false, width = 1280, height = 800 }
   const browser = await chromium.launch({
     headless,
     args: ['--disable-dev-shm-usage', '--disable-gpu'],
+    // Cloud sessions ship a Chromium that doesn't match the pinned
+    // Playwright's expected build; point at it instead of downloading one.
+    executablePath: process.env.CHROMIUM_PATH || undefined,
   });
   const context = await browser.newContext({ viewport: { width, height }, hasTouch: false });
   await context.addCookies([{ name: 'auth-token', value: token, domain: 'localhost', path: '/' }]);

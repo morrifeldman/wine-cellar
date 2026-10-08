@@ -218,8 +218,10 @@
 (defn create-wine
   ([wine] (create-wine ds wine))
   ([tx-or-ds wine]
-   (q-one tx-or-ds
-          {:insert-into :wines :values [(wine->db-wine wine)] :returning :*})))
+   (-> (q-one
+        tx-or-ds
+        {:insert-into :wines :values [(wine->db-wine wine)] :returning :*})
+       db-wine->wine)))
 
 (defn create-conversation!
   "Create a new AI conversation row."
@@ -256,14 +258,14 @@
            (let [ts-query [:websearch_to_tsquery [:cast "english" :regconfig]
                            search-text]
                  pattern (str "%" search-text "%")
-                 escaped (-> search-text
-                             (str/replace #"[\\.+*?()\[\]{}^$|]" "\\\\$0")
-                             (str/replace "'" "''"))
-                 occurrence-sql
-                 (str "(SELECT COUNT(*) FROM ai_conversation_messages m2, "
-                      "LATERAL regexp_matches(m2.content, '" escaped
-                      "', 'gi') matches " "WHERE m2.conversation_id = c.id)")]
-             {:select [[[:coalesce [:raw occurrence-sql] 0] :match_count] :c.*]
+                 ;; A literal-text regex, passed as a bound parameter.
+                 regex (str/replace search-text #"[\\.+*?()\[\]{}^$|]" "\\\\$0")
+                 occurrence-count
+                 [:raw
+                  ["(SELECT COUNT(*) FROM ai_conversation_messages m2, "
+                   "LATERAL regexp_matches(m2.content, " [:lift regex]
+                   ", 'gi') matches WHERE m2.conversation_id = c.id)"]]]
+             {:select [[[:coalesce occurrence-count 0] :match_count] :c.*]
               :from [[:ai_conversations :c]]
               :left-join [[:ai_conversation_messages :m]
                           [:and [:= :c.id :m.conversation_id]
@@ -528,14 +530,13 @@
           current-original-quantity (:original_quantity wine 0)
           new-quantity (+ current-quantity adjustment)
           actual-reason (or reason (if (neg? adjustment) "drunk" "return"))
-          new-original-quantity (if (= actual-reason "restock")
+          restock? (= actual-reason "restock")
+          new-original-quantity (if restock?
                                   (+ current-original-quantity adjustment)
                                   current-original-quantity)
           update-map (cond-> {:quantity new-quantity :updated_at [:now]}
-                       (= actual-reason "Restock")
-                       (assoc :original_quantity
-                              [:+ [:coalesce :original_quantity 0]
-                               adjustment]))]
+                       restock? (assoc :original_quantity
+                                       new-original-quantity))]
       (q-one tx
              {:insert-into :inventory_history
               :values [(cond-> {:wine_id id
@@ -765,6 +766,18 @@
               {:insert-into :wine_classifications
                :values [classification]
                :returning :*}))))
+
+(defn create-wine-with-classification!
+  "Creates the wine, and its classification if new, in one transaction."
+  [wine]
+  (jdbc/with-transaction [tx ds]
+                         (when (and (:country wine) (:region wine))
+                           (create-or-update-classification
+                            tx
+                            (select-keys wine
+                                         [:country :region :appellation
+                                          :appellation_tier :classification])))
+                         (create-wine tx wine)))
 
 (defn get-classifications
   []

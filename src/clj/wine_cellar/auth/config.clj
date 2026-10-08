@@ -1,6 +1,11 @@
 (ns wine-cellar.auth.config
   (:require [wine-cellar.config-utils :as config-utils]))
 
+;; In dev each lookup can shell out to `pass`, and the JWT secret is needed on
+;; every request, so remember values once found. (Not defstates: a running
+;; REPL would start new states after the server that needs them.)
+(def ^:private config (memoize config-utils/get-config))
+
 (defn get-oauth-config
   "Returns the OAuth configuration, either from environment variables or pass"
   ([] (get-oauth-config nil))
@@ -20,16 +25,16 @@
            (str "http://localhost:"
                 config-utils/backend-port
                 "/auth/google/callback"))]
-     {:client-id (config-utils/get-config "GOOGLE_CLIENT_ID")
-      :client-secret (config-utils/get-config "GOOGLE_CLIENT_SECRET")
+     {:client-id (config "GOOGLE_CLIENT_ID")
+      :client-secret (config "GOOGLE_CLIENT_SECRET")
       :redirect-uri redirect-uri})))
 
 (defn get-jwt-secret
-  "Gets the JWT secret for signing tokens, either from environment or a default"
+  "The JWT secret for signing tokens, from the environment or pass"
   []
-  (config-utils/get-config "JWT_SECRET"))
+  (config "JWT_SECRET"))
 
-(defn get-cookie-store-key [] (config-utils/get-config "COOKIE_STORE_KEY"))
+(defn get-cookie-store-key [] (config "COOKIE_STORE_KEY"))
 
 (defn get-admin-email
   "Gets the admin email address from environment or pass"

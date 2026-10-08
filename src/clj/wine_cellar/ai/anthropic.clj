@@ -141,10 +141,20 @@
   (when-let [text (not-empty (extract-text-content content))]
     (json/read-value text json/keyword-keys-object-mapper)))
 
+(defn- ensure-api-key!
+  []
+  (or api-key
+      (throw (ex-info "Anthropic provider not configured"
+                      {:status 400
+                       :error
+                       "Anthropic is not configured. Set ANTHROPIC_API_KEY."
+                       :code :anthropic/missing-api-key}))))
+
 (defn- post-anthropic
   "Sends one request to the Messages API and returns the http-kit response with
    the decoded body under :parsed. Throws on transport errors and non-200s."
   [request-body]
+  (ensure-api-key!)
   (tap> ["anthropic-request-body" request-body])
   (let [{:keys [status body error] :as response}
         (deref (http/post api-url

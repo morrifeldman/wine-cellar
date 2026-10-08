@@ -16,8 +16,12 @@
         (edn/read-string (slurp (or (io/resource "wine-classifications.edn")
                                     (io/file (str "resources/"
                                                   classifications-file)))))]
+    ;; The seed file also carries :designations, which has no column.
     (doseq [c wine-classifications]
-      (db-api/create-or-update-classification c))))
+      (db-api/create-or-update-classification
+       (select-keys c
+                    [:country :region :appellation :appellation_tier
+                     :classification])))))
 
 (defn classifications-exist?
   "Check if any classifications exist in the database"
@@ -179,30 +183,20 @@
 
 #_(initialize-db)
 
+(def ^:private app-tables
+  "Every table ensure-tables creates. CASCADE takes care of the order."
+  ["ai_conversation_messages" "ai_conversations" "tasting_notes"
+   "inventory_history" "wine_grape_varieties" "grape_varieties" "cellar_reports"
+   "sensor_temperatures" "sensor_readings" "devices" "cocktail_recipes"
+   "bar_inventory_items" "spirits" "wines" "wine_classifications"])
+
 (defn drop-tables
   ([] (jdbc/with-transaction [tx ds] (drop-tables tx)))
   ([tx]
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
-   (sql-execute-helper
-    tx
-    {:raw ["DROP TABLE IF EXISTS ai_conversation_messages CASCADE"]})
-   (sql-execute-helper tx
-                       {:raw ["DROP TABLE IF EXISTS ai_conversations CASCADE"]})
-   (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS tasting_notes CASCADE"]})
-   (sql-execute-helper tx
-                       {:raw
-                        ["DROP TABLE IF EXISTS sensor_temperatures CASCADE"]})
-   (sql-execute-helper tx
-                       {:raw ["DROP TABLE IF EXISTS sensor_readings CASCADE"]})
-   (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS devices CASCADE"]})
-   (sql-execute-helper tx {:raw ["DROP TABLE IF EXISTS wines CASCADE"]})
-   (sql-execute-helper tx
-                       {:raw
-                        ["DROP TABLE IF EXISTS wine_classifications CASCADE"]})
-   (sql-execute-helper tx
-                       {:raw
-                        ["DROP TABLE IF EXISTS wine_grape_varieties CASCADE"]})
-   (sql-execute-helper tx
-                       {:raw ["DROP TABLE IF EXISTS grape_varieties CASCADE"]})
+   (doseq [table app-tables]
+     (sql-execute-helper tx
+                         {:raw
+                          [(str "DROP TABLE IF EXISTS " table " CASCADE")]}))
    (sql-execute-helper tx {:raw ["DROP TYPE IF EXISTS wine_style CASCADE"]})))
 #_(drop-tables)
