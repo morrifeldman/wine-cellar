@@ -95,7 +95,13 @@ test('wine edits, notes and stock changes update the wine in place', async ({ pa
     r.restocked = t.get(['wines']).find(w => w.id === id).quantity - wine.quantity;
     await t.call('adjust_wine_quantity', id, -1, t.m({ reason: 'correction' }));
     await t.settle();
-    r.historyLoaded = Array.isArray(t.get(['inventory-history', id]));
+    const hist = t.get(['inventory-history', id]);
+    r.historyLoaded = Array.isArray(hist);
+    // Leave the dev data as found: restock also raised the laid-down count,
+    // and both moves wrote history rows.
+    for (const h of [...hist].sort((x, y) => y.id - x.id).slice(0, 2))
+      await t.call('delete_inventory_history', id, h.id);
+    await t.call('update_wine', id, t.m({ original_quantity: wine.original_quantity }));
     // tasting notes
     await t.call('fetch_tasting_notes', id);
     const note = await t.call('create_tasting_note', id, t.m({ notes: 'ZZ note', rating: 90 }), null);
