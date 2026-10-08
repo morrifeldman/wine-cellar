@@ -98,3 +98,71 @@
                   gemini/generate-report-commentary (constantly "from gemini")]
       (is (= "from gemini"
              (wine-cellar.ai.core/generate-report-commentary nil {}))))))
+
+(defn- call-seq
+  "Like call, but the stub answers with each response in turn. Returns
+   [result-or-exception number-of-requests]."
+  [f responses]
+  (let [remaining (atom responses)
+        sent (atom 0)]
+    (with-redefs [http/post
+                  (fn [_url _opts]
+                    (swap! sent inc)
+                    (let [r (first @remaining)]
+                      (swap! remaining rest)
+                      (doto (promise)
+                        (deliver (update r :body json/write-value-as-string)))))
+                  wine-cellar.ai.http/retry-delay-ms 0
+                  anthropic/api-key "k"
+                  anthropic/model "claude-test"
+                  anthropic/default-effort "low"
+                  openai/api-key "k"
+                  openai/model "gpt-test"
+                  gemini/api-key "k"
+                  gemini/model "gemini-test"]
+      [(try (f) (catch clojure.lang.ExceptionInfo e e)) @sent])))
+
+(def ^:private ok-window (json/write-value-as-string reply-json))
+
+(deftest one-retry-on-a-provider-side-failure
+  (testing "a 429 then a success"
+    (let [[result n] (call-seq
+                      #(openai/suggest-drinking-window window-prompt)
+                      [{:status 429 :body {:error {:message "slow down"}}}
+                       {:status 200 :body (canned :openai ok-window)}])]
+      (is (= reply-json result))
+      (is (= 2 n))))
+  (testing "two 5xx in a row give up as a 502"
+    (let [[e n] (call-seq #(gemini/suggest-drinking-window window-prompt)
+                          [{:status 503 :body {:error {:message "overloaded"}}}
+                           {:status 503
+                            :body {:error {:message "overloaded"}}}])]
+      (is (= 502 (:status (ex-data e))))
+      (is (= "Gemini: overloaded" (ex-message e)))
+      (is (= 2 n))))
+  (testing "a 400 is not retried"
+    (let [[e n] (call-seq #(anthropic/suggest-drinking-window window-prompt)
+                          [{:status 400
+                            :body {:error {:message "bad request"}}}])]
+      (is (= 502 (:status (ex-data e))))
+      (is (= 1 n)))))
+
+(deftest a-cut-short-reply-is-not-an-answer
+  (testing "OpenAI incomplete"
+    (let [[e] (call-seq #(openai/generate-wine-summary window-prompt)
+                        [{:status 200
+                          :body {:status "incomplete"
+                                 :incomplete_details {:reason
+                                                      "max_output_tokens"}
+                                 :output [{:content [{:type "output_text"
+                                                      :text "Half a"}]}]}}])]
+      (is (= 502 (:status (ex-data e))))
+      (is (re-find #"cut short" (ex-message e)))))
+  (testing "Gemini MAX_TOKENS"
+    (let [[e] (call-seq #(gemini/generate-wine-summary window-prompt)
+                        [{:status 200
+                          :body {:candidates [{:content {:parts [{:text
+                                                                  "Half a"}]}
+                                               :finishReason "MAX_TOKENS"}]}}])]
+      (is (= 502 (:status (ex-data e))))
+      (is (re-find #"ran out of room" (ex-message e))))))

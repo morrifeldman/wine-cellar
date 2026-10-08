@@ -1,11 +1,10 @@
 (ns wine-cellar.ai.openai
   "OpenAI Responses client for wine-related chat interactions."
   (:require [clojure.string :as str]
-            [wine-cellar.ai.errors :as errors]
+            [wine-cellar.ai.http :as ai-http]
             [wine-cellar.ai.schemas :as schemas]
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
-            [org.httpkit.client :as http]
             [wine-cellar.config-utils :as config-utils]))
 
 (def responses-url "https://api.openai.com/v1/responses")
@@ -115,6 +114,19 @@
             (when (seq text) (json/read-value text json-mapper)))
           :else nil)))
 
+(defn- check-complete
+  "A reply cut short or refused still comes back as a 200; say so rather than
+  pass off half an answer."
+  [{:keys [status incomplete_details] :as parsed}]
+  (when (= "incomplete" status)
+    (throw (ai-http/bad-reply (str "OpenAI's reply was cut short"
+                                   (when-let [reason (:reason
+                                                      incomplete_details)]
+                                     (str " (" reason ")"))))))
+  (when-let [refusal (some #(when (= "refusal" (:type %)) (:refusal %))
+                           (output-content parsed))]
+    (throw (ai-http/bad-reply (str "OpenAI declined to answer: " refusal)))))
+
 (defn- call-openai-responses
   [request parse-json?]
   (ensure-api-key!)
@@ -122,36 +134,24 @@
                     (assoc :model (or (:model request) model))
                     (assoc :reasoning {:effort "low"}))]
     (tap> ["openai-request" payload])
-    (let [{:keys [status body]}
-          (deref (http/post responses-url
-                            {:headers {"authorization" (str "Bearer " api-key)
-                                       "content-type" "application/json"}
-                             :body (json/write-value-as-string payload)
-                             :as :text
-                             :timeout 60000}))
-          parsed (when body (json/read-value body json-mapper))]
-      (if (= 200 status)
-        (if parse-json?
-          (try
-            (if-let [json-output (extract-json-output parsed)]
-              (do (tap> ["parsed openai-response" json-output]) json-output)
-              (throw (errors/upstream-error "OpenAI"
-                                            "response missing JSON content")))
-            (catch Exception e
-              (throw (errors/upstream-error "OpenAI"
-                                            "couldn't parse the JSON response"
-                                            {:cause e}))))
-          (let [text (extract-text parsed)]
-            (if (seq (str text))
-              text
-              (throw (errors/upstream-error
-                      "OpenAI"
-                      "response missing assistant text")))))
-        (do (tap> ["OpenAI Responses API Call Failed"
-                   {:status status :body parsed}])
-            (throw (errors/upstream-error "OpenAI"
-                                          "API call failed"
-                                          {:status status :parsed parsed})))))))
+    (let [parsed (ai-http/post-json! "OpenAI"
+                                     responses-url
+                                     {"authorization" (str "Bearer " api-key)}
+                                     payload)]
+      (check-complete parsed)
+      (if parse-json?
+        (if-let [json-output (try (extract-json-output parsed)
+                                  (catch Exception e
+                                    (tap> ["openai-json-parse-error" e])
+                                    (throw
+                                     (ai-http/bad-reply
+                                      "OpenAI's reply wasn't valid JSON"))))]
+          (do (tap> ["parsed openai-response" json-output]) json-output)
+          (throw (ai-http/bad-reply "OpenAI's reply had no JSON in it")))
+        (let [text (extract-text parsed)]
+          (if (seq (str text))
+            text
+            (throw (ai-http/bad-reply "OpenAI's reply had no text in it"))))))))
 
 (defn chat-about-wines
   [prompt]

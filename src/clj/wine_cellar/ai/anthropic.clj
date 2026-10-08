@@ -1,10 +1,9 @@
 (ns wine-cellar.ai.anthropic
   (:require [clojure.string :as str]
-            [wine-cellar.ai.errors :as errors]
+            [wine-cellar.ai.http :as ai-http]
             [wine-cellar.ai.schemas :as schemas]
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
-            [org.httpkit.client :as http]
             [wine-cellar.common :as common]
             [wine-cellar.config-utils :as config-utils]
             [wine-cellar.ai.prompts :as prompts]))
@@ -71,33 +70,15 @@
                        :code :anthropic/missing-api-key}))))
 
 (defn- post-anthropic
-  "Sends one request to the Messages API and returns the http-kit response with
-   the decoded body under :parsed. Throws on transport errors and non-200s."
+  "Sends one request to the Messages API and returns {:parsed reply}."
   [request-body]
   (ensure-api-key!)
   (tap> ["anthropic-request-body" request-body])
-  (let [{:keys [status body error] :as response}
-        (deref (http/post api-url
-                          {:body (json/write-value-as-string request-body)
-                           :headers {"x-api-key" api-key
-                                     "anthropic-version" "2023-06-01"
-                                     "content-type" "application/json"}
-                           :as :text
-                           :keepalive 60000
-                           :timeout 300000}))
-        parsed (when body
-                 (json/read-value body json/keyword-keys-object-mapper))
-        response-with-parsed (assoc response :parsed parsed)]
-    (when error
-      (tap> ["anthropic-request-error" error])
-      (throw
-       (errors/upstream-error "Anthropic" "API request failed" {:cause error})))
-    (when (not= 200 status)
-      (tap> ["anthropic-request-non-200" {:status status :body parsed}])
-      (throw (errors/upstream-error "Anthropic"
-                                    "API request failed"
-                                    {:status status :parsed parsed})))
-    response-with-parsed))
+  {:parsed (ai-http/post-json! "Anthropic"
+                               api-url
+                               {"x-api-key" api-key
+                                "anthropic-version" "2023-06-01"}
+                               request-body)})
 
 (def ^:private max-pause-turn-resumes
   "Server-side tools such as web_fetch run in a loop on Anthropic's side. When
