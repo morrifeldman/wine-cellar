@@ -50,6 +50,7 @@
   ([tx]
    (sql-execute-helper tx {:raw ["DROP VIEW IF EXISTS enriched_wines"]})
    (sql-execute-helper tx schema/create-wine-style-type)
+   (doseq [stmt schema/add-wine-style-values] (sql-execute-helper tx stmt))
    ;; Tables
    (sql-execute-helper tx schema/classifications-table-schema)
    (sql-execute-helper tx schema/wines-table-schema)

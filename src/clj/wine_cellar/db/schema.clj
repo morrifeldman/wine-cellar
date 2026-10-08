@@ -9,6 +9,12 @@
     "CREATE TYPE wine_style AS ENUM " [:inline (vec common/wine-styles)]
     "; END IF; END $$;"]})
 
+;; CREATE TYPE only runs on a fresh DB; this adds any style common has
+;; gained since, so a new style works on an existing one too.
+(def add-wine-style-values
+  (for [style common/wine-styles]
+    {:raw ["ALTER TYPE wine_style ADD VALUE IF NOT EXISTS " [:inline style]]}))
+
 ;; Table schemas
 (def classifications-table-schema
   {:create-table [:wine_classifications :if-not-exists]

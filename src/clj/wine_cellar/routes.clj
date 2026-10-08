@@ -181,7 +181,10 @@
 (s/def ::search-text (s/nilable string?))
 
 ;; Bar specs
-(s/def ::category (s/and string? (complement str/blank?)))
+;; Spirits and the mixer shelf each have their own category vocabulary.
+(s/def :wine-cellar.routes.spirit/category (set common/spirit-categories))
+(s/def :wine-cellar.routes.bar-item/category
+  (set common/bar-inventory-categories))
 (s/def ::subcategory (s/nilable string?))
 (s/def ::distillery (s/nilable string?))
 (s/def ::age_statement (s/nilable string?))
@@ -196,7 +199,7 @@
 (s/def ::preferred_spirit_ids (s/coll-of pos-int?))
 (s/def ::alternate_spirit_ids (s/coll-of pos-int?))
 (s/def ::spirit
-  (s/keys :req-un [::category]
+  (s/keys :req-un [:wine-cellar.routes.spirit/category]
           :opt-un [::subcategory ::spirit_id ::preferred_spirit_ids
                    ::alternate_spirit_ids]))
 (s/def ::ingredient
@@ -214,19 +217,20 @@
 (s/def ::message-text string?)
 
 (def spirit-schema
-  (s/keys :req-un [::name ::category]
+  (s/keys :req-un [::name :wine-cellar.routes.spirit/category]
           :opt-un [::subcategory ::distillery ::country ::region ::age_statement
                    ::proof ::quantity ::price ::purchase_date ::location
                    ::notes]))
 
 (def spirit-update-schema
   (s/keys :opt-un
-          [::name ::category ::subcategory ::distillery ::country ::region
-           ::age_statement ::proof ::quantity ::price ::purchase_date ::location
-           ::notes]))
+          [::name :wine-cellar.routes.spirit/category ::subcategory ::distillery
+           ::country ::region ::age_statement ::proof ::quantity ::price
+           ::purchase_date ::location ::notes]))
 
 (def bar-inventory-item-schema
-  (s/keys :req-un [::name ::category] :opt-un [::have_it ::sort_order]))
+  (s/keys :req-un [::name :wine-cellar.routes.bar-item/category]
+          :opt-un [::have_it ::sort_order]))
 
 ;; Recipes are rated 1-10 (half stars, stored doubled), unlike wines' 1-100.
 ;; The key is still :rating, so the spec lives under its own namespace.

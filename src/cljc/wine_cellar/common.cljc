@@ -28,6 +28,11 @@
   ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy" "liqueur"
    "vermouth" "other"])
 
+(def bar-inventory-categories
+  "Shelves for mixers and garnishes in the bar inventory, in display order. A
+   different vocabulary from spirit-categories."
+  ["fruit" "juice" "soda" "syrup" "bitters" "garnish" "other"])
+
 (def grab-bag-spirit-categories
   "Spirit categories whose bottles are NOT interchangeable (Campari ≠ triple
    sec ≠ Chartreuse; absinthe ≠ aquavit). A spirit spec in one of these is

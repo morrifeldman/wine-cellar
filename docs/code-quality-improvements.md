@@ -72,7 +72,7 @@ below.
 
 **Phase 5: single source of truth for rules (§4)**
 - [x] 4.1 Range predicates in `common.cljc`
-- [ ] 4.2 Backend enum checks
+- [x] 4.2 Backend enum checks: spirit and mixer-shelf categories, and `wine_style` gains new styles on an existing DB. Left open on purpose: inventory `reason` and `appellation_tier` (the UI takes free text for both) and `wset_data` (the lexicon is a list of suggestions).
 - [ ] 4.3 Specs namespace + column coverage test
 - [ ] 4.4 Migration tool
 - [ ] 4.5 Indexes and schema hygiene
