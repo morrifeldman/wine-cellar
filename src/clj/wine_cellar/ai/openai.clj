@@ -1,11 +1,10 @@
 (ns wine-cellar.ai.openai
   "OpenAI Responses client for wine-related chat interactions."
   (:require [clojure.string :as str]
-            [wine-cellar.ai.errors :as errors]
+            [wine-cellar.ai.http :as ai-http]
+            [wine-cellar.ai.schemas :as schemas]
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
-            [org.httpkit.client :as http]
-            [wine-cellar.common :as common]
             [wine-cellar.config-utils :as config-utils]))
 
 (def responses-url "https://api.openai.com/v1/responses")
@@ -65,35 +64,12 @@
 
 (defn- conversation->input [messages] (mapv message->content messages))
 
-(defn- label-analysis-schema
-  []
-  {:type "object"
-   :properties
-   {:producer {:type ["string" "null"]}
-    :name {:type ["string" "null"]}
-    :vintage {:type ["integer" "null"]}
-    :country {:type ["string" "null"]}
-    :region {:type ["string" "null"]
-             :description (:region common/field-descriptions)}
-    :appellation {:type ["string" "null"]
-                  :description (:appellation common/field-descriptions)}
-    :appellation_tier {:type ["string" "null"]
-                       :enum (conj (vec (sort common/appellation-tiers)) nil)
-                       :description (:appellation_tier
-                                     common/field-descriptions)}
-    :vineyard {:type ["string" "null"]
-               :description (:vineyard common/field-descriptions)}
-    :classification {:type ["string" "null"]
-                     :description (:classification common/field-descriptions)}
-    :style {:type ["string" "null"]}
-    :designation {:type ["string" "null"]
-                  :description (:designation common/field-descriptions)}
-    :bottle_format {:type ["string" "null"]}
-    :alcohol_percentage {:type ["number" "null"]}}
-   :required [:producer :name :vintage :country :region :appellation
-              :appellation_tier :vineyard :classification :style :designation
-              :bottle_format :alcohol_percentage]
-   :additionalProperties false})
+(defn- json-format
+  [schema]
+  {:format {:type "json_schema"
+            :name (:name schema)
+            :strict true
+            :schema (schemas/->json-schema schema)}})
 
 (def ^:private web-search-tool
   "OpenAI's hosted search, so chat can answer questions that depend on
@@ -138,6 +114,19 @@
             (when (seq text) (json/read-value text json-mapper)))
           :else nil)))
 
+(defn- check-complete
+  "A reply cut short or refused still comes back as a 200; say so rather than
+  pass off half an answer."
+  [{:keys [status incomplete_details] :as parsed}]
+  (when (= "incomplete" status)
+    (throw (ai-http/bad-reply (str "OpenAI's reply was cut short"
+                                   (when-let [reason (:reason
+                                                      incomplete_details)]
+                                     (str " (" reason ")"))))))
+  (when-let [refusal (some #(when (= "refusal" (:type %)) (:refusal %))
+                           (output-content parsed))]
+    (throw (ai-http/bad-reply (str "OpenAI declined to answer: " refusal)))))
+
 (defn- call-openai-responses
   [request parse-json?]
   (ensure-api-key!)
@@ -145,36 +134,24 @@
                     (assoc :model (or (:model request) model))
                     (assoc :reasoning {:effort "low"}))]
     (tap> ["openai-request" payload])
-    (let [{:keys [status body]}
-          (deref (http/post responses-url
-                            {:headers {"authorization" (str "Bearer " api-key)
-                                       "content-type" "application/json"}
-                             :body (json/write-value-as-string payload)
-                             :as :text
-                             :timeout 60000}))
-          parsed (when body (json/read-value body json-mapper))]
-      (if (= 200 status)
-        (if parse-json?
-          (try
-            (if-let [json-output (extract-json-output parsed)]
-              (do (tap> ["parsed openai-response" json-output]) json-output)
-              (throw (errors/upstream-error "OpenAI"
-                                            "response missing JSON content")))
-            (catch Exception e
-              (throw (errors/upstream-error "OpenAI"
-                                            "couldn't parse the JSON response"
-                                            {:cause e}))))
-          (let [text (extract-text parsed)]
-            (if (seq (str text))
-              text
-              (throw (errors/upstream-error
-                      "OpenAI"
-                      "response missing assistant text")))))
-        (do (tap> ["OpenAI Responses API Call Failed"
-                   {:status status :body parsed}])
-            (throw (errors/upstream-error "OpenAI"
-                                          "API call failed"
-                                          {:status status :parsed parsed})))))))
+    (let [parsed (ai-http/post-json! "OpenAI"
+                                     responses-url
+                                     {"authorization" (str "Bearer " api-key)}
+                                     payload)]
+      (check-complete parsed)
+      (if parse-json?
+        (if-let [json-output (try (extract-json-output parsed)
+                                  (catch Exception e
+                                    (tap> ["openai-json-parse-error" e])
+                                    (throw
+                                     (ai-http/bad-reply
+                                      "OpenAI's reply wasn't valid JSON"))))]
+          (do (tap> ["parsed openai-response" json-output]) json-output)
+          (throw (ai-http/bad-reply "OpenAI's reply had no JSON in it")))
+        (let [text (extract-text parsed)]
+          (if (seq (str text))
+            text
+            (throw (ai-http/bad-reply "OpenAI's reply had no text in it"))))))))
 
 (defn chat-about-wines
   [prompt]
@@ -184,23 +161,12 @@
   [{:keys [system user]}]
   (assert (string? system) "Drinking-window prompt requires :system text")
   (assert (string? user) "Drinking-window prompt requires :user text")
-  (let [request
-        {:input [{:role "system" :content [{:type "input_text" :text system}]}
-                 {:role "user" :content [{:type "input_text" :text user}]}]
-         :text {:format {:type "json_schema"
-                         :name "DrinkingWindow"
-                         :strict true
-                         :schema {:type "object"
-                                  :properties
-                                  {:drink_from_year {:type "integer"}
-                                   :drink_until_year {:type "integer"}
-                                   :confidence {:type "string"}
-                                   :reasoning {:type "string"}}
-                                  :required [:drink_from_year :drink_until_year
-                                             :confidence :reasoning]
-                                  :additionalProperties false}}}
-         :max_output_tokens 600
-         :reasoning {:effort "low"}}]
+  (let [request {:input
+                 [{:role "system" :content [{:type "input_text" :text system}]}
+                  {:role "user" :content [{:type "input_text" :text user}]}]
+                 :text (json-format schemas/drinking-window)
+                 :max_output_tokens 600
+                 :reasoning {:effort "low"}}]
     (call-openai-responses request true)))
 
 (defn generate-wine-summary
@@ -222,31 +188,10 @@
         request {:input (into [{:role "system"
                                 :content [{:type "input_text" :text system}]}]
                               [user-message])
-                 :text {:format {:type "json_schema"
-                                 :name "WineLabelAnalysis"
-                                 :strict true
-                                 :schema (label-analysis-schema)}}
+                 :text (json-format schemas/wine-label)
                  :max_output_tokens 900
                  :reasoning {:effort "low"}}]
     (call-openai-responses request true)))
-
-(defn- spirit-label-analysis-schema
-  []
-  (let [categories ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy"
-                    "liqueur" "other"]]
-    {:type "object"
-     :properties {:name {:type ["string" "null"]}
-                  :category {:type ["string" "null"]
-                             :enum (conj (vec categories) nil)}
-                  :subcategory {:type ["string" "null"]}
-                  :distillery {:type ["string" "null"]}
-                  :country {:type ["string" "null"]}
-                  :region {:type ["string" "null"]}
-                  :age_statement {:type ["string" "null"]}
-                  :proof {:type ["integer" "null"]}}
-     :required [:name :category :subcategory :distillery :country :region
-                :age_statement :proof]
-     :additionalProperties false}))
 
 (defn analyze-spirit-label
   [{:keys [system user-content]}]
@@ -257,10 +202,7 @@
         request {:input (into [{:role "system"
                                 :content [{:type "input_text" :text system}]}]
                               [user-message])
-                 :text {:format {:type "json_schema"
-                                 :name "SpiritLabelAnalysis"
-                                 :strict true
-                                 :schema (spirit-label-analysis-schema)}}
+                 :text (json-format schemas/spirit-label)
                  :max_output_tokens 600
                  :reasoning {:effort "low"}}]
     (call-openai-responses request true)))

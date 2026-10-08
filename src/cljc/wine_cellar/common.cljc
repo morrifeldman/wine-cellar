@@ -3,6 +3,15 @@
 
 (def ai-providers #{:anthropic :openai :gemini})
 
+(def ^:private provider-capabilities
+  "What sets providers apart beyond the shared tasks. :effort is a reasoning
+   effort setting; :web-fetch opens a pasted URL on the provider's side."
+  {:anthropic #{:effort :web-fetch} :openai #{} :gemini #{}})
+
+(defn provider-supports?
+  [provider capability]
+  (contains? (get provider-capabilities provider) capability))
+
 (def ai-effort-levels
   "Claude's thinking-effort settings, from quickest to most thorough."
   ["low" "medium" "high" "xhigh" "max"])

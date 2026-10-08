@@ -59,7 +59,7 @@
   "Only Claude takes an effort setting, so the button hides for other providers."
   [app-state]
   (let [{:keys [provider effort]} (:ai @app-state)]
-    (when (and (= :anthropic provider) effort)
+    (when (and (common/provider-supports? provider :effort) effort)
       [tooltip {:title "How hard Claude thinks before answering"}
        [button
         {:variant "outlined"

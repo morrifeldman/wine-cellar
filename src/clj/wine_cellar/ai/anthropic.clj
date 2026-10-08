@@ -1,9 +1,9 @@
 (ns wine-cellar.ai.anthropic
   (:require [clojure.string :as str]
-            [wine-cellar.ai.errors :as errors]
+            [wine-cellar.ai.http :as ai-http]
+            [wine-cellar.ai.schemas :as schemas]
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
-            [org.httpkit.client :as http]
             [wine-cellar.common :as common]
             [wine-cellar.config-utils :as config-utils]
             [wine-cellar.ai.prompts :as prompts]))
@@ -15,88 +15,6 @@
 (defstate small-model :start (config-utils/ai-model :anthropic :small-model))
 
 (defstate api-key :start (config-utils/get-config "ANTHROPIC_API_KEY"))
-
-(def drinking-window-schema
-  "Matches wine-cellar.ai.prompts/drinking-window-system-prompt."
-  (let
-    [confidence-desc
-     "Confidence level for this assessment; must be one of \"high\", \"medium\", or \"low\" per the drinking-window prompt."
-     reasoning-desc
-     "Brief justification focusing on the wine's peak-quality years and mentioning the broader enjoyable window."]
-    {:type "object"
-     :properties
-     {:drink_from_year
-      {:type "integer"
-       :description
-       "Year the optimal drinking window opens (the wine first reaches peak quality). May be a past year for already-mature wines; do not clamp to the current year."}
-      :drink_until_year
-      {:type "integer"
-       :description
-       "Last year the wine stays at peak quality (not merely drinkable). May be at or before the current year for wines already in decline."}
-      :confidence {:type "string" :description confidence-desc}
-      :reasoning {:type "string" :description reasoning-desc}}
-     :required [:drink_from_year :drink_until_year :confidence :reasoning]
-     :additionalProperties false}))
-
-(def label-analysis-schema
-  "Matches wine-cellar.ai.prompts/label-analysis-system-prompt."
-  (let [style-options (str/join ", " (sort common/wine-styles))
-        designation-options (str/join ", " (sort common/wine-designations))
-        format-options (str/join ", " common/bottle-formats)
-        null-note
-        "Return null when the label does not provide this information."]
-    {:type "object"
-     :properties
-     {:producer {:type ["string" "null"]
-                 :description (str "Producer or winery name. " null-note)}
-      :name {:type ["string" "null"]
-             :description (str
-                           "Specific wine name if distinct from the producer. "
-                           null-note)}
-      :vintage {:type ["integer" "null"]
-                :description
-                (str "Vintage year as an integer, or null for non-vintage. "
-                     null-note)}
-      :country {:type ["string" "null"]
-                :description (str "Country of origin printed on the label. "
-                                  null-note)}
-      :region {:type ["string" "null"]
-               :description
-               (str (:region common/field-descriptions) " " null-note)}
-      :appellation {:type ["string" "null"]
-                    :description (str (:appellation common/field-descriptions)
-                                      " "
-                                      null-note)}
-      :appellation_tier
-      {:enum (conj (vec (sort common/appellation-tiers)) nil)
-       :description
-       (str (:appellation_tier common/field-descriptions) " " null-note)}
-      :vineyard {:type ["string" "null"]
-                 :description
-                 (str (:vineyard common/field-descriptions) " " null-note)}
-      :classification
-      {:type ["string" "null"]
-       :description
-       (str (:classification common/field-descriptions) " " null-note)}
-      :style {:type ["string" "null"]
-              :description (str "Wine style wording; align with: " style-options
-                                ". " null-note)}
-      :designation {:type ["string" "null"]
-                    :description (str (:designation common/field-descriptions)
-                                      " Must be one of: " designation-options
-                                      ". " null-note)}
-      :bottle_format {:type ["string" "null"]
-                      :description (str "Bottle format/size. Must be one of: "
-                                        format-options
-                                        ". " null-note)}
-      :alcohol_percentage {:type ["number" "null"]
-                           :description
-                           (str "Alcohol percentage as a number (e.g. 12.5). "
-                                null-note)}}
-     :required [:producer :name :vintage :country :region :appellation
-                :appellation_tier :vineyard :classification :style :designation
-                :bottle_format :alcohol_percentage]
-     :additionalProperties false}))
 
 (defstate default-effort :start (config-utils/ai-model :anthropic :effort))
 
@@ -152,33 +70,15 @@
                        :code :anthropic/missing-api-key}))))
 
 (defn- post-anthropic
-  "Sends one request to the Messages API and returns the http-kit response with
-   the decoded body under :parsed. Throws on transport errors and non-200s."
+  "Sends one request to the Messages API and returns {:parsed reply}."
   [request-body]
   (ensure-api-key!)
   (tap> ["anthropic-request-body" request-body])
-  (let [{:keys [status body error] :as response}
-        (deref (http/post api-url
-                          {:body (json/write-value-as-string request-body)
-                           :headers {"x-api-key" api-key
-                                     "anthropic-version" "2023-06-01"
-                                     "content-type" "application/json"}
-                           :as :text
-                           :keepalive 60000
-                           :timeout 300000}))
-        parsed (when body
-                 (json/read-value body json/keyword-keys-object-mapper))
-        response-with-parsed (assoc response :parsed parsed)]
-    (when error
-      (tap> ["anthropic-request-error" error])
-      (throw
-       (errors/upstream-error "Anthropic" "API request failed" {:cause error})))
-    (when (not= 200 status)
-      (tap> ["anthropic-request-non-200" {:status status :body parsed}])
-      (throw (errors/upstream-error "Anthropic"
-                                    "API request failed"
-                                    {:status status :parsed parsed})))
-    response-with-parsed))
+  {:parsed (ai-http/post-json! "Anthropic"
+                               api-url
+                               {"x-api-key" api-key
+                                "anthropic-version" "2023-06-01"}
+                               request-body)})
 
 (def ^:private max-pause-turn-resumes
   "Server-side tools such as web_fetch run in a loop on Anthropic's side. When
@@ -262,7 +162,8 @@
   (assert (string? user) "Drinking-window prompt requires :user text")
   (let [request {:system system
                  :messages [{:role "user" :content [{:type "text" :text user}]}]
-                 :output_config (json-output drinking-window-schema)}]
+                 :output_config (json-output (schemas/->json-schema
+                                              schemas/drinking-window))}]
     (call-anthropic-api request true)))
 
 (defn analyze-wine-label
@@ -274,46 +175,9 @@
           "Label analysis prompt requires :user-content vector")
   (let [request {:system system
                  :messages [{:role "user" :content (vec user-content)}]
-                 :output_config (json-output label-analysis-schema)}]
+                 :output_config (json-output (schemas/->json-schema
+                                              schemas/wine-label))}]
     (call-anthropic-api request true)))
-
-(def spirit-label-analysis-schema
-  (let [categories ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy"
-                    "liqueur" "other"]
-        null-note
-        "Return null when the label does not provide this information."]
-    {:type "object"
-     :properties
-     {:name {:type ["string" "null"]
-             :description (str "Full spirit name (brand + expression). "
-                               null-note)}
-      :category {:enum (conj (vec categories) nil)
-                 :description (str "Spirit type. Must be one of: "
-                                   (str/join ", " categories)
-                                   ". " null-note)}
-      :subcategory {:type ["string" "null"]
-                    :description
-                    (str "More specific type (e.g. \"bourbon\", \"rye\", "
-                         "\"single malt\", \"reposado\", \"amaro\"). "
-                         null-note)}
-      :distillery {:type ["string" "null"]
-                   :description (str "Producer or distillery name. " null-note)}
-      :country {:type ["string" "null"]
-                :description (str "Country of origin. " null-note)}
-      :region {:type ["string" "null"]
-               :description (str
-                             "Region of production (e.g. Speyside, Jalisco). "
-                             null-note)}
-      :age_statement {:type ["string" "null"]
-                      :description (str "Age statement text if present "
-                                        "(e.g. \"12 Year\"). "
-                                        null-note)}
-      :proof {:type ["integer" "null"]
-              :description (str "Proof value as an integer (e.g. 80). "
-                                null-note)}}
-     :required [:name :category :subcategory :distillery :country :region
-                :age_statement :proof]
-     :additionalProperties false}))
 
 (defn analyze-spirit-label
   "Analyzes spirit label images using Anthropic's Claude API.
@@ -324,7 +188,8 @@
           "Spirit label analysis prompt requires :user-content vector")
   (let [request {:system system
                  :messages [{:role "user" :content (vec user-content)}]
-                 :output_config (json-output spirit-label-analysis-schema)}]
+                 :output_config (json-output (schemas/->json-schema
+                                              schemas/spirit-label))}]
     (call-anthropic-api request true)))
 
 (def web-fetch-tool
