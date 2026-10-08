@@ -32,7 +32,7 @@ below.
 - [x] B10 Recipe rating range: spec allows 1–100, DB allows 1–10
 - [x] B2 JWT `iat`/`exp` in milliseconds: fixed for user tokens
 - [ ] B2b Same for device tokens. Blocked on firmware: on a 401 the ESP32 wipes its tokens and has to be claimed again, and after a boot without SNTP it trusts its stored access token. Make the firmware try a refresh before wiping, flash it, then switch `devices.clj` (and `touch-device!`) to seconds.
-- [ ] B13 `create-wine` not atomic; returns raw image bytes
+- [x] B13 `create-wine` not atomic; returns raw image bytes
 - [ ] B11 SSRF guard in `web_fetch`
 - [ ] B12 Raw SQL search regex in `list-conversations-for-user`
 - [ ] B14 `pass` subprocess on every request in dev

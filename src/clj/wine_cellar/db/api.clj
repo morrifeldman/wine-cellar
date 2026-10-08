@@ -218,8 +218,10 @@
 (defn create-wine
   ([wine] (create-wine ds wine))
   ([tx-or-ds wine]
-   (q-one tx-or-ds
-          {:insert-into :wines :values [(wine->db-wine wine)] :returning :*})))
+   (-> (q-one
+        tx-or-ds
+        {:insert-into :wines :values [(wine->db-wine wine)] :returning :*})
+       db-wine->wine)))
 
 (defn create-conversation!
   "Create a new AI conversation row."
@@ -764,6 +766,18 @@
               {:insert-into :wine_classifications
                :values [classification]
                :returning :*}))))
+
+(defn create-wine-with-classification!
+  "Creates the wine, and its classification if new, in one transaction."
+  [wine]
+  (jdbc/with-transaction [tx ds]
+                         (when (and (:country wine) (:region wine))
+                           (create-or-update-classification
+                            tx
+                            (select-keys wine
+                                         [:country :region :appellation
+                                          :appellation_tier :classification])))
+                         (create-wine tx wine)))
 
 (defn get-classifications
   []

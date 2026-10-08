@@ -154,21 +154,9 @@
                        (not-found "Wine"))))
 
 (defn create-wine
-  [request]
-  (let [wine (-> request
-                 :parameters
-                 :body)]
-    (try (let [classification {:country (:country wine)
-                               :region (:region wine)
-                               :appellation (:appellation wine)
-                               :appellation_tier (:appellation_tier wine)
-                               :classification (:classification wine)}]
-           ;; Only create if all required fields are present
-           (when (and (:country classification) (:region classification))
-             (db-api/create-or-update-classification classification)))
-         (let [created-wine (db-api/create-wine wine)]
-           {:status 201 :body created-wine})
-         (catch Exception e (server-error e)))))
+  [{{wine :body} :parameters}]
+  (try {:status 201 :body (db-api/create-wine-with-classification! wine)}
+       (catch Exception e (server-error e))))
 
 (defn update-wine
   [{{{:keys [id]} :path body :body} :parameters}]
