@@ -59,7 +59,11 @@ fi
 
 # --- jj, colocated with the git clone so the ship skill works ----------------
 if [ ! -d .jj ]; then
+  branch=$(git branch --show-current)
   jj git init --colocate >/dev/null 2>&1
+  # Track the session's branch so `jj git push` moves it like any other.
+  [ -n "$branch" ] &&
+    jj bookmark track "$branch" --remote=origin >/dev/null 2>&1 || true
 fi
 jj config set --user user.name "Morris Feldman" >/dev/null 2>&1
 jj config set --user user.email "morrifeldman@gmail.com" >/dev/null 2>&1
