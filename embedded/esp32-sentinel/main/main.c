@@ -489,8 +489,11 @@ static esp_err_t post_sensor_reading(void) {
     cellar_display_update(&display_status);
 
     if (http_result.status_code == 401 || http_result.status_code == 403) {
-        ESP_LOGW(TAG, "Auth rejected (status %d), clearing tokens to force re-claim", http_result.status_code);
-        cellar_auth_clear();
+        // Usually an expired access token. Drop just that one: the next round
+        // refreshes with the refresh token and only claims again (needing a
+        // fresh approval) if the server rejects that too.
+        ESP_LOGW(TAG, "Auth rejected (status %d), refreshing access token", http_result.status_code);
+        cellar_auth_invalidate_access();
         return ESP_ERR_NOT_ALLOWED;  // Signal auth failure to main loop
     }
 
