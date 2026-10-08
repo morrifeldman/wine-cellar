@@ -3,6 +3,8 @@
 ## Build & Development Commands
 - `npm install` - sync JS dependencies (once)
 - `scripts/start-dev.sh` - full dev environment (backend + watcher + ngrok) in tmux session `wine-dev`
+- `clojure -M:test` - backend tests against a throwaway `wine_cellar_test` database (needs the DB_* env vars)
+- `npm run test:e2e` - Playwright tests against the running dev stack
 
 ## Dev Environment Ownership
 - The dev stack lives in tmux session `wine-dev` so it survives any single terminal or Claude session; start-dev also links it as a window into the user's most recently active tmux session for easy viewing
@@ -18,6 +20,7 @@
 
 ## Conventions
 - Run `clj -M:clj-kondo --lint src/<FILE CHANGED>` after each change
+- The refactor roadmap and its progress checklist live in `docs/code-quality-improvements.md`; tick an item in the same commit that does it
 - Propose ad-hoc Clojure scripts (in `scripts/wine_cellar/scripts/`) for data tasks rather than manual DB manipulations
 
 ## Shipping

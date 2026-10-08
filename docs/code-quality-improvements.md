@@ -9,6 +9,74 @@ helper, and the oversized wine detail page.
 Items marked **✔ verified** were checked by reading the code. The rest come
 from the review reports; check line numbers before acting on them.
 
+## Progress
+
+Tick an item in the same commit that does it, and keep the IDs stable so
+commits and sessions can refer to them. Section numbers point at the details
+below.
+
+**Phase 0: safety net**
+- [x] T1 Test runner with a throwaway-database fixture (`clojure -M:test`)
+- [x] T2 e2e test brought up to date with the current UI (`npm run test:e2e`)
+- [x] T3 Cloud-session setup hook (`.claude/hooks/session-start.sh`)
+- [x] B17 A fresh database failed to seed classifications (`:designations` has no column)
+
+**Phase 1: bugs (§0)**
+- [ ] B4 Restock never updates `original_quantity`
+- [ ] B5 Frontend fallback error message is never shown
+- [ ] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
+- [ ] B7 `drop-tables` skips the bar, report and inventory history tables
+- [ ] B8 Image MIME type hard-coded to JPEG
+- [ ] B9 Check the tasting-window CHECK constraint
+- [ ] B10 Recipe rating range: spec allows 1–100, DB allows 1–10
+- [ ] B2 JWT `iat`/`exp` in milliseconds
+- [ ] B13 `create-wine` not atomic; returns raw image bytes
+- [ ] B11 SSRF guard in `web_fetch`
+- [ ] B12 Raw SQL search regex in `list-conversations-for-user`
+- [ ] B14 `pass` subprocess on every request in dev
+- [ ] B15 Leaky `tap>` logs; Gemini key in URL
+- [ ] B16 `:secure` cookies; Anthropic key check
+- [ ] B1/B3 Allowlist, `require-admin`, device-token scope (low priority, see §0)
+
+**Phase 2: backend plumbing (§1)**
+- [ ] 1.1 One error-handling path + response helpers
+- [ ] 1.3 Shared route `:responses`; merge duplicate route entries
+- [ ] 1.2 CRUD helpers in handlers and `db/api`
+- [ ] 1.6 Merge the two bulk jobs
+- [ ] 1.4 `->jsonb`, codecs, timestamp `ReadableColumn`, shared `q-one`/`q-many`
+- [ ] 1.5 Inventory mutations share `record-history!`
+- [ ] 1.7 Smaller backend items
+
+**Phase 3: frontend plumbing (§2)**
+- [ ] 2.1 `request!` helper
+- [ ] 2.2 Resource table + `replace-by-id` / `remove-by-id`
+- [ ] 2.3 One error / loading / toast convention
+- [ ] 2.4 Chat, job polling and AI-call duplication in `api.cljs`
+- [ ] 2.5 App-state grouping; memoized `filtered-sorted-wines`
+
+**Phase 4: shared UI (§3)**
+- [ ] 3.1 Theme tokens + `tint-chip`
+- [ ] 3.2 `confirm!` dialog
+- [ ] 3.3 `form-dialog` + `ai-button`
+- [ ] 3.4 Wine detail field table; split `detail.cljs`
+- [ ] 3.5 `list-page`, `empty-state`, `detail-actions`, `summary-card`
+- [ ] 3.6–3.10 Bar editing paradigm, dates, state placement, long components
+
+**Phase 5: single source of truth for rules (§4)**
+- [ ] 4.1 Range predicates in `common.cljc`
+- [ ] 4.2 Backend enum checks
+- [ ] 4.3 Specs namespace + column coverage test
+- [ ] 4.4 Migration tool
+- [ ] 4.5 Indexes and schema hygiene
+
+**Phase 6: AI layer (§5)**
+- [ ] 5.2 One schema per output, rendered per provider
+- [ ] 5.1 Task table instead of `case provider`
+- [ ] 5.3 Shared HTTP layer
+- [ ] 5.4 Neutral image format
+- [ ] 5.5 AI config + capabilities
+- [ ] 5.6 Prompt field lists generated from the schemas
+
 ---
 
 ## 0. Bugs and security issues found along the way

@@ -1,15 +1,18 @@
 const { test, expect } = require('@playwright/test');
 
-test('Blind Tasting Flow with WSET Display', async ({ page, context }) => {
-  const authToken = process.env.TEST_AUTH_TOKEN;
-  if (!authToken) {
-    throw new Error('TEST_AUTH_TOKEN environment variable is not set');
-  }
+const { getAuthToken } = require('../dev/test_helpers.js');
 
-  // Inject auth token
+// WSET sections are collapsed; the toggle is the button beside the heading.
+async function expandSection(page, name) {
+  await page.getByRole('heading', { name, exact: true })
+    .locator('xpath=ancestor::*[.//button][1]').getByRole('button').first().click();
+}
+
+test('Blind Tasting Flow with WSET Display', async ({ page, context }) => {
+  // Mints a JWT through the backend REPL, like the dev helpers do.
   await context.addCookies([{
     name: 'auth-token',
-    value: authToken,
+    value: getAuthToken(),
     domain: 'localhost',
     path: '/',
     httpOnly: true,
@@ -17,11 +20,8 @@ test('Blind Tasting Flow with WSET Display', async ({ page, context }) => {
     sameSite: 'Lax'
   }]);
 
-  // Navigate to app
-  await page.goto('http://localhost:8080');
-  
-  // Wait for app to load (look for the main action button)
-  await page.waitForSelector('text=Add New Wine');
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Blind', exact: true }).waitFor();
 
   // Click "Blind" button to go to blind tastings
   await page.getByRole('button', { name: 'Blind', exact: true }).click();
@@ -44,24 +44,23 @@ test('Blind Tasting Flow with WSET Display', async ({ page, context }) => {
   await page.getByRole('option', { name: 'Red', exact: true }).click();
   
   // WSET Appearance - Select Clarity: CLEAR
-  await page.getByRole('dialog').getByText('CLEAR', { exact: true }).click();
+  await page.getByRole('dialog').getByRole('radio', { name: 'Clear', exact: true }).click();
   
   // Add unique observation
   const uniqueId = `Test Run ${Date.now()}`;
   await page.getByRole('dialog').getByLabel('Other Observations').first().fill(uniqueId);
 
   // Expand NOSE section
-  // Find the grid container that has "NOSE" and click the button inside it
-  await page.locator('.MuiGrid-container').filter({ hasText: /^NOSE$/ }).getByRole('button').click();
+  await expandSection(page, 'NOSE');
 
   // WSET Nose - Condition: CLEAN
-  await page.getByRole('dialog').getByText('CLEAN', { exact: true }).click();
+  await page.getByRole('dialog').getByRole('radio', { name: 'Clean', exact: true }).click();
 
   // Expand CONCLUSIONS section
-  await page.locator('.MuiGrid-container').filter({ hasText: /^CONCLUSIONS$/ }).getByRole('button').click();
+  await expandSection(page, 'CONCLUSIONS');
 
   // WSET Conclusions - Quality: OUTSTANDING
-  await page.getByRole('dialog').getByText('OUTSTANDING', { exact: true }).click();
+  await page.getByRole('dialog').getByRole('radio', { name: 'Outstanding', exact: true }).click();
   
   // Guessed Country - Autocomplete
   // Type 'Fra' and wait for suggestion 'France' if available, or just verify free solo accepts it.
@@ -91,13 +90,25 @@ test('Blind Tasting Flow with WSET Display', async ({ page, context }) => {
 
   // Verify it appears in the list (scoped to card)
   await expect(card.getByText('Rating: 95/100')).toBeVisible();
-  
-  // Verify WSET Display (scoped to card)
-  await expect(card.getByText('Quality: OUTSTANDING')).toBeVisible();
-  
-  // "WSET Structured Tasting" header
-  await expect(card.getByText('WSET Structured Tasting')).toBeVisible();
 
-  // Verify Appearance "CLEAR"
-  await expect(card.getByText('CLEAR', { exact: true })).toBeVisible();
+  // Verify the WSET summary (scoped to card)
+  await expect(card.getByRole('heading', { name: 'Appearance' })).toBeVisible();
+  await expect(card.getByText('Clear', { exact: true })).toBeVisible();
+  await expect(card.getByText('Clean', { exact: true })).toBeVisible();
+  await expect(card.getByText('Quality: Outstanding')).toBeVisible();
+
+  // Clean up: this runs against the dev database. The note route ignores the
+  // wine id, and blind notes have none, so any number will do.
+  const deleted = await page.evaluate(async (marker) => {
+    const api = 'http://localhost:3000/api';
+    const notes = await fetch(`${api}/blind-tastings`, { credentials: 'include' })
+      .then(r => r.json());
+    const ours = notes.filter(n => JSON.stringify(n).includes(marker));
+    for (const n of ours) {
+      await fetch(`${api}/wines/by-id/0/tasting-notes/${n.id}`,
+        { method: 'DELETE', credentials: 'include' });
+    }
+    return ours.length;
+  }, uniqueId);
+  expect(deleted).toBe(1);
 });
