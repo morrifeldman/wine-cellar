@@ -16,8 +16,12 @@
         (edn/read-string (slurp (or (io/resource "wine-classifications.edn")
                                     (io/file (str "resources/"
                                                   classifications-file)))))]
+    ;; The seed file also carries :designations, which has no column.
     (doseq [c wine-classifications]
-      (db-api/create-or-update-classification c))))
+      (db-api/create-or-update-classification
+       (select-keys c
+                    [:country :region :appellation :appellation_tier
+                     :classification])))))
 
 (defn classifications-exist?
   "Check if any classifications exist in the database"
