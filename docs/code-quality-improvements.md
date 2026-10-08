@@ -15,11 +15,13 @@ from the review reports; check line numbers before acting on them.
 
 Fix these before any refactoring. Most are small.
 
+Threat model: a personal app with two users. The Google OAuth app is in Testing mode, so only listed test users can log in. The auth findings below are ranked with that in mind.
+
 | # | Issue | Where | Notes |
 |---|---|---|---|
-| B1 | **✔ verified: no admin check, no login allowlist.** `/api` only checks "logged in". Any Google account can log in and reach `/api/admin/sql`, which runs arbitrary SQL, and `reset-database`. Nothing reads `ADMIN_EMAIL` (`auth/config.clj:34`). | `routes.clj:348,537-598`, `auth/core.clj:110-136` | Unless the Google OAuth app is in "Testing" mode with a test-user list, this is open to the internet. Add an allowlist in `handle-successful-auth` plus a `require-admin` middleware on `"/admin"`. |
-| B2 | **✔ verified: JWT `iat`/`exp` are in milliseconds** (`inst-ms`). buddy-sign checks seconds, so tokens never expire on the server, including the 30-minute device access tokens. | `auth/core.clj:106-107`, `devices.clj:35-36` | Use `.getEpochSecond`. |
-| B3 | Device tokens pass `require-authentication`, so a sensor's token can reach every `/api` route, including admin SQL. | `auth/core.clj:188-217`, `handlers.clj:59-63` | Fix together with B1: `require-user` / `require-device` / `require-admin`. |
+| B1 | **✔ verified: no admin check or login allowlist in code.** `/api` only checks "logged in"; nothing reads `ADMIN_EMAIL` (`auth/config.clj:34`). | `routes.clj:348,537-598`, `auth/core.clj:110-136` | **Low priority.** Safe today because the Google OAuth app is in Testing mode with two test users, so Google itself is the allowlist. Optional insurance: a 3-line email allowlist in `handle-successful-auth`, in case the OAuth app is ever published. |
+| B2 | **✔ verified: JWT `iat`/`exp` are in milliseconds** (`inst-ms`). buddy-sign checks seconds, so tokens never expire on the server. | `auth/core.clj:106-107`, `devices.clj:35-36` | Low risk given the user base, but it is a one-line correctness fix. It also makes the device refresh-token rotation actually work. |
+| B3 | Device tokens pass `require-authentication`, so a sensor's token works on every `/api` route. | `auth/core.clj:188-217`, `handlers.clj:59-63` | Low priority, since only approved devices get tokens. Worth fixing as part of a tidier auth layer: one `:identity` and `require-user` / `require-device`. |
 | B4 | **✔ verified: restock casing mismatch.** The frontend sends `"restock"`, but the update map tests `"Restock"`, so `wines.original_quantity` is never updated on restock. | `db/api.clj:531` vs `:535` | Use one constant from `common.cljc`. |
 | B5 | **✔ verified: the frontend's fallback error message is dead code.** `(try (get-in …) (catch …))` cannot throw, so on a network failure or an HTML 502 the `:error` is nil, and the "Failed to X" message passed in at about 70 call sites is never shown. | `api.cljs:62-69` | `(or (and (map? body) (:error body)) error-msg)` |
 | B6 | **✔ verified: request specs that were never defined.** `::adjustment ::occurred_at ::change_amount ::wine_ids ::tokens_used ::is_user ::content` are used in `:req-un`, but there is no `s/def` for them, so only the key's presence is checked. `::notes` is defined twice and the later definition wins. `::vineyard` appears twice in `wine-update-schema`. | `routes.clj:73,112-126,709,734,259` | |
@@ -207,7 +209,7 @@ The replace-by-id pattern appears 12 times, remove-by-id 7 times and prepend 4 t
 
 ## 6. Suggested order
 
-1. **Security and correctness (small, high value):** B1–B3 (allowlist + `require-admin` / `require-user` / `require-device`, JWT seconds), B4, B5, B6, B7, B8, B10. Then put the SQL console in a read-only transaction with a statement timeout.
+1. **Correctness bugs (small, high value):** B4 (restock), B5 (error messages), B6 (undefined specs), B7 (drop-tables), B8 (image MIME), B10 (recipe rating), B9 (check the DDL), and B2 (JWT seconds, one line). With two users in Google OAuth Testing mode, the auth items (B1, B3) are housekeeping, not urgent.
 2. **Backend plumbing:** error middleware + response helpers (§1.1) → shared route `:responses` (§1.3) → CRUD helpers (§1.2) → bulk-job merge (§1.6).
 3. **Frontend plumbing:** `request!` + collection helpers (§2.1–2.2), migrating the bar, grape-variety and classification functions first. Then error/toast conventions (§2.3) and the `filtered-sorted-wines` reaction.
 4. **Shared UI components:** theme tokens + `tint-chip`, `confirm!`, `form-dialog`, `ai-button`, `list-page`/`empty-state`, then the field table and file split for the wine detail page.
