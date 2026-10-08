@@ -65,8 +65,8 @@
 (defn- touch-device!
   "Mark device as seen and optionally update token expiry from JWT exp."
   [device-id request]
-  (let [exp-ms (get-in request [:user :exp])
-        exp (when exp-ms (Instant/ofEpochMilli exp-ms))]
+  (let [exp-seconds (get-in request [:user :exp])
+        exp (when exp-seconds (Instant/ofEpochSecond exp-seconds))]
     (when device-id (db-api/touch-device! device-id {:token_expires_at exp}))))
 
 (defn- handle-ai-error

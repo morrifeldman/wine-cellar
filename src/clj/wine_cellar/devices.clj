@@ -33,8 +33,8 @@
                 :scope ["device:ingest"]
                 :type "device"
                 :aud "device"
-                :iat (inst-ms now)
-                :exp (inst-ms exp)}]
+                :iat (.getEpochSecond now)
+                :exp (.getEpochSecond exp)}]
     {:token (jwt/sign claims (auth-config/get-jwt-secret) {:alg :hs256})
      :expires exp}))
 

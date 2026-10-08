@@ -31,7 +31,7 @@ below.
 - [x] B9 Check the tasting-window CHECK constraint: correct as is. HoneySQL renders `[:= col]` as `col IS NULL`.
 - [x] B10 Recipe rating range: spec allows 1–100, DB allows 1–10
 - [x] B2 JWT `iat`/`exp` in milliseconds: fixed for user tokens
-- [ ] B2b Same for device tokens. Blocked on firmware: on a 401 the ESP32 wipes its tokens and has to be claimed again, and after a boot without SNTP it trusts its stored access token. Make the firmware try a refresh before wiping, flash it, then switch `devices.clj` (and `touch-device!`) to seconds.
+- [x] B2b Same for device tokens: done. The sensor may need re-approval if its clock is off at boot; a firmware change to refresh on a 401 before wiping would remove that risk.
 - [x] B13 `create-wine` not atomic; returns raw image bytes
 - [x] B11 SSRF guard in `web_fetch`
 - [x] B12 Raw SQL search regex in `list-conversations-for-user`
