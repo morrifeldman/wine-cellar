@@ -1,12 +1,12 @@
 (ns wine-cellar.routes
   (:require [clojure.string :as str]
             [wine-cellar.handlers :as handlers]
+            [wine-cellar.http :as http]
             [wine-cellar.common :as common]
             [wine-cellar.auth.core :as auth]
             [clojure.spec.alpha :as s]
             [reitit.ring :as ring]
             [reitit.coercion.spec :as spec-coercion]
-            [reitit.ring.middleware.exception :as exception]
             [reitit.swagger :as swagger]
             [reitit.swagger-ui :as swagger-ui]
             [reitit.ring.coercion :as coercion]
@@ -15,7 +15,6 @@
             [ring.middleware.cors :refer [wrap-cors]]
             [ring.util.response :as response]
             [muuntaja.core :as m]
-            [expound.alpha :as expound]
             [wine-cellar.config-utils :as config-utils]
             [wine-cellar.logging :as logging]
             [mount.core :refer [defstate]]))
@@ -816,53 +815,41 @@
                 :responses {204 {:body nil?} 404 {:body map?} 500 {:body map?}}
                 :handler handlers/delete-tasting-note}}]]]]])
 
-(defn coercion-error-handler
-  [status]
-  (fn [exception _]
-    (let [data (ex-data exception)
-          human-readable-error (expound/expound-str (:spec data) (:value data))]
-      (tap> ["Validation error:" human-readable-error])
-      ;; No :error key, so the app shows its own "Failed to ..." message
-      ;; rather than a multi-line spec report.
-      {:status status :body {:details human-readable-error}})))
-
-(defstate
- app
- :start
- (ring/ring-handler
-  (ring/router
-   wine-routes
-   {:conflicts nil
-    :data
-    {:coercion spec-coercion/coercion
-     :muuntaja m/instance
-     :swagger {:ui "/api-docs"
-               :spec "/swagger.json"
-               :data {:info {:title "Wine Cellar API"
-                             :description
-                             "API for managing your wine collection"}}}
-     :middleware
-     [cors-middleware ;; Move CORS middleware to be
-                      ;; first in the chain
-      (exception/create-exception-middleware
-       (merge exception/default-handlers
-              {:reitit.coercion/request-coercion (coercion-error-handler 400)
-               :reitit.coercion/response-coercion (coercion-error-handler
-                                                   500)}))
-      parameters/parameters-middleware muuntaja/format-negotiate-middleware
-      muuntaja/format-response-middleware muuntaja/format-request-middleware
-      tap-middleware coercion/coerce-request-middleware
-      coercion/coerce-response-middleware swagger/swagger-feature
-      auth/wrap-auth]}})
-  ; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
-  (ring/routes (ring/create-file-handler
-                ;; With no index files, / falls through to the index.html
-                ;; handler below. Otherwise reitit redirects / to
-                ;; /index.html, a path in the address bar that the app has
-                ;; no route for.
-                {:path "/" :root "public" :index-files []})
-               (fn [{:keys [request-method]}]
-                 (when (= :get request-method)
-                   (-> (response/file-response "public/index.html")
-                       (response/content-type "text/html"))))
-               (ring/create-default-handler))))
+(defstate app
+          :start
+          (ring/ring-handler
+           (ring/router
+            wine-routes
+            {:conflicts nil
+             :data
+             {:coercion spec-coercion/coercion
+              :muuntaja m/instance
+              :swagger {:ui "/api-docs"
+                        :spec "/swagger.json"
+                        :data {:info {:title "Wine Cellar API"
+                                      :description
+                                      "API for managing your wine collection"}}}
+              :middleware [cors-middleware ;; First, so error responses
+                                           ;; carry CORS headers too
+                           parameters/parameters-middleware
+                           muuntaja/format-negotiate-middleware
+                           muuntaja/format-response-middleware
+                           ;; Inside format-response, so error bodies are
+                           ;; encoded like any other.
+                           http/exception-middleware
+                           muuntaja/format-request-middleware tap-middleware
+                           coercion/coerce-request-middleware
+                           coercion/coerce-response-middleware
+                           swagger/swagger-feature auth/wrap-auth]}})
+           ; https://github.com/metosin/reitit/blob/master/doc/ring/static.md
+           (ring/routes (ring/create-file-handler
+                         ;; With no index files, / falls through to the
+                         ;; index.html handler below. Otherwise reitit
+                         ;; redirects / to /index.html, a path in the
+                         ;; address bar that the app has no route for.
+                         {:path "/" :root "public" :index-files []})
+                        (fn [{:keys [request-method]}]
+                          (when (= :get request-method)
+                            (-> (response/file-response "public/index.html")
+                                (response/content-type "text/html"))))
+                        (ring/create-default-handler))))

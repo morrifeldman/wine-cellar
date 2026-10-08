@@ -41,9 +41,9 @@ below.
 - [ ] B1/B3 Allowlist, `require-admin`, device-token scope (low priority, see §0)
 
 **Phase 2: backend plumbing (§1)**
-- [ ] 1.1 One error-handling path + response helpers
+- [x] 1.1 One error-handling path + response helpers (`wine-cellar.http`). Error bodies were also never JSON-encoded, because the exception middleware sat outside muuntaja.
 - [ ] 1.3 Shared route `:responses`; merge duplicate route entries
-- [ ] 1.2 CRUD helpers in handlers and `db/api`
+- [x] 1.2 CRUD helpers in handlers and `db/api`. The `updated_at` gap was not real: classifications, grape varieties and bar inventory have no such column.
 - [ ] 1.6 Merge the two bulk jobs
 - [ ] 1.4 `->jsonb`, codecs, timestamp `ReadableColumn`, shared `q-one`/`q-many`
 - [ ] 1.5 Inventory mutations share `record-history!`

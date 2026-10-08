@@ -20,6 +20,29 @@
   ([query] (q-many ds query))
   ([tx-or-ds query] (jdbc/execute! tx-or-ds (sql/format query) db-opts)))
 
+;; Single-row CRUD on tables keyed by :id. Callers convert rows to and from
+;; their table's column types.
+(defn- get-by-id [table id] (q-one {:select :* :from table :where [:= :id id]}))
+
+(defn- insert!
+  ([table row] (insert! ds table row))
+  ([tx-or-ds table row]
+   (q-one tx-or-ds {:insert-into table :values [row] :returning :*})))
+
+(defn- update-by-id!
+  "Updates the row and returns it, or nil when there is no such row."
+  [table id row]
+  (q-one {:update table :set row :where [:= :id id] :returning :*}))
+
+(defn- delete-by-id!
+  "Deletes the row; true when there was one."
+  ([table id] (delete-by-id! table :id id))
+  ([table id-column id]
+   (-> (q-one {:delete-from table :where [:= id-column id]})
+       :next.jdbc/update-count
+       (or 0)
+       pos?)))
+
 ;; Helper functions for SQL generation
 (defn ->pg-array
   "Convert a Clojure collection into a PostgreSQL array literal string.
@@ -571,7 +594,8 @@
           new-poured (+ prev-poured (double oz))
           auto-finish? (>= new-poured bottle-oz)]
       (when (zero? current-qty)
-        (throw (ex-info "No bottles available to pour from" {:wine-id id})))
+        (throw (ex-info "No bottles available to pour from"
+                        {:status 400 :wine-id id})))
       (q-one tx
              {:insert-into :inventory_history
               :values [{:wine_id id
@@ -715,7 +739,7 @@
                  new-q (+ (:quantity wine) delta)]
              (when (neg? new-q)
                (throw (ex-info "Adjustment would make quantity negative"
-                               {:wine-id (:wine_id existing)})))
+                               {:status 400 :wine-id (:wine_id existing)})))
              (q-one tx
                     {:update :wines
                      :set {:quantity new-q :updated_at [:now]}
@@ -742,7 +766,7 @@
        (recompute-open-poured! tx (:wine_id row)))
      result)))
 
-(defn delete-wine! [id] (q-one {:delete-from :wines :where [:= :id id]}))
+(defn delete-wine! [id] (delete-by-id! :wines id))
 
 ;; Classification operations
 (defn create-or-update-classification
@@ -785,20 +809,13 @@
            :from :wine_classifications
            :order-by [:country :region :appellation]}))
 
-(defn get-classification
-  [id]
-  (q-one {:select :* :from :wine_classifications :where [:= :id id]}))
+(defn get-classification [id] (get-by-id :wine_classifications id))
 
 (defn update-classification!
   [id classification]
-  (q-one {:update :wine_classifications
-          :set classification
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :wine_classifications id classification))
 
-(defn delete-classification!
-  [id]
-  (q-one {:delete-from :wine_classifications :where [:= :id id]}))
+(defn delete-classification! [id] (delete-by-id! :wine_classifications id))
 
 (defn get-regions-by-country
   [country]
@@ -818,26 +835,18 @@
 (defn create-tasting-note
   ([note] (create-tasting-note ds note))
   ([ds-or-tx note]
-   (q-one ds-or-tx
-          {:insert-into :tasting_notes
-           :values [(-> note
-                        tasting-note->db-tasting-note
-                        (assoc :updated_at [:now]))]
-           :returning :*})))
+   (insert! ds-or-tx
+            :tasting_notes
+            (assoc (tasting-note->db-tasting-note note) :updated_at [:now]))))
 
 (defn update-tasting-note!
   [id note]
-  (tap> ["update-tasting-note!" id note])
-  (q-one {:update :tasting_notes
-          :set (-> note
-                   tasting-note->db-tasting-note
-                   (assoc :updated_at [:now]))
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id!
+   :tasting_notes
+   id
+   (assoc (tasting-note->db-tasting-note note) :updated_at [:now])))
 
-(defn get-tasting-note
-  [id]
-  (q-one {:select :* :from :tasting_notes :where [:= :id id]}))
+(defn get-tasting-note [id] (get-by-id :tasting_notes id))
 
 (defn get-tasting-notes-by-wine
   [wine-id]
@@ -846,9 +855,7 @@
            :where [:= :wine_id wine-id]
            :order-by [[:tasting_date :desc]]}))
 
-(defn delete-tasting-note!
-  [id]
-  (q-one {:delete-from :tasting_notes :where [:= :id id]}))
+(defn delete-tasting-note! [id] (delete-by-id! :tasting_notes id))
 
 (defn get-tasting-note-sources
   "Returns a list of unique source names from external tasting notes"
@@ -891,28 +898,19 @@
           :returning :*}))
 
 ;; Grape Varieties Operations
-(defn create-grape-variety
-  [name]
-  (q-one {:insert-into :grape_varieties :values [{:name name}] :returning :*}))
+(defn create-grape-variety [name] (insert! :grape_varieties {:name name}))
 
 (defn get-all-grape-varieties
   []
   (q-many {:select :* :from :grape_varieties :order-by [:name]}))
 
-(defn get-grape-variety
-  [id]
-  (q-one {:select :* :from :grape_varieties :where [:= :id id]}))
+(defn get-grape-variety [id] (get-by-id :grape_varieties id))
 
 (defn update-grape-variety!
   [id name]
-  (q-one {:update :grape_varieties
-          :set {:name name}
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :grape_varieties id {:name name}))
 
-(defn delete-grape-variety!
-  [id]
-  (q-one {:delete-from :grape_varieties :where [:= :id id]}))
+(defn delete-grape-variety! [id] (delete-by-id! :grape_varieties id))
 
 ;; Wine Grape Varieties Operations
 (defn associate-grape-variety-with-wine
@@ -1178,9 +1176,7 @@
    device-id
    {:status "pending" :refresh_token_hash nil :token_expires_at nil}))
 
-(defn delete-device!
-  [device-id]
-  (q-one {:delete-from :devices :where [:= :device_id device-id]}))
+(defn delete-device! [device-id] (delete-by-id! :devices :device_id device-id))
 
 (defn touch-device!
   "Update last_seen and optionally token_expires_at (when a new access token is
@@ -1200,21 +1196,17 @@
   []
   (q-many {:select :* :from :spirits :order-by [[:created_at :desc]]}))
 
-(defn get-spirit [id] (q-one {:select :* :from :spirits :where [:= :id id]}))
+(defn get-spirit [id] (get-by-id :spirits id))
 
-(defn create-spirit!
-  [spirit]
-  (q-one
-   {:insert-into :spirits :values [(spirit->db-spirit spirit)] :returning :*}))
+(defn create-spirit! [spirit] (insert! :spirits (spirit->db-spirit spirit)))
 
 (defn update-spirit!
   [id spirit]
-  (q-one {:update :spirits
-          :set (assoc (spirit->db-spirit spirit) :updated_at [:now])
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :spirits
+                 id
+                 (assoc (spirit->db-spirit spirit) :updated_at [:now])))
 
-(defn delete-spirit! [id] (q-one {:delete-from :spirits :where [:= :id id]}))
+(defn delete-spirit! [id] (delete-by-id! :spirits id))
 
 ;; Bar: Inventory Items
 (defn get-bar-inventory-items
@@ -1223,23 +1215,19 @@
            :from :bar_inventory_items
            :order-by [:category :sort_order :name]}))
 
+(def ^:private bar-inventory-columns [:name :category :sort_order :have_it])
+
 (defn update-bar-inventory-item!
   [id fields]
-  (q-one {:update :bar_inventory_items
-          :set (select-keys fields [:have_it :name :category :sort_order])
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :bar_inventory_items
+                 id
+                 (select-keys fields bar-inventory-columns)))
 
 (defn create-bar-inventory-item!
   [item]
-  (q-one {:insert-into :bar_inventory_items
-          :values [(select-keys item [:name :category :sort_order :have_it])]
-          :returning :*}))
+  (insert! :bar_inventory_items (select-keys item bar-inventory-columns)))
 
-(defn delete-bar-inventory-item!
-  [id]
-  (pos? (:next.jdbc/update-count (q-one {:delete-from :bar_inventory_items
-                                         :where [:= :id id]}))))
+(defn delete-bar-inventory-item! [id] (delete-by-id! :bar_inventory_items id))
 
 ;; Bar: Cocktail Recipes
 (defn- recipe->db-recipe
@@ -1254,9 +1242,7 @@
   []
   (q-many {:select :* :from :cocktail_recipes :order-by [[:created_at :desc]]}))
 
-(defn get-cocktail-recipe
-  [id]
-  (q-one {:select :* :from :cocktail_recipes :where [:= :id id]}))
+(defn get-cocktail-recipe [id] (get-by-id :cocktail_recipes id))
 
 (defn distinct-recipe-tags
   "Distinct, lowercased recipe tags currently in use, sorted. Used to nudge the
@@ -1274,17 +1260,12 @@
 
 (defn create-cocktail-recipe!
   [recipe]
-  (q-one {:insert-into :cocktail_recipes
-          :values [(recipe->db-recipe recipe)]
-          :returning :*}))
+  (insert! :cocktail_recipes (recipe->db-recipe recipe)))
 
 (defn update-cocktail-recipe!
   [id recipe]
-  (q-one {:update :cocktail_recipes
-          :set (assoc (recipe->db-recipe recipe) :updated_at [:now])
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :cocktail_recipes
+                 id
+                 (assoc (recipe->db-recipe recipe) :updated_at [:now])))
 
-(defn delete-cocktail-recipe!
-  [id]
-  (q-one {:delete-from :cocktail_recipes :where [:= :id id]}))
+(defn delete-cocktail-recipe! [id] (delete-by-id! :cocktail_recipes id))
