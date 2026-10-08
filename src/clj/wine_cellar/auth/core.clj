@@ -103,9 +103,10 @@
   (tap> ["create-jwt-token" user-info])
   (let [jwt-secret (config/get-jwt-secret)
         now (Instant/now)
+        ;; JWT times are epoch seconds; buddy checks :exp against seconds.
         claims (assoc user-info
-                      :iat (inst-ms now)
-                      :exp (inst-ms (.plus now 7 ChronoUnit/DAYS)))]
+                      :iat (.getEpochSecond now)
+                      :exp (.getEpochSecond (.plus now 7 ChronoUnit/DAYS)))]
     (jwt/sign claims jwt-secret {:alg :hs256})))
 
 (defn- handle-successful-auth
