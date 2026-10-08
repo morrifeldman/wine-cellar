@@ -1,11 +1,11 @@
 (ns wine-cellar.handlers
   (:require [clojure.string :as str]
-            [wine-cellar.common :as common]
             [wine-cellar.db.api :as db-api]
             [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations :as bulk]
             [wine-cellar.devices :as devices]
+            [wine-cellar.recipe-links :as recipe-links]
             [wine-cellar.reports.core :as reports]
             [wine-cellar.http :as http]
             [wine-cellar.summary :as summary]
@@ -351,49 +351,11 @@
   [{{{:keys [id]} :path} :parameters}]
   (http/deleted-or-404 "Recipe" (db-api/delete-cocktail-recipe! id)))
 
-(defn- merge-recipe-links
-  "Rewrites ingredients from a resolve-recipe-links result, joining by index.
-   The fresh links are authoritative — :inventory_item_ids and :spirit are
-   rebuilt from the result and cleared when absent. :garnish is sticky-true:
-   an ingredient stays a garnish if either the result or the incoming
-   ingredient says so (extraction saw the source text, so its flag is
-   higher-confidence than a re-link's). A spec in a grab-bag category
-   (liqueur/other) with neither subcategory nor spirit_id is discarded — such
-   a spec is unsatisfiable by construction (bottles-for-spec never matches
-   it), so it could only block makeability; the model sometimes emits one for
-   dashed bitters despite the prompt."
-  [ingredients {:keys [ingredient_links spirit_links]}]
-  (let [link-by-idx (into {} (map (juxt :index identity)) ingredient_links)
-        spirit-by-idx
-        (into {} (map (juxt :ingredient_index identity)) spirit_links)]
-    (vec
-     (map-indexed
-      (fn [i ing]
-        (let [{:keys [inventory_item_ids garnish]} (get link-by-idx i)
-              {:keys [spirit_id category subcategory preferred_spirit_ids
-                      alternate_spirit_ids]}
-              (get spirit-by-idx i)
-              garnish? (or (true? garnish) (true? (:garnish ing)))
-              spec? (and (seq category)
-                         (or spirit_id
-                             (seq subcategory)
-                             (not (common/grab-bag-spirit-categories
-                                   (str/lower-case category)))))]
-          (cond-> (dissoc ing :inventory_item_ids :garnish :spirit)
-            (seq inventory_item_ids) (assoc :inventory_item_ids
-                                            (vec inventory_item_ids))
-            garnish? (assoc :garnish true)
-            spec? (assoc :spirit
-                         (cond-> {:category category}
-                           (seq subcategory) (assoc :subcategory subcategory)
-                           spirit_id (assoc :spirit_id spirit_id)
-                           (seq preferred_spirit_ids)
-                           (assoc :preferred_spirit_ids
-                                  (vec preferred_spirit_ids))
-                           (seq alternate_spirit_ids)
-                           (assoc :alternate_spirit_ids
-                                  (vec alternate_spirit_ids)))))))
-      ingredients))))
+(defn- bar-context
+  "What the AI needs to link recipes to the bar."
+  []
+  {:spirits (db-api/get-spirits)
+   :inventory-items (db-api/get-bar-inventory-items)})
 
 (defn extract-cocktail-recipe
   "Two-phase: extracts recipes from text and/or an image without any bar
@@ -403,22 +365,22 @@
   [request]
   (let [{:keys [message-text image]} (get-in request [:parameters :body])
         existing-tags (db-api/distinct-recipe-tags)
-        bar {:spirits (db-api/get-spirits)
-             :inventory-items (db-api/get-bar-inventory-items)}]
+        bar (bar-context)]
     (if (and (empty? message-text) (empty? image))
       (http/bad-request "message-text or image is required")
       (if-let [result
                (ai/extract-cocktail-recipe message-text existing-tags image)]
-        (http/ok (update
-                  result
-                  :recipes
-                  (partial
-                   mapv
-                   (fn [recipe]
-                     (if-let [links (and (seq (:ingredients recipe))
-                                         (ai/resolve-recipe-links recipe bar))]
-                       (update recipe :ingredients merge-recipe-links links)
-                       recipe)))))
+        (http/ok
+         (update
+          result
+          :recipes
+          (partial
+           mapv
+           (fn [recipe]
+             (if-let [links (and (seq (:ingredients recipe))
+                                 (ai/resolve-recipe-links recipe bar))]
+               (update recipe :ingredients recipe-links/merge-links links)
+               recipe)))))
         {:status 422 :body {:error "Could not extract recipe"}}))))
 
 (defn refresh-recipe-links
@@ -430,14 +392,12 @@
    items and spirits are in the prompt, so they can still be re-linked."
   [{{{:keys [id]} :path} :parameters}]
   (if-let [recipe (db-api/get-cocktail-recipe id)]
-    (let [bar {:spirits (db-api/get-spirits)
-               :inventory-items (db-api/get-bar-inventory-items)}
-          result (ai/resolve-recipe-links recipe bar)]
+    (let [result (ai/resolve-recipe-links recipe (bar-context))]
       (if result
         (http/ok (db-api/update-cocktail-recipe!
                   id
-                  {:ingredients (merge-recipe-links (:ingredients recipe)
-                                                    result)}))
+                  {:ingredients (recipe-links/merge-links (:ingredients recipe)
+                                                          result)}))
         {:status 422 :body {:error "Could not refresh recipe links"}}))
     (http/not-found "Recipe")))
 
@@ -484,9 +444,7 @@
             condensed (when-not include-bar?
                         (summary/condensed-summary cellar-wines))
             bar (when include-bar?
-                  {:spirits (db-api/get-spirits)
-                   :inventory-items (db-api/get-bar-inventory-items)
-                   :recipes (db-api/get-cocktail-recipes)})
+                  (assoc (bar-context) :recipes (db-api/get-cocktail-recipes)))
             ;; Every provider searches the web on its own side, but only
             ;; Anthropic can open a specific URL (web_fetch), so we still
             ;; download pasted links here for the other two.
