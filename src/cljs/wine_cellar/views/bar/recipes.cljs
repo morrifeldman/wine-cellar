@@ -1,5 +1,8 @@
 (ns wine-cellar.views.bar.recipes
   (:require
+    [wine-cellar.views.components.summary :refer [detail-actions summary-card]]
+    [wine-cellar.utils.formatting :refer [join-meta]]
+    [wine-cellar.views.components.placeholders :refer [empty-state]]
     [clojure.string :as str]
     [reagent.core :as r]
     [reagent-mui.material.box :refer [box]]
@@ -621,12 +624,8 @@
         :on-save #(save-field! app-state recipe :notes %)
         :empty-text "Add tasting notes, tweaks, occasions..."
         :text-field-props {:multiline true :rows 3}}]]
-     ;; Actions
-     [box {:sx {:display "flex" :gap 1 :alignItems "center" :mt 2}}
-      [button
-       {:variant "outlined"
-        :color "error"
-        :on-click #(confirm! app-state
+     [detail-actions
+      {:on-delete #(confirm! app-state
                              {:title (str "Delete \"" (:name recipe) "\"?")
                               :message "This recipe will be gone for good."
                               :confirm-label "Delete"
@@ -635,8 +634,8 @@
                                             (nav/close-bar-recipe!)
                                             (api/delete-cocktail-recipe
                                              app-state
-                                             (:id recipe)))})} "Delete"]
-      [box {:sx {:flex 1}}]
+                                             (:id recipe)))})
+       :on-done #(nav/close-bar-recipe!)}
       (let [refreshing? (= (:id recipe)
                            (get-in @app-state [:bar :refreshing-recipe-id]))]
         [button
@@ -659,51 +658,16 @@
         ;; detail rather than the list.
         :on-click
         #(swap! app-state assoc-in [:bar :editing-recipe-id] (:id recipe))}
-       "Edit"]
-      [button
-       {:variant "contained"
-        :color "primary"
-        :on-click #(nav/close-bar-recipe!)} "Done"]]]))
+       "Edit"]]]))
 
 (defn- recipe-card
   [recipe]
-  (let [tags (:tags recipe)]
-    [paper
-     {:elevation 1
-      :sx {:p 1.5 :mb 1 :cursor "pointer" "&:hover" {:bgcolor "action.hover"}}
-      :on-click #(nav/go-bar-recipe! (:id recipe))}
-     [box
-      {:sx {:display "flex"
-            :alignItems "flex-start"
-            :justifyContent "space-between"
-            :gap 1}}
-      [box {:sx {:flex 1 :minWidth 0}}
-       [box {:sx {:display "flex" :alignItems "center" :gap 1 :flexWrap "wrap"}}
-        [typography {:sx theme/card-title} (:name recipe)]
-        (when-let [r (:rating recipe)]
-          [typography
-           {:component "span"
-            :variant "body2"
-            :sx {:color "text.secondary" :whiteSpace "nowrap"}}
-           (str "★ " (/ r 2))])]
-       (when (seq tags)
-         [box
-          {:sx {:display "flex"
-                :alignItems "center"
-                :gap 0.5
-                :flexWrap "wrap"
-                :mt 0.25}}
-          (for [tag tags]
-            ^{:key tag} [chip {:label tag :size "small" :sx {:height 24}}])])
-       (when-let [line (or (:caption recipe) (:description recipe))]
-         [typography
-          {:variant "body2"
-           :sx {:color "text.secondary"
-                :mt 0.5
-                :display "-webkit-box"
-                :WebkitLineClamp 2
-                :WebkitBoxOrient "vertical"
-                :overflow "hidden"}} line])]]]))
+  [summary-card
+   {:title (:name recipe)
+    :meta (join-meta (cons (when-let [r (:rating recipe)] (str "★ " (/ r 2)))
+                           (:tags recipe)))
+    :blurb (or (:caption recipe) (:description recipe))
+    :on-click #(nav/go-bar-recipe! (:id recipe))}])
 
 (defn save-recipe-dialog
   [_app-state]
@@ -1097,8 +1061,7 @@
                           :label t
                           :on-remove #(swap! selected-tags disj t)}))])])
          (if (empty? recipes)
-           [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
-            "No recipes yet. Save your first cocktail!"]
+           [empty-state "No recipes yet. Save your first cocktail!"]
            (for [recipe filtered]
              (with-meta (cond (= (:id recipe) editing-id) [recipe-form
                                                            app-state]

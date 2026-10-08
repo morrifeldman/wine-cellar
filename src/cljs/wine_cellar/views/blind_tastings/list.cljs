@@ -1,5 +1,7 @@
 (ns wine-cellar.views.blind-tastings.list
-  (:require [clojure.string :as str]
+  (:require [wine-cellar.views.components.placeholders :refer
+             [loading-block empty-state]]
+            [clojure.string :as str]
             [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
@@ -7,7 +9,6 @@
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.divider :refer [divider]]
-            [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.icons.add :refer [add]]
             [reagent-mui.icons.link :refer [link]]
             [reagent-mui.icons.check-circle :refer [check-circle]]
@@ -165,8 +166,7 @@
             #(swap! app-state assoc-in [:blind-tastings :show-form?] true)}
            "New Blind Tasting"]]
          (if loading?
-           [box {:sx {:display "flex" :justifyContent "center" :py 4}}
-            [circular-progress]]
+           [loading-block]
            [box
             (when (seq pending)
               [box {:sx {:mb 4}}
@@ -182,6 +182,5 @@
                (for [note completed]
                  ^{:key (:id note)} [blind-tasting-card app-state note])])
             (when (and (empty? pending) (empty? completed))
-              [paper {:sx {:p 4 :textAlign "center"}}
-               [typography {:variant "body1" :color "text.secondary"}
-                "No blind tastings yet. Start one to practice your blind tasting skills!"]])])]))}))
+              [empty-state
+               "No blind tastings yet. Start one to practice your blind tasting skills!"])])]))}))

@@ -1,5 +1,6 @@
 (ns wine-cellar.views.wines.detail.history
   (:require
+    [wine-cellar.views.components.placeholders :refer [empty-state]]
     [clojure.string :as str]
     [goog.string :as gstring]
     [goog.string.format]
@@ -329,9 +330,7 @@
         history (enrich-history-with-display-balance raw-history)]
     [detail-section {:icon history-icon :label "Inventory History"}
      (if (empty? history)
-       [typography
-        {:variant "body2" :color "text.secondary" :fontStyle "italic"}
-        "No inventory history recorded yet."]
+       [empty-state {:inline? true} "No inventory history recorded yet."]
        [box {:sx {:overflow-x "auto"}}
         [table
          {:size "small" :sx {:width "100%" "& td" {:borderBottom "none" :px 1}}}

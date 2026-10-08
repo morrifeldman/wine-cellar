@@ -1,5 +1,6 @@
 (ns wine-cellar.views.grape-varieties.list
-  (:require [reagent.core :as r]
+  (:require [wine-cellar.views.components.placeholders :refer [empty-state]]
+            [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.card :refer [card]]
@@ -82,8 +83,7 @@
       [card-content
        (when (:show-variety-form? @app-state) [grape-variety-form app-state])
        (if (empty? varieties)
-         [typography {:variant "body1" :sx {:p 2}}
-          "No grape varieties found. Add some to get started."]
+         [empty-state "No grape varieties yet. Add some to get started."]
          [list
           (for [variety varieties]
             ^{:key (:id variety)}

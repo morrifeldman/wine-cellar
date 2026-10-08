@@ -97,3 +97,10 @@
 (defn valid-name-producer?
   [wine]
   (or (not (str/blank? (:name wine))) (not (str/blank? (:producer wine)))))
+
+(defn join-meta
+  "Card metadata as one line: the present parts, joined with a middle dot."
+  [parts]
+  (->> parts
+       (remove #(or (nil? %) (and (string? %) (str/blank? %))))
+       (str/join " · ")))

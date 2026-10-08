@@ -1,5 +1,6 @@
 (ns wine-cellar.views.admin.devices
-  (:require [reagent.core :as r]
+  (:require [wine-cellar.views.components.placeholders :refer [empty-state]]
+            [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
@@ -134,7 +135,6 @@
         :on-click #(api/fetch-devices app-state)} "Refresh"]]
      (cond (and (not loading?) (seq devices))
            (for [d devices] ^{:key (:device_id d)} [device-row d app-state])
-           (and (not loading?) (empty? devices))
-           [typography {:variant "body2" :color "text.secondary"}
-            "No devices yet."]
+           (and (not loading?) (empty? devices)) [empty-state {:inline? true}
+                                                  "No devices yet."]
            :else nil)]))

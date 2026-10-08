@@ -1,5 +1,7 @@
 (ns wine-cellar.views.chat.sidebar
-  (:require [reagent.core :as r]
+  (:require [wine-cellar.views.components.placeholders :refer
+             [loading-block empty-state]]
+            [reagent.core :as r]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.typography :refer [typography]]
@@ -127,11 +129,9 @@
 (defn- conversation-content
   [status items]
   (case status
-    :loading [box {:sx {:display "flex" :justify-content "center" :py 3}}
-              [circular-progress {:size 24}]]
-    :empty [typography
-            {:variant "body2" :sx {:px 2 :py 2 :color "text.secondary"}}
-            "No conversations yet"]
+    :loading [loading-block]
+    :empty [box {:sx {:px 2}}
+            [empty-state {:inline? true} "No conversations yet"]]
     (into [:<>] items)))
 
 (defn- conversation-search-bar

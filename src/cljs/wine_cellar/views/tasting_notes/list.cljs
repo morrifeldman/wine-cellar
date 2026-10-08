@@ -1,5 +1,6 @@
 (ns wine-cellar.views.tasting-notes.list
-  (:require [clojure.string :as str]
+  (:require [wine-cellar.views.components.placeholders :refer [empty-state]]
+            [clojure.string :as str]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.grid :refer [grid]]
@@ -63,8 +64,7 @@
         external-notes (filter :is_external notes)]
     [box {:sx {:mb 3}}
      (if (empty? notes)
-       [typography {:variant "body1" :sx {:fontStyle "italic"}}
-        "No tasting notes yet."]
+       [empty-state {:inline? true} "No tasting notes yet."]
        [box {:sx {:mt 2}}
         ;; Personal notes section
         (when (seq personal-notes)

@@ -1,39 +1,43 @@
 (ns wine-cellar.views.bar.spirits
-  (:require [clojure.string :as str]
-            [reagent.core :as r]
-            [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.paper :refer [paper]]
-            [reagent-mui.material.typography :refer [typography]]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.chip :refer [chip]]
-            [reagent-mui.material.divider :refer [divider]]
-            [reagent-mui.material.text-field :as mui-text-field]
-            [reagent-mui.material.select :refer [select]]
-            [reagent-mui.material.menu-item :refer [menu-item]]
-            [reagent-mui.material.icon-button :refer [icon-button]]
-            [reagent-mui.material.circular-progress :refer [circular-progress]]
-            [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
-            [reagent-mui.icons.public :refer [public] :rename {public globe}]
-            [reagent-mui.icons.inventory :refer [inventory]]
-            [reagent-mui.icons.local-bar :refer [local-bar]]
-            [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
-            [reagent-mui.icons.keyboard-arrow-up :refer [keyboard-arrow-up]]
-            [reagent-mui.icons.keyboard-arrow-down :refer [keyboard-arrow-down]]
-            [wine-cellar.common :as common]
-            [wine-cellar.theme :as theme]
-            [wine-cellar.utils.filters :refer [normalize-text]]
-            [wine-cellar.views.bar.matching :as matching]
-            [wine-cellar.api :as api]
-            [wine-cellar.views.components.confirm :refer [confirm!]]
-            [wine-cellar.dom :as dom]
-            [wine-cellar.nav :as nav]
-            [wine-cellar.views.components :refer
-             [dot-separated-row editable-text-field editable-autocomplete-field
-              search-text-field section-header section-rule]]
-            [wine-cellar.views.components.ai-provider-toggle :refer
-             [provider-toggle-button]]
-            [wine-cellar.views.components.image-upload :refer
-             [camera-capture]]))
+  (:require
+    [wine-cellar.views.components.summary :refer [detail-actions summary-card]]
+    [wine-cellar.utils.formatting :refer [join-meta]]
+    [wine-cellar.views.components.placeholders :refer
+     [loading-block empty-state]]
+    [clojure.string :as str]
+    [reagent.core :as r]
+    [reagent-mui.material.box :refer [box]]
+    [reagent-mui.material.paper :refer [paper]]
+    [reagent-mui.material.typography :refer [typography]]
+    [reagent-mui.material.button :refer [button]]
+    [reagent-mui.material.chip :refer [chip]]
+    [reagent-mui.material.divider :refer [divider]]
+    [reagent-mui.material.text-field :as mui-text-field]
+    [reagent-mui.material.select :refer [select]]
+    [reagent-mui.material.menu-item :refer [menu-item]]
+    [reagent-mui.material.icon-button :refer [icon-button]]
+    [reagent-mui.material.circular-progress :refer [circular-progress]]
+    [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
+    [reagent-mui.icons.public :refer [public] :rename {public globe}]
+    [reagent-mui.icons.inventory :refer [inventory]]
+    [reagent-mui.icons.local-bar :refer [local-bar]]
+    [reagent-mui.icons.notes :refer [notes] :rename {notes notes-icon}]
+    [reagent-mui.icons.keyboard-arrow-up :refer [keyboard-arrow-up]]
+    [reagent-mui.icons.keyboard-arrow-down :refer [keyboard-arrow-down]]
+    [wine-cellar.common :as common]
+    [wine-cellar.theme :as theme]
+    [wine-cellar.utils.filters :refer [normalize-text]]
+    [wine-cellar.views.bar.matching :as matching]
+    [wine-cellar.api :as api]
+    [wine-cellar.views.components.confirm :refer [confirm!]]
+    [wine-cellar.dom :as dom]
+    [wine-cellar.nav :as nav]
+    [wine-cellar.views.components :refer
+     [dot-separated-row editable-text-field editable-autocomplete-field
+      search-text-field section-header section-rule]]
+    [wine-cellar.views.components.ai-provider-toggle :refer
+     [provider-toggle-button]]
+    [wine-cellar.views.components.image-upload :refer [camera-capture]]))
 
 (def spirit-categories common/spirit-categories)
 
@@ -355,12 +359,8 @@
                    :on-click #(nav/go-bar-recipe! (:id r))
                    :sx (merge {:height 28 :letterSpacing "0.02em"}
                               (theme/chip-sx :rose))}])]]))
-         ;; Actions
-         [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end" :mt 2}}
-          [button
-           {:variant "outlined"
-            :color "error"
-            :on-click #(confirm! app-state
+         [detail-actions
+          {:on-delete #(confirm! app-state
                                  {:title (str "Delete " (:name spirit) "?")
                                   :message "This bottle will be gone for good."
                                   :confirm-label "Delete"
@@ -368,47 +368,26 @@
                                   :on-confirm (fn []
                                                 (api/delete-spirit app-state
                                                                    (:id spirit))
-                                                (nav/close-bar-spirit!))})}
-           "Delete"] [box {:sx {:flex 1}}]
-          [button {:variant "contained" :on-click #(nav/close-bar-spirit!)}
-           "Done"]]]))))
+                                                (nav/close-bar-spirit!))})
+           :on-done #(nav/close-bar-spirit!)}]]))))
 
 (defn- spirit-meta
   [spirit]
-  (->> [(:subcategory spirit) (:country spirit)
-        (when (:age_statement spirit)
-          (let [a (:age_statement spirit)]
-            (if (re-matches #"\d+" a) (str a " yr") a)))
-        (when (:proof spirit) (str (:proof spirit) " proof"))]
-       (filter identity)
-       (str/join " · ")))
+  (join-meta [(:subcategory spirit) (:country spirit)
+              (when-let [a (:age_statement spirit)]
+                (if (re-matches #"\d+" a) (str a " yr") a))
+              (when (:proof spirit) (str (:proof spirit) " proof"))]))
 
 (defn spirit-card
   [spirit]
-  (let [finished? (zero? (or (:quantity spirit) 1))]
-    [paper
-     {:elevation (if finished? 0 1)
-      :sx {:p 1.5
-           :mb 1
-           :cursor "pointer"
-           :opacity (if finished? 0.45 1)
-           "&:hover" {:bgcolor "action.hover"}}
-      :on-click #(nav/go-bar-spirit! (:id spirit))}
-     [typography {:sx theme/card-title}
-      (->> [(:distillery spirit) (:name spirit) (:category spirit)]
-           (filter seq)
-           (str/join " · "))]
-     [typography {:variant "body2" :sx {:color "text.secondary" :mt 0.25}}
-      (spirit-meta spirit)]
-     (when (and (:notes spirit) (not= (:notes spirit) ""))
-       [typography
-        {:variant "body2"
-         :sx {:color "text.secondary"
-              :mt 0.5
-              :fontStyle "italic"
-              :overflow "hidden"
-              :textOverflow "ellipsis"
-              :whiteSpace "nowrap"}} (:notes spirit)])]))
+  [summary-card
+   {:title (join-meta [(:distillery spirit) (:name spirit) (:category spirit)])
+    :meta (spirit-meta spirit)
+    :blurb (:notes spirit)
+    :blurb-lines 1
+    :italic-blurb? true
+    :dim? (zero? (or (:quantity spirit) 1))
+    :on-click #(nav/go-bar-spirit! (:id spirit))}])
 
 (defn filter-chip-sx
   "Plain look shared by every bar filter chip: selection shows as a filled,
@@ -593,12 +572,9 @@
                           :on-remove #(swap! selected-subcategories disj
                                         sc)}))])])
          (if loading?
-           [box {:sx {:display "flex" :justifyContent "center" :py 4}}
-            [circular-progress {:color "primary"}]]
+           [loading-block]
            (if (empty? spirits)
-             [typography
-              {:sx {:color "text.secondary" :textAlign "center" :py 4}}
-              "No spirits yet. Add your first bottle!"]
+             [empty-state "No spirits yet. Add your first bottle!"]
              (for [spirit filtered]
                (with-meta (if (= (:id spirit) editing-id)
                             [spirit-detail app-state]

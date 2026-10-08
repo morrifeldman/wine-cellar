@@ -1,5 +1,6 @@
 (ns wine-cellar.views.classifications.list
-  (:require [reagent.core :as r]
+  (:require [wine-cellar.views.components.placeholders :refer [empty-state]]
+            [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.table :refer [table]]
@@ -93,8 +94,7 @@
      (if (empty? classifications)
        [table-row
         [table-cell {:col-span 6}
-         [typography {:align "center" :sx {:py 3}}
-          "No classifications found. Add one to get started."]]]
+         [empty-state "No classifications yet. Add one to get started."]]]
        (for [classification classifications]
          ^{:key (:id classification)}
          [classification-table-row classification app-state]))]]])

@@ -67,7 +67,7 @@ below.
 - [x] 3.2 `confirm!` dialog
 - [x] 3.3 `form-dialog` + `ai-button`
 - [x] 3.4 Wine detail field table; split `detail.cljs` into `detail/{fields,cellar,drinking_window,history}.cljs`
-- [ ] 3.5 `list-page`, `empty-state`, `detail-actions`, `summary-card`
+- [x] 3.5 `list-page`, `empty-state`, `detail-actions`, `summary-card`
 - [ ] 3.6–3.10 Bar editing paradigm, dates, state placement, long components
 
 **Phase 5: single source of truth for rules (§4)**
