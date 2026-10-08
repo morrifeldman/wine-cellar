@@ -68,3 +68,26 @@
     (is (= 404 (status-of :get missing)))
     (is (= 404 (status-of :put missing {:name "x"})))
     (is (= 404 (status-of :delete missing)))))
+
+(deftest wine-updates-need-a-known-field
+  (let [{{:keys [id]} :body} (ts/request :post
+                                         "/api/wines"
+                                         {:producer "ZZ Update"
+                                          :country "France"
+                                          :region "Loire"
+                                          :style "White"
+                                          :quantity 1})
+        url (str "/api/wines/by-id/" id)]
+    (is (= 200 (status-of :put url {:location "A1"})))
+    (is (= 400 (status-of :put url {})))
+    (is (= 400 (status-of :put url {:not_a_column 1})))
+    (is (= 400 (status-of :put url {:vintage "old"})))
+    (testing "creating still requires the core fields"
+      (is (= 201
+             (status-of :post
+                        "/api/wines"
+                        {:name "ZZ Named"
+                         :country "Italy"
+                         :region "Etna"
+                         :style "Red"
+                         :quantity 2}))))))
