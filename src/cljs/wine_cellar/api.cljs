@@ -266,7 +266,6 @@
             {:method :delete
              :url (str "/api/classifications/" id)
              :error-msg "Failed to delete classification"
-             :on-success #(dissoc %1 :deleting-classification)
              :after #(fetch-classifications app-state)}))
 
 ;; Sensor reading endpoints

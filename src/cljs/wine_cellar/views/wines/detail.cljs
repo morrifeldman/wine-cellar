@@ -1,9 +1,6 @@
 (ns wine-cellar.views.wines.detail
   (:require
     [clojure.string :as str]
-    [goog.string :as gstring]
-    [goog.string.format]
-    [goog.object :as gobj]
     [reagent-mui.icons.add :refer [add]]
     [reagent-mui.icons.arrow-back :refer [arrow-back]]
     [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
@@ -12,345 +9,44 @@
     [reagent-mui.icons.close :refer [close]]
     [reagent-mui.icons.public :refer [public] :rename {public globe}]
     [reagent-mui.icons.wine-bar :refer [wine-bar]]
-    [reagent-mui.icons.inventory :refer [inventory]]
-    [reagent-mui.icons.receipt :refer [receipt]]
-    [reagent-mui.icons.schedule :refer [schedule]]
     [reagent-mui.icons.science :refer [science]]
-    [reagent-mui.icons.history :refer [history] :rename {history history-icon}]
     [reagent-mui.icons.rate-review :refer [rate-review]]
     [reagent-mui.material.box :refer [box]]
     [reagent-mui.material.button :refer [button]]
-    [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.material.circular-progress :refer [circular-progress]]
     [reagent-mui.material.grid :refer [grid]]
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.typography :refer [typography]]
-    [reagent-mui.material.text-field :refer [text-field]]
     [reagent-mui.material.tooltip :refer [tooltip]]
     [reagent-mui.material.modal :refer [modal]]
     [reagent-mui.material.backdrop :refer [backdrop]]
     [reagent-mui.material.divider :refer [divider]]
-    [reagent-mui.material.autocomplete :refer [autocomplete]]
     [reagent-mui.material.dialog :refer [dialog]]
-    [reagent-mui.material.dialog-title :refer [dialog-title]]
     [reagent-mui.material.dialog-content :refer [dialog-content]]
-    [reagent-mui.material.dialog-actions :refer [dialog-actions]]
-    ["@mui/material/TextField" :default TextField]
-    [reagent-mui.material.table :refer [table]]
-    [reagent-mui.material.table-body :refer [table-body]]
-    [reagent-mui.material.table-cell :refer [table-cell]]
-    [reagent-mui.material.table-row :refer [table-row]]
     [reagent.core :as r]
+    [wine-cellar.views.wines.detail.fields :refer
+     [editable-alcohol-percentage editable-dosage editable-disgorgement-year
+      editable-ai-summary editable-designation editable-country editable-region
+      editable-appellation editable-appellation-tier editable-vineyard
+      editable-classification editable-styles editable-closure-type
+      editable-bottle-format wine-identity-section]]
+    [wine-cellar.views.wines.detail.cellar :refer
+     [wine-cellar-section wine-provenance-section]]
+    [wine-cellar.views.wines.detail.drinking-window :refer
+     [wine-tasting-window-section]]
+    [wine-cellar.views.wines.detail.history :refer
+     [open-bottle-section inventory-history-section]]
     [wine-cellar.api :as api]
+    [wine-cellar.views.components.confirm :refer [confirm!]]
     [wine-cellar.nav :as nav]
-    [wine-cellar.common :as common]
-    [wine-cellar.utils.formatting :refer [format-date-iso valid-name-producer?]]
-    [wine-cellar.theme :as theme]
-    [wine-cellar.utils.vintage :as vintage]
-    [wine-cellar.views.components :refer
-     [coravin-pour-dialog detail-section drink-dialog dot-separated-row
-      editable-autocomplete-field editable-classification-field
-      editable-text-field gift-dialog minus-menu oz-input-field
-      quantity-control]]
+    [wine-cellar.views.components :refer [detail-section dot-separated-row]]
     [wine-cellar.views.components.image-upload :refer [image-upload]]
     [wine-cellar.views.tasting-notes.form :refer [tasting-note-form]]
     [wine-cellar.views.wines.varieties :refer [wine-varieties-list]]
     [wine-cellar.views.tasting-notes.list :refer [tasting-notes-list]]
-    [wine-cellar.views.components.ai-provider-toggle :refer
-     [provider-toggle-button]]
+    [wine-cellar.views.components.ai-provider-toggle :refer [ai-button]]
     [wine-cellar.views.components.technical-data :refer
      [technical-data-editor]]))
-
-
-
-(defn- numeric-editor
-  [app-state wine field
-   {:keys [validate-fn display-fn parser round? allow-blank? format-fn
-           empty-text text-field-props]
-    :or {parser js/parseFloat}}]
-  [editable-text-field
-   {:value (when-let [v (get wine field)]
-             (if display-fn (display-fn v) (str v)))
-    :on-save (fn [new-value]
-               (let [trimmed (str/trim (or new-value ""))]
-                 (if (str/blank? trimmed)
-                   (when allow-blank?
-                     (api/update-wine app-state (:id wine) {field nil}))
-                   (let [parsed (parser trimmed)]
-                     (when-not (js/isNaN parsed)
-                       (api/update-wine
-                        app-state
-                        (:id wine)
-                        {field (if round? (js/Math.round parsed) parsed)}))))))
-    :validate-fn validate-fn
-    :format-fn format-fn
-    :empty-text empty-text
-    :compact? true
-    :inline? true
-    :text-field-props text-field-props}])
-
-(defn editable-alcohol-percentage
-  [app-state wine]
-  [numeric-editor app-state wine :alcohol_percentage
-   {:display-fn #(gstring/format "%.1f" %)
-    :validate-fn (fn [value]
-                   (let [parsed (js/parseFloat value)]
-                     (cond (str/blank? value) nil
-                           (js/isNaN parsed)
-                           "Alcohol percentage must be a valid number"
-                           (< parsed 0) "Alcohol percentage cannot be negative"
-                           (> parsed 100) "Alcohol percentage cannot exceed 100"
-                           :else nil)))
-    :format-fn #(str % "% ABV")
-    :empty-text "Add ABV"
-    :text-field-props {:type "number"
-                       :step "0.1"
-                       :InputProps {:endAdornment "%"}
-                       :helperText "e.g., 13.5 for 13.5% ABV"}}])
-
-(defn editable-dosage
-  [app-state wine]
-  [numeric-editor app-state wine :dosage
-   {:display-fn #(str (js/Math.round %))
-    :round? true
-    :allow-blank? true
-    :validate-fn (fn [value]
-                   (let [trimmed (str/trim (or value ""))]
-                     (cond (str/blank? trimmed) nil
-                           :else (let [parsed (js/parseFloat trimmed)]
-                                   (cond
-                                     (js/isNaN parsed) "Dosage must be a number"
-                                     (< parsed 0) "Dosage cannot be negative"
-                                     (> parsed 200) "Dosage must be ≤ 200 g/L"
-                                     :else nil)))))
-    :format-fn #(str "Dosage " % " g/L")
-    :empty-text "Add dosage"
-    :text-field-props
-    {:type "number" :step "1" :InputProps {:endAdornment "g/L"}}}])
-
-(defn editable-disgorgement-year
-  [app-state wine]
-  [numeric-editor app-state wine :disgorgement_year
-   {:parser #(js/parseInt % 10)
-    :allow-blank? true
-    :validate-fn (fn [value]
-                   (if (str/blank? value)
-                     nil
-                     (let [parsed (js/parseInt value 10)]
-                       (cond (js/isNaN parsed) "Year must be a valid number"
-                             (< parsed 1900) "Year must be 1900 or later"
-                             (> parsed (.getFullYear (js/Date.)))
-                             "Year cannot be in the future"
-                             :else nil))))
-    :format-fn #(str "Disgorged in " %)
-    :empty-text "Add disgorgement year"
-    :text-field-props
-    {:type "number"
-     :helperText "Year when the wine was disgorged (for sparkling wines)"}}])
-
-
-(defn update-wine-metadata
-  [app-state wine metadata-key new-value]
-  (let [current-metadata (or (:metadata wine) {})
-        updated-metadata (if (or (nil? new-value) (str/blank? (str new-value)))
-                           (dissoc current-metadata metadata-key)
-                           (assoc current-metadata metadata-key new-value))]
-    (api/update-wine app-state (:id wine) {:metadata updated-metadata})))
-
-(defn editable-tasting-window-commentary
-  [app-state wine]
-  [editable-text-field
-   {:value (:tasting_window_commentary wine)
-    :on-save (fn [new-value]
-               (api/update-wine app-state
-                                (:id wine)
-                                {:tasting_window_commentary new-value}))
-    :empty-text "Add tasting window commentary"
-    :text-field-props {:multiline true
-                       :rows 4
-                       :helperText "Commentary about the drinking window"}}])
-
-(defn editable-ai-summary
-  [app-state wine]
-  (let [force-edit-key (get-in @app-state [:force-edit-ai-summary (:id wine)])]
-    ^{:key (str "ai-summary-" (:id wine)
-                "-" (if force-edit-key (.getTime (js/Date.)) "view"))}
-    [editable-text-field
-     {:value (:ai_summary wine)
-      :force-edit-mode? (boolean force-edit-key)
-      :on-save
-      (fn [new-value]
-        ;; Clear the force edit mode when saving
-        (swap! app-state update :force-edit-ai-summary dissoc (:id wine))
-        (api/update-wine app-state (:id wine) {:ai_summary new-value}))
-      :on-cancel
-      (fn []
-        ;; Clear the force edit mode when canceling
-        (swap! app-state update :force-edit-ai-summary dissoc (:id wine)))
-      :empty-text "Add wine summary"
-      :text-field-props
-      {:multiline true
-       :rows 4
-       :helperText
-       "AI-generated wine profile, taste notes, and food pairings"}}]))
-
-(defn editable-name
-  [app-state wine]
-  [editable-text-field
-   {:value (:name wine)
-    :on-save (fn [new-value]
-               (let [updated-wine (assoc wine :name new-value)]
-                 (if (valid-name-producer? updated-wine)
-                   (api/update-wine app-state (:id wine) {:name new-value})
-                   (js/alert "Either Wine Name or Producer must be provided"))))
-    :empty-text "Add wine name"
-    :inline? true
-    :display-sx theme/detail-subtitle}])
-
-(defn editable-producer
-  [app-state wine]
-  [editable-text-field
-   {:value (:producer wine)
-    :on-save (fn [new-value]
-               (let [updated-wine (assoc wine :producer new-value)]
-                 (if (valid-name-producer? updated-wine)
-                   (api/update-wine app-state (:id wine) {:producer new-value})
-                   (js/alert "Either Wine Name or Producer must be provided"))))
-    :empty-text "Add producer"
-    :inline? true
-    :display-sx theme/detail-title}])
-
-(defn editable-vintage
-  [app-state wine]
-  [editable-autocomplete-field
-   {:value (if (:vintage wine) (str (:vintage wine)) "NV")
-    :options (concat ["NV"] (vintage/default-vintage-years))
-    :free-solo true
-    :on-save
-    (fn [new-value]
-      (let [vintage-value (cond (empty? new-value) nil
-                                (= new-value "NV") nil
-                                :else (js/parseInt new-value 10))]
-        (api/update-wine app-state (:id wine) {:vintage vintage-value})))
-    :validate-fn (fn [value]
-                   (cond (empty? value) nil
-                         (= value "NV") nil
-                         :else (let [parsed (js/parseInt value 10)]
-                                 (vintage/valid-vintage? parsed))))
-    :empty-text "Add vintage"
-    :compact? true
-    :inline? true
-    :display-sx {:fontFamily theme/serif
-                 :fontSize "3rem"
-                 :fontWeight 700
-                 :lineHeight 1
-                 :fontVariantNumeric "lining-nums"
-                 :color "primary.light"}}])
-
-(defn- autocomplete-editor
-  [app-state wine field {:keys [options empty-text validate-fn free-solo?]}]
-  [editable-autocomplete-field
-   {:value (get wine field)
-    :tooltip (get common/field-descriptions field)
-    :options options
-    :free-solo (boolean free-solo?)
-    :on-save #(api/update-wine app-state (:id wine) {field %})
-    :validate-fn validate-fn
-    :empty-text empty-text
-    :compact? true
-    :inline? true}])
-
-(defn editable-designation
-  [app-state wine]
-  [autocomplete-editor app-state wine :designation
-   {:options (vec (sort common/wine-designations))
-    :empty-text "Add designation"}])
-
-(defn- classification-editor
-  [app-state wine field {:keys [empty-text validate-fn compact?]}]
-  [editable-classification-field
-   {:value (get wine field)
-    :field-type field
-    :tooltip (get common/field-descriptions field)
-    :app-state app-state
-    :wine wine
-    :classifications (:classifications @app-state)
-    :on-save #(api/update-wine app-state (:id wine) {field %})
-    :validate-fn validate-fn
-    :empty-text empty-text
-    :compact? compact?
-    :inline? true}])
-
-(defn editable-country
-  [app-state wine]
-  [classification-editor app-state wine :country
-   {:empty-text "Add country"
-    :validate-fn #(when (str/blank? %) "Country cannot be empty")}])
-
-(defn editable-region
-  [app-state wine]
-  [classification-editor app-state wine :region
-   {:empty-text "Add region"
-    :validate-fn #(when (str/blank? %) "Region cannot be empty")}])
-
-(defn editable-appellation
-  [app-state wine]
-  [classification-editor app-state wine :appellation
-   {:empty-text "Add Appellation"}])
-
-(defn editable-appellation-tier
-  [app-state wine]
-  [editable-autocomplete-field
-   {:value (:appellation_tier wine)
-    :free-solo true
-    :tooltip (:appellation_tier common/field-descriptions)
-    :options (sort common/appellation-tiers)
-    :option-label (fn [option]
-                    (if-let [full-name (get common/appellation-tier-names
-                                            option)]
-                      (str option " - " full-name)
-                      (str option)))
-    :on-save
-    (fn [new-value]
-      (api/update-wine app-state (:id wine) {:appellation_tier new-value}))
-    :empty-text "Add Tier"
-    :compact? true
-    :inline? true}])
-
-(defn editable-vineyard
-  [app-state wine]
-  [classification-editor app-state wine :vineyard
-   {:empty-text "Add vineyard" :compact? true}])
-
-(defn editable-classification
-  [app-state wine]
-  [classification-editor app-state wine :classification
-   {:empty-text "Add classification" :compact? true}])
-
-(defn editable-styles
-  [app-state wine]
-  [autocomplete-editor app-state wine :style
-   {:options (vec (sort common/wine-styles))
-    :empty-text "Add style"
-    :validate-fn #(when (str/blank? %) "Style must be provided")}])
-
-(defn editable-closure-type
-  [app-state wine]
-  [autocomplete-editor app-state wine :closure_type
-   {:options common/closure-type-options :empty-text "Select closure type"}])
-
-(defn editable-bottle-format
-  [app-state wine]
-  [autocomplete-editor app-state wine :bottle_format
-   {:options common/bottle-formats :empty-text "Select format"}])
-
-
-
-(defn wine-identity-section
-  [app-state wine]
-  [box {:sx {:mt 3 :mb 1 :display "flex" :flexDirection "column" :gap 0.5}}
-   [editable-vintage app-state wine] [editable-producer app-state wine]
-   [editable-name app-state wine]])
 
 (defn image-zoom-modal
   [image-data image-title on-remove]
@@ -491,383 +187,6 @@
    [divider {:sx {:my 1.5}}]
    [box {:sx {:mt 1}} [wine-varieties-list app-state (:id wine)]]])
 
-(defn- cellar-summary
-  [wine]
-  (let [open? (boolean (:open_bottle_opened_at wine))
-        qty (max 0 (- (:quantity wine) (if open? 1 0)))
-        original (:original_quantity wine)
-        location (when-not (str/blank? (:location wine)) (:location wine))]
-    (cond (and original location) (str qty " of " original " · " location)
-          original (str qty " of " original)
-          location (str qty " bottles · " location)
-          :else (str qty " bottles"))))
-
-(defn- open-bottle-level
-  "Inline '~N of M oz left' display for a Coravin-opened bottle."
-  [wine]
-  (let [bottle-oz (common/bottle-format->oz (:bottle_format wine))
-        poured (or (some-> (:open_bottle_oz_poured wine)
-                           js/parseFloat)
-                   0)
-        remaining (max 0 (js/Math.round (- bottle-oz poured)))]
-    [typography {:variant "body2" :color "text.secondary" :sx {:mt 0.5}}
-     (str "Includes 1 Coravin-open bottle (~"
-          remaining
-          " of "
-          (js/Math.round bottle-oz)
-          " oz left)")]))
-
-(defn- cellar-edit-modal
-  [app-state wine open?]
-  (r/with-let
-   [laid-down-val (r/atom (when-let [q (:original_quantity wine)] (str q)))
-    location-val (r/atom (or (:location wine) "")) error-msg (r/atom nil)]
-   [dialog
-    {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
-    [dialog-title "Cellar Stock"]
-    [dialog-content
-     [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
-      (let [open? (boolean (:open_bottle_opened_at wine))
-            full (max 0 (- (:quantity wine) (if open? 1 0)))]
-        [box {:sx {:display "flex" :flexDirection "column"}}
-         [quantity-control app-state (:id wine) (:quantity wine) (str full)
-          (:original_quantity wine)] (when open? [open-bottle-level wine])])
-      [box {:sx {:borderTop "1px solid rgba(255,255,255,0.08)" :mt 0.5}}]
-      [text-field
-       {:value (or @laid-down-val "")
-        :label "Laid Down"
-        :type "number"
-        :fullWidth true
-        :size "small"
-        :error (boolean @error-msg)
-        :helperText (or @error-msg "Bottles originally purchased or laid down")
-        :onChange (fn [e]
-                    (reset! laid-down-val (.. e -target -value))
-                    (reset! error-msg nil))}]
-      [text-field
-       {:value (or @location-val "")
-        :label "Location"
-        :fullWidth true
-        :size "small"
-        :placeholder "e.g. E2, Rack 2, Wine Fridge"
-        :onChange (fn [e] (reset! location-val (.. e -target -value)))}]]]
-    [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick
-       (fn []
-         (let [location (when-not (str/blank? @location-val) @location-val)
-               laid-down (when-not (str/blank? @laid-down-val)
-                           (js/parseInt @laid-down-val 10))
-               current-qty (:quantity wine)]
-           (if (and laid-down
-                    (not (js/isNaN laid-down))
-                    (< laid-down current-qty))
-             (reset! error-msg (str "Can't set laid down to " laid-down
-                                    " — current stock is " current-qty))
-             (do (api/update-wine app-state
-                                  (:id wine)
-                                  {:location location
-                                   :original_quantity laid-down})
-                 (reset! open? false)))))} "Save"]]]))
-
-(defn wine-cellar-section
-  [app-state wine]
-  (r/with-let
-   [modal-open? (r/atom false) anchor-el (r/atom nil) gift-open? (r/atom false)
-    coravin-open? (r/atom false) drink-open? (r/atom false)]
-   (let [wine-id (:id wine)
-         qty (:quantity wine)
-         bottle-open? (boolean (:open_bottle_opened_at wine))]
-     [detail-section {:icon inventory :label "Cellar"}
-      [box {:sx {:display "flex" :alignItems "center" :gap 1}}
-       [box
-        {:sx {:flex 1
-              :cursor "pointer"
-              :borderRadius 1
-              :px 0.5
-              :mx -0.5
-              "&:hover" {:bgcolor "action.hover"}}
-         :onClick #(reset! modal-open? true)}
-        [typography {:variant "body1"} (cellar-summary wine)]]
-       [tooltip {:title "Bottle actions" :arrow true}
-        [:span
-         [icon-button
-          {:size "small"
-           :color "inherit"
-           :disabled (zero? qty)
-           :onClick
-           (fn [e] (.stopPropagation e) (reset! anchor-el (.-currentTarget e)))}
-          [wine-bar {:fontSize "small" :color "primary"}]]]]
-       [minus-menu app-state wine-id anchor-el #{:drink :coravin-pour :gift}
-        #(reset! gift-open? true) #(reset! coravin-open? true)
-        #(reset! drink-open? true)]]
-      (when bottle-open? [open-bottle-level wine])
-      (when @modal-open? [cellar-edit-modal app-state wine modal-open?])
-      (when @drink-open?
-        [drink-dialog app-state wine-id qty drink-open?
-         #(reset! drink-open? false)])
-      (when @gift-open?
-        [gift-dialog app-state wine-id gift-open? #(reset! gift-open? false)])
-      (when @coravin-open?
-        [coravin-pour-dialog app-state wine-id coravin-open?
-         #(reset! coravin-open? false)])])))
-
-(defn- provenance-summary
-  [wine]
-  (let [price (:price wine)
-        purveyor (when-not (str/blank? (:purveyor wine)) (:purveyor wine))
-        date (format-date-iso (:purchase_date wine))
-        price-str (when price (str "$" (gstring/format "%.2f" price)))]
-    (if (and (nil? price-str) (nil? purveyor) (nil? date))
-      "Add purchase details"
-      (str/join
-       " "
-       (filter identity
-               [(when price-str (str "Paid " price-str))
-                (when purveyor
-                  (if price-str (str "from " purveyor) (str "From " purveyor)))
-                (when date (str "on " date))])))))
-
-(defn- provenance-edit-modal
-  [app-state wine open?]
-  (r/with-let
-   [price-val (r/atom (when-let [p (:price wine)] (gstring/format "%.2f" p)))
-    purveyor-val (r/atom (or (:purveyor wine) "")) date-val
-    (r/atom (format-date-iso (:purchase_date wine)))]
-   (let [all-wines (:wines @app-state)
-         existing-purveyors (->> all-wines
-                                 (map :purveyor)
-                                 (filter #(and % (not (str/blank? %))))
-                                 (distinct)
-                                 (sort)
-                                 (vec))]
-     [dialog
-      {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
-      [dialog-title "Purchase Details"]
-      [dialog-content
-       [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-        [text-field
-         {:value (or @price-val "")
-          :type "number"
-          :label "Price"
-          :fullWidth true
-          :InputProps {:startAdornment "$"}
-          :onChange (fn [e] (reset! price-val (.. e -target -value)))}]
-        [autocomplete
-         {:freeSolo true
-          :options existing-purveyors
-          :value @purveyor-val
-          :onChange (fn [_ v] (when v (reset! purveyor-val v)))
-          :onInputChange (fn [_ v _] (reset! purveyor-val v))
-          :renderInput (fn [params]
-                         (let [props (gobj/clone params)]
-                           (gobj/set props "label" "Purchased From")
-                           (gobj/set props "variant" "outlined")
-                           (gobj/set props "fullWidth" true)
-                           (r/create-element TextField props)))}]
-        [text-field
-         {:value (or @date-val "")
-          :type "date"
-          :label "Purchase Date"
-          :fullWidth true
-          :InputLabelProps {:shrink true}
-          :onChange (fn [e] (reset! date-val (.. e -target -value)))}]]]
-      [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
-       [button
-        {:variant "contained"
-         :onClick (fn []
-                    (let [price (when-not (str/blank? @price-val)
-                                  (js/parseFloat @price-val))
-                          purveyor (when-not (str/blank? @purveyor-val)
-                                     @purveyor-val)
-                          date (when-not (str/blank? @date-val) @date-val)]
-                      (api/update-wine
-                       app-state
-                       (:id wine)
-                       {:price price :purveyor purveyor :purchase_date date})
-                      (reset! open? false)))} "Save"]]])))
-
-(defn wine-provenance-section
-  [app-state wine]
-  (r/with-let [open? (r/atom false)]
-              [detail-section {:icon receipt :label "Provenance"}
-               [box
-                {:sx {:cursor "pointer"
-                      :borderRadius 1
-                      :px 0.5
-                      :mx -0.5
-                      "&:hover" {:bgcolor "action.hover"}}
-                 :onClick #(reset! open? true)}
-                [typography {:variant "body1"} (provenance-summary wine)]]
-               (when @open? [provenance-edit-modal app-state wine open?])]))
-
-(defn wine-tasting-window-suggestion-buttons
-  [app-state wine]
-  (when-let [suggestion (get @app-state :window-suggestion)]
-    [box {:sx {:mt 2 :display "flex" :gap 1 :flexWrap "wrap"}}
-     [button
-      {:variant "contained"
-       :color "secondary"
-       :size "small"
-       :onClick (fn []
-                  (let [{:keys [drink_from_year drink_until_year message]}
-                        suggestion]
-                    (api/update-wine app-state
-                                     (:id wine)
-                                     {:drink_from_year drink_from_year
-                                      :drink_until_year drink_until_year
-                                      :tasting_window_commentary message})
-                    (swap! app-state dissoc :window-suggestion)))}
-      "Apply Suggestion"]
-     [button
-      {:variant "outlined"
-       :color "secondary"
-       :size "small"
-       :onClick (fn []
-                  (let [{:keys [drink_from_year]} suggestion]
-                    (api/update-wine app-state
-                                     (:id wine)
-                                     {:drink_from_year drink_from_year})))}
-      "Apply From Year"]
-     [button
-      {:variant "outlined"
-       :color "secondary"
-       :size "small"
-       :onClick (fn []
-                  (let [{:keys [drink_until_year]} suggestion]
-                    (api/update-wine app-state
-                                     (:id wine)
-                                     {:drink_until_year drink_until_year})))}
-      "Apply Until Year"]
-     [button
-      {:variant "outlined"
-       :color "secondary"
-       :size "small"
-       :onClick (fn []
-                  (let [{:keys [message]} suggestion]
-                    (api/update-wine app-state
-                                     (:id wine)
-                                     {:tasting_window_commentary message})))}
-      "Apply Commentary"]
-     [button
-      {:variant "text"
-       :color "secondary"
-       :size "small"
-       :onClick (fn [] (swap! app-state dissoc :window-suggestion))}
-      "Dismiss"]]))
-
-(defn wine-tasting-window-suggestion
-  [app-state wine]
-  (let [suggesting? (:suggesting-drinking-window? @app-state)]
-    [box {:sx {:mt 2}}
-     [box {:sx {:display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
-      [button
-       {:variant "outlined"
-        :color "secondary"
-        :size "small"
-        :disabled suggesting?
-        :startIcon (when-not suggesting? (r/as-element [auto-awesome]))
-        :onClick (fn []
-                   (-> (api/suggest-drinking-window app-state wine)
-                       (.then (fn [{:keys [drink_from_year drink_until_year
-                                           confidence reasoning]
-                                    :as suggestion}]
-                                (swap! app-state assoc
-                                  :window-suggestion
-                                  (assoc suggestion
-                                         :message
-                                         (str "Drinking window suggested: "
-                                              drink_from_year
-                                              " to " drink_until_year
-                                              " (" confidence
-                                              " confidence)\n\n" reasoning)))))
-                       (.catch (fn [error]
-                                 (swap! app-state assoc
-                                   :error
-                                   (str "Failed to suggest drinking window: "
-                                        error))))))}
-       (if suggesting?
-         [box {:sx {:display "flex" :alignItems "center"}}
-          [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
-         "Suggest Drinking Window")]
-      [provider-toggle-button app-state
-       {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]]
-     [typography {:variant "body2" :sx {:mt 1}}
-      (get-in @app-state [:window-suggestion :message])]
-     [wine-tasting-window-suggestion-buttons app-state wine]]))
-
-(defn- drinking-window-modal
-  [app-state wine open?]
-  (r/with-let
-   [from-val (r/atom (when-let [y (:drink_from_year wine)] (str y))) until-val
-    (r/atom (when-let [y (:drink_until_year wine)] (str y))) error-msg
-    (r/atom nil)]
-   [dialog
-    {:open true :onClose #(reset! open? false) :maxWidth "xs" :fullWidth true}
-    [dialog-title "Drinking Window"]
-    [dialog-content
-     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-      [text-field
-       {:value (or @from-val "")
-        :type "number"
-        :label "Drink From Year"
-        :fullWidth true
-        :onChange (fn [e]
-                    (reset! from-val (.. e -target -value))
-                    (reset! error-msg nil))}]
-      [text-field
-       {:value (or @until-val "")
-        :type "number"
-        :label "Drink Until Year"
-        :fullWidth true
-        :error (boolean @error-msg)
-        :helperText @error-msg
-        :onChange (fn [e]
-                    (reset! until-val (.. e -target -value))
-                    (reset! error-msg nil))}]]]
-    [dialog-actions [button {:onClick #(reset! open? false)} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (let [from (when-not (str/blank? @from-val)
-                               (js/parseInt @from-val 10))
-                        until (when-not (str/blank? @until-val)
-                                (js/parseInt @until-val 10))
-                        err (vintage/valid-tasting-window? from until)]
-                    (if err
-                      (reset! error-msg err)
-                      (do (api/update-wine app-state
-                                           (:id wine)
-                                           {:drink_from_year from
-                                            :drink_until_year until})
-                          (reset! open? false)))))} "Save"]]]))
-
-(defn wine-tasting-window-section
-  [app-state wine]
-  (r/with-let
-   [open? (r/atom false)]
-   [detail-section {:icon schedule :label "Drinking Window"}
-    [box {:sx {:display "flex" :flexDirection "column" :gap 1}}
-     (let [status (vintage/tasting-window-status wine)
-           window-text (vintage/format-tasting-window-text wine)]
-       [typography
-        {:variant "body2"
-         :color (if (str/blank? window-text)
-                  "text.secondary"
-                  (vintage/tasting-window-color status))
-         :sx {:fontStyle "italic"
-              :cursor "pointer"
-              :borderRadius 1
-              :px 0.5
-              :mx -0.5
-              "&:hover" {:bgcolor "action.hover"}}
-         :onClick #(reset! open? true)}
-        (if (str/blank? window-text) "Set drinking window" window-text)])
-     [box {:sx {:mt 1}} [editable-tasting-window-commentary app-state wine]]
-     [wine-tasting-window-suggestion app-state wine]]
-    (when @open? [drinking-window-modal app-state wine open?])]))
-
 (defn wine-ai-summary-section
   [app-state wine]
   (let [generating? (:generating-ai-summary? @app-state)]
@@ -877,39 +196,32 @@
       [box
        {:sx
         {:mt 1 :display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
-       [button
-        {:variant "outlined"
-         :color "secondary"
-         :size "small"
-         :disabled generating?
-         :startIcon (when-not generating? (r/as-element [auto-awesome]))
-         :onClick
-         (fn []
-           (swap! app-state assoc :generating-ai-summary? true)
-           (-> (api/generate-wine-summary app-state wine)
-               (.then (fn [summary]
-                        (swap! app-state update
-                          :wines
-                          (fn [wines]
-                            (map #(if (= (:id %) (:id wine))
-                                    (assoc % :ai_summary summary)
-                                    %)
-                                 wines)))
-                        (swap! app-state assoc-in
-                          [:force-edit-ai-summary (:id wine)]
-                          true)
-                        (swap! app-state dissoc :generating-ai-summary?)))
-               (.catch (fn [error]
-                         (swap! app-state assoc
-                           :error
-                           (str "Failed to generate summary: " error))
-                         (swap! app-state dissoc :generating-ai-summary?)))))}
-        (if generating?
-          [box {:sx {:display "flex" :alignItems "center"}}
-           [circular-progress {:size 20 :sx {:mr 1}}] "Generating..."]
-          "Generate AI Summary")]
-       [provider-toggle-button app-state
-        {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]]]]))
+       [ai-button app-state
+        {:label "Generate AI Summary"
+         :busy-label "Generating..."
+         :busy? generating?
+         :on-click (fn []
+                     (swap! app-state assoc :generating-ai-summary? true)
+                     (-> (api/generate-wine-summary app-state wine)
+                         (.then (fn [summary]
+                                  (swap! app-state update
+                                    :wines
+                                    (fn [wines]
+                                      (map #(if (= (:id %) (:id wine))
+                                              (assoc % :ai_summary summary)
+                                              %)
+                                           wines)))
+                                  (swap! app-state assoc-in
+                                    [:force-edit-ai-summary (:id wine)]
+                                    true)
+                                  (swap! app-state dissoc
+                                    :generating-ai-summary?)))
+                         (.catch (fn [error]
+                                   (swap! app-state assoc
+                                     :error
+                                     (str "Failed to generate summary: " error))
+                                   (swap! app-state dissoc
+                                     :generating-ai-summary?)))))}]]]]))
 
 (defn wine-technical-notes-section
   [app-state wine]
@@ -919,321 +231,6 @@
      :on-change
      (fn [new-metadata]
        (api/update-wine app-state (:id wine) {:metadata new-metadata}))}]])
-
-(defn history-date-cell
-  [record]
-  [table-cell {:sx {:whiteSpace "nowrap"}}
-   (format-date-iso (:occurred_at record))])
-
-(defn history-change-cell
-  [record]
-  [table-cell
-   {:sx {:color
-         (if (pos? (:change_amount record)) "secondary.light" "error.light")
-         :fontWeight "bold"}}
-   (if (pos? (:change_amount record))
-     (str "+" (:change_amount record))
-     (:change_amount record))])
-
-(def history-reason-display->key
-  (into {} (for [[k v] common/inventory-reasons] [v k])))
-
-(defn history-reason-cell
-  [record]
-  (let [reason-key (:reason record)
-        display-label (get common/inventory-reasons
-                           (str/lower-case (or reason-key ""))
-                           reason-key)]
-    [table-cell display-label]))
-
-(defn- enrich-history-with-display-balance
-  "Walk history chronologically, track open-bottle state, and attach
-  :display_prev_quantity / :display_new_quantity to each row. The display values
-  subtract 1 for an in-progress open bottle so the inventory-history balance cell
-  matches the 'full bottles' count shown elsewhere (wine card, etc).
-
-  Returns the records re-sorted in the original descending order."
-  [history]
-  (let [ascending (sort-by (juxt :occurred_at :id) history)
-        enriched
-        (reduce
-         (fn [{:keys [is-open rows]} row]
-           (let [open-before is-open
-                 open-after (cond (= "coravin_pour" (:reason row)) true
-                                  (and is-open (= "drunk" (:reason row))) false
-                                  :else is-open)
-                 dp (- (or (:previous_quantity row) 0) (if open-before 1 0))
-                 dn (- (or (:new_quantity row) 0) (if open-after 1 0))]
-             {:is-open open-after
-              :rows (conj rows
-                          (assoc row
-                                 :display_prev_quantity dp
-                                 :display_new_quantity dn))}))
-         {:is-open false :rows []}
-         ascending)]
-    (reverse (:rows enriched))))
-
-(defn history-balance-cell
-  [record]
-  (let [prev (or (:display_prev_quantity record) (:previous_quantity record))
-        new (or (:display_new_quantity record) (:new_quantity record))]
-    [table-cell {:sx {:whiteSpace "nowrap"}}
-     (if-let [oq (:original_quantity record)]
-       (if (= (str/lower-case (or (:reason record) "")) "restock")
-         (let [prev-oq (- oq (:change_amount record))]
-           (str prev " / " prev-oq " → " new " / " oq))
-         (str prev " / " oq " → " new " / " oq))
-       (str prev " → " new))]))
-
-(defn history-notes-cell [record] [table-cell (:notes record)])
-
-(defn coravin-pour-edit-dialog
-  [app-state wine-id record open? on-close]
-  (r/with-let
-   [oz-atom (r/atom (str (js/Math.round (js/parseFloat (or (:oz record) "0")))))
-    other-state
-    (r/atom {:occurred_at (format-date-iso (:occurred_at record))
-             :notes (or (:notes record) "")})]
-   [dialog {:open @open? :onClose on-close :maxWidth "sm" :fullWidth true}
-    [dialog-title "Edit Coravin Pour"]
-    [dialog-content
-     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-      [oz-input-field oz-atom
-       {:helper-text "Editing this updates the open bottle's running total."}]
-      [text-field
-       {:type "date"
-        :label "Date"
-        :value (:occurred_at @other-state)
-        :onChange #(swap! other-state assoc :occurred_at (.. % -target -value))
-        :fullWidth true
-        :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
-             {:filter "invert(0.7)" :opacity 0.7}}}]
-      [text-field
-       {:label "Notes"
-        :value (:notes @other-state)
-        :onChange #(swap! other-state assoc :notes (.. % -target -value))
-        :multiline true
-        :rows 3
-        :fullWidth true
-        :variant "outlined"}]]]
-    [dialog-actions
-     [button
-      {:color "error"
-       :sx {:mr "auto"}
-       :onClick
-       (fn []
-         (when
-           (js/confirm
-            "Delete this pour? The open bottle's running total will adjust.")
-           (api/delete-inventory-history app-state wine-id (:id record))
-           (on-close)))} "Delete"] [button {:onClick on-close} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (let [amount (js/parseFloat @oz-atom)]
-                    (when (and (not (js/isNaN amount)) (pos? amount))
-                      (api/update-inventory-history
-                       app-state
-                       wine-id
-                       (:id record)
-                       {:oz amount
-                        :occurred_at (:occurred_at @other-state)
-                        :notes (when-not (str/blank? (:notes @other-state))
-                                 (str/trim (:notes @other-state)))})
-                      (on-close))))} "Save"]]]))
-
-(defn history-edit-dialog
-  [app-state wine-id record open? on-close]
-  (r/with-let
-   [local-state (r/atom nil)]
-   (when @open?
-     (when (nil? @local-state)
-       (let [reason-key (:reason record)
-             display-label (get common/inventory-reasons
-                                (str/lower-case (or reason-key ""))
-                                reason-key)]
-         (reset! local-state {:occurred_at (format-date-iso (:occurred_at
-                                                             record))
-                              :reason reason-key
-                              :reason-display display-label
-                              :bottles (str (abs (:change_amount record)))
-                              :notes (:notes record)})))
-     [dialog {:open @open? :onClose on-close :maxWidth "sm" :fullWidth true}
-      [dialog-title "Edit History Record"]
-      [dialog-content
-       [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-        [text-field
-         {:type "date"
-          :label "Date"
-          :value (:occurred_at @local-state)
-          :onChange
-          #(swap! local-state assoc :occurred_at (.. % -target -value))
-          :fullWidth true
-          :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
-               {:filter "invert(0.7)" :opacity 0.7}}}]
-        [text-field
-         {:type "number"
-          :label "Bottles"
-          :value (:bottles @local-state)
-          :onChange #(swap! local-state assoc :bottles (.. % -target -value))
-          :fullWidth true
-          :helperText "Changing this adjusts your cellar quantity"
-          :InputProps {:inputProps {:step "1" :min "1"}}}]
-        [autocomplete
-         {:freeSolo true
-          :options (sort (vals common/inventory-reasons))
-          :value (:reason-display @local-state)
-          :onInputChange
-          (fn [_ new-display _]
-            (let [k (get history-reason-display->key new-display new-display)]
-              (swap! local-state assoc :reason k :reason-display new-display)))
-          :renderInput (fn [params]
-                         (let [props (gobj/clone params)]
-                           (gobj/set props "label" "Reason")
-                           (gobj/set props "variant" "outlined")
-                           (gobj/set props "fullWidth" true)
-                           (r/create-element TextField props)))}]
-        [text-field
-         {:label "Notes"
-          :value (:notes @local-state)
-          :onChange #(swap! local-state assoc :notes (.. % -target -value))
-          :multiline true
-          :rows 4
-          :fullWidth true
-          :variant "outlined"}]]]
-      [dialog-actions
-       [button
-        {:color "error"
-         :sx {:mr "auto"}
-         :onClick
-         (fn []
-           (when (js/confirm
-                  "Delete this history record? Quantity will NOT change.")
-             (api/delete-inventory-history app-state wine-id (:id record))
-             (on-close)))} "Delete"] [button {:onClick on-close} "Cancel"]
-       [button
-        {:variant "contained"
-         :onClick (fn []
-                    (let [n (js/parseInt (:bottles @local-state) 10)
-                          sign (if (neg? (:change_amount record)) -1 1)]
-                      (when (and (not (js/isNaN n)) (pos? n))
-                        (api/update-inventory-history
-                         app-state
-                         wine-id
-                         (:id record)
-                         (assoc @local-state :change_amount (* sign n)))
-                        (on-close))))} "Save Changes"]]])))
-
-
-(defn- pour-notes-text
-  "Combined oz + user notes string for a coravin_pour history row."
-  [record]
-  (let [oz (:oz record)
-        notes (:notes record)
-        oz-str (when oz (str (gstring/format "%.1f" (js/parseFloat oz)) " oz"))]
-    (cond (and oz-str (seq notes)) (str oz-str " — " notes)
-          oz-str oz-str
-          :else (or notes ""))))
-
-(defn- coravin-pour-notes-cell [record] [table-cell (pour-notes-text record)])
-
-(defn inventory-history-row
-  [app-state wine-id record]
-  (r/with-let [edit-open? (r/atom false)]
-              (let [coravin? (= "coravin_pour" (:reason record))]
-                [:<>
-                 (when @edit-open?
-                   (if coravin?
-                     [coravin-pour-edit-dialog app-state wine-id record
-                      edit-open? #(reset! edit-open? false)]
-                     [history-edit-dialog app-state wine-id record edit-open?
-                      #(reset! edit-open? false)]))
-                 [table-row
-                  {:onClick #(reset! edit-open? true)
-                   :sx {:cursor "pointer" "&:hover" {:bgcolor "action.hover"}}}
-                  [history-date-cell record] [history-change-cell record]
-                  [history-reason-cell record] [history-balance-cell record]
-                  (if coravin?
-                    [coravin-pour-notes-cell record]
-                    [history-notes-cell record])]])))
-
-(defn- open-bottle-pour-row
-  [app-state wine-id record]
-  (r/with-let [edit-open? (r/atom false)]
-              [:<>
-               (when @edit-open?
-                 [coravin-pour-edit-dialog app-state wine-id record edit-open?
-                  #(reset! edit-open? false)])
-               [table-row
-                {:onClick #(reset! edit-open? true)
-                 :sx {:cursor "pointer" "&:hover" {:bgcolor "action.hover"}}}
-                [table-cell {:sx {:whiteSpace "nowrap" :color "text.secondary"}}
-                 (format-date-iso (:occurred_at record))]
-                [table-cell {:sx {:whiteSpace "nowrap"}}
-                 (pour-notes-text record)]]]))
-
-(defn open-bottle-section
-  [app-state wine]
-  (when (:open_bottle_opened_at wine)
-    (let [bottle-oz (common/bottle-format->oz (:bottle_format wine))
-          poured (or (some-> (:open_bottle_oz_poured wine)
-                             js/parseFloat)
-                     0)
-          remaining (max 0 (js/Math.round (- bottle-oz poured)))
-          history (get-in @app-state [:inventory-history (:id wine)])
-          ;; coravin_pour rows since the most recent drunk row (or all if
-          ;; none)
-          last-drunk-id (->> history
-                             (filter #(= (:reason %) "drunk"))
-                             (map :id)
-                             (apply max 0))
-          pours (->> history
-                     (filter #(and (= (:reason %) "coravin_pour")
-                                   (> (:id %) last-drunk-id)))
-                     (sort-by :id))]
-      [detail-section {:icon wine-bar :label "Open Bottle"}
-       [box
-        {:sx {:display "flex" :alignItems "baseline" :gap 2 :flexWrap "wrap"}}
-        [typography {:variant "body2" :color "text.secondary"}
-         (str "Opened " (format-date-iso (:open_bottle_opened_at wine)))]
-        [typography {:variant "body2"}
-         (str "~"
-              remaining
-              " oz left "
-              "(of "
-              (js/Math.round bottle-oz)
-              " oz)")]]
-       (when (seq pours)
-         [box {:sx {:mt 1.5 :overflow-x "auto"}}
-          [table
-           {:size "small" :sx {:width "100%" "& td" {:borderBottom "none"}}}
-           [table-body
-            (for [p pours]
-              ^{:key (:id p)} [open-bottle-pour-row app-state (:id wine) p])]]])
-       [box {:sx {:mt 1.5}}
-        [button
-         {:size "small"
-          :variant "outlined"
-          :color "primary"
-          :onClick #(api/finish-open-bottle app-state (:id wine))}
-         "Finish bottle"]]])))
-
-(defn inventory-history-section
-  [app-state wine]
-  (let [raw-history (get-in @app-state [:inventory-history (:id wine)])
-        history (enrich-history-with-display-balance raw-history)]
-    [detail-section {:icon history-icon :label "Inventory History"}
-     (if (empty? history)
-       [typography
-        {:variant "body2" :color "text.secondary" :fontStyle "italic"}
-        "No inventory history recorded yet."]
-       [box {:sx {:overflow-x "auto"}}
-        [table
-         {:size "small" :sx {:width "100%" "& td" {:borderBottom "none" :px 1}}}
-         [table-body
-          (for [record history]
-            ^{:key (:id record)}
-            [inventory-history-row app-state (:id wine) record])]]])]))
 
 (defn wine-tasting-notes-section
   [app-state wine]
@@ -1289,26 +286,26 @@
          :minHeight "400px"}} [circular-progress]
    [typography {:sx {:ml 2}} "Loading wine details..."]])
 
-
-(defn delete-wine-confirmation-text
-  "Generate confirmation text for wine deletion"
-  [selected-wine]
-  (str "Are you sure you want to delete "
-       (or (:producer selected-wine) "")
-       (when (and (:producer selected-wine) (:name selected-wine)) " ")
-       (or (:name selected-wine) "")
-       (when (:vintage selected-wine) (str " " (:vintage selected-wine)))
-       "? This action cannot be undone."))
-
 (defn delete-button-click-handler
   "Handle delete wine button click"
   [app-state selected-wine-id selected-wine]
   (fn []
-    (when (js/confirm (delete-wine-confirmation-text selected-wine))
-      ;; A failed delete is already on the banner; stay on the wine.
-      (.then (api/delete-wine app-state selected-wine-id)
-             #(nav/replace-wines!)
-             (fn [_])))))
+    (confirm! app-state
+              {:title (str "Delete "
+                           (str/join " "
+                                     (remove nil?
+                                             [(:producer selected-wine)
+                                              (:name selected-wine)
+                                              (:vintage selected-wine)]))
+                           "?")
+               :message "This wine and its history will be gone for good."
+               :confirm-label "Delete"
+               :danger? true
+               ;; A failed delete is already on the banner; stay on the
+               ;; wine.
+               :on-confirm #(.then (api/delete-wine app-state selected-wine-id)
+                                   (fn [_] (nav/replace-wines!))
+                                   (fn [_]))})))
 
 (defn share-wine-url
   "Build a shareable URL for the given wine id"

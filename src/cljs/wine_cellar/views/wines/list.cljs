@@ -1,5 +1,7 @@
 (ns wine-cellar.views.wines.list
   (:require
+    [wine-cellar.views.components.placeholders :refer
+     [loading-block empty-state]]
     [clojure.string :as str]
     [reagent.core :as r]
     [wine-cellar.nav :as nav]
@@ -12,7 +14,6 @@
     [reagent-mui.material.paper :refer [paper]]
     [reagent-mui.material.typography :refer [typography]]
     [reagent-mui.material.box :refer [box]]
-    [reagent-mui.material.circular-progress :refer [circular-progress]]
     [reagent-mui.material.linear-progress :refer [linear-progress]]
     [reagent-mui.material.icon-button :refer [icon-button]]
     [reagent-mui.material.toggle-button-group :refer [toggle-button-group]]
@@ -383,13 +384,9 @@
       (let [state @app-state
             wines (:wines state)]
         [box {:sx {:width "100%" :mt 3}}
-         (cond (:loading? state)
-               [box {:display "flex" :justifyContent "center" :p 4}
-                [circular-progress]]
-               (empty? wines) [paper
-                               {:elevation 2 :sx {:p 3 :textAlign "center"}}
-                               [typography {:variant "h6"}
-                                "No wines yet. Add your first wine above!"]]
+         (cond (:loading? state) [loading-block]
+               (empty? wines) [empty-state
+                               "No wines yet. Add your first wine above!"]
                :else
                (let [selected-ids (or (:selected-wine-ids state) #{})
                      selected-wines

@@ -1,26 +1,27 @@
 (ns wine-cellar.views.components.form
-  (:require
-    [reagent.core :as r]
-    [wine-cellar.views.components :refer [form-field-style format-label]]
-    [reagent-mui.material.button :refer [button]]
-    [reagent-mui.material.text-field :as mui-text-field]
-    [reagent-mui.material.form-control :refer [form-control]]
-    [reagent-mui.material.input-label :refer [input-label]]
-    [reagent-mui.material.grid :refer [grid]]
-    [reagent-mui.material.typography :refer [typography]]
-    [reagent-mui.material.box :refer [box]]
-    [reagent-mui.material.checkbox :refer [checkbox]]
-    [reagent-mui.material.form-control-label :refer [form-control-label]]
-    [reagent-mui.material.form-helper-text :refer [form-helper-text]]
-    [reagent-mui.material.radio :refer [radio]]
-    [reagent-mui.material.radio-group :refer [radio-group]]
-    [reagent-mui.material.switch :refer [switch]]
-    [reagent-mui.material.slider :refer [slider]]
-    [reagent-mui.material.paper :refer [paper]]
-    [reagent-mui.material.autocomplete :refer [autocomplete]]
-    [reagent-mui.material.circular-progress :refer [circular-progress]]
-    [reagent-mui.material.tooltip :as mui-tooltip]
-    [wine-cellar.utils.mui :refer [safe-js-props]]))
+  (:require [reagent.core :as r]
+            [wine-cellar.views.components :refer
+             [date-picker-sx form-field-style format-label]]
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.text-field :as mui-text-field]
+            [reagent-mui.material.form-control :refer [form-control]]
+            [reagent-mui.material.input-label :refer [input-label]]
+            [reagent-mui.material.grid :refer [grid]]
+            [reagent-mui.material.typography :refer [typography]]
+            [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.checkbox :refer [checkbox]]
+            [reagent-mui.material.form-control-label :refer
+             [form-control-label]]
+            [reagent-mui.material.form-helper-text :refer [form-helper-text]]
+            [reagent-mui.material.radio :refer [radio]]
+            [reagent-mui.material.radio-group :refer [radio-group]]
+            [reagent-mui.material.switch :refer [switch]]
+            [reagent-mui.material.slider :refer [slider]]
+            [reagent-mui.material.paper :refer [paper]]
+            [reagent-mui.material.autocomplete :refer [autocomplete]]
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [reagent-mui.material.tooltip :as mui-tooltip]
+            [wine-cellar.utils.mui :refer [safe-js-props]]))
 
 ;; Form container components
 (defn form-container
@@ -231,10 +232,7 @@
     :fullWidth false
     :variant "outlined"
     :InputLabelProps {:shrink true}
-    :sx (merge form-field-style
-               {"& input[type=date]::-webkit-calendar-picker-indicator"
-                {:filter "invert(0.7)" ;; Lighten the calendar icon
-                 :opacity 0.7}})
+    :sx (merge form-field-style date-picker-sx)
     :on-change #(on-change (.. % -target -value))}])
 
 (defn select-field

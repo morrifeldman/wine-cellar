@@ -1,7 +1,11 @@
 (ns wine-cellar.views.components.ai-provider-toggle
-  (:require [wine-cellar.common :as common]
+  (:require [reagent.core :as r]
+            [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
+            [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.tooltip :refer [tooltip]]))
+            [reagent-mui.material.circular-progress :refer [circular-progress]]
+            [reagent-mui.material.tooltip :refer [tooltip]]
+            [wine-cellar.common :as common]))
 
 (defn toggle-provider!
   [app-state]
@@ -18,8 +22,7 @@
   (boolean (and (exists? js/navigator)
                 (pos? (or (.-maxTouchPoints js/navigator) 0)))))
 
-;; Reusable toggle to flip between Anthropic and OpenAI without duplicating
-;; logic.
+;; Cycles through the AI providers.
 (defn provider-toggle-button
   ([app-state] (provider-toggle-button app-state {}))
   ([app-state
@@ -70,3 +73,25 @@
               :color "text.primary"
               :height "28px"
               :lineHeight 1.2}} (str "Effort: " effort)]])))
+
+(defn ai-button
+  "A button that asks the AI for something, followed by the provider toggle
+   so the provider can be changed first. While `busy?` it shows a spinner
+   and `busy-label`."
+  [app-state
+   {:keys [label busy-label busy? disabled? on-click variant]
+    :or {variant "outlined"}}]
+  [:<>
+   [button
+    {:variant variant
+     :color "secondary"
+     :size "small"
+     :disabled (boolean (or busy? disabled?))
+     :startIcon (when-not busy? (r/as-element [auto-awesome]))
+     :onClick on-click}
+    (if busy?
+      [box {:sx {:display "flex" :alignItems "center"}}
+       [circular-progress {:size 18 :sx {:mr 1}}] busy-label]
+      label)]
+   [provider-toggle-button app-state
+    {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]])

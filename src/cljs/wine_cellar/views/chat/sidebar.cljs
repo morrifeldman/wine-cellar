@@ -1,5 +1,7 @@
 (ns wine-cellar.views.chat.sidebar
-  (:require [reagent.core :as r]
+  (:require [wine-cellar.views.components.placeholders :refer
+             [loading-block empty-state]]
+            [reagent.core :as r]
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.typography :refer [typography]]
@@ -62,9 +64,8 @@
         ;; For active conversation, use client-side match count for
         ;; consistency with navigation counter
         chat-state (:chat @app-state)
-        display-match-count (if (and active? (seq (:search-matches chat-state)))
-                              (count (:search-matches chat-state))
-                              match_count)]
+        matches (when active? (chat-utils/search-matches chat-state))
+        display-match-count (if (seq matches) (count matches) match_count)]
     [box
      {:on-click #(if on-select
                    (on-select conversation)
@@ -127,18 +128,16 @@
 (defn- conversation-content
   [status items]
   (case status
-    :loading [box {:sx {:display "flex" :justify-content "center" :py 3}}
-              [circular-progress {:size 24}]]
-    :empty [typography
-            {:variant "body2" :sx {:px 2 :py 2 :color "text.secondary"}}
-            "No conversations yet"]
+    :loading [loading-block]
+    :empty [box {:sx {:px 2}}
+            [empty-state {:inline? true} "No conversations yet"]]
     (into [:<>] items)))
 
 (defn- conversation-search-bar
   [app-state search-text handle-search]
   (let [chat-state (:chat @app-state)
         term (:local-search-term chat-state)
-        matches (:search-matches chat-state [])
+        matches (chat-utils/search-matches chat-state)
         current-idx (:current-match-index chat-state 0)
         total (count matches)
         search-val search-text

@@ -63,12 +63,12 @@ below.
 - [x] 2.5 Memoized `filtered-sorted-wines`. Not done: regrouping app-state keys, which would touch most views for little gain now that `request!` owns the loading and error keys.
 
 **Phase 4: shared UI (§3)**
-- [ ] 3.1 Theme tokens + `tint-chip`
-- [ ] 3.2 `confirm!` dialog
-- [ ] 3.3 `form-dialog` + `ai-button`
-- [ ] 3.4 Wine detail field table; split `detail.cljs`
-- [ ] 3.5 `list-page`, `empty-state`, `detail-actions`, `summary-card`
-- [ ] 3.6–3.10 Bar editing paradigm, dates, state placement, long components
+- [x] 3.1 Theme tokens (`theme/tint`, `theme/gold`) + `theme/chip-sx` for the bar chips. Chart palettes, wine-colour swatches and the dev debug panel keep their own colours.
+- [x] 3.2 `confirm!` dialog
+- [x] 3.3 `form-dialog` + `ai-button`
+- [x] 3.4 Wine detail field table; split `detail.cljs` into `detail/{fields,cellar,drinking_window,history}.cljs`
+- [x] 3.5 `list-page`, `empty-state`, `detail-actions`, `summary-card`
+- [x] 3.6–3.10 Dates: `date-input` and local `today-iso` (3.7). Long components: admin menu as a data table, chat search derived instead of stored, chat actions own `[:chat :messages]` (3.9). Recipe cards follow the card rule (3.10). Not done: one bar editing paradigm (3.6) and moving bar filters into app-state (3.8); both change how the bar behaves for no code saving, and `recipe-display` / `filter-header` are long but not duplicated.
 
 **Phase 5: single source of truth for rules (§4)**
 - [ ] 4.1 Range predicates in `common.cljc`

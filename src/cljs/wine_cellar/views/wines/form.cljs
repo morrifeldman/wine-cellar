@@ -1,9 +1,6 @@
 (ns wine-cellar.views.wines.form
   (:require [clojure.string :as str]
-            [reagent-mui.icons.auto-awesome :refer [auto-awesome]]
             [reagent-mui.material.box :refer [box]]
-            [reagent-mui.material.button :refer [button]]
-            [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent.core :as r]
             [wine-cellar.api :as api]
@@ -20,7 +17,7 @@
               uncontrolled-text-area-field uncontrolled-text-field year-field]]
             [wine-cellar.views.components.image-upload :refer [image-upload]]
             [wine-cellar.views.components.ai-provider-toggle :refer
-             [provider-toggle-button]]))
+             [ai-button]]))
 
 (defn vintage
   [app-state new-wine]
@@ -200,12 +197,12 @@
                   :flexWrap "wrap"
                   :gap 1
                   :justifyContent "center"}}
-            [button
-             {:variant "contained"
-              :color "secondary"
-              :size "small"
-              :disabled (or submitting? analyzing?)
-              :onClick
+            [ai-button app-state
+             {:label "Analyze Label"
+              :busy-label "Analyzing..."
+              :busy? analyzing?
+              :disabled? submitting?
+              :on-click
               (fn []
                 (let [image-data {:label_image (:label_image new-wine)
                                   :back_label_image (:back_label_image
@@ -216,15 +213,8 @@
                       (.catch (fn [error]
                                 (swap! app-state assoc
                                   :error
-                                  (str "Failed to analyze label: " error)))))))
-              :startIcon (when-not analyzing? (r/as-element [auto-awesome]))}
-             (if analyzing?
-               [box {:sx {:display "flex" :alignItems "center"}}
-                [circular-progress {:size 20 :sx {:mr 1}}] "Analyzing..."]
-               "Analyze Label")]
-            [provider-toggle-button app-state
-             {:mobile-min-width "auto"
-              :sx {:minWidth "auto" :px 1 :py 0.25}}]]))]]
+                                  (str "Failed to analyze label: "
+                                       error)))))))}]]))]]
      [form-row
       [image-upload
        {:image-data (:back_label_image new-wine)
@@ -363,15 +353,12 @@
         [box {:sx {:mt 2 :display "flex" :flexDirection "column" :gap 1}}
          [box
           {:sx {:display "flex" :alignItems "center" :flexWrap "wrap" :gap 1}}
-          [button
-           {:variant "outlined"
-            :color "secondary"
-            :size "small"
-            :disabled (or suggesting? (not ready?))
-            :sx {"&.Mui-disabled" {:color "text.disabled"
-                                   :borderColor "text.disabled"}}
-            :startIcon (when-not suggesting? (r/as-element [auto-awesome]))
-            :onClick
+          [ai-button app-state
+           {:label "Suggest Drinking Window"
+            :busy-label "Suggesting..."
+            :busy? suggesting?
+            :disabled? (not ready?)
+            :on-click
             (fn []
               ;; fresh deref — the blur commit that enabled this button may
               ;; have landed after this render's new-wine was captured
@@ -395,13 +382,7 @@
                             (swap! app-state assoc
                               :error
                               (str "Failed to suggest drinking window: "
-                                   error))))))}
-           (if suggesting?
-             [box {:sx {:display "flex" :alignItems "center"}}
-              [circular-progress {:size 20 :sx {:mr 1}}] "Suggesting..."]
-             "Suggest Drinking Window")]
-          [provider-toggle-button app-state
-           {:mobile-min-width "auto" :sx {:minWidth "auto" :px 1 :py 0.25}}]]
+                                   error))))))}]]
          [typography {:variant "body2" :sx {:mt 0.5}}
           (:window-reason @app-state)]])]
      [form-row [drink-from-year app-state new-wine]

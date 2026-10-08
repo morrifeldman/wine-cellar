@@ -1,5 +1,6 @@
 (ns wine-cellar.views.admin.devices
-  (:require [reagent.core :as r]
+  (:require [wine-cellar.views.components.placeholders :refer [empty-state]]
+            [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
             [reagent-mui.material.typography :refer [typography]]
@@ -8,7 +9,8 @@
             [reagent-mui.material.chip :refer [chip]]
             [reagent-mui.material.stack :refer [stack]]
             [reagent-mui.material.divider :refer [divider]]
-            [wine-cellar.api :as api]))
+            [wine-cellar.api :as api]
+            [wine-cellar.views.components.confirm :refer [confirm!]]))
 
 (defn status-chip
   [status]
@@ -102,9 +104,15 @@
          {:variant "text"
           :size "small"
           :color "error"
-          :on-click #(when (js/confirm (str "Delete device " device_id "?"))
-                       (api/delete-device app-state device_id))} "Delete"]]
-       [sensor-config-editor device_id sensor_config app-state]])))
+          :on-click #(confirm!
+                      app-state
+                      {:title (str "Delete device " device_id "?")
+                       :message "It will have to be claimed and approved again."
+                       :confirm-label "Delete"
+                       :danger? true
+                       :on-confirm (fn []
+                                     (api/delete-device app-state device_id))})}
+         "Delete"]] [sensor-config-editor device_id sensor_config app-state]])))
 
 (defn devices-page
   [app-state]
@@ -127,7 +135,6 @@
         :on-click #(api/fetch-devices app-state)} "Refresh"]]
      (cond (and (not loading?) (seq devices))
            (for [d devices] ^{:key (:device_id d)} [device-row d app-state])
-           (and (not loading?) (empty? devices))
-           [typography {:variant "body2" :color "text.secondary"}
-            "No devices yet."]
+           (and (not loading?) (empty? devices)) [empty-state {:inline? true}
+                                                  "No devices yet."]
            :else nil)]))

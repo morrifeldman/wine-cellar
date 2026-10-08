@@ -21,6 +21,7 @@
             [reagent-mui.icons.local-florist :refer [local-florist]]
             [reagent-mui.icons.more-horiz :refer [more-horiz]]
             [wine-cellar.api :as api]
+            [wine-cellar.theme :as theme]
             [wine-cellar.views.components :refer [detail-section]]
             [wine-cellar.dom :as dom]
             [wine-cellar.nav :as nav]))
@@ -48,7 +49,7 @@
 
 ;; Mixers on hand all light up in the one accent: which shelf an item lives on
 ;; is already said by the section it sits in.
-(def item-color "rgba(232,195,200,0.7)")
+(def item-color :rose)
 
 (defn- add-item-form
   [app-state form-data]
@@ -171,20 +172,18 @@
                  :cursor "pointer"
                  :userSelect "none"
                  :transition "all 0.15s ease"
-                 :border (if have?
-                           (str "1px solid " cat-color)
-                           "1px solid rgba(255,255,255,0.1)")
-                 :bgcolor (if have?
-                            (str (subs cat-color 0 (- (count cat-color) 4))
-                                 "0.15)")
-                            "transparent")
-                 :boxShadow (when highlight? "0 0 0 2px rgba(232,195,200,0.85)")
-                 "&:hover"
-                 {:bgcolor (if have?
-                             (str (subs cat-color 0 (- (count cat-color) 4))
-                                  "0.25)")
-                             "rgba(255,255,255,0.05)")
-                  :borderColor (if have? cat-color "rgba(255,255,255,0.2)")}
+                 :border (str "1px solid "
+                              (theme/tint (if have? cat-color :white)
+                                          (if have? 0.7 0.1)))
+                 :bgcolor (if have? (theme/tint cat-color 0.15) "transparent")
+                 :boxShadow (when highlight?
+                              (str "0 0 0 2px " (theme/tint :rose 0.85)))
+                 "&:hover" {:bgcolor (if have?
+                                       (theme/tint cat-color 0.25)
+                                       (theme/tint :white 0.05))
+                            :borderColor (if have?
+                                           (theme/tint cat-color 0.7)
+                                           (theme/tint :white 0.2))}
                  "&:active" {:transform "scale(0.96)"}}}
            [typography
             {:variant "body2"

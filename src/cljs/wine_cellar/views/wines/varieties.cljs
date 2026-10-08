@@ -12,6 +12,7 @@
             [reagent-mui.material.tooltip :refer [tooltip]]
             [reagent-mui.icons.add :refer [add]]
             [wine-cellar.api :as api]
+            [wine-cellar.views.components.confirm :refer [confirm!]]
             [wine-cellar.views.components.form :refer
              [form-container form-actions form-row select-field number-field]]))
 
@@ -146,32 +147,6 @@
        :loading? submitting?
        :on-cancel (form-cancel-handler app-state)}]]))
 
-(defn delete-variety-confirmation-dialog
-  [app-state wine-id]
-  (let [variety-id (:deleting-wine-variety-id @app-state)
-        grape-variety (when variety-id
-                        (first (filter #(= (:id %) variety-id)
-                                       (:grape-varieties @app-state))))]
-    [dialog
-     {:open (boolean variety-id)
-      :on-close #(swap! app-state assoc :deleting-wine-variety-id nil)}
-     [dialog-title "Confirm Removal"]
-     [dialog-content
-      [typography
-       (str "Are you sure you want to remove the grape variety '"
-            (:variety_name grape-variety)
-            "' from this wine?")]]
-     [dialog-actions
-      [button {:on-click #(swap! app-state assoc :deleting-wine-variety-id nil)}
-       "Cancel"]
-      [button
-       {:color "error"
-        :variant "contained"
-        :on-click (fn []
-                    (api/remove-variety-from-wine app-state wine-id variety-id)
-                    (swap! app-state assoc :deleting-wine-variety-id nil))}
-       "Remove"]]]))
-
 (defn- variety-edit-modal
   [app-state wine-id variety open-variety]
   (r/with-let
@@ -198,9 +173,15 @@
        :sx {:mr "auto"}
        :onClick (fn []
                   (reset! open-variety nil)
-                  (swap! app-state assoc
-                    :deleting-wine-variety-id
-                    (:variety_id variety)))} "Delete"]
+                  (confirm! app-state
+                            {:title (str "Remove " (:variety_name variety) "?")
+                             :message "The grape comes off this wine's blend."
+                             :confirm-label "Remove"
+                             :danger? true
+                             :on-confirm #(api/remove-variety-from-wine
+                                           app-state
+                                           wine-id
+                                           (:variety_id variety))}))} "Delete"]
      [button {:onClick #(reset! open-variety nil)} "Cancel"]
      [button
       {:variant "contained"
@@ -255,6 +236,5 @@
           [add {:fontSize "small"}]]])
       (when (:show-wine-variety-form? @app-state)
         [wine-variety-form app-state wine-id])
-      [delete-variety-confirmation-dialog app-state wine-id]
       (when @open-variety
         [variety-edit-modal app-state wine-id @open-variety open-variety])])))

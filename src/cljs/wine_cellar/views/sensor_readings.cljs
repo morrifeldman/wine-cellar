@@ -1,5 +1,6 @@
 (ns wine-cellar.views.sensor-readings
-  (:require [reagent.core :as r]
+  (:require [wine-cellar.views.components.placeholders :refer [empty-state]]
+            [reagent.core :as r]
             [wine-cellar.api :as api]
             [wine-cellar.utils.formatting :refer [format-date]]
             [goog.object :as gobj]
@@ -389,11 +390,6 @@
     [chart
      {:data series :metric :avg_illuminance_lux :unit " lx" :decimals 0}]]])
 
-(defn- empty-state
-  []
-  [paper {:elevation 1 :sx {:p 2 :color "text.secondary"}}
-   "No sensor readings yet. Post data from your ESP32 sentinel to see charts here."])
-
 (defn- device-sensor-configs
   "Build a map of device_id -> sensor_config from the devices list."
   [devices-list]
@@ -418,4 +414,5 @@
       (when (seq latest) [latest-grid latest dev-sensor-cfgs])
       (when (seq series) [charts-panel series dev-sensor-cfgs])
       (when (and (empty? latest) (empty? series) (not loading?))
-        [empty-state])])))
+        [empty-state
+         "No sensor readings yet. Post data from your ESP32 sentinel to see charts here."])])))

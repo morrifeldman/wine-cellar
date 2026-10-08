@@ -6,10 +6,7 @@
             [reagent-mui.material.menu :refer [menu]]
             [reagent-mui.material.menu-item :refer [menu-item]]
             [reagent-mui.material.list-item-icon :refer [list-item-icon]]
-            [reagent-mui.material.dialog :refer [dialog]]
-            [reagent-mui.material.dialog-title :refer [dialog-title]]
-            [reagent-mui.material.dialog-content :refer [dialog-content]]
-            [reagent-mui.material.dialog-actions :refer [dialog-actions]]
+            [wine-cellar.views.components.form-dialog :refer [form-dialog]]
             [reagent-mui.material.autocomplete :refer [autocomplete]]
             [reagent-mui.icons.arrow-drop-up :refer [arrow-drop-up]]
             [reagent-mui.icons.arrow-drop-down :refer [arrow-drop-down]]
@@ -67,6 +64,23 @@
    [section-header icon label] (into [:<>] children)])
 
 ;; Shared styles
+;; The native date picker's calendar icon is dark on dark; lift it.
+(def date-picker-sx
+  {"& input[type=date]::-webkit-calendar-picker-indicator"
+   {:filter "invert(0.7)" :opacity 0.7}})
+
+(defn date-input
+  "A full-width date field for dialogs. value and on-change are YYYY-MM-DD."
+  [{:keys [label value on-change]}]
+  [text-field
+   {:type "date"
+    :label (or label "Date")
+    :value (or value "")
+    :fullWidth true
+    :InputLabelProps {:shrink true}
+    :onChange #(on-change (.. % -target -value))
+    :sx date-picker-sx}])
+
 (def form-field-style
   ;; The fill goes on the input itself: on the whole field it would also
   ;; sit behind the helper text as a grey slab.
@@ -76,31 +90,29 @@
 
 (defn gift-dialog
   [app-state wine-id open? on-close]
-  (r/with-let
-   [recipient (r/atom "")]
-   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
-    [dialog-title "Gift Recipient"]
-    [dialog-content
-     [box {:sx {:pt 1}}
-      [text-field
-       {:value @recipient
-        :label "Who is this for?"
-        :fullWidth true
-        :autoFocus true
-        :onChange (fn [e] (reset! recipient (.. e -target -value)))}]]]
-    [dialog-actions [button {:onClick on-close} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (api/adjust-wine-quantity app-state
-                                            wine-id
-                                            -1
-                                            {:reason "gift"
-                                             :notes
-                                             (when-not (str/blank? @recipient)
-                                               (str "Recipient: " @recipient))})
-                  (reset! recipient "")
-                  (on-close))} "Gift"]]]))
+  (r/with-let [recipient (r/atom "")]
+              [form-dialog
+               {:open? @open?
+                :title "Gift Recipient"
+                :on-close on-close
+                :save-label "Gift"
+                :on-save (fn []
+                           (api/adjust-wine-quantity
+                            app-state
+                            wine-id
+                            -1
+                            {:reason "gift"
+                             :notes (when-not (str/blank? @recipient)
+                                      (str "Recipient: " @recipient))})
+                           (reset! recipient "")
+                           (on-close))}
+               [text-field
+                {:value @recipient
+                 :label "Who is this for?"
+                 :fullWidth true
+                 :autoFocus true
+                 :onChange (fn [e]
+                             (reset! recipient (.. e -target -value)))}]]))
 
 (defn oz-input-field
   "Whole-oz pour input. Native up/down arrows step by 1, min 1.
@@ -122,84 +134,69 @@
   [app-state wine-id open? on-close]
   (r/with-let
    [oz (r/atom "2") notes (r/atom "")]
-   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
-    [dialog-title "Coravin Pour"]
-    [dialog-content
-     [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
-      [oz-input-field oz {:auto-focus? true}]
-      [text-field
-       {:value @notes
-        :label "Notes (optional)"
-        :fullWidth true
-        :multiline true
-        :rows 2
-        :onChange (fn [e] (reset! notes (.. e -target -value)))}]]]
-    [dialog-actions [button {:onClick on-close} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (let [amount (js/parseFloat @oz)]
-                    (when (and (not (js/isNaN amount)) (pos? amount))
-                      (api/coravin-pour app-state
-                                        wine-id
-                                        amount
-                                        {:notes (when-not (str/blank? @notes)
-                                                  (str/trim @notes))})
-                      (reset! oz "2")
-                      (reset! notes "")
-                      (on-close))))} "Pour"]]]))
+   [form-dialog
+    {:open? @open?
+     :title "Coravin Pour"
+     :on-close on-close
+     :save-label "Pour"
+     :on-save (fn []
+                (let [amount (js/parseFloat @oz)]
+                  (when (and (not (js/isNaN amount)) (pos? amount))
+                    (api/coravin-pour app-state
+                                      wine-id
+                                      amount
+                                      {:notes (when-not (str/blank? @notes)
+                                                (str/trim @notes))})
+                    (reset! oz "2")
+                    (reset! notes "")
+                    (on-close))))} [oz-input-field oz {:auto-focus? true}]
+    [text-field
+     {:value @notes
+      :label "Notes (optional)"
+      :fullWidth true
+      :multiline true
+      :rows 2
+      :onChange (fn [e] (reset! notes (.. e -target -value)))}]]))
 
 (defn drink-dialog
   "Full drink-recording modal: backdate the drink, record multiple bottles
   (e.g. at a party), and add a note."
   [app-state wine-id quantity open? on-close]
   (r/with-let
-   [bottles (r/atom "1") date
-    (r/atom (formatting/format-date-iso (.toISOString (js/Date.)))) notes
-    (r/atom "")]
-   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
-    [dialog-title "Record Drink"]
-    [dialog-content
-     [box {:sx {:pt 1 :display "flex" :flexDirection "column" :gap 2}}
-      [text-field
-       {:value @bottles
-        :type "number"
-        :label "Bottles"
-        :fullWidth true
-        :autoFocus true
-        :helperText (str "Up to " quantity " available")
-        :InputProps {:inputProps {:step "1" :min "1" :max quantity}}
-        :onChange (fn [e] (reset! bottles (.. e -target -value)))}]
-      [text-field
-       {:value @date
-        :type "date"
-        :label "Date"
-        :fullWidth true
-        :onChange (fn [e] (reset! date (.. e -target -value)))
-        :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
-             {:filter "invert(0.7)" :opacity 0.7}}}]
-      [text-field
-       {:value @notes
-        :label "Notes (optional)"
-        :fullWidth true
-        :multiline true
-        :rows 2
-        :onChange (fn [e] (reset! notes (.. e -target -value)))}]]]
-    [dialog-actions [button {:onClick on-close} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (let [n (js/parseInt @bottles 10)]
-                    (when (and (not (js/isNaN n)) (pos? n) (<= n quantity))
-                      (api/adjust-wine-quantity app-state
-                                                wine-id
-                                                (- n)
-                                                {:reason "drunk"
-                                                 :occurred_at @date
-                                                 :notes (when-not (str/blank?
-                                                                   @notes)
-                                                          (str/trim @notes))})
-                      (on-close))))} "Drink"]]]))
+   [bottles (r/atom "1") date (r/atom (formatting/today-iso)) notes (r/atom "")]
+   [form-dialog
+    {:open? @open?
+     :title "Record Drink"
+     :on-close on-close
+     :save-label "Drink"
+     :on-save (fn []
+                (let [n (js/parseInt @bottles 10)]
+                  (when (and (not (js/isNaN n)) (pos? n) (<= n quantity))
+                    (api/adjust-wine-quantity
+                     app-state
+                     wine-id
+                     (- n)
+                     {:reason "drunk"
+                      :occurred_at @date
+                      :notes (when-not (str/blank? @notes) (str/trim @notes))})
+                    (on-close))))}
+    [text-field
+     {:value @bottles
+      :type "number"
+      :label "Bottles"
+      :fullWidth true
+      :autoFocus true
+      :helperText (str "Up to " quantity " available")
+      :InputProps {:inputProps {:step "1" :min "1" :max quantity}}
+      :onChange (fn [e] (reset! bottles (.. e -target -value)))}]
+    [date-input {:value @date :on-change #(reset! date %)}]
+    [text-field
+     {:value @notes
+      :label "Notes (optional)"
+      :fullWidth true
+      :multiline true
+      :rows 2
+      :onChange (fn [e] (reset! notes (.. e -target -value)))}]]))
 
 (defn minus-menu
   [app-state wine-id anchor-el options on-gift on-coravin-pour on-drink]
@@ -245,39 +242,37 @@
   [app-state wine-id open? on-close]
   (r/with-let
    [quantity (r/atom "6") notes (r/atom "")]
-   [dialog {:open @open? :onClose on-close :maxWidth "xs" :fullWidth true}
-    [dialog-title "Restock Wine"]
-    [dialog-content
-     [box {:sx {:pt 2 :display "flex" :flexDirection "column" :gap 2}}
-      [text-field
-       {:value @quantity
-        :type "number"
-        :label "Number of bottles"
-        :fullWidth true
-        :autoFocus true
-        :onChange (fn [e] (reset! quantity (.. e -target -value)))}]
-      [text-field
-       {:value @notes
-        :label "Notes (optional)"
-        :placeholder "e.g. Purchased from Vivino"
-        :fullWidth true
-        :multiline true
-        :rows 3
-        :onChange (fn [e] (reset! notes (.. e -target -value)))}]]]
-    [dialog-actions [button {:onClick on-close} "Cancel"]
-     [button
-      {:variant "contained"
-       :onClick (fn []
-                  (let [amount (js/parseInt @quantity 10)]
-                    (when (and (not (js/isNaN amount)) (pos? amount))
-                      (api/adjust-wine-quantity
-                       app-state
-                       wine-id
-                       amount
-                       {:reason "restock"
-                        :notes (when-not (str/blank? @notes) @notes)})
-                      (reset! notes "")
-                      (on-close))))} "Restock"]]]))
+   [form-dialog
+    {:open? @open?
+     :title "Restock Wine"
+     :on-close on-close
+     :save-label "Restock"
+     :on-save (fn []
+                (let [amount (js/parseInt @quantity 10)]
+                  (when (and (not (js/isNaN amount)) (pos? amount))
+                    (api/adjust-wine-quantity
+                     app-state
+                     wine-id
+                     amount
+                     {:reason "restock"
+                      :notes (when-not (str/blank? @notes) @notes)})
+                    (reset! notes "")
+                    (on-close))))}
+    [text-field
+     {:value @quantity
+      :type "number"
+      :label "Number of bottles"
+      :fullWidth true
+      :autoFocus true
+      :onChange (fn [e] (reset! quantity (.. e -target -value)))}]
+    [text-field
+     {:value @notes
+      :label "Notes (optional)"
+      :placeholder "e.g. Purchased from Vivino"
+      :fullWidth true
+      :multiline true
+      :rows 3
+      :onChange (fn [e] (reset! notes (.. e -target -value)))}]]))
 
 (defn- plus-menu
   [app-state wine-id anchor-el on-restock]

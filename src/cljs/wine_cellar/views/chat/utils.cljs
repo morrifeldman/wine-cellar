@@ -23,6 +23,21 @@
                                     matches))))
            vec))))
 
+(def ^:private matches-cache (atom nil))
+
+(defn search-matches
+  "The open conversation's matches for the in-chat search term. Derived on
+  read rather than stored, and cached on the messages and term."
+  [chat-state]
+  (let [msgs (:messages chat-state)
+        term (:local-search-term chat-state)
+        cached @matches-cache]
+    (if (and cached (identical? msgs (:msgs cached)) (= term (:term cached)))
+      (:matches cached)
+      (let [matches (calculate-matches msgs term)]
+        (reset! matches-cache {:msgs msgs :term term :matches matches})
+        matches))))
+
 (defn mobile?
   []
   (boolean (and (exists? js/navigator)

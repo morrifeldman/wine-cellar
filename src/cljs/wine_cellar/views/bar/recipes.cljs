@@ -1,5 +1,8 @@
 (ns wine-cellar.views.bar.recipes
   (:require
+    [wine-cellar.views.components.summary :refer [detail-actions summary-card]]
+    [wine-cellar.utils.formatting :refer [join-meta]]
+    [wine-cellar.views.components.placeholders :refer [empty-state]]
     [clojure.string :as str]
     [reagent.core :as r]
     [reagent-mui.material.box :refer [box]]
@@ -42,6 +45,7 @@
     [wine-cellar.views.components.form :refer
      [ref-value uncontrolled-text-field uncontrolled-text-area-field]]
     [wine-cellar.api :as api]
+    [wine-cellar.views.components.confirm :refer [confirm!]]
     [wine-cellar.dom :as dom]
     [wine-cellar.nav :as nav]))
 
@@ -237,7 +241,7 @@
     :max 5
     :size (or size "small")
     :read-only (boolean read-only?)
-    :sx {"& .MuiRating-iconFilled" {:color "#FFD54F"}
+    :sx {"& .MuiRating-iconFilled" {:color theme/gold}
          "& .MuiRating-iconHover" {:color "#FFE082"}
          "& .MuiRating-iconEmpty" {:color "text.secondary" :opacity 0.55}}
     :on-change (when-not read-only?
@@ -247,9 +251,9 @@
   "Glyph + color for an ingredient's makeability status."
   [status]
   (case status
-    :missing {:glyph "✗" :color "rgba(255,167,38,0.95)"}
+    :missing {:glyph "✗" :color (theme/tint :amber 0.95)}
     :missing-garnish {:glyph "~" :color "text.secondary"}
-    {:glyph "✓" :color "rgba(139,195,74,0.85)"}))
+    {:glyph "✓" :color (theme/tint :green 0.85)}))
 
 (def ^:private chip-rgb
   "The accent as a bare R,G,B triple, so chips can build their fill, border and
@@ -287,18 +291,13 @@
                        inventory-items
                        (assoc ingredient :inventory_item_ids [(:id item)]))
            :icon (when icon
-                   (r/as-element
-                    [icon
-                     {:sx {:fontSize "1rem"
-                           :color (str "rgba(" rgb ",0.95) !important")}}]))
-           :sx {:height 28
-                :letterSpacing "0.02em"
-                :opacity (if out? 0.55 1)
-                :bgcolor (str "rgba(" rgb ",0.08)")
-                :color (str "rgba(" rgb ",0.95)")
-                :border (str "1px solid rgba(" rgb ",0.3)")
-                "@media (hover: hover)"
-                {"&:hover" {:bgcolor (str "rgba(" rgb ",0.18)")}}}}])])))
+                   (r/as-element [icon
+                                  {:sx {:fontSize "1rem"
+                                        :color (str (theme/tint rgb 0.95)
+                                                    " !important")}}]))
+           :sx (merge
+                {:height 28 :letterSpacing "0.02em" :opacity (if out? 0.55 1)}
+                (theme/chip-sx rgb))}])])))
 
 (defn- bottle-chip
   "Clickable chip for a bottle under a spirit ingredient. `:dim?` dims it and
@@ -312,23 +311,17 @@
      {:label (str (when dim? "~ ") base (when (seq suffix) (str " · " suffix)))
       :size "small"
       :clickable true
-      :icon (cond star? (r/as-element
-                         [star-icon
-                          {:sx {:fontSize "1rem"
-                                :color "rgba(255,213,79,0.85) !important"}}])
-                  alt? (r/as-element
-                        [swap-horiz
-                         {:sx {:fontSize "1rem"
-                               :color "rgba(255,213,79,0.6) !important"}}]))
+      :icon (cond star? (r/as-element [star-icon
+                                       {:sx {:fontSize "1rem"
+                                             :color (str (theme/tint :gold 0.85)
+                                                         " !important")}}])
+                  alt? (r/as-element [swap-horiz
+                                      {:sx {:fontSize "1rem"
+                                            :color (str (theme/tint :gold 0.6)
+                                                        " !important")}}]))
       :on-click #(nav/go-bar-spirit! (:id spirit))
-      :sx {:height 28
-           :letterSpacing "0.02em"
-           :opacity (if dim? 0.55 1)
-           :bgcolor "rgba(232,195,200,0.08)"
-           :color "rgba(232,195,200,0.95)"
-           :border "1px solid rgba(232,195,200,0.22)"
-           "@media (hover: hover)" {"&:hover" {:bgcolor
-                                               "rgba(232,195,200,0.16)"}}}}]))
+      :sx (merge {:height 28 :letterSpacing "0.02em" :opacity (if dim? 0.55 1)}
+                 (theme/chip-sx :rose))}]))
 
 (def ^:private max-bottle-chips
   "Bottle chips shown per ingredient before collapsing behind '+N more'."
@@ -422,13 +415,8 @@
       :clickable true
       :on-click
       #(nav/go-bar-spirit-category! category (when-not none-owned? subcategory))
-      :sx {:height 28
-           :letterSpacing "0.02em"
-           :bgcolor (str "rgba(" chip-rgb ",0.14)")
-           :color (str "rgba(" chip-rgb ",0.95)")
-           :border (str "1px solid rgba(" chip-rgb ",0.35)")
-           "@media (hover: hover)"
-           {"&:hover" {:bgcolor (str "rgba(" chip-rgb ",0.24)")}}}}]))
+      :sx (merge {:height 28 :letterSpacing "0.02em"}
+                 (theme/chip-sx chip-rgb))}]))
 
 (defn- ingredients-list
   [app-state recipe statuses inventory-items spirits]
@@ -511,12 +499,9 @@
                [chip
                 {:label tag
                  :size "small"
-                 :sx {:bgcolor "rgba(232,195,200,0.10)"
-                      :color "rgba(232,195,200,0.95)"
-                      :border "1px solid rgba(232,195,200,0.25)"
-                      :height 28
-                      :letterSpacing "0.02em"
-                      :cursor "pointer"}}])
+                 :sx (merge
+                      (dissoc (theme/chip-sx :rose) "@media (hover: hover)")
+                      {:height 28 :letterSpacing "0.02em" :cursor "pointer"})}])
              [typography
               {:variant "body2"
                :sx {:color "text.secondary" :fontStyle "italic"}}
@@ -535,12 +520,10 @@
      :size "small"
      :sx {:height 28
           :letterSpacing "0.02em"
-          :bgcolor
-          (if makeable? "rgba(139,195,74,0.16)" "rgba(255,167,38,0.14)")
+          :bgcolor (theme/tint (if makeable? :green :amber) 0.15)
           :color (if makeable? "rgba(174,213,129,0.95)" "rgba(255,183,77,0.95)")
-          :border
-          (str "1px solid "
-               (if makeable? "rgba(139,195,74,0.4)" "rgba(255,167,38,0.4)"))}}]
+          :border (str "1px solid "
+                       (theme/tint (if makeable? :green :amber) 0.4))}}]
    (when (and makeable? (seq missing-garnishes))
      [typography
       {:variant "body2" :sx {:color "text.secondary" :fontStyle "italic"}}
@@ -641,15 +624,18 @@
         :on-save #(save-field! app-state recipe :notes %)
         :empty-text "Add tasting notes, tweaks, occasions..."
         :text-field-props {:multiline true :rows 3}}]]
-     ;; Actions
-     [box {:sx {:display "flex" :gap 1 :alignItems "center" :mt 2}}
-      [button
-       {:variant "outlined"
-        :color "error"
-        :on-click #(when (js/confirm (str "Delete \"" (:name recipe) "\"?"))
-                     (nav/close-bar-recipe!)
-                     (api/delete-cocktail-recipe app-state (:id recipe)))}
-       "Delete"] [box {:sx {:flex 1}}]
+     [detail-actions
+      {:on-delete #(confirm! app-state
+                             {:title (str "Delete \"" (:name recipe) "\"?")
+                              :message "This recipe will be gone for good."
+                              :confirm-label "Delete"
+                              :danger? true
+                              :on-confirm (fn []
+                                            (nav/close-bar-recipe!)
+                                            (api/delete-cocktail-recipe
+                                             app-state
+                                             (:id recipe)))})
+       :on-done #(nav/close-bar-recipe!)}
       (let [refreshing? (= (:id recipe)
                            (get-in @app-state [:bar :refreshing-recipe-id]))]
         [button
@@ -672,51 +658,16 @@
         ;; detail rather than the list.
         :on-click
         #(swap! app-state assoc-in [:bar :editing-recipe-id] (:id recipe))}
-       "Edit"]
-      [button
-       {:variant "contained"
-        :color "primary"
-        :on-click #(nav/close-bar-recipe!)} "Done"]]]))
+       "Edit"]]]))
 
 (defn- recipe-card
   [recipe]
-  (let [tags (:tags recipe)]
-    [paper
-     {:elevation 1
-      :sx {:p 1.5 :mb 1 :cursor "pointer" "&:hover" {:bgcolor "action.hover"}}
-      :on-click #(nav/go-bar-recipe! (:id recipe))}
-     [box
-      {:sx {:display "flex"
-            :alignItems "flex-start"
-            :justifyContent "space-between"
-            :gap 1}}
-      [box {:sx {:flex 1 :minWidth 0}}
-       [box {:sx {:display "flex" :alignItems "center" :gap 1 :flexWrap "wrap"}}
-        [typography {:sx theme/card-title} (:name recipe)]
-        (when-let [r (:rating recipe)]
-          [typography
-           {:component "span"
-            :variant "body2"
-            :sx {:color "text.secondary" :whiteSpace "nowrap"}}
-           (str "★ " (/ r 2))])]
-       (when (seq tags)
-         [box
-          {:sx {:display "flex"
-                :alignItems "center"
-                :gap 0.5
-                :flexWrap "wrap"
-                :mt 0.25}}
-          (for [tag tags]
-            ^{:key tag} [chip {:label tag :size "small" :sx {:height 24}}])])
-       (when-let [line (or (:caption recipe) (:description recipe))]
-         [typography
-          {:variant "body2"
-           :sx {:color "text.secondary"
-                :mt 0.5
-                :display "-webkit-box"
-                :WebkitLineClamp 2
-                :WebkitBoxOrient "vertical"
-                :overflow "hidden"}} line])]]]))
+  [summary-card
+   {:title (:name recipe)
+    :meta (join-meta (cons (when-let [r (:rating recipe)] (str "★ " (/ r 2)))
+                           (:tags recipe)))
+    :blurb (or (:caption recipe) (:description recipe))
+    :on-click #(nav/go-bar-recipe! (:id recipe))}])
 
 (defn save-recipe-dialog
   [_app-state]
@@ -847,14 +798,8 @@
       :clickable true
       :on-click
       #(swap! makeable-filter {nil :makeable :makeable :missing :missing nil})
-      :sx {:height 28
-           :letterSpacing "0.02em"
-           :mb 1.5
-           :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
-           :color (str "rgba(" rgb ",0.95)")
-           :border (str "1px solid rgba(" rgb "," (if active? "0.6" "0.25") ")")
-           "@media (hover: hover)" {"&:hover" {:bgcolor
-                                               (str "rgba(" rgb ",0.18)")}}}}]))
+      :sx (merge {:height 28 :letterSpacing "0.02em" :mb 1.5}
+                 (theme/chip-sx rgb {:selected? active?}))}]))
 
 (defn- ingredient-filter-toggle-chip
   "Collapsed entry point for the ingredient filter: expands/collapses the chip
@@ -870,16 +815,8 @@
       :size "small"
       :clickable true
       :on-click #(swap! show-filter? not)
-      :sx {:height 28
-           :letterSpacing "0.02em"
-           :mb 1.5
-           :bgcolor (if hot? "rgba(232,195,200,0.22)" "rgba(232,195,200,0.06)")
-           :color "rgba(232,195,200,0.95)"
-           :border (str
-                    "1px solid "
-                    (if hot? "rgba(232,195,200,0.6)" "rgba(232,195,200,0.2)"))
-           "@media (hover: hover)" {"&:hover" {:bgcolor
-                                               "rgba(232,195,200,0.18)"}}}}]))
+      :sx (merge {:height 28 :letterSpacing "0.02em" :mb 1.5}
+                 (theme/chip-sx :rose {:selected? hot?}))}]))
 
 (defn- garnish-toggle-chip
   "Toggle for counting garnish-role ingredients in the filter; shown as a leaf
@@ -905,14 +842,10 @@
                 reachable (into #{} (mapcat val) idx)]
             (swap! selected-ingredients #(into #{} (filter reachable) %))
             (swap! open-cat #(when-not (= % "garnish") %)))))
-      :sx {:height 28
-           :mb 1.5
-           "& .MuiChip-label" {:px 0.75}
-           :bgcolor (str "rgba(139,195,74," (if on? "0.22" "0.06") ")")
-           :color "rgba(174,213,129,0.95)"
-           :border (str "1px solid rgba(139,195,74," (if on? "0.6" "0.25") ")")
-           "@media (hover: hover)" {"&:hover" {:bgcolor
-                                               "rgba(139,195,74,0.15)"}}}}]))
+      :sx (merge {:height 28 :mb 1.5 "& .MuiChip-label" {:px 0.75}}
+                 (theme/chip-sx :green
+                                {:selected? on?
+                                 :text "rgba(174,213,129,0.95)"}))}]))
 
 (defn- ingredient-category-bar
   "First level of the ingredient filter: one chip per inventory category
@@ -942,14 +875,8 @@
            :size "small"
            :clickable true
            :on-click #(swap! open-cat (fn [c] (when-not (= c cat) cat)))
-           :sx {:height 28
-                :letterSpacing "0.02em"
-                :bgcolor (str "rgba(" rgb "," (if hot? "0.22" "0.06") ")")
-                :color (str "rgba(" rgb ",0.95)")
-                :border
-                (str "1px solid rgba(" rgb "," (if hot? "0.6" "0.25") ")")
-                "@media (hover: hover)"
-                {"&:hover" {:bgcolor (str "rgba(" rgb ",0.15)")}}}}]))
+           :sx (merge {:height 28 :letterSpacing "0.02em"}
+                      (theme/chip-sx rgb {:selected? hot?}))}]))
      (when (seq sel)
        [button
         {:size "small"
@@ -979,14 +906,8 @@
                                                     (if (contains? s (:id item))
                                                       (disj s (:id item))
                                                       (conj s (:id item)))))
-           :sx {:height 28
-                :letterSpacing "0.02em"
-                :bgcolor (str "rgba(" rgb "," (if active? "0.22" "0.06") ")")
-                :color (str "rgba(" rgb ",0.95)")
-                :border
-                (str "1px solid rgba(" rgb "," (if active? "0.6" "0.25") ")")
-                "@media (hover: hover)"
-                {"&:hover" {:bgcolor (str "rgba(" rgb ",0.15)")}}}}]))]))
+           :sx (merge {:height 28 :letterSpacing "0.02em"}
+                      (theme/chip-sx rgb {:selected? active?}))}]))]))
 
 (defn- refresh-all-bar
   "Re-resolve every recipe's spirit/ingredient links sequentially, with a live
@@ -1140,8 +1061,7 @@
                           :label t
                           :on-remove #(swap! selected-tags disj t)}))])])
          (if (empty? recipes)
-           [typography {:sx {:color "text.secondary" :textAlign "center" :py 4}}
-            "No recipes yet. Save your first cocktail!"]
+           [empty-state "No recipes yet. Save your first cocktail!"]
            (for [recipe filtered]
              (with-meta (cond (= (:id recipe) editing-id) [recipe-form
                                                            app-state]

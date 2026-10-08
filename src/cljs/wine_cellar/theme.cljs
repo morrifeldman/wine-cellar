@@ -14,6 +14,31 @@
   {:fontFamily serif :fontWeight 700 :fontSize "1.9rem" :lineHeight 1.15})
 (def detail-subtitle {:fontFamily serif :fontSize "1.35rem" :lineHeight 1.25})
 
+;; Translucent tints of a few base colours, for chips and highlights that let
+;; the dark background through. A colour is a key here or an "r,g,b" string.
+(def tints
+  {:rose "232,195,200" ;; primary.main
+   :green "139,195,74"
+   :amber "255,167,38"
+   :gold "255,213,79"
+   :white "255,255,255"
+   :black "0,0,0"})
+
+;; Stars and top ratings.
+(def gold "#FFD54F")
+
+(defn tint [color alpha] (str "rgba(" (get tints color color) "," alpha ")"))
+
+(defn chip-sx
+  "Colours for a tinted chip: faint at rest, brighter when `selected?`.
+   `text` overrides the label colour."
+  ([color] (chip-sx color nil))
+  ([color {:keys [selected? text]}]
+   {:bgcolor (tint color (if selected? 0.22 0.08))
+    :color (or text (tint color 0.95))
+    :border (str "1px solid " (tint color (if selected? 0.6 0.25)))
+    "@media (hover: hover)" {"&:hover" {:bgcolor (tint color 0.18)}}}))
+
 (def wine-theme
   (create-theme
    {:palette {:primary {:main "#E8C3C8" ;; Lighter burgundy for primary on

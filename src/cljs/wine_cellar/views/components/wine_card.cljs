@@ -23,8 +23,8 @@
 ;; Utility functions
 (defn get-rating-color
   [rating]
-  (cond (>= rating 95) "#FFD54F" ;; Gold
-        (>= rating 90) "#E8C3C8" ;; Primary Light (Pinkish)
+  (cond (>= rating 95) theme/gold
+        (>= rating 90) "primary.main"
         (>= rating 85) "#B0BEC5" ;; Blue Grey
         :else "#9E9E9E")) ;; Grey
 
@@ -161,8 +161,8 @@
          :py 0.4
          :borderRadius "20px"
          :border "1px solid"
-         :bgcolor "rgba(232,195,200,0.08)"
-         :borderColor "rgba(232,195,200,0.2)"}}
+         :bgcolor (theme/tint :rose 0.08)
+         :borderColor (theme/tint :rose 0.2)}}
    [typography
     {:sx {:color (get-rating-color rating) :fontWeight "bold" :mr 0.5}}
     (str rating)]
@@ -178,7 +178,7 @@
          :py 0.4
          :borderRadius "20px"
          :border "1px solid"
-         :borderColor "rgba(232,195,200,0.12)"}}
+         :borderColor (theme/tint :rose 0.12)}}
    [typography
     {:sx {:color (get-rating-color rating) :fontWeight "bold" :mr 0.5}}
     (str rating)]
@@ -267,7 +267,7 @@
              :px 0.75
              :py 0.25
              :borderRadius 1
-             :border "1px solid rgba(232, 195, 200, 0.4)"
+             :border (str "1px solid " (theme/tint :rose 0.4))
              :color "primary.light"
              :fontSize "0.875rem"
              :whiteSpace "nowrap"}} [wine-bar {:sx {:fontSize "0.9rem"}}]
