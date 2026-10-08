@@ -100,7 +100,7 @@
 
 (defn create-jwt-token
   [user-info]
-  (tap> ["create-jwt-token" user-info])
+  (tap> ["create-jwt-token" (:email user-info)])
   (let [jwt-secret (config/get-jwt-secret)
         now (Instant/now)
         ;; JWT times are epoch seconds; buddy checks :exp against seconds.
@@ -116,7 +116,7 @@
     (let [access-token (:access_token token-response)
           _ (tap> ["access-token-received" "REDACTED"])
           user-info (get-user-info access-token)
-          _ (tap> ["user-info-received" user-info])
+          _ (tap> ["user-info-received" (:email user-info)])
           jwt-token (create-jwt-token user-info)
           _ (tap> ["jwt-token" "REDACTED"])
           frontend-url (config-utils/frontend-url request)]
@@ -139,8 +139,8 @@
 
 (defn handle-google-callback
   [request]
-  (tap> ["handle-google-callback" (:query-params request) "session"
-         (:session request)])
+  ;; Not the query params: they carry the one-time OAuth code.
+  (tap> ["handle-google-callback"])
   (let [code (get-in request [:query-params "code"])
         state (get-in request [:query-params "state"])
         session-state (get-in request [:session :oauth-state])

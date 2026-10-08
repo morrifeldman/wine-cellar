@@ -1,4 +1,17 @@
-(ns wine-cellar.logging)
+(ns wine-cellar.logging
+  (:require [clojure.walk :as walk]))
+
+(def ^:private max-logged-string 500)
+
+(defn shorten-for-log
+  "Replaces long strings (base64 images, whole prompts, documents) with a
+   prefix and their length, so a tapped value stays readable in the logs."
+  [x]
+  (walk/postwalk (fn [v]
+                   (if (and (string? v) (> (count v) max-logged-string))
+                     (str (subs v 0 80) "…<" (count v) " chars>")
+                     v))
+                 x))
 
 (defonce verbose-logging-state (atom false))
 

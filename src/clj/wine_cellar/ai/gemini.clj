@@ -67,12 +67,15 @@
   (ensure-api-key!)
   (let [request-body (build-request-body request)
         target-model (or model-override model)
-        url (str base-url "/" target-model ":generateContent?key=" api-key)]
+        ;; Key in a header, not the URL, so it stays out of any request
+        ;; log.
+        url (str base-url "/" target-model ":generateContent")]
     (tap> ["gemini-request" request-body])
     (let [{:keys [status body error]}
           @(http/post url
                       {:body (json/write-value-as-string request-body)
-                       :headers {"Content-Type" "application/json"}
+                       :headers {"Content-Type" "application/json"
+                                 "x-goog-api-key" api-key}
                        :as :text
                        :timeout 180000})]
       (when error
@@ -86,8 +89,7 @@
         (let [candidate (first (:candidates parsed))
               parts (get-in candidate [:content :parts])
               ;; A grounded answer comes back split across several parts,
-              ;; so
-              ;; take every one of them rather than just the first.
+              ;; so take every one of them rather than just the first.
               text-response (->> parts
                                  (keep :text)
                                  (remove str/blank?)
