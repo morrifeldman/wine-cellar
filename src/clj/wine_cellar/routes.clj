@@ -46,7 +46,9 @@
                                        :duration-ms duration-ms}
                                       e)]
                (tap> ex-info-e)
-               (throw ex-info-e)))))))
+               ;; Rethrow the original: the exception middleware dispatches
+               ;; on its ex-data :type (e.g. request coercion -> 400).
+               (throw e)))))))
 
 (def tap-middleware {:name ::tap :wrap tap-middleware-wrap})
 
@@ -69,7 +71,6 @@
 (s/def ::price (s/nilable number?))
 (s/def ::purchase_date (s/nilable string?)) ;; Will be parsed to a date
 (s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
-(s/def ::notes string?)
 (s/def ::rating (s/nilable (s/int-in 1 101))) ;; Ratings from 1-100
 (s/def ::drink_from_year (s/nilable int?))
 (s/def ::drink_until_year (s/nilable int?))
@@ -138,6 +139,13 @@
 (s/def ::leak_detected (s/nilable boolean?))
 (s/def ::notes (s/nilable string?))
 (s/def ::reason (s/nilable string?))
+(s/def ::adjustment int?)
+(s/def ::change_amount int?)
+(s/def ::occurred_at (s/nilable string?)) ;; Will be parsed to a timestamp
+(s/def ::wine_ids (s/nilable (s/coll-of int?)))
+(s/def ::is_user boolean?)
+(s/def ::content string?)
+(s/def ::tokens_used (s/nilable int?))
 (s/def ::oz (s/and number? pos?))
 (s/def ::bucket #{"15m" "1h" "6h" "1d"})
 (s/def ::from ::measured_at)
@@ -256,13 +264,12 @@
                 ::ai_summary ::closure_type
                 ::bottle_format ::metadata)]
    :opt-un [::producer ::country ::region ::appellation ::appellation_tier
-            ::classification ::vineyard ::vineyard ::name ::vintage ::style
-            ::designation ::location ::quantity ::original_quantity ::price
-            ::purveyor ::label_image ::label_thumbnail ::back_label_image
-            ::drink_from_year ::drink_until_year ::purchase_date
-            ::alcohol_percentage ::disgorgement_year ::dosage
-            ::tasting_window_commentary ::verified ::ai_summary ::closure_type
-            ::bottle_format ::metadata]))
+            ::classification ::vineyard ::name ::vintage ::style ::designation
+            ::location ::quantity ::original_quantity ::price ::purveyor
+            ::label_image ::label_thumbnail ::back_label_image ::drink_from_year
+            ::drink_until_year ::purchase_date ::alcohol_percentage
+            ::disgorgement_year ::dosage ::tasting_window_commentary ::verified
+            ::ai_summary ::closure_type ::bottle_format ::metadata]))
 
 (def image-update-schema
   (s/nilable (s/keys :opt-un
@@ -811,7 +818,9 @@
     (let [data (ex-data exception)
           human-readable-error (expound/expound-str (:spec data) (:value data))]
       (tap> ["Validation error:" human-readable-error])
-      {:status status :body human-readable-error})))
+      ;; No :error key, so the app shows its own "Failed to ..." message
+      ;; rather than a multi-line spec report.
+      {:status status :body {:details human-readable-error}})))
 
 (defstate
  app

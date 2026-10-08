@@ -66,10 +66,10 @@
      (update response
              :body
              (fn [b]
-               (let [s (if (string? b)
-                         b
-                         (some-> b
-                                 slurp))]
+               (let [s (cond (or (string? b) (nil? b)) b
+                             (instance? java.io.InputStream b) (slurp b)
+                             ;; Some error handlers return unencoded data
+                             :else (json/write-value-as-string b))]
                  (if (seq s)
                    (try (json/read-value s json/keyword-keys-object-mapper)
                         (catch Exception _ s))

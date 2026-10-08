@@ -24,7 +24,8 @@ below.
 **Phase 1: bugs (§0)**
 - [x] B4 Restock never updates `original_quantity`
 - [x] B5 Frontend fallback error message is never shown
-- [ ] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
+- [x] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
+- [x] B18 Every request-validation error came back as an opaque 500 (`tap-middleware` rewrapped exceptions)
 - [ ] B7 `drop-tables` skips the bar, report and inventory history tables
 - [ ] B8 Image MIME type hard-coded to JPEG
 - [ ] B9 Check the tasting-window CHECK constraint
@@ -103,6 +104,7 @@ Threat model: a personal app with two users. The Google OAuth app is in Testing 
 | B14 | The secret lookup runs `pass` as a subprocess on every request in dev: `get-jwt-secret` is called on every `verify-token`. | `config_utils.clj`, `auth/core.clj` | Read the config once into a `defstate`. |
 | B15 | Leaks: `tap>` logs the OAuth `code` and the full userinfo. Whole AI request bodies, base64 images included, are tapped. The Gemini key goes in the URL query string. Raw PostgreSQL messages are returned to the client. | `auth/core.clj:102,117,138`, `ai/*.clj`, `handlers.clj:853` | |
 | B16 | Cookies are missing `:secure` in production. `ensure-api-key!` exists for OpenAI and Gemini but not Anthropic. | `auth/core.clj:121`, `server.clj:30` | |
+| B18 | **✔ fixed: every request-validation error came back as a 500** with an opaque body. `tap-middleware` rewrapped all exceptions in a fresh `ex-info` without `:type`, so the exception middleware never reached the coercion handler. | `routes.clj:23-51` | Rethrow the original. Coercion errors now return 400 `{:details …}`. |
 
 ---
 
