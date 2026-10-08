@@ -29,6 +29,7 @@ below.
 - [x] B19 A bulk job's failure message was wiped by the `fetch-wines` it starts, which cleared `:error`
 - [x] B20 `fetch-wines` merged old state over fresh data, so in-app refetches (e.g. after a bulk job) showed stale values
 - [x] B21 The wine list and detail reads omitted the open-bottle columns, so an open Coravin bottle vanished from the UI on reload
+- [x] B22 Failures in the bar, sensors, blind tastings and verbose-logging calls went to error keys no view displays (and three bar calls dropped failures entirely), so they failed silently
 - [x] B7 `drop-tables` skips the bar, report and inventory history tables
 - [x] B8 Image MIME type hard-coded to JPEG: not a live bug, since the browser re-encodes every image as JPEG (`file->jpeg-data-url`). The provider-neutral image format is still part of 5.4.
 - [x] B9 Check the tasting-window CHECK constraint: correct as is. HoneySQL renders `[:= col]` as `col IS NULL`.
