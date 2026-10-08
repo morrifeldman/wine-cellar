@@ -26,7 +26,7 @@ below.
 - [x] B5 Frontend fallback error message is never shown
 - [x] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
 - [x] B18 Every request-validation error came back as an opaque 500 (`tap-middleware` rewrapped exceptions)
-- [ ] B7 `drop-tables` skips the bar, report and inventory history tables
+- [x] B7 `drop-tables` skips the bar, report and inventory history tables
 - [ ] B8 Image MIME type hard-coded to JPEG
 - [ ] B9 Check the tasting-window CHECK constraint
 - [ ] B10 Recipe rating range: spec allows 1–100, DB allows 1–10
