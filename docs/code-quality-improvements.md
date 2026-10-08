@@ -28,6 +28,7 @@ below.
 - [x] B18 Every request-validation error came back as an opaque 500 (`tap-middleware` rewrapped exceptions)
 - [x] B19 A bulk job's failure message was wiped by the `fetch-wines` it starts, which cleared `:error`
 - [x] B20 `fetch-wines` merged old state over fresh data, so in-app refetches (e.g. after a bulk job) showed stale values
+- [x] B21 The wine list and detail reads omitted the open-bottle columns, so an open Coravin bottle vanished from the UI on reload
 - [x] B7 `drop-tables` skips the bar, report and inventory history tables
 - [x] B8 Image MIME type hard-coded to JPEG: not a live bug, since the browser re-encodes every image as JPEG (`file->jpeg-data-url`). The provider-neutral image format is still part of 5.4.
 - [x] B9 Check the tasting-window CHECK constraint: correct as is. HoneySQL renders `[:= col]` as `col IS NULL`.
@@ -48,7 +49,7 @@ below.
 - [x] 1.2 CRUD helpers in handlers and `db/api`. The `updated_at` gap was not real: classifications, grape varieties and bar inventory have no such column.
 - [x] 1.6 Merge the two bulk jobs
 - [x] 1.4 `->jsonb` and shared `q-one`/`q-many`. Not done: a global timestamp `ReadableColumn`, which would change every timestamp's JSON format the frontend reads. The codec maps weren't worth it once `->jsonb` existed.
-- [ ] 1.5 Inventory mutations share `record-history!`
+- [x] 1.5 Inventory mutations share `record-history!`
 - [ ] 1.7 Smaller backend items
 
 **Phase 3: frontend plumbing (§2)**

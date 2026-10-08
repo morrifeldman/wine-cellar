@@ -537,30 +537,6 @@
               (fetch-wine-details app-state wine-id :include-images false))
           (swap! app-state assoc :error (:error result))))))
 
-(defn adjust-wine-quantity
-  ([app-state wine-id adjustment]
-   (adjust-wine-quantity app-state wine-id adjustment {}))
-  ([app-state wine-id adjustment {:keys [reason notes occurred_at]}]
-   (go
-    (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/adjust-quantity")
-                           (cond-> {:adjustment adjustment}
-                             reason (assoc :reason reason)
-                             notes (assoc :notes notes)
-                             occurred_at (assoc :occurred_at occurred_at))
-                           "Failed to update wine quantity"))]
-      (if (:success result)
-        (do (fetch-inventory-history app-state wine-id) ;; Refresh history
-            (swap! app-state update
-              :wines
-              (fn [wines]
-                (map #(if (= (:id %) wine-id)
-                        (cond-> (update % :quantity + adjustment)
-                          (= reason "restock")
-                          (update :original_quantity (fnil + 0) adjustment))
-                        %)
-                     wines))))
-        (swap! app-state assoc :error (:error result)))))))
-
 (defn- merge-wine-update!
   "Merge the open-bottle fields from a server response into the wine in app-state."
   [app-state wine-id updated]
@@ -575,6 +551,22 @@
                                    :open_bottle_oz_poured]))
               %)
            wines))))
+
+(defn adjust-wine-quantity
+  ([app-state wine-id adjustment]
+   (adjust-wine-quantity app-state wine-id adjustment {}))
+  ([app-state wine-id adjustment {:keys [reason notes occurred_at]}]
+   (go (let [result (<! (POST
+                         (str "/api/wines/by-id/" wine-id "/adjust-quantity")
+                         (cond-> {:adjustment adjustment}
+                           reason (assoc :reason reason)
+                           notes (assoc :notes notes)
+                           occurred_at (assoc :occurred_at occurred_at))
+                         "Failed to update wine quantity"))]
+         (if (:success result)
+           (do (fetch-inventory-history app-state wine-id) ;; Refresh history
+               (merge-wine-update! app-state wine-id (:data result)))
+           (swap! app-state assoc :error (:error result)))))))
 
 (defn coravin-pour
   ([app-state wine-id oz] (coravin-pour app-state wine-id oz {}))

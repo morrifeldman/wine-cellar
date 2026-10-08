@@ -475,7 +475,8 @@
    :location :purveyor :quantity :original_quantity :price :drink_from_year
    :drink_until_year :alcohol_percentage :disgorgement_year :dosage
    :label_thumbnail :created_at :updated_at :verified :purchase_date
-   :latest_internal_rating :average_external_rating :varieties :metadata])
+   :latest_internal_rating :average_external_rating :varieties :metadata
+   :open_bottle_opened_at :open_bottle_oz_poured])
 
 (defn get-wines-for-list
   []
@@ -523,137 +524,118 @@
               :returning :*})
       db-wine->wine))
 
+(def ^:private stock-columns
+  [:id :quantity :original_quantity :open_bottle_opened_at
+   :open_bottle_oz_poured])
+
+(defn- stock
+  [tx id]
+  (q-one tx
+         {:select (conj stock-columns :bottle_format)
+          :from :wines
+          :where [:= :id id]}))
+
+(defn- record-history!
+  "Logs a stock change for the wine. `entry` gives :change_amount, :reason and
+   optionally :notes, :oz and :occurred_at."
+  [tx wine new-quantity entry]
+  (q-one tx
+         {:insert-into :inventory_history
+          :values [(merge {:wine_id (:id wine)
+                           :previous_quantity (:quantity wine)
+                           :new_quantity new-quantity
+                           :original_quantity (:original_quantity wine)}
+                          entry)]}))
+
+(defn- set-stock!
+  "Updates the wine's stock columns and returns them."
+  [tx id changes]
+  (q-one tx
+         {:update :wines
+          :set (assoc changes :updated_at [:now])
+          :where [:= :id id]
+          :returning stock-columns}))
+
+(defn- finish-bottle!
+  "Uses up the open bottle: one fewer in stock, nothing open."
+  [tx wine notes]
+  (let [new-qty (max 0 (dec (:quantity wine)))]
+    (record-history! tx
+                     wine
+                     new-qty
+                     {:change_amount -1 :reason "drunk" :notes notes})
+    (set-stock! tx
+                (:id wine)
+                {:quantity new-qty
+                 :open_bottle_opened_at nil
+                 :open_bottle_oz_poured nil})))
+
 (defn adjust-quantity
+  "Adds `adjustment` bottles (negative to remove) and logs why. A restock also
+   raises original_quantity. Returns the wine's stock columns."
   ([id adjustment] (adjust-quantity id adjustment {}))
   ([id adjustment {:keys [reason notes occurred_at]}]
    (jdbc/with-transaction
     [tx ds]
-    (let [wine (q-one tx
-                      {:select [:quantity :original_quantity]
-                       :from :wines
-                       :where [:= :id id]})
-          current-quantity (:quantity wine 0)
-          current-original-quantity (:original_quantity wine 0)
-          new-quantity (+ current-quantity adjustment)
-          actual-reason (or reason (if (neg? adjustment) "drunk" "return"))
-          restock? (= actual-reason "restock")
-          new-original-quantity (if restock?
-                                  (+ current-original-quantity adjustment)
-                                  current-original-quantity)
-          update-map (cond-> {:quantity new-quantity :updated_at [:now]}
-                       restock? (assoc :original_quantity
-                                       new-original-quantity))]
-      (q-one tx
-             {:insert-into :inventory_history
-              :values [(cond-> {:wine_id id
-                                :change_amount adjustment
-                                :reason actual-reason
-                                :previous_quantity current-quantity
-                                :new_quantity new-quantity
-                                :original_quantity new-original-quantity
-                                :notes notes}
-                         occurred_at (assoc :occurred_at
-                                            (->sql-timestamp occurred_at)))]})
-      (q-one tx {:update :wines :set update-map :where [:= :id id]})))))
+    (let [wine (update (stock tx id) :original_quantity #(or % 0))
+          new-quantity (+ (:quantity wine 0) adjustment)
+          reason (or reason (if (neg? adjustment) "drunk" "return"))
+          restock? (= reason "restock")
+          wine (cond-> wine restock? (update :original_quantity + adjustment))]
+      (when (neg? new-quantity)
+        (throw (ex-info "Adjustment would make quantity negative"
+                        {:status 400 :wine-id id})))
+      (record-history!
+       tx
+       wine
+       new-quantity
+       (cond-> {:change_amount adjustment :reason reason :notes notes}
+         occurred_at (assoc :occurred_at (->sql-timestamp occurred_at))))
+      (set-stock! tx
+                  id
+                  (cond-> {:quantity new-quantity}
+                    restock? (assoc :original_quantity
+                                    (:original_quantity wine))))))))
 
 (defn coravin-pour
   "Record a Coravin pour of `oz` ounces from wine `id`. Opens a bottle on the
   first pour and auto-finishes when total poured reaches the bottle volume
-  (derived from bottle_format). Returns the updated wine row."
+  (derived from bottle_format). Returns the wine's stock columns."
   ([id oz] (coravin-pour id oz {}))
   ([id oz {:keys [notes]}]
    (jdbc/with-transaction
     [tx ds]
-    (let [wine (q-one tx
-                      {:select [:quantity :original_quantity :bottle_format
-                                :open_bottle_opened_at :open_bottle_oz_poured]
-                       :from :wines
-                       :where [:= :id id]})
-          current-qty (:quantity wine 0)
-          bottle-oz (common/bottle-format->oz (:bottle_format wine))
-          prev-poured (or (some-> (:open_bottle_oz_poured wine)
-                                  double)
-                          0.0)
-          new-poured (+ prev-poured (double oz))
-          auto-finish? (>= new-poured bottle-oz)]
-      (when (zero? current-qty)
+    (let [wine (stock tx id)
+          poured (+ (double (or (:open_bottle_oz_poured wine) 0)) (double oz))]
+      (when (zero? (:quantity wine 0))
         (throw (ex-info "No bottles available to pour from"
                         {:status 400 :wine-id id})))
-      (q-one tx
-             {:insert-into :inventory_history
-              :values [{:wine_id id
-                        :change_amount 0
+      (record-history! tx
+                       wine
+                       (:quantity wine)
+                       {:change_amount 0
                         :reason "coravin_pour"
-                        :previous_quantity current-qty
-                        :new_quantity current-qty
-                        :original_quantity (:original_quantity wine)
                         :oz oz
-                        :notes (when (seq notes) notes)}]})
-      (if auto-finish?
-        (let [new-qty (dec current-qty)]
-          (q-one tx
-                 {:insert-into :inventory_history
-                  :values [{:wine_id id
-                            :change_amount -1
-                            :reason "drunk"
-                            :previous_quantity current-qty
-                            :new_quantity new-qty
-                            :original_quantity (:original_quantity wine)
-                            :notes "Auto-finished after Coravin pours"}]})
-          (q-one tx
-                 {:update :wines
-                  :set {:quantity new-qty
-                        :open_bottle_opened_at nil
-                        :open_bottle_oz_poured nil
-                        :updated_at [:now]}
-                  :where [:= :id id]
-                  :returning [:id :quantity :original_quantity
-                              :open_bottle_opened_at :open_bottle_oz_poured]}))
-        (q-one
-         tx
-         {:update :wines
-          :set (cond-> {:open_bottle_oz_poured new-poured :updated_at [:now]}
-                 (nil? (:open_bottle_opened_at wine))
-                 (assoc :open_bottle_opened_at [:now]))
-          :where [:= :id id]
-          :returning [:id :quantity :original_quantity :open_bottle_opened_at
-                      :open_bottle_oz_poured]}))))))
+                        :notes (when (seq notes) notes)})
+      (if (>= poured (common/bottle-format->oz (:bottle_format wine)))
+        (finish-bottle! tx wine "Auto-finished after Coravin pours")
+        (set-stock! tx
+                    id
+                    (cond-> {:open_bottle_oz_poured poured}
+                      (nil? (:open_bottle_opened_at wine))
+                      (assoc :open_bottle_opened_at [:now]))))))))
 
 (defn finish-open-bottle
   "Mark the currently open bottle for wine `id` as finished. Decrements quantity
   by 1, clears open state, and writes a 'drunk' inventory_history row. Returns
-  the updated wine row, or nil if no bottle is open."
+  the wine's stock columns, or nil if no bottle is open."
   ([id] (finish-open-bottle id {}))
   ([id {:keys [notes]}]
    (jdbc/with-transaction
     [tx ds]
-    (let [wine (q-one tx
-                      {:select [:quantity :original_quantity
-                                :open_bottle_opened_at]
-                       :from :wines
-                       :where [:= :id id]})]
+    (let [wine (stock tx id)]
       (when (:open_bottle_opened_at wine)
-        (let [current-qty (:quantity wine 0)
-              new-qty (max 0 (dec current-qty))]
-          (q-one tx
-                 {:insert-into :inventory_history
-                  :values [{:wine_id id
-                            :change_amount -1
-                            :reason "drunk"
-                            :previous_quantity current-qty
-                            :new_quantity new-qty
-                            :original_quantity (:original_quantity wine)
-                            :notes (or notes "Finished open bottle")}]})
-          (q-one tx
-                 {:update :wines
-                  :set {:quantity new-qty
-                        :open_bottle_opened_at nil
-                        :open_bottle_oz_poured nil
-                        :updated_at [:now]}
-                  :where [:= :id id]
-                  :returning [:id :quantity :original_quantity
-                              :open_bottle_opened_at
-                              :open_bottle_oz_poured]})))))))
+        (finish-bottle! tx wine (or notes "Finished open bottle")))))))
 
 (defn get-inventory-history
   [wine-id]
@@ -744,10 +726,13 @@
                     {:select [:wine_id :reason]
                      :from :inventory_history
                      :where [:= :id id]})
-         result (q-one tx {:delete-from :inventory_history :where [:= :id id]})]
+         deleted?
+         (-> (q-one tx {:delete-from :inventory_history :where [:= :id id]})
+             :next.jdbc/update-count
+             pos?)]
      (when (and row (= "coravin_pour" (:reason row)))
        (recompute-open-poured! tx (:wine_id row)))
-     result)))
+     deleted?)))
 
 (defn delete-wine! [id] (delete-by-id! :wines id))
 
