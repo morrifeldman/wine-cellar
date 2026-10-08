@@ -4,7 +4,7 @@
             [wine-cellar.db.api :as db-api]
             [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
-            [wine-cellar.admin.bulk-operations]
+            [wine-cellar.admin.bulk-operations :as bulk]
             [wine-cellar.devices :as devices]
             [wine-cellar.reports.core :as reports]
             [wine-cellar.http :as http]
@@ -643,7 +643,7 @@
 (defn get-model-info
   "Get current AI model configuration for all providers"
   [_request]
-  (http/ok (wine-cellar.ai.core/get-model-info)))
+  (http/ok (ai/get-model-info)))
 
 (defn get-db-schema
   "Admin function to get database schema"
@@ -890,8 +890,7 @@
   [request]
   (start-bulk-job request
                   {:job-label "drinking window job"
-                   :start-fn
-                   wine-cellar.admin.bulk-operations/start-drinking-window-job
+                   :start-fn bulk/start-drinking-window-job
                    :message "Drinking window regeneration job started"}))
 
 (defn start-wine-summary-job
@@ -899,14 +898,13 @@
   [request]
   (start-bulk-job request
                   {:job-label "wine summary job"
-                   :start-fn
-                   wine-cellar.admin.bulk-operations/start-wine-summary-job
+                   :start-fn bulk/start-wine-summary-job
                    :message "Wine summary regeneration job started"}))
 
 (defn get-job-status
   "Get status of an async job"
   [request]
   (let [job-id (get-in request [:parameters :path :job-id])]
-    (if-let [status (wine-cellar.admin.bulk-operations/get-job-status job-id)]
+    (if-let [status (bulk/get-job-status job-id)]
       (http/ok status)
       (http/not-found "Job"))))

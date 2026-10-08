@@ -44,7 +44,7 @@ below.
 - [x] 1.1 One error-handling path + response helpers (`wine-cellar.http`). Error bodies were also never JSON-encoded, because the exception middleware sat outside muuntaja.
 - [x] 1.3 Shared route `:responses`; merge duplicate route entries
 - [x] 1.2 CRUD helpers in handlers and `db/api`. The `updated_at` gap was not real: classifications, grape varieties and bar inventory have no such column.
-- [ ] 1.6 Merge the two bulk jobs
+- [x] 1.6 Merge the two bulk jobs
 - [ ] 1.4 `->jsonb`, codecs, timestamp `ReadableColumn`, shared `q-one`/`q-many`
 - [ ] 1.5 Inventory mutations share `record-history!`
 - [ ] 1.7 Smaller backend items
