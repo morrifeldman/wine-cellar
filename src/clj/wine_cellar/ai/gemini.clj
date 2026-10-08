@@ -1,10 +1,10 @@
 (ns wine-cellar.ai.gemini
   (:require [clojure.string :as str]
             [wine-cellar.ai.errors :as errors]
+            [wine-cellar.ai.schemas :as schemas]
             [jsonista.core :as json]
             [mount.core :refer [defstate]]
             [org.httpkit.client :as http]
-            [wine-cellar.common :as common]
             [wine-cellar.config-utils :as config-utils]))
 
 (def base-url "https://generativelanguage.googleapis.com/v1beta/models")
@@ -132,73 +132,28 @@
         {:system full-system :messages messages :tools [google-search-tool]}]
     (call-gemini-api request)))
 
-(def drinking-window-schema
-  {:type "OBJECT"
-   :properties {:drink_from_year {:type "INTEGER"}
-                :drink_until_year {:type "INTEGER"}
-                :confidence {:type "STRING" :enum ["high" "medium" "low"]}
-                :reasoning {:type "STRING"}}
-   :required ["drink_from_year" "drink_until_year" "confidence" "reasoning"]})
-
 (defn suggest-drinking-window
   [{:keys [system user]}]
   (let [request {:system system
                  :messages [{:role "user" :content user}]
-                 :response-schema drinking-window-schema
+                 :response-schema (schemas/->gemini-schema
+                                   schemas/drinking-window)
                  :max-tokens 10000}]
     (call-gemini-api request :parse-json? true)))
-
-(def label-analysis-schema
-  {:type "OBJECT"
-   :properties
-   {:producer {:type "STRING"}
-    :name {:type "STRING"}
-    :vintage {:type "INTEGER"}
-    :country {:type "STRING"}
-    :region {:type "STRING" :description (:region common/field-descriptions)}
-    :appellation {:type "STRING"
-                  :description (:appellation common/field-descriptions)}
-    :appellation_tier {:type "STRING"
-                       :enum (vec (sort common/appellation-tiers))
-                       :description (:appellation_tier
-                                     common/field-descriptions)}
-    :vineyard {:type "STRING"
-               :description (:vineyard common/field-descriptions)}
-    :classification {:type "STRING"
-                     :description (:classification common/field-descriptions)}
-    :style {:type "STRING" :enum (vec (sort common/wine-styles))}
-    :designation {:type "STRING"
-                  :enum (vec (sort common/wine-designations))
-                  :description (:designation common/field-descriptions)}
-    :bottle_format {:type "STRING" :enum (vec common/bottle-formats)}
-    :alcohol_percentage {:type "NUMBER"}}})
 
 (defn analyze-wine-label
   [{:keys [system user-content]}]
   (let [request {:system system
                  :messages [{:role "user" :content user-content}]
-                 :response-schema label-analysis-schema
+                 :response-schema (schemas/->gemini-schema schemas/wine-label)
                  :max-tokens 20000}]
     (call-gemini-api request :parse-json? true)))
-
-(def spirit-label-analysis-schema
-  (let [categories ["whiskey" "gin" "rum" "vodka" "tequila" "mezcal" "brandy"
-                    "liqueur" "other"]]
-    {:type "OBJECT"
-     :properties {:name {:type "STRING"}
-                  :category {:type "STRING" :enum (vec categories)}
-                  :subcategory {:type "STRING"}
-                  :distillery {:type "STRING"}
-                  :country {:type "STRING"}
-                  :region {:type "STRING"}
-                  :age_statement {:type "STRING"}
-                  :proof {:type "INTEGER"}}}))
 
 (defn analyze-spirit-label
   [{:keys [system user-content]}]
   (let [request {:system system
                  :messages [{:role "user" :content user-content}]
-                 :response-schema spirit-label-analysis-schema
+                 :response-schema (schemas/->gemini-schema schemas/spirit-label)
                  :max-tokens 10000}]
     (call-gemini-api request :parse-json? true)))
 

@@ -78,7 +78,7 @@ below.
 - [x] 4.5 Indexes on `tasting_notes`, `inventory_history` and message `conversation_id`; CHECKs on `devices.status` and `ai_conversations.provider` (NOT VALID, so old rows can't block a deploy). Not done: `timestamp` → `timestamptz` (it reinterprets stored values), the duplicated sensor temperatures, JSON ingredient ids without FKs, and the two old design docs, kept as history.
 
 **Phase 6: AI layer (§5)**
-- [ ] 5.2 One schema per output, rendered per provider
+- [x] 5.2 One schema per output, rendered per provider
 - [ ] 5.1 Task table instead of `case provider`
 - [ ] 5.3 Shared HTTP layer
 - [ ] 5.4 Neutral image format
