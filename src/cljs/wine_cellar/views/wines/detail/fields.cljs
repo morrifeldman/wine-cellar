@@ -53,8 +53,8 @@
   [app-state wine]
   [numeric-editor app-state wine :alcohol_percentage
    {:label "Alcohol percentage"
-    :lo 0
-    :hi 100
+    :lo (first common/alcohol-range)
+    :hi (second common/alcohol-range)
     :display-fn #(gstring/format "%.1f" %)
     :format-fn #(str % "% ABV")
     :empty-text "Add ABV"
@@ -67,8 +67,8 @@
   [app-state wine]
   [numeric-editor app-state wine :dosage
    {:label "Dosage"
-    :lo 0
-    :hi 200
+    :lo (first common/dosage-range)
+    :hi (second common/dosage-range)
     :display-fn #(str (js/Math.round %))
     :round? true
     :allow-blank? true
@@ -81,8 +81,8 @@
   [app-state wine]
   [numeric-editor app-state wine :disgorgement_year
    {:label "Year"
-    :lo 1900
-    :hi (.getFullYear (js/Date.))
+    :lo common/earliest-disgorgement
+    :hi (common/current-year)
     :parser #(js/parseInt % 10)
     :allow-blank? true
     :format-fn #(str "Disgorged in " %)
@@ -168,7 +168,7 @@
                    (cond (empty? value) nil
                          (= value "NV") nil
                          :else (let [parsed (js/parseInt value 10)]
-                                 (vintage/valid-vintage? parsed))))
+                                 (common/vintage-error parsed))))
     :empty-text "Add vintage"
     :compact? true
     :inline? true

@@ -27,9 +27,9 @@
     :free-solo true
     :value (:vintage new-wine)
     :error (when (:vintage new-wine)
-             (boolean (vintage/valid-vintage? (:vintage new-wine))))
+             (boolean (common/vintage-error (:vintage new-wine))))
     :helper-text (if (:vintage new-wine)
-                   (vintage/valid-vintage? (:vintage new-wine))
+                   (common/vintage-error (:vintage new-wine))
                    "Leave empty for non-vintage (NV) wines")
     :options (concat ["NV"] (vintage/default-vintage-years))
     :on-change #(swap! app-state assoc-in
@@ -73,8 +73,8 @@
   (let [drink-from-year (:drink_from_year new-wine)
         drink-until-year (:drink_until_year new-wine)
         invalid? (when (and drink-from-year drink-until-year)
-                   (vintage/valid-tasting-window? drink-from-year
-                                                  drink-until-year))]
+                   (common/tasting-window-error drink-from-year
+                                                drink-until-year))]
     [year-field
      {:label "Drink from"
       :free-solo true
@@ -91,8 +91,8 @@
   (let [drink-from-year (:drink_from_year new-wine)
         drink-until-year (:drink_until_year new-wine)
         invalid? (when (and drink-from-year drink-until-year)
-                   (vintage/valid-tasting-window? drink-from-year
-                                                  drink-until-year))]
+                   (common/tasting-window-error drink-from-year
+                                                drink-until-year))]
     [year-field
      {:label "Drink until"
       :free-solo true
@@ -128,8 +128,8 @@
                 (empty? (:country new-wine)) "Country is required"
                 (empty? (:region new-wine)) "Region is required"
                 (and (:vintage new-wine)
-                     (not (nil? (vintage/valid-vintage? (:vintage new-wine)))))
-                (vintage/valid-vintage? (:vintage new-wine))
+                     (not (nil? (common/vintage-error (:vintage new-wine)))))
+                (common/vintage-error (:vintage new-wine))
                 (empty? (:style new-wine)) "Style is required"
                 (nil? (:quantity new-wine)) "Quantity is required"
                 (not (common/valid-location? (:location new-wine)))
@@ -332,8 +332,8 @@
       [number-field
        {:label "Alcohol %"
         :required false
-        :min 0
-        :max 100
+        :min (first common/alcohol-range)
+        :max (second common/alcohol-range)
         :step 0.1
         :value (:alcohol_percentage new-wine)
         :helper-text "e.g., 13.5 for 13.5% ABV"

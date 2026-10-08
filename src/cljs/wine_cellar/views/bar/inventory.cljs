@@ -21,6 +21,7 @@
             [reagent-mui.icons.local-florist :refer [local-florist]]
             [reagent-mui.icons.more-horiz :refer [more-horiz]]
             [wine-cellar.api :as api]
+            [wine-cellar.common :as common]
             [wine-cellar.theme :as theme]
             [wine-cellar.views.components :refer [detail-section]]
             [wine-cellar.dom :as dom]
@@ -35,8 +36,7 @@
    "garnish" "Garnishes"
    "other" "Other"})
 
-(def category-order
-  ["fruit" "juice" "soda" "syrup" "bitters" "garnish" "other"])
+(def category-order common/bar-inventory-categories)
 
 (def category-icons
   {"fruit" filter-vintage

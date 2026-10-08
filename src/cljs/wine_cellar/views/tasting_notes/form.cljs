@@ -255,8 +255,8 @@
          [number-field
           {:label "Rating (1-100)"
            :required false
-           :min 1
-           :max 100
+           :min (first common/rating-range)
+           :max (second common/rating-range)
            :value (:rating updated-note)
            :on-change #(swap! app-state assoc-in
                          [:new-tasting-note :rating]
