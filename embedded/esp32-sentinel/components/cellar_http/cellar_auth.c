@@ -122,6 +122,12 @@ void cellar_auth_clear(void) {
     }
 }
 
+void cellar_auth_invalidate_access(void) {
+    memset(s_access_token, 0, sizeof(s_access_token));
+    s_access_expiry = 0;
+    persist_tokens();
+}
+
 void cellar_auth_clear_claim_code(void) {
     memset(s_claim_code, 0, sizeof(s_claim_code));
     nvs_handle_t nvs;
@@ -180,12 +186,18 @@ void cellar_auth_log_status(void) {
              (long)s_access_expiry);
 }
 
+// Any time before 2023 means SNTP hasn't set the clock yet.
+#define EARLIEST_VALID_EPOCH 1672531200
+
 static bool access_valid(void) {
     if (s_access_token[0] == '\0') return false;
     time_t now = 0;
     time(&now);
     // If we don't have an expiry, treat as invalid and reclaim.
     if (s_access_expiry <= 0) return false;
+    // Without a real clock the stored expiry can't be checked, and the server
+    // rejects expired tokens, so refresh rather than trust it.
+    if (now < EARLIEST_VALID_EPOCH) return false;
     return now + 60 < s_access_expiry;  // refresh if within 60s of expiry
 }
 
@@ -347,7 +359,8 @@ esp_err_t cellar_auth_ensure_access_token(void) {
     if (access_valid()) return ESP_OK;
 
     ESP_LOGI(TAG, "Access token missing/expiring; attempting refresh");
-    if (refresh_tokens() == ESP_OK && access_valid()) {
+    // A token the server just issued is good, even if the clock can't say so.
+    if (refresh_tokens() == ESP_OK) {
         ESP_LOGI(TAG, "Refresh succeeded");
         return ESP_OK;
     }

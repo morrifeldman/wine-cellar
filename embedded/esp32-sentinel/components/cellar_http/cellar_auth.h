@@ -17,6 +17,11 @@ const char *cellar_auth_claim_code(void);
 const char *cellar_auth_device_id(void);
 
 void cellar_auth_clear(void);
+
+// Forget the access token but keep the refresh token, so the next
+// cellar_auth_ensure_access_token() refreshes instead of claiming again.
+// Use when the server rejects the access token.
+void cellar_auth_invalidate_access(void);
 void cellar_auth_clear_claim_code(void);
 
 void cellar_auth_log_status(void);
