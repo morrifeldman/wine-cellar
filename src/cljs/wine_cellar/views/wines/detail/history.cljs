@@ -1,29 +1,30 @@
 (ns wine-cellar.views.wines.detail.history
-  (:require
-    [wine-cellar.views.components.placeholders :refer [empty-state]]
-    [clojure.string :as str]
-    [goog.string :as gstring]
-    [goog.string.format]
-    [goog.object :as gobj]
-    [reagent-mui.icons.wine-bar :refer [wine-bar]]
-    [reagent-mui.icons.history :refer [history] :rename {history history-icon}]
-    [reagent-mui.material.box :refer [box]]
-    [reagent-mui.material.button :refer [button]]
-    [reagent-mui.material.typography :refer [typography]]
-    [reagent-mui.material.text-field :refer [text-field]]
-    [reagent-mui.material.autocomplete :refer [autocomplete]]
-    [wine-cellar.views.components.form-dialog :refer [form-dialog]]
-    ["@mui/material/TextField" :default TextField]
-    [reagent-mui.material.table :refer [table]]
-    [reagent-mui.material.table-body :refer [table-body]]
-    [reagent-mui.material.table-cell :refer [table-cell]]
-    [reagent-mui.material.table-row :refer [table-row]]
-    [reagent.core :as r]
-    [wine-cellar.api :as api]
-    [wine-cellar.views.components.confirm :refer [confirm!]]
-    [wine-cellar.common :as common]
-    [wine-cellar.utils.formatting :refer [format-date-iso]]
-    [wine-cellar.views.components :refer [detail-section oz-input-field]]))
+  (:require [wine-cellar.views.components.placeholders :refer [empty-state]]
+            [clojure.string :as str]
+            [goog.string :as gstring]
+            [goog.string.format]
+            [goog.object :as gobj]
+            [reagent-mui.icons.wine-bar :refer [wine-bar]]
+            [reagent-mui.icons.history :refer [history] :rename
+             {history history-icon}]
+            [reagent-mui.material.box :refer [box]]
+            [reagent-mui.material.button :refer [button]]
+            [reagent-mui.material.typography :refer [typography]]
+            [reagent-mui.material.text-field :refer [text-field]]
+            [reagent-mui.material.autocomplete :refer [autocomplete]]
+            [wine-cellar.views.components.form-dialog :refer [form-dialog]]
+            ["@mui/material/TextField" :default TextField]
+            [reagent-mui.material.table :refer [table]]
+            [reagent-mui.material.table-body :refer [table-body]]
+            [reagent-mui.material.table-cell :refer [table-cell]]
+            [reagent-mui.material.table-row :refer [table-row]]
+            [reagent.core :as r]
+            [wine-cellar.api :as api]
+            [wine-cellar.views.components.confirm :refer [confirm!]]
+            [wine-cellar.common :as common]
+            [wine-cellar.utils.formatting :refer [format-date-iso]]
+            [wine-cellar.views.components :refer
+             [date-input detail-section oz-input-field]]))
 
 (defn history-date-cell
   [record]
@@ -130,14 +131,9 @@
                     (on-close))))}
     [oz-input-field oz-atom
      {:helper-text "Editing this updates the open bottle's running total."}]
-    [text-field
-     {:type "date"
-      :label "Date"
-      :value (:occurred_at @other-state)
-      :onChange #(swap! other-state assoc :occurred_at (.. % -target -value))
-      :fullWidth true
-      :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
-           {:filter "invert(0.7)" :opacity 0.7}}}]
+    [date-input
+     {:value (:occurred_at @other-state)
+      :on-change #(swap! other-state assoc :occurred_at %)}]
     [text-field
      {:label "Notes"
       :value (:notes @other-state)
@@ -191,14 +187,9 @@
                        (:id record)
                        (assoc @local-state :change_amount (* sign n)))
                       (on-close))))}
-      [text-field
-       {:type "date"
-        :label "Date"
-        :value (:occurred_at @local-state)
-        :onChange #(swap! local-state assoc :occurred_at (.. % -target -value))
-        :fullWidth true
-        :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
-             {:filter "invert(0.7)" :opacity 0.7}}}]
+      [date-input
+       {:value (:occurred_at @local-state)
+        :on-change #(swap! local-state assoc :occurred_at %)}]
       [text-field
        {:type "number"
         :label "Bottles"

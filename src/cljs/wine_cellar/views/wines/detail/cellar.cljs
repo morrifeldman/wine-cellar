@@ -19,8 +19,8 @@
             [wine-cellar.common :as common]
             [wine-cellar.utils.formatting :refer [format-date-iso]]
             [wine-cellar.views.components :refer
-             [coravin-pour-dialog detail-section drink-dialog gift-dialog
-              minus-menu quantity-control]]))
+             [date-input coravin-pour-dialog detail-section drink-dialog
+              gift-dialog minus-menu quantity-control]]))
 
 (defn- cellar-summary
   [wine]
@@ -203,13 +203,10 @@
                          (gobj/set props "variant" "outlined")
                          (gobj/set props "fullWidth" true)
                          (r/create-element TextField props)))}]
-      [text-field
-       {:value (or @date-val "")
-        :type "date"
-        :label "Purchase Date"
-        :fullWidth true
-        :InputLabelProps {:shrink true}
-        :onChange (fn [e] (reset! date-val (.. e -target -value)))}]])))
+      [date-input
+       {:label "Purchase Date"
+        :value @date-val
+        :on-change #(reset! date-val %)}]])))
 
 (defn wine-provenance-section
   [app-state wine]

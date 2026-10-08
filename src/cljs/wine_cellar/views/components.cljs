@@ -64,6 +64,23 @@
    [section-header icon label] (into [:<>] children)])
 
 ;; Shared styles
+;; The native date picker's calendar icon is dark on dark; lift it.
+(def date-picker-sx
+  {"& input[type=date]::-webkit-calendar-picker-indicator"
+   {:filter "invert(0.7)" :opacity 0.7}})
+
+(defn date-input
+  "A full-width date field for dialogs. value and on-change are YYYY-MM-DD."
+  [{:keys [label value on-change]}]
+  [text-field
+   {:type "date"
+    :label (or label "Date")
+    :value (or value "")
+    :fullWidth true
+    :InputLabelProps {:shrink true}
+    :onChange #(on-change (.. % -target -value))
+    :sx date-picker-sx}])
+
 (def form-field-style
   ;; The fill goes on the input itself: on the whole field it would also
   ;; sit behind the helper text as a grey slab.
@@ -146,9 +163,7 @@
   (e.g. at a party), and add a note."
   [app-state wine-id quantity open? on-close]
   (r/with-let
-   [bottles (r/atom "1") date
-    (r/atom (formatting/format-date-iso (.toISOString (js/Date.)))) notes
-    (r/atom "")]
+   [bottles (r/atom "1") date (r/atom (formatting/today-iso)) notes (r/atom "")]
    [form-dialog
     {:open? @open?
      :title "Record Drink"
@@ -174,14 +189,7 @@
       :helperText (str "Up to " quantity " available")
       :InputProps {:inputProps {:step "1" :min "1" :max quantity}}
       :onChange (fn [e] (reset! bottles (.. e -target -value)))}]
-    [text-field
-     {:value @date
-      :type "date"
-      :label "Date"
-      :fullWidth true
-      :onChange (fn [e] (reset! date (.. e -target -value)))
-      :sx {"& input[type=date]::-webkit-calendar-picker-indicator"
-           {:filter "invert(0.7)" :opacity 0.7}}}]
+    [date-input {:value @date :on-change #(reset! date %)}]
     [text-field
      {:value @notes
       :label "Notes (optional)"
