@@ -1,134 +1,217 @@
-# Code Quality Improvements
+# Code Quality & Architecture Review (2026-10)
 
-This document outlines identified areas for improvement in the wine cellar codebase, focusing on architecture, maintainability, and code quality.
+A full-repo review, split by area: backend handlers/routes/DB, frontend API and
+state, frontend views, auth, validation and the SQL model, and the AI layer. It
+replaces the older version of this file. Items from that version that are still
+open are folded in: API calls mixed with state updates, the editable-field
+helper, and the oversized wine detail page.
 
-## Todo List
+Items marked **✔ verified** were checked by reading the code. The rest come
+from the review reports; check line numbers before acting on them.
 
-### High Priority
-- [ ] **Refactor API layer to separate data fetching from state management** - return promises instead of directly manipulating app-state
-- [ ] **Create generic editable field factory** to eliminate repetition in wine detail component
+---
 
-### Medium Priority  
-- [ ] **Move wine filtering logic from chat component** to dedicated utility namespace
-- [ ] **Break down oversized wine detail component** into smaller focused components
+## 0. Bugs and security issues found along the way
 
-### Low Priority
-- [ ] **Separate navigation logic from API layer** - remove browser history manipulation from API functions
+Fix these before any refactoring. Most are small.
 
-## Detailed Analysis
+| # | Issue | Where | Notes |
+|---|---|---|---|
+| B1 | **✔ verified: no admin check, no login allowlist.** `/api` only checks "logged in". Any Google account can log in and reach `/api/admin/sql`, which runs arbitrary SQL, and `reset-database`. Nothing reads `ADMIN_EMAIL` (`auth/config.clj:34`). | `routes.clj:348,537-598`, `auth/core.clj:110-136` | Unless the Google OAuth app is in "Testing" mode with a test-user list, this is open to the internet. Add an allowlist in `handle-successful-auth` plus a `require-admin` middleware on `"/admin"`. |
+| B2 | **✔ verified: JWT `iat`/`exp` are in milliseconds** (`inst-ms`). buddy-sign checks seconds, so tokens never expire on the server, including the 30-minute device access tokens. | `auth/core.clj:106-107`, `devices.clj:35-36` | Use `.getEpochSecond`. |
+| B3 | Device tokens pass `require-authentication`, so a sensor's token can reach every `/api` route, including admin SQL. | `auth/core.clj:188-217`, `handlers.clj:59-63` | Fix together with B1: `require-user` / `require-device` / `require-admin`. |
+| B4 | **✔ verified: restock casing mismatch.** The frontend sends `"restock"`, but the update map tests `"Restock"`, so `wines.original_quantity` is never updated on restock. | `db/api.clj:531` vs `:535` | Use one constant from `common.cljc`. |
+| B5 | **✔ verified: the frontend's fallback error message is dead code.** `(try (get-in …) (catch …))` cannot throw, so on a network failure or an HTML 502 the `:error` is nil, and the "Failed to X" message passed in at about 70 call sites is never shown. | `api.cljs:62-69` | `(or (and (map? body) (:error body)) error-msg)` |
+| B6 | **✔ verified: request specs that were never defined.** `::adjustment ::occurred_at ::change_amount ::wine_ids ::tokens_used ::is_user ::content` are used in `:req-un`, but there is no `s/def` for them, so only the key's presence is checked. `::notes` is defined twice and the later definition wins. `::vineyard` appears twice in `wine-update-schema`. | `routes.clj:73,112-126,709,734,259` | |
+| B7 | **✔ verified: `drop-tables` skips** spirits, bar_inventory_items, cocktail_recipes, cellar_reports and inventory_history, so the admin reset leaves them behind. | `db/setup.clj:182-207` | |
+| B8 | **✔ verified: image MIME type hard-coded to `image/jpeg`** when reading stored images back and for chat images. Any PNG or WebP is labeled wrongly, and `strip-image-data-url` only strips jpeg and png prefixes. | `db/api.clj:78`, `ai/prompts.clj:403-407,452-454` | Parse the data URL once into `{:media-type :data}`. |
+| B9 | **To check: the tasting-window CHECK may be malformed.** `[:= :drink_from_year]` has one argument; it was probably meant as an `IS NULL` test. | `db/schema.clj:45-48` | Look at the generated DDL with `\d wines`. |
+| B10 | Recipe rating: the DB CHECK is 1–10, but the route uses the shared 1–100 `::rating`, so `rating 50` passes the spec and then fails in the DB with a 500. | `routes.clj:73,220,225`, `setup.clj:~96` | |
+| B11 | SSRF guard in `web_fetch` works on host-name prefixes: `"fd"` blocks `fdic.gov`, IPv6 / `0.0.0.0` / decimal IPs get through, and redirects are followed without checking the new host again. | `utils/web_fetch.clj` | Resolve the host and use `InetAddress` `isSiteLocal`/`isLoopback`/…; check each redirect. |
+| B12 | `list-conversations-for-user` builds its search regex into raw SQL by escaping it by hand. | `db/api.clj:~263` | Pass it as a bound parameter. |
+| B13 | The `create-wine` handler creates the classification and then the wine outside one transaction. `create-wine` returns `label_image` as raw bytes, while `update-wine!` converts it. | `handlers.clj:156-171`, `db/api.clj:~218` | |
+| B14 | The secret lookup runs `pass` as a subprocess on every request in dev: `get-jwt-secret` is called on every `verify-token`. | `config_utils.clj`, `auth/core.clj` | Read the config once into a `defstate`. |
+| B15 | Leaks: `tap>` logs the OAuth `code` and the full userinfo. Whole AI request bodies, base64 images included, are tapped. The Gemini key goes in the URL query string. Raw PostgreSQL messages are returned to the client. | `auth/core.clj:102,117,138`, `ai/*.clj`, `handlers.clj:853` | |
+| B16 | Cookies are missing `:secure` in production. `ensure-api-key!` exists for OpenAI and Gemini but not Anthropic. | `auth/core.clj:121`, `server.clj:30` | |
 
-### 1. State Management in API Layer (High Priority)
+---
 
-**Problem**: The API layer (`src/cljs/wine_cellar/api.cljs`) is heavily coupled with state management logic that should be in calling components.
+## 1. Backend (Clojure)
 
-**Examples**:
-- `fetch-classifications` (lines 84-89) directly manipulates app-state
-- `fetch-wines` (lines 127-138) manages loading states and data
-- Nearly identical state management patterns across create/update/delete operations
+### 1.1 One error-handling path instead of six (HIGH, about −150–200 LOC)
+Errors are handled in several ways: `with-server-error`, `with-ai-error`, raw `try/catch` that maps `PSQLException` to 400 (but only in some create/update handlers), `ExceptionInfo` mapped to 400, `handle-chat-error`, and hand-written try blocks in the admin handlers. The same bad input gets 400 from `update-wine` but 500 from `create-wine`, grape-variety, spirit and recipe.
+**Change:** one reitit exception handler. `PSQLException` maps to 400; `ex-info` with `:status` in its data maps to that status; anything else maps to 500 with a generic message. Domain code just throws `(ex-info msg {:status 400})`. Add response helpers `ok` / `created` / `no-content` / `not-found`; today four different 201 idioms are in use.
 
-**Recommendation**: Refactor API functions to return promises/channels and let calling components handle state updates. Create separate data-fetching functions and state-management functions.
+### 1.2 Generic CRUD helpers in handlers and `db/api` (HIGH, about −250–350 LOC)
+Classification, grape-variety, tasting-note, spirit, bar-inventory, cocktail-recipe, blind-tasting and device all repeat get/create/update/delete. They also disagree with each other:
+- **delete:** some 404 on a missing row, some never 404, some fetch first and then delete (a race), some check `update-count`.
+- **`updated_at`:** set by spirit, recipe, tasting note and wine; not set by classification, grape-variety or bar-inventory.
+- `:returning :*` is repeated about 25 times.
 
-### 2. Code Repetition
+**Change:** private `get-by-id` / `insert!` / `update-by-id!` (which always sets `updated_at`) / `delete-by-id!`, where delete returns a boolean from `update-count`. Handler combinators `get-or-404`, `update-or-404`, `delete-or-404`.
 
-**Pattern 1: Repetitive State Management**
-- Lines 91-102, 104-112, 114-122 in api.cljs show nearly identical patterns for create/update/delete operations
+### 1.3 Route table driven by data (HIGH, about −250 LOC, low risk)
+- `{200 … 404 {:body map?} 500 {:body map?}}` is copy-pasted about 70 times. Put shared `:responses` in the router `:data`.
+- Merge the duplicate sibling entries for `"/classifications"`, `"/wines"` and `"/by-id/:id"`.
+- Generate `wine-update-schema` from one list of wine fields. Today every field is listed twice, once inside a giant `(or …)`.
+- Make URL shapes consistent, e.g. `DELETE /devices/:id/delete` → `DELETE /devices/:id`.
+- Move the specs into their own namespace (see §4).
 
-**Pattern 2: Editable Field Repetition**
-- Lines 29-75 in wine detail: Multiple similar editable field implementations
-- `editable-location`, `editable-purveyor`, `editable-purchase-date`, `editable-price` all follow the same pattern
+### 1.4 `db/api` conversion layer (MED, about −60 LOC)
+- `(sql-cast :jsonb (json/write-value-as-string v))` is written out 11 times. Add `->jsonb`, or a `SettableParameter` extension so writes match the reads already handled in `db/connection.clj`.
+- Replace the 12 hand-written `x->db-x` / `db-x->x` converters with small codec maps. Use `contains?` rather than `cond->` truthiness, so that writing nil to clear a field works.
+- Timestamps: add one `ReadableColumn` extension and delete the manual `timestamp->iso-string` conversions.
+- Make `q-one` / `q-many` public in `db/connection` and use them in `reports/core.clj` and `setup.clj`, which call raw `jdbc/execute!` about 15 times.
 
-**Pattern 3: Form Field Validation**
-- Validation logic scattered across form components
-- Similar validation patterns repeated for different fields
+### 1.5 Inventory mutations (MED, about −50 LOC)
+`adjust-quantity`, `coravin-pour` and `finish-open-bottle` each read the wine, insert an `inventory_history` row with the same six columns, then update `wines`.
+- Extract `record-history!` and `close-open-bottle!`.
+- Fixes B4.
+- `adjust-quantity` doesn't guard against a negative quantity and returns the `update-count` map as its response.
+- The `if-wine` guard adds an extra `wine-exists?` query to eight handlers.
 
-**Recommendation**: Create generic factory functions and shared validation utilities.
+### 1.6 Bulk jobs (HIGH value, low risk, about −70 LOC)
+`start-drinking-window-job` and `start-wine-summary-job` are about 85% the same. Replace them with `run-wine-job! {:job-type :process-wine}`. Also:
+- Job ids come from `currentTimeMillis`, which can collide; use a UUID.
+- `active-jobs` is never cleaned up.
+- `doall (map-indexed …)` is used only for its side effects.
 
-### 3. Misplaced Logic
+### 1.7 Smaller items
+- **Device handlers:** the device lookup and blocked-device check are each repeated three times. A bad claim code gets 401 in one place and 422 in another. Split `ingest-sensor-reading` into a guard and a flat `cond`. `merge-sensor-config!` swallows all exceptions.
+- **`current-user` / `user-email` helper:** the code reaches into `(:user request)` in six different ways.
+- **`reports/core.clj`:** the five `fetch-*` functions differ only in their where/order. The provider is hard-coded to `:anthropic`. The report is re-selected after saving instead of using `:returning`.
+- **`sensor-reading-series`:** 84 lines of SQL built with `format`. Generate the metric columns from a vector.
+- **Recipe-link merging:** move it out of `handlers.clj` (`merge-recipe-links` and its neighbours, about 90 lines) into a `recipes.links` namespace with unit tests.
+- **Namespace aliases:** `handlers.clj` calls `bulk-operations` and `ai.core` by fully-qualified name even though aliases exist.
 
-**Issue 1: Business Logic in View Components**
-- Lines 167-171 in wine_chat.cljs: Wine filtering logic embedded in chat component
-- Should be moved to dedicated state management or utility namespace
+---
 
-**Issue 2: Navigation Logic in API Layer**
-- Lines 177-178 in api.cljs: Browser history manipulation mixed with API calls
-- Navigation concerns should be separated from API layer
+## 2. Frontend data layer (`api.cljs`, 1721 lines → ~1000)
 
-### 4. Component Structure Issues
+### 2.1 One `request!` helper (HIGH, about −350–450 LOC)
+About 60 functions repeat "set flag → `go` → `<!` → on success `swap!`, else `assoc :error`". The proposed helper:
+```clojure
+(request! app-state {:method :get :url "/api/spirits"
+                     :loading [:requests :spirits]
+                     :on-success #(assoc-in %1 [:bar :spirits] %2)
+                     :error-msg "Failed to load spirits"})
+```
+It sets and clears the loading flag itself, writes errors to a single place, and always returns a Promise. Today return types are mixed: go channels, hand-rolled `js/Promise.` in 8 places even though `promise-from-channel` exists, callbacks, or nothing.
 
-**Issue 1: Oversized Wine Detail Component**
-- Lines 325-664 in wine detail: Single massive component with too many responsibilities
-- Handles image management, multiple editable fields, tasting notes, wine varieties, action buttons, and state management
-- Should be broken into smaller, focused components like `WineBasicInfo`, `WineImages`, `WineTastingWindow`
+### 2.2 Resource table and collection helpers (HIGH, about −200 LOC)
+The replace-by-id pattern appears 12 times, remove-by-id 7 times and prepend 4 times. Some use lazy `map`/`remove`, others `mapv`/`filterv`, so `:wines` sometimes holds a lazy seq. Add `replace-by-id`, `remove-by-id` and `upsert-by-id` that always return vectors. Define a `resources` map (`:spirit`, `:recipe`, `:grape-variety`, `:classification`, …) with generic `fetch!`/`create!`/`update!`/`delete!`, and keep the existing public functions as thin aliases so views don't change.
 
-**Issue 2: God Object App-State**
-- App-state accessed directly throughout codebase with deeply nested paths
-- Examples: `[:chat :open?]`, `[:new-wine :vintage]`, `[:window-suggestion :message]`
-- Should use focused state management namespaces with specific update functions
+### 2.3 Error, loading and toast conventions (MED-HIGH)
+- **Errors** land in `:error`, `[:bar :error]`, `[:chat :error]`, `[:blind-tastings :error]`, `[:sensor-readings :error]` or `:devices/approve-error`. Only the top-level `:error` is shown as a toast, so check whether the others appear anywhere.
+- **Loading flags:** there are 15+ ad-hoc keys (`:submitting-note?`, `:analyzing-label?`, …), and some error branches forget to clear theirs.
+- **Change:** add `notify!` for toasts and a `[:requests key]` status map managed by `request!`.
+- **401 handling:** return `{:auth? true}` instead of the text match on "Authentication required" in `poll-job-status`, and guard the double-redirect.
 
-**Issue 3: Mixed Concerns in Form Components**
-- Lines 96-131 in wine form: Form validation, AI integration, and DOM manipulation all mixed together
+### 2.4 Other duplication in `api.cljs`
+- **Chat conversations:** the upsert + provider-sync + clear-error sequence is repeated four times. Rename, pin and set-provider are the same PUT; merge them into `patch-conversation!`. The two extract-recipe functions are about 90% the same.
+- **Job polling:** `poll-job-status` is 112 lines; split it into a pure `next-poll-action` plus an effects dispatcher, and move the failure-test simulation into a dev namespace. `regenerate-filtered-drinking-windows` and `regenerate-filtered-wine-summaries` are 95% the same.
+- **AI calls:** the four "analyze / suggest" functions should share one `ai-post!`. Add an `ai-provider` selector; it is read in 5+ places.
+- **Wine-in-state updates:** there are four different semantics (replace, merge, select-keys merge, client-side arithmetic). Use one `update-wine-in-state`, and always merge the server response.
+- **Misplaced code:** move navigation (`nav/replace-wines!`, `go-bar-recipe!`) and page lifecycle (`load-wine-detail-page`, `exit-wine-detail-page`) out of `api.cljs`. `/version.json` is fetched by two separate implementations.
 
-### 5. Hacks and Workarounds
+### 2.5 App-state shape (MED)
+- **Undeclared keys:** `initial-app-state` declares about 40 keys, but more than 40 others are added on the fly. `reset-database` resets to the initial state, which leaves those inconsistent.
+- **Proposed grouping:** `:wine-detail {…}` (so `exit-wine-detail-page` becomes one `dissoc` instead of eight), `:forms {…}`, `:ui {…}`, `:requests {…}`. Move the `:devices/*` namespaced keys into a `:devices` map.
+- **`filtered-sorted-wines`:** a full filter and sort that runs from seven call sites, up to three times per render, and takes the atom so it can't be memoized. Make it an `r/track` or reaction.
+- **Legacy filter keys:** remove the singular/plural pairs `:style`/`:styles` and `:variety`/`:varieties`.
 
-**Issue 1: Uncontrolled Component Workaround**
-- Lines 183-202 in form.cljs: Complex uncontrolled text area with local atom optimization
-- Lines 163-181: Another text area with local atom for performance
+---
 
-**Issue 2: Material-UI Workaround**
-- Lines 289-294 in form.cljs: Workaround comment for Material-UI bug
+## 3. Frontend views
 
-**Issue 3: Complex Input Event Handling**
-- Lines 196-200 in wine_chat.cljs: Manual DOM event triggering
+1. **Theme tokens + `tint-chip` (HIGH, about −250 LOC).**
+   - About 50 raw rgba/hex literals in `bar/recipes.cljs` alone. The same chip style (light background tint, coloured text, coloured border) is rebuilt about 15 times across recipes, spirits, inventory and `wine_card`.
+   - `#E8C3C8` is hard-coded more than 30 times; make it `primary.light`. Gold, green and amber should be palette tokens too.
+   - There are two blue selection colors that don't fit the theme (`wines/list.cljs:60-73`, `wine_card.cljs:377`).
+   - Move `filter-chip-sx` and `category-filter-bar` out of `spirits.cljs`; recipes currently imports them from there.
+2. **One confirm dialog (HIGH, about −120 LOC):** 11 native `js/confirm` calls plus 3 near-identical custom delete dialogs (grape varieties, classifications, wine varieties). Add `confirm!` backed by a single `:confirm` slot rendered once in `main.cljs`.
+3. **`form-dialog` + `ai-button` (HIGH):** about 20 dialogs repeat `open/onClose/maxWidth/fullWidth` with Save/Cancel and error state. The "Analyzing…" button with spinner is written out 7 times.
+4. **Wine detail page: data-driven editable fields (HIGH, about −250–350 LOC):** 18 `editable-*` wrappers (`detail.cljs:93-345`) with copy-pasted number validators. Add `num-field {:label :min :max :unit :int?}` and a field table. Split the 1400-line file into `wines/detail/{fields,provenance,history,coravin}.cljs`.
+5. **List-page scaffolding:**
+   - Add `list-page`, `empty-state` and `loading-block`. The empty-state copy is written out 14 times and the spinners are hand-rolled.
+   - Add `detail-actions` for the Delete / spacer / Done row.
+   - Add `summary-card`: `spirit-card` and `recipe-card` are the same component.
+   - Add a `join-meta` helper for the " · " join, which is written out in several card components.
+6. **Bar entities:** pick one editing paradigm. Spirits edit field by field inline (`spirit-detail` is 180 lines); recipes use a full form.
+7. **Dates:** use `today-iso` and the `formatting` helpers everywhere; `.toISOString` and `toLocaleDateString` are called inline. Add a `date-field` component.
+8. **State placement:** filter selections are local atoms in bar but app-state in wines. Dialog open-flags are split between local atoms and app-state. Rule: filters live in app-state; short-lived dialog state stays local.
+9. **Long components:**
+   - `chat-dialog` is about 220 lines and calls `swap!` during render.
+   - `admin-menu-items` is 120 lines; turn it into a data vector.
+   - `recipe-display` is 132 lines; `filter-header` is 106.
+   - `chat/actions.cljs` passes the same 5 positional args to every action; bundle them into a session map and add a `set-messages!` helper.
+10. **CLAUDE.md card rules:** mostly followed. `recipe-card` shows tag chips and a "★ n" rating rather than dot-separated text.
 
-### 6. Validation Logic Distribution (High Priority)
+---
 
-**Problem**: Validation logic is scattered across multiple layers with significant duplication and inconsistency.
+## 4. Validation and SQL model
 
-**Current Distribution**:
-- **Database Layer**: PostgreSQL constraints in `schema.clj` (NOT NULL, CHECK constraints, ranges)
-- **Backend API**: Clojure spec validation in `routes.clj` (required fields, types, ranges)
-- **Frontend Forms**: Manual validation in form components (same business rules re-implemented)
+`common.cljc` already holds most enums. The gaps are numeric ranges, rules that only one layer enforces, and migrations.
 
-**Specific Duplications**:
+1. **Range rules in one place (HIGH, low risk).**
+   - **Vintage:** 1800..current year in `utils/vintage.cljs`; 1900..2100 in the blind-tasting form; no range in the spec or the DB.
+   - **Ratings:** the 1–100 rule is written in four places.
+   - **No lower bound:** quantity and price accept negatives in the spec and the DB.
+   - **Change:** add `valid-vintage?`, `rating-range`, `recipe-rating-range` and `valid-tasting-window?` to `common.cljc`. Use them from the specs and the frontend, and inline them into the `schema.clj` CHECKs, the same way `wine_style` already uses `common/wine-styles`. `common/valid-location?` already works this way and is the pattern to copy.
+2. **Enums the backend doesn't enforce (MED-HIGH).**
+   - **Spirit category:** the spec accepts any string; separate it from the bar-inventory categories, which are a different vocabulary and appear only in the seed SQL.
+   - **Inventory `reason`:** strings like `"drunk"` and `"coravin_pour"` are written out across `db/api.clj`.
+   - **`appellation_tier`:** not enum-checked, while `designation` is.
+   - **`wset_data`:** not validated against `wset-lexicon`.
+   - **New wine styles:** `wine_style` is a Postgres enum created `IF NOT EXISTS`, so a style added to `common` passes the spec but fails on an existing DB. Use `varchar` + a generated CHECK, or loop `ALTER TYPE … ADD VALUE IF NOT EXISTS`.
+3. **Specs duplicate the column lists.** Move them into `wine-cellar.specs`. Add a test that every column is either covered by a spec or listed as excluded. Longer term, use a malli schema in cljc so the frontend forms validate with the same schema.
+4. **Migrations.** `ensure-tables` reruns about 15 raw `ALTER`/`DO $$` blocks on every boot.
+   - Adding a column to `schema.clj` does nothing on an existing DB.
+   - The recipe-rating CHECK is dropped and re-added on every start.
+   - The `DROP VIEW` runs twice.
+   - **Change:** adopt `migratus` or `ragtime` (or a `schema_migrations` table) for new changes from now on.
+5. **Schema hygiene.**
+   - **Missing indexes:** `tasting_notes(wine_id)` matters most, since the `enriched_wines` view runs a correlated subquery per wine. Also `inventory_history(wine_id)` and `ai_conversation_messages(conversation_id)`.
+   - **Column types:** `timestamp` vs `timestamptz` and `decimal` vs `numeric` are mixed.
+   - **No CHECK** on `devices.status` or `ai_conversations.provider`.
+   - **Duplicated sensor data:** `sensor_readings.temperatures` jsonb duplicates the `sensor_temperatures` table.
+   - **Unlinked ids:** recipe ingredients point to spirits and inventory items by id inside JSON, with no FK.
+6. **Stale docs:** `schema-unification-datomic.md` and `ideal-taxonomy.md`.
 
-1. **Required Field Validation**:
-   - Backend: Clojure spec defines required fields (routes.clj:66-67)
-   - Frontend: Manual validation checks same fields (wines/form.cljs:99-107)
-   - Database: NOT NULL constraints enforce same requirements
+---
 
-2. **Range Validation**:
-   - Rating validation duplicated across all three layers (1-100 range)
-   - Database: CHECK constraint (schema.clj:60-61)
-   - Backend: Spec validation (routes.cljs:39)
-   - Frontend: Number field constraints (tasting_notes/form.cljs:137-138)
+## 5. AI layer
 
-3. **Format Validation**:
-   - Location validation implemented in shared utility but still checked in multiple places
-   - Error messages inconsistent across layers
+1. **Replace the `case provider` dispatch with a table of tasks (HIGH, about −250–300 LOC).**
+   - `ai/core.clj` has seven `case provider` blocks, and each provider namespace repeats about seven functions per feature.
+   - **Change:** shrink each provider to a single `complete!` (multimethod on provider), and describe each task once as data: `{:prompt-fn :schema :max-tokens {:default n :gemini m} :tier :providers}`.
+   - Validate `provider` once and return 400 when it's unknown; today an unknown provider throws `IllegalArgumentException`.
+2. **Define each output schema once (HIGH, about −150 LOC, fixes drift).**
+   - The wine-label, spirit-label and drinking-window schemas are each written three times, once per provider, and the copies have drifted. Gemini has no `required`, hence the hack that strips the string `"null"`. OpenAI dropped the field descriptions.
+   - The spirit category list is hard-coded three times even though `common/spirit-categories` exists.
+   - **Change:** one neutral spec, rendered by `->json-schema` and `->gemini-schema`.
+3. **Shared HTTP layer:**
+   - **Error shapes differ:** OpenAI passes the upstream 429/401 straight through to the browser.
+   - **Unhandled stop reasons:** only Anthropic checks for truncation and refusal; OpenAI `incomplete` and Gemini `finishReason` are not handled.
+   - **Timeouts** are 300s, 60s and 180s.
+   - **No retries** anywhere.
+   - **Change:** one `post-json!` that throws a uniform `ex-info` and retries once on 429/5xx, plus a shared `parse-model-json`.
+4. **Neutral image format:** prompts currently build Anthropic-shaped blocks, which OpenAI and Gemini then convert back. Use a neutral `{:media-type :data}`; this also fixes B8.
+5. **Config and capabilities:**
+   - Merge the 6+ `defstate`s for models and keys into one `ai-config`.
+   - Have `get-model-info` return a capabilities map so the frontend stops checking `(= :anthropic provider)`.
+   - Turn the silent gaps into explicit 400s: cocktail extraction is Anthropic-only and returns nil elsewhere.
+6. **Prompts:** generate field bullet lists from the same spec. Drop the "return ONLY JSON" wording, since every provider now enforces a schema. Prompt changes are higher risk, so do this last.
 
-**Impact**: 
-- Business rules changes require updates in 3+ places
-- Inconsistent error messages confuse users
-- Maintenance overhead and bug risk
+---
 
-**Recommendation**: Create centralized validation schemas using `.cljc` files with shared specs that work across frontend/backend, or migrate to Malli for better cross-platform validation.
+## 6. Suggested order
 
-## Recommended Improvements
+1. **Security and correctness (small, high value):** B1–B3 (allowlist + `require-admin` / `require-user` / `require-device`, JWT seconds), B4, B5, B6, B7, B8, B10. Then put the SQL console in a read-only transaction with a statement timeout.
+2. **Backend plumbing:** error middleware + response helpers (§1.1) → shared route `:responses` (§1.3) → CRUD helpers (§1.2) → bulk-job merge (§1.6).
+3. **Frontend plumbing:** `request!` + collection helpers (§2.1–2.2), migrating the bar, grape-variety and classification functions first. Then error/toast conventions (§2.3) and the `filtered-sorted-wines` reaction.
+4. **Shared UI components:** theme tokens + `tint-chip`, `confirm!`, `form-dialog`, `ai-button`, `list-page`/`empty-state`, then the field table and file split for the wine detail page.
+5. **Single source of truth for rules:** range predicates in `common.cljc` → enum specs → specs namespace → migration tool + indexes.
+6. **AI layer:** schemas → task table → HTTP layer → config/capabilities → prompt generation.
 
-1. **Refactor API Layer**: Separate data fetching from state management
-2. **Centralize Validation Logic**: Create shared validation schemas to eliminate duplication across database/backend/frontend layers
-3. **Create Generic Components**: Build reusable field components to reduce repetition
-4. **State Management Refactor**: Use more focused state atoms or implement a proper state management pattern
-5. **Component Decomposition**: Break large components into smaller, single-purpose components
-6. **Business Logic Extraction**: Move domain logic out of view components into dedicated namespaces
-7. **Event Handling Cleanup**: Replace DOM manipulation hacks with proper React patterns
-
-## Impact Assessment
-
-The most impactful improvement would be **refactoring the API layer** to separate data fetching from state management. This would:
-- Make components more testable
-- Reduce coupling between layers
-- Improve code reusability
-- Make state flow more predictable
-
-The codebase shows good Clojure/ClojureScript practices in many areas but would benefit significantly from these architectural improvements to enhance maintainability and reduce technical debt.
+Rough total, if everything is done: about 3,000 fewer lines out of ~26k.
