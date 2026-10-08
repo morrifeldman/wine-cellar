@@ -63,7 +63,7 @@ below.
 - [x] 2.5 Memoized `filtered-sorted-wines`. Not done: regrouping app-state keys, which would touch most views for little gain now that `request!` owns the loading and error keys.
 
 **Phase 4: shared UI (§3)**
-- [ ] 3.1 Theme tokens + `tint-chip`
+- [x] 3.1 Theme tokens (`theme/tint`, `theme/gold`) + `theme/chip-sx` for the bar chips. Chart palettes, wine-colour swatches and the dev debug panel keep their own colours.
 - [x] 3.2 `confirm!` dialog
 - [ ] 3.3 `form-dialog` + `ai-button`
 - [ ] 3.4 Wine detail field table; split `detail.cljs`

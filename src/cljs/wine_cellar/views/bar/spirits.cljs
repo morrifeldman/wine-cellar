@@ -353,13 +353,8 @@
                    :size "small"
                    :clickable true
                    :on-click #(nav/go-bar-recipe! (:id r))
-                   :sx {:height 28
-                        :letterSpacing "0.02em"
-                        :bgcolor "rgba(232,195,200,0.08)"
-                        :color "rgba(232,195,200,0.95)"
-                        :border "1px solid rgba(232,195,200,0.22)"
-                        "@media (hover: hover)"
-                        {"&:hover" {:bgcolor "rgba(232,195,200,0.16)"}}}}])]]))
+                   :sx (merge {:height 28 :letterSpacing "0.02em"}
+                              (theme/chip-sx :rose))}])]]))
          ;; Actions
          [box {:sx {:display "flex" :gap 1 :justifyContent "flex-end" :mt 2}}
           [button
@@ -419,19 +414,23 @@
   "Plain look shared by every bar filter chip: selection shows as a filled,
   brighter chip rather than as a color per category."
   [active?]
-  (let [bg (if active? "#E8C3C8" "rgba(232,195,200,0.06)")]
+  (let [bg (if active? "primary.main" (theme/tint :rose 0.08))]
     {:height 28
      :letterSpacing "0.02em"
      :bgcolor bg
-     :color (if active? "#150A0C" "rgba(232,195,200,0.95)")
+     :color (if active? "background.default" (theme/tint :rose 0.95))
      :fontWeight (if active? 600 400)
-     :border (str "1px solid " (if active? "#E8C3C8" "rgba(232,195,200,0.2)"))
+     ;; Width and style apart from the colour: a "1px solid" shorthand can
+     ;; land after borderColor and reset it to the text colour.
+     :borderWidth "1px"
+     :borderStyle "solid"
+     :borderColor (if active? "primary.main" (theme/tint :rose 0.25))
      ;; MUI darkens a clickable chip on hover and after a tap; pin the
      ;; background so a selected chip reads as selected on touch screens.
      "&.MuiChip-clickable:hover, &.Mui-focusVisible" {:bgcolor bg}
      "@media (hover: hover)"
      {"&.MuiChip-clickable:hover"
-      {:bgcolor (if active? "#F5D6DB" "rgba(232,195,200,0.18)")}}}))
+      {:bgcolor (if active? "primary.light" (theme/tint :rose 0.18))}}}))
 
 (defn filters-toggle-chip
   "Opens and closes a tab's chip filters. Shows how many are in force so a
@@ -502,7 +501,7 @@
                                      [(get cat-order cat 99) subcat])))
         selected @selected-subcategories]
     (when (seq sorted-pairs)
-      [:<> [divider {:sx {:mb 1 :borderColor "rgba(232,195,200,0.35)"}}]
+      [:<> [divider {:sx {:mb 1 :borderColor (theme/tint :rose 0.35)}}]
        [box
         {:sx {:display "flex"
               :gap 0.5
@@ -519,7 +518,7 @@
                  [divider
                   {:orientation "vertical"
                    :flexItem true
-                   :sx {:mx 0.5 :borderColor "rgba(232,195,200,0.5)"}}])
+                   :sx {:mx 0.5 :borderColor (theme/tint :rose 0.5)}}])
                [chip
                 {:label subcat
                  :size "small"
