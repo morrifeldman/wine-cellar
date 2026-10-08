@@ -10,8 +10,6 @@
 
 
 (def headless-mode? (r/atom false))
-(def job-status-failure-test (r/atom nil))
-
 (defn enable-headless-mode!
   []
   (reset! headless-mode? true)
@@ -22,22 +20,6 @@
   (reset! headless-mode? false)
   (js/console.log
    "Headless mode disabled - API calls will be processed normally"))
-
-(defn enable-job-status-failure-test!
-  ([attempts]
-   (enable-job-status-failure-test! attempts
-                                    "Simulated job status failure (test)"))
-  ([attempts error-msg]
-   (reset! job-status-failure-test {:remaining (max 0 (or attempts 0))
-                                    :error error-msg})
-   (js/console.log "Job status failure test enabled" @job-status-failure-test)))
-
-(defn disable-job-status-failure-test!
-  []
-  (reset! job-status-failure-test nil)
-  (js/console.log "Job status failure test disabled"))
-
-#_(enable-job-status-failure-test! 3 "Simulated network failure")
 
 (def api-base-url (config/get-api-base-url))
 
@@ -965,263 +947,156 @@
 (defn mark-all-wines-unverified
   "Admin function to mark all wines as unverified"
   [app-state]
-  (go (if-let [result (<! (POST "/api/admin/mark-all-unverified"
-                                {}
-                                "Failed to mark wines as unverified"))]
-        (if (:success result)
-          (do
-            ;; Refresh the wines list to show updated verification status
-            (fetch-wines app-state)
-            (swap! app-state assoc
-              :success
-              (str "Successfully marked "
-                   (get-in result [:data :wines-updated])
-                   " wines as unverified")))
-          (swap! app-state assoc :error (:error result)))
-        (swap! app-state assoc :error "Failed to mark wines as unverified"))))
+  (request! app-state
+            {:method :post
+             :url "/api/admin/mark-all-unverified"
+             :body {}
+             :error-msg "Failed to mark wines as unverified"
+             :on-success #(assoc %1
+                                 :success
+                                 (str "Successfully marked "
+                                      (:wines-updated %2)
+                                      " wines as unverified"))
+             :after #(fetch-wines app-state)}))
+
+(defn- verbose-logging-request!
+  [app-state opts]
+  (request! app-state
+            (assoc opts
+                   :on-success
+                   #(assoc-in %1
+                     [:verbose-logging :enabled?]
+                     (boolean (:verbose? %2))))))
 
 (defn fetch-verbose-logging-state
   [app-state]
-  (swap! app-state (fn [state]
-                     (-> state
-                         (assoc-in [:verbose-logging :loading?] true)
-                         (assoc-in [:verbose-logging :error] nil))))
-  (go
-   (let [result (<! (GET "/api/admin/verbose-logging"
-                         "Failed to get verbose logging state"))]
-     (swap! app-state assoc-in [:verbose-logging :loading?] false)
-     (if (:success result)
-       (let [verbose? (boolean (get-in result [:data :verbose?]))]
-         (swap! app-state assoc-in [:verbose-logging :enabled?] verbose?)
-         (swap! app-state assoc-in [:verbose-logging :error] nil))
-       (swap! app-state assoc-in [:verbose-logging :error] (:error result))))))
+  (verbose-logging-request! app-state
+                            {:url "/api/admin/verbose-logging"
+                             :error-msg "Failed to get verbose logging state"
+                             :loading [:verbose-logging :loading?]}))
 
 (defn set-verbose-logging-state
   [app-state enabled?]
-  (swap! app-state (fn [state]
-                     (-> state
-                         (assoc-in [:verbose-logging :updating?] true)
-                         (assoc-in [:verbose-logging :error] nil))))
-  (go
-   (let [result (<! (POST "/api/admin/verbose-logging"
-                          {:enabled? enabled?}
-                          "Failed to update verbose logging state"))]
-     (swap! app-state assoc-in [:verbose-logging :updating?] false)
-     (if (:success result)
-       (let [verbose? (boolean (get-in result [:data :verbose?]))]
-         (swap! app-state assoc-in [:verbose-logging :enabled?] verbose?)
-         (swap! app-state assoc-in [:verbose-logging :error] nil))
-       (swap! app-state assoc-in [:verbose-logging :error] (:error result))))))
+  (verbose-logging-request! app-state
+                            {:method :post
+                             :url "/api/admin/verbose-logging"
+                             :body {:enabled? enabled?}
+                             :error-msg "Failed to update verbose logging state"
+                             :loading [:verbose-logging :updating?]}))
 
-(def max-job-status-retries 5)
-(def base-job-status-delay-ms 2000)
-(def max-job-status-delay-ms 20000)
+(def ^:private job-types
+  {:drinking-window {:start-url "/api/admin/start-drinking-window-job"
+                     :flag :regenerating-drinking-windows?
+                     :label "drinking windows"}
+   :wine-summary {:start-url "/api/admin/start-wine-summary-job"
+                  :flag :regenerating-wine-summaries?
+                  :label "wine summaries"}})
 
-(defn- job-type-config
-  [job-type]
-  (case job-type
-    :wine-summary {:in-progress-key :regenerating-wine-summaries?
-                   :success-label "wine summaries"}
-    {:in-progress-key :regenerating-drinking-windows?
-     :success-label "drinking windows"}))
+(def ^:private poll-delay-ms 2000)
+(def ^:private max-poll-delay-ms 20000)
+(def ^:private max-poll-failures 5)
 
-(defn- format-success-message
-  [job-type total failed-wines]
-  (let [{:keys [success-label]} (job-type-config job-type)
-        failed-count (count failed-wines)
-        success-count (- total failed-count)
-        failures-text (when (> failed-count 0)
-                        (str " " failed-count
-                             " failed: " (string/join ", "
-                                                      (map #(str "ID "
-                                                                 (:wine-id %))
-                                                           failed-wines))))]
-    (if (> failed-count 0)
-      (str "Regenerated " success-count
-           "/" total
-           " wines successfully." failures-text)
-      (str "Successfully regenerated " success-label " for " total " wines"))))
+(defn- job-outcome
+  "What one poll of a bulk job means: [:poll], or [:done banner-key message]
+   once it has finished."
+  [{:keys [label]} {:keys [status total failed-wines error]}]
+  (case status
+    "running" [:poll]
+    "completed"
+    (if (seq failed-wines)
+      [:done :error
+       (str "Regenerated " (- total (count failed-wines))
+            "/" total
+            " wines successfully. " (count failed-wines)
+            " failed: "
+            (string/join ", " (map #(str "ID " (:wine-id %)) failed-wines)))]
+      [:done :success
+       (str "Successfully regenerated " label " for " total " wines")])
+    "failed" [:done :error
+              (str "Job failed while regenerating " label ": " error)]
+    [:done nil nil]))
 
-(defn- format-failure-message
-  [job-type status]
-  (let [{:keys [success-label]} (job-type-config job-type)]
-    (str "Job failed while regenerating " success-label ": " (:error status))))
+(defn- poll-job!
+  "Polls a bulk job until it finishes, keeping :job-progress current. A
+   failed poll is retried with backoff before giving up."
+  [app-state job-id job-type failures]
+  (let [{:keys [flag] :as job} (job-types job-type)
+        finish! (fn [banner message]
+                  (swap! app-state #(cond-> (dissoc % flag :job-progress)
+                                      banner (assoc banner message))))
+        again! (fn [failures delay-ms]
+                 (js/setTimeout #(poll-job! app-state job-id job-type failures)
+                                delay-ms))]
+    (go
+     (let [{:keys [success data error]}
+           (<! (api-request http/get
+                            (str "/api/admin/job-status/" job-id)
+                            nil
+                            "Failed to get job status"))]
+       (if success
+         (let [[step banner message] (job-outcome job data)]
+           (swap! app-state assoc
+             :job-progress
+             {:progress (or (:progress data) 0)
+              :total (or (:total data) 0)
+              :status (:status data)
+              :job-type job-type})
+           (if (= step :poll)
+             (again! 0 poll-delay-ms)
+             (do (fetch-wines app-state) (finish! banner message))))
+         (let [failures (inc failures)
+               delay-ms (min max-poll-delay-ms
+                             (* poll-delay-ms (js/Math.pow 2 failures)))]
+           (if (< failures max-poll-failures)
+             (do (swap! app-state update
+                   :job-progress assoc
+                   :job-type job-type
+                   :status "retrying"
+                   :retry-attempt failures
+                   :retry-max max-poll-failures
+                   :retry-delay delay-ms)
+                 (again! failures delay-ms))
+             (finish! :error
+                      (str "Failed to check job status after " max-poll-failures
+                           " attempts: " error)))))))))
 
-(defn- retryable-job-status-error?
-  [error-message]
-  (if-not (string? error-message)
-    true
-    (not (some #(string/includes? error-message %)
-               ["Authentication required" "Job not found"]))))
-
-(defn poll-job-status
-  "Poll job status until completion"
-  ([app-state job-id]
-   (poll-job-status app-state job-id {:job-type :drinking-window}))
-  ([app-state job-id {:keys [job-type retry-state]}]
-   (let [job-type (or job-type :drinking-window)
-         retry-state (merge {:failure-count 0
-                             :delay-ms base-job-status-delay-ms}
-                            retry-state)
-         {:keys [failure-count delay-ms]} retry-state
-         {:keys [in-progress-key]} (job-type-config job-type)
-         schedule (fn [opts wait-ms]
-                    (js/setTimeout (fn []
-                                     (poll-job-status app-state job-id opts))
-                                   wait-ms))]
-     (tap> ["🔍 Polling job status for" job-id "job-type" job-type])
-     (go
-      (let [test-state @job-status-failure-test
-            simulate? (and test-state (> (:remaining test-state) 0))
-            result
-            (if simulate?
-              (let [updated-state (swap! job-status-failure-test
-                                    (fn [{:keys [remaining] :as state}]
-                                      (let [next (dec (or remaining 0))]
-                                        (when (> next 0)
-                                          (assoc state :remaining next)))))]
-                (when-not updated-state (reset! job-status-failure-test nil))
-                (tap> ["🧪 Simulating job status failure" test-state])
-                {:success false :error (:error test-state)})
-              (<! (GET (str "/api/admin/job-status/" job-id)
-                       "Failed to get job status")))]
-        (tap> ["📊 Job status result:" result])
-        (if (:success result)
-          (let [status (:data result)
-                derived-job-type (let [value (:job-type status)]
-                                   (cond (keyword? value) value
-                                         (string? value) (keyword value)
-                                         :else nil))
-                job-type (or derived-job-type job-type)
-                {:keys [in-progress-key]} (job-type-config job-type)
-                job-status (:status status)
-                progress (:progress status)
-                total (:total status)]
-            (tap> ["📈 Job status details:"
-                   {:job-status job-status
-                    :progress progress
-                    :total total
-                    :job-type job-type}])
-            (swap! app-state assoc
-              :job-progress
-              {:progress (or progress 0)
-               :total (or total 0)
-               :status job-status
-               :job-type job-type})
-            (tap> ["🔄 Updated app-state with progress"])
-            (cond (= job-status "completed")
-                  (do (swap! app-state dissoc in-progress-key :job-progress)
-                      (fetch-wines app-state)
-                      (let [failed-wines (:failed-wines status)
-                            message (format-success-message job-type
-                                                            (or total 0)
-                                                            failed-wines)]
-                        (if (seq failed-wines)
-                          (swap! app-state assoc :error message)
-                          (swap! app-state assoc :success message))))
-                  (= job-status "failed")
-                  (do (swap! app-state dissoc in-progress-key :job-progress)
-                      (swap! app-state assoc
-                        :error
-                        (format-failure-message job-type status)))
-                  (= job-status "running")
-                  (schedule {:job-type job-type
-                             :retry-state {:failure-count 0
-                                           :delay-ms base-job-status-delay-ms}}
-                            base-job-status-delay-ms)
-                  :else (swap! app-state dissoc in-progress-key :job-progress)))
-          (let [error-message (:error result)
-                next-count (inc failure-count)
-                existing-progress (:job-progress @app-state)
-                processed (or (:progress existing-progress) 0)
-                total (or (:total existing-progress) 0)]
-            (tap> ["⚠️ Failed to get job status"
-                   {:error error-message :attempt next-count}])
-            (if (and (< next-count max-job-status-retries)
-                     (retryable-job-status-error? error-message))
-              (let [next-delay (-> (* 2 delay-ms)
-                                   (max base-job-status-delay-ms)
-                                   (min max-job-status-delay-ms))
-                    retry-opts {:job-type job-type
-                                :retry-state {:failure-count next-count
-                                              :delay-ms next-delay}}
-                    retry-progress {:job-type job-type
-                                    :progress processed
-                                    :total total
-                                    :status "retrying"
-                                    :retry-attempt next-count
-                                    :retry-max max-job-status-retries
-                                    :retry-delay next-delay}]
-                (tap> ["⏳ Retrying job status poll"
-                       {:attempt next-count
-                        :max max-job-status-retries
-                        :delay-ms next-delay
-                        :error error-message}])
-                (swap! app-state assoc :job-progress retry-progress)
-                (schedule retry-opts next-delay))
-              (do (swap! app-state dissoc in-progress-key :job-progress)
-                  (swap! app-state assoc
-                    :error
-                    (str "Failed to check job status"
-                         (when (> max-job-status-retries 0)
-                           (str " after " max-job-status-retries " attempts"))
-                         (when error-message
-                           (str ": " error-message)))))))))))))
+(defn- start-job-for-filtered-wines!
+  "Starts a bulk AI job over the wines the list currently shows."
+  [app-state job-type]
+  (let [{:keys [start-url flag]} (job-types job-type)
+        wine-ids (mapv :id (filters/filtered-sorted-wines app-state))]
+    (when (seq wine-ids)
+      (request! app-state
+                {:method :post
+                 :url start-url
+                 :body {:wine-ids wine-ids
+                        :provider (get-in @app-state [:ai :provider])}
+                 :error-msg "Failed to start job"
+                 :loading [flag]
+                 :after #(do (swap! app-state assoc flag true)
+                             (poll-job! app-state (:job-id %) job-type 0))}))))
 
 (defn regenerate-filtered-drinking-windows
-  "Admin function to regenerate drinking windows for currently filtered wines"
   [app-state]
-  (let [filtered-wines (filters/filtered-sorted-wines app-state)
-        wine-ids (map :id filtered-wines)
-        wine-count (count wine-ids)
-        provider (get-in @app-state [:ai :provider])]
-    (when (> wine-count 0)
-      (swap! app-state assoc :regenerating-drinking-windows? true)
-      (go (let [result (<! (POST "/api/admin/start-drinking-window-job"
-                                 {:wine-ids wine-ids :provider provider}
-                                 "Failed to start drinking window job"))]
-            (if (:success result)
-              (let [job-id (get-in result [:data :job-id])]
-                (tap> ["🚀 Starting polling for job:" job-id])
-                ;; Start polling for job status
-                (poll-job-status app-state job-id))
-              (do (swap! app-state dissoc :regenerating-drinking-windows?)
-                  (swap! app-state assoc :error (:error result)))))))))
+  (start-job-for-filtered-wines! app-state :drinking-window))
 
 (defn regenerate-filtered-wine-summaries
-  "Admin function to regenerate wine summaries for currently filtered wines"
   [app-state]
-  (let [filtered-wines (filters/filtered-sorted-wines app-state)
-        wine-ids (map :id filtered-wines)
-        wine-count (count wine-ids)
-        provider (get-in @app-state [:ai :provider])]
-    (when (> wine-count 0)
-      (swap! app-state assoc :regenerating-wine-summaries? true)
-      (go (let [result (<! (POST "/api/admin/start-wine-summary-job"
-                                 {:wine-ids wine-ids :provider provider}
-                                 "Failed to start wine summary job"))]
-            (if (:success result)
-              (let [job-id (get-in result [:data :job-id])]
-                (tap> ["🚀 Starting polling for wine summary job:" job-id])
-                (poll-job-status app-state job-id {:job-type :wine-summary}))
-              (do (swap! app-state dissoc :regenerating-wine-summaries?)
-                  (swap! app-state assoc :error (:error result)))))))))
+  (start-job-for-filtered-wines! app-state :wine-summary))
 
 (defn reset-database
   "Admin function to reset the database"
   [app-state]
-  (go (swap! app-state assoc :resetting-database? true)
-      (if-let [result (<! (POST "/api/admin/reset-database"
-                                {}
-                                "Failed to reset database"))]
-        (do (swap! app-state assoc :resetting-database? false)
-            (if (:success result)
-              (reset! app-state (assoc initial-app-state
-                                       :success
-                                       "Database reset successfully!"))
-              (swap! app-state assoc :error (:error result))))
-        (do (swap! app-state assoc :resetting-database? false)
-            (swap! app-state assoc :error "Failed to reset database")))))
+  (request! app-state
+            {:method :post
+             :url "/api/admin/reset-database"
+             :body {}
+             :error-msg "Failed to reset database"
+             :loading [:resetting-database?]
+             :on-success (fn [_ _]
+                           (assoc initial-app-state
+                                  :success
+                                  "Database reset successfully!"))}))
 
 (defn execute-sql
   "Execute a raw SQL query. Returns a channel."
@@ -1389,20 +1264,20 @@
 
 (defn reextract-recipe-timers
   [app-state]
-  (swap! app-state assoc :reextracting-recipe-timers? true)
-  (go (let [result (<! (POST "/api/admin/reextract-recipe-timers"
-                             {}
-                             "Failed to re-read recipe timers"))]
-        (swap! app-state dissoc :reextracting-recipe-timers?)
-        (if (:success result)
-          (let [{:keys [recipes-updated recipes-failed]} (:data result)]
-            (fetch-bar-data app-state)
-            (swap! app-state assoc
-              :success
-              (str "Re-read timers for " recipes-updated
-                   " recipes" (when (pos? recipes-failed)
-                                (str "; " recipes-failed " failed")))))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :post
+             :url "/api/admin/reextract-recipe-timers"
+             :body {}
+             :error-msg "Failed to re-read recipe timers"
+             :loading [:reextracting-recipe-timers?]
+             :on-success (fn [state {:keys [recipes-updated recipes-failed]}]
+                           (assoc state
+                                  :success
+                                  (str "Re-read timers for " recipes-updated
+                                       " recipes"
+                                       (when (pos? recipes-failed)
+                                         (str "; " recipes-failed " failed")))))
+             :after #(fetch-bar-data app-state)}))
 
 (defn refresh-recipe-links
   "Re-resolves one recipe's spirit/ingredient links against current inventory.
@@ -1458,56 +1333,44 @@
                 :url (str "/api/cocktail-recipes/" id)
                 :error-msg "Failed to delete recipe"}))
 
+(defn- extracted-recipes
+  "The extract endpoint answers {:recipes [...]}, or a single recipe."
+  [data]
+  (vec (or (:recipes data) (when (:name data) [data]))))
+
 (defn extract-recipe-from-message!
   [app-state message-id message-text]
   (swap! app-state assoc-in
     [:chat :save-recipe]
     {:extracting? true :message-id message-id :recipe nil :open? false})
-  (go
-   (let [result (<! (POST "/api/cocktail-recipe-extract"
-                          {:message-text message-text}
-                          "Failed to extract recipe"))]
-     (if (:success result)
-       (let [data (:data result)
-             recipes (or (:recipes data) (when (:name data) [data]))]
-         (swap! app-state assoc-in
-           [:chat :save-recipe]
-           {:extracting? false
-            :message-id message-id
-            :recipes (vec recipes)
-            :open? true}))
-       (swap! app-state (fn [s]
-                          (-> s
-                              (assoc-in [:chat :save-recipe :extracting?] false)
-                              (assoc-in [:bar :error] (:error result)))))))))
+  (request! app-state
+            {:method :post
+             :url "/api/cocktail-recipe-extract"
+             :body {:message-text message-text}
+             :error-msg "Failed to extract recipe"
+             :error-path [:chat :error]
+             :loading [:chat :save-recipe :extracting?]
+             :on-success #(update-in %1
+                                     [:chat :save-recipe]
+                                     assoc
+                                     :recipes (extracted-recipes %2)
+                                     :open? true)}))
 
 (defn extract-recipe-from-image!
   [app-state image-data]
-  (swap! app-state (fn [s]
-                     (-> s
-                         (assoc-in [:bar :photo-import :extracting?] true)
-                         (assoc-in [:chat :save-recipe]
-                                   {:extracting? true
-                                    :recipe nil
-                                    :open? false
-                                    :origin :photo}))))
-  (go
-   (let [result (<! (POST "/api/cocktail-recipe-extract"
-                          {:image image-data}
-                          "Failed to extract recipe"))]
-     (if (:success result)
-       (let [data (:data result)
-             recipes (or (:recipes data) (when (:name data) [data]))]
-         (swap! app-state (fn [s]
-                            (-> s
-                                (assoc-in [:bar :photo-import]
-                                          {:open? false :extracting? false})
-                                (assoc-in [:chat :save-recipe]
-                                          {:extracting? false
-                                           :recipes (vec recipes)
-                                           :open? true
-                                           :origin :photo})))))
-       (swap! app-state (fn [s]
-                          (-> s
-                              (assoc-in [:bar :photo-import :extracting?] false)
-                              (assoc-in [:bar :error] (:error result)))))))))
+  (swap! app-state assoc-in
+    [:chat :save-recipe]
+    {:extracting? false :recipe nil :open? false :origin :photo})
+  (request! app-state
+            {:method :post
+             :url "/api/cocktail-recipe-extract"
+             :body {:image image-data}
+             :error-msg "Failed to extract recipe"
+             :error-path [:bar :photo-import :error]
+             :loading [:bar :photo-import :extracting?]
+             :on-success #(-> %1
+                              (assoc-in [:bar :photo-import :open?] false)
+                              (update-in [:chat :save-recipe]
+                                         assoc
+                                         :recipes (extracted-recipes %2)
+                                         :open? true))}))

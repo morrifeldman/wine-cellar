@@ -56,10 +56,10 @@ below.
 - [x] 1.7 Smaller backend items: sensor ingestion, reports provider, recipe-links namespace, sensor series columns, aliases. Skipped: a `current-user` helper (the ways the user is read differ for good reasons) and the claim-code 401-vs-422 split (device-facing vs admin-facing).
 
 **Phase 3: frontend plumbing (§2)**
-- [ ] 2.1 `request!` helper
-- [ ] 2.2 Resource table + `replace-by-id` / `remove-by-id`
-- [ ] 2.3 One error / loading / toast convention
-- [ ] 2.4 Chat, job polling and AI-call duplication in `api.cljs`
+- [x] 2.1 `request!` helper
+- [x] 2.2 `replace-by-id` / `remove-by-id` / `prepend`, plus `bar-change!` for the bar lists. A full resource table wasn't worth it once `request!` made each call a few lines.
+- [x] 2.3 One error / loading / toast convention: errors go to the app-wide banner, except in Devices, chat and photo import, which cover the banner and show their own. Loading flags are `request!`'s `:loading`.
+- [x] 2.4 Chat, job polling and AI-call duplication in `api.cljs`. Left: `send-chat-message` keeps its raw channel for cancelling; page lifecycle (`load-wine-detail-page`) still lives in `api.cljs`.
 - [ ] 2.5 App-state grouping; memoized `filtered-sorted-wines`
 
 **Phase 4: shared UI (§3)**
