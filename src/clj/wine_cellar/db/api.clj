@@ -258,14 +258,14 @@
            (let [ts-query [:websearch_to_tsquery [:cast "english" :regconfig]
                            search-text]
                  pattern (str "%" search-text "%")
-                 escaped (-> search-text
-                             (str/replace #"[\\.+*?()\[\]{}^$|]" "\\\\$0")
-                             (str/replace "'" "''"))
-                 occurrence-sql
-                 (str "(SELECT COUNT(*) FROM ai_conversation_messages m2, "
-                      "LATERAL regexp_matches(m2.content, '" escaped
-                      "', 'gi') matches " "WHERE m2.conversation_id = c.id)")]
-             {:select [[[:coalesce [:raw occurrence-sql] 0] :match_count] :c.*]
+                 ;; A literal-text regex, passed as a bound parameter.
+                 regex (str/replace search-text #"[\\.+*?()\[\]{}^$|]" "\\\\$0")
+                 occurrence-count
+                 [:raw
+                  ["(SELECT COUNT(*) FROM ai_conversation_messages m2, "
+                   "LATERAL regexp_matches(m2.content, " [:lift regex]
+                   ", 'gi') matches WHERE m2.conversation_id = c.id)"]]]
+             {:select [[[:coalesce occurrence-count 0] :match_count] :c.*]
               :from [[:ai_conversations :c]]
               :left-join [[:ai_conversation_messages :m]
                           [:and [:= :c.id :m.conversation_id]
