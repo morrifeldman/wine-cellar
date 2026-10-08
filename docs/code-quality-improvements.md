@@ -23,7 +23,7 @@ below.
 
 **Phase 1: bugs (§0)**
 - [x] B4 Restock never updates `original_quantity`
-- [ ] B5 Frontend fallback error message is never shown
+- [x] B5 Frontend fallback error message is never shown
 - [ ] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
 - [ ] B7 `drop-tables` skips the bar, report and inventory history tables
 - [ ] B8 Image MIME type hard-coded to JPEG

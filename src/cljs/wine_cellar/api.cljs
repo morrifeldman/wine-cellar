@@ -58,15 +58,12 @@
                                   (str api-base-url "/auth/google"))
                        100)
         {:success false :error "Authentication required"})
-    ;; Otherwise, handle the error
-    :else (let [error-message (try
-                                ;; Try to get the error from the response
-                                ;; body
-                                (get-in response [:body :error])
-                                ;; If that fails, use the default error
-                                ;; message
-                                (catch js/Error _ error-msg))]
-            {:success false :error error-message})))
+    ;; Otherwise prefer the server's message. A network failure or a
+    ;; proxy's
+    ;; HTML error page has none, so fall back to the caller's.
+    :else (let [body (:body response)]
+            {:success false
+             :error (or (when (map? body) (:error body)) error-msg)})))
 
 (defn api-request
   [method url params error-msg]
