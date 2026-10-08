@@ -81,9 +81,9 @@ below.
 - [x] 5.2 One schema per output, rendered per provider
 - [x] 5.1 Task table instead of `case provider`; an unknown provider is a 400, nil means the default. Not done: collapsing each provider to one `complete!`. That rewrites request building we can only test against stubs here, so it waits until it can be tried with real keys.
 - [x] 5.3 Shared HTTP layer
-- [ ] 5.4 Neutral image format
-- [ ] 5.5 AI config + capabilities
-- [ ] 5.6 Prompt field lists generated from the schemas
+- [ ] 5.4 Neutral image format — not done: the Anthropic-shaped image block already works as the neutral form, with one small converter each for OpenAI and Gemini, and B8 needed no change.
+- [ ] 5.5 AI config + capabilities — capabilities done (`common/provider-supports?`). Not done: folding the model/key `defstate`s into one config, which reopens the mount start-order hazard for little gain.
+- [ ] 5.6 Prompt field lists generated from the schemas — not done: prompt rewrites change model output and need trying against real keys, not stubs.
 
 ---
 
