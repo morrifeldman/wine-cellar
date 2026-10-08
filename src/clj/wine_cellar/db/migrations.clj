@@ -113,7 +113,31 @@
       "('cocktail onions', 'garnish', 60), " "('fresh mint', 'garnish', 70), "
       "('fresh basil', 'garnish', 80), " "('rosemary', 'garnish', 90), "
       "('heavy cream', 'other', 10), " "('egg whites', 'other', 20), "
-      "('coconut cream', 'other', 30); " "END IF; END $$;"]}}])
+      "('coconut cream', 'other', 30); " "END IF; END $$;"]}}
+   ;; enriched_wines runs a correlated subquery per wine on tasting_notes.
+   {:id "0015-idx-tasting-notes-wine"
+    :sql
+    {:raw
+     ["CREATE INDEX IF NOT EXISTS idx_tasting_notes_wine_id ON tasting_notes(wine_id)"]}}
+   {:id "0016-idx-inventory-history-wine"
+    :sql
+    {:raw
+     ["CREATE INDEX IF NOT EXISTS idx_inventory_history_wine_id ON inventory_history(wine_id)"]}}
+   {:id "0017-idx-messages-conversation"
+    :sql
+    {:raw
+     ["CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON ai_conversation_messages(conversation_id)"]}}
+   ;; NOT VALID: new writes are checked; existing rows don't block the
+   ;; deploy.
+   {:id "0018-devices-status-check"
+    :sql
+    {:raw
+     ["ALTER TABLE devices ADD CONSTRAINT devices_status_check CHECK (status IN ('pending', 'active', 'blocked')) NOT VALID"]}}
+   {:id "0019-conversations-provider-check"
+    :sql
+    {:raw
+     ["ALTER TABLE ai_conversations ADD CONSTRAINT ai_conversations_provider_check CHECK (provider IS NULL OR provider IN "
+      [:inline (vec (sort (map name common/ai-providers)))] ") NOT VALID"]}}])
 
 (def ^:private create-migrations-table
   {:create-table [:schema_migrations :if-not-exists]

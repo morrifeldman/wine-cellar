@@ -75,7 +75,7 @@ below.
 - [x] 4.2 Backend enum checks: spirit and mixer-shelf categories, and `wine_style` gains new styles on an existing DB. Left open on purpose: inventory `reason` and `appellation_tier` (the UI takes free text for both) and `wset_data` (the lexicon is a list of suggestions).
 - [x] 4.3 Specs namespace + column coverage test. Not done: a shared malli schema for frontend forms; the ranges and vocabularies they need are already shared through `common`.
 - [x] 4.4 Migration tool
-- [ ] 4.5 Indexes and schema hygiene
+- [x] 4.5 Indexes on `tasting_notes`, `inventory_history` and message `conversation_id`; CHECKs on `devices.status` and `ai_conversations.provider` (NOT VALID, so old rows can't block a deploy). Not done: `timestamp` → `timestamptz` (it reinterprets stored values), the duplicated sensor temperatures, JSON ingredient ids without FKs, and the two old design docs, kept as history.
 
 **Phase 6: AI layer (§5)**
 - [ ] 5.2 One schema per output, rendered per provider
