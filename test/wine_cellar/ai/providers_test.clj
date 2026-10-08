@@ -5,6 +5,7 @@
             [jsonista.core :as json]
             [org.httpkit.client :as http]
             [wine-cellar.ai.anthropic :as anthropic]
+            [wine-cellar.ai.core]
             [wine-cellar.ai.gemini :as gemini]
             [wine-cellar.ai.openai :as openai]))
 
@@ -85,3 +86,15 @@
       (is (= "STRING" (get-in schema [:properties :category :type])))
       (is (true? (get-in schema [:properties :category :nullable])))
       (is (some #{"vermouth"} (get-in schema [:properties :category :enum]))))))
+
+(deftest dispatch-by-provider
+  (testing "an unknown provider is the caller's mistake"
+    (let [e (try (wine-cellar.ai.core/generate-report-commentary :nope {})
+                 nil
+                 (catch clojure.lang.ExceptionInfo e e))]
+      (is (= 400 (:status (ex-data e))))))
+  (testing "no provider means the default one"
+    (with-redefs [wine-cellar.ai.core/default-provider :gemini
+                  gemini/generate-report-commentary (constantly "from gemini")]
+      (is (= "from gemini"
+             (wine-cellar.ai.core/generate-report-commentary nil {}))))))

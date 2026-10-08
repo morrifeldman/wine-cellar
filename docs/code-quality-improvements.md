@@ -79,7 +79,7 @@ below.
 
 **Phase 6: AI layer (§5)**
 - [x] 5.2 One schema per output, rendered per provider
-- [ ] 5.1 Task table instead of `case provider`
+- [x] 5.1 Task table instead of `case provider`; an unknown provider is a 400, nil means the default. Not done: collapsing each provider to one `complete!`. That rewrites request building we can only test against stubs here, so it waits until it can be tried with real keys.
 - [ ] 5.3 Shared HTTP layer
 - [ ] 5.4 Neutral image format
 - [ ] 5.5 AI config + capabilities

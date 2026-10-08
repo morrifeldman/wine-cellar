@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [cljs-http.client :as http]
             [cljs.core.async :refer [<! go chan put!]]
+            [wine-cellar.common :as common]
             [wine-cellar.config :as config]
             [wine-cellar.nav :as nav]
             [wine-cellar.state :refer [initial-app-state]]
@@ -914,7 +915,8 @@
      payload (cond-> {:conversation-history conversation-history
                       :include-bar? include-bar?
                       :provider provider}
-               (and effort (= :anthropic provider)) (assoc :effort effort)
+               (and effort (common/provider-supports? provider :effort))
+               (assoc :effort effort)
                image (assoc :image image))
      fallback-msg
      "Sorry, I'm having trouble connecting right now. Please try again later."]

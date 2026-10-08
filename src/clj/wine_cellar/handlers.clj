@@ -1,5 +1,6 @@
 (ns wine-cellar.handlers
   (:require [clojure.string :as str]
+            [wine-cellar.common :as common]
             [wine-cellar.db.api :as db-api]
             [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
@@ -445,11 +446,11 @@
                         (summary/condensed-summary cellar-wines))
             bar (when include-bar?
                   (assoc (bar-context) :recipes (db-api/get-cocktail-recipes)))
-            ;; Every provider searches the web on its own side, but only
-            ;; Anthropic can open a specific URL (web_fetch), so we still
-            ;; download pasted links here for the other two.
+            ;; Every provider searches the web on its own side, but not
+            ;; every one can open a specific URL, so for those we
+            ;; download pasted links here.
             urls
-            (when-not (= :anthropic provider)
+            (when-not (common/provider-supports? provider :web-fetch)
               (vec (take 2 (re-seq #"https?://[^\s<>\"{}|\\^`\[\]]+" message))))
             web-content
             (when (seq urls)
