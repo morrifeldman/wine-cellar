@@ -32,7 +32,7 @@
 (defn- mobile? [] (chat-utils/mobile?))
 
 (defn- chat-dialog-header
-  [{:keys [app-state messages message-ref pending-image conversation-loading?
+  [{:keys [app-state message-ref pending-image conversation-loading?
            sidebar-open? on-toggle-sidebar context-indicator]}]
   (let [is-mobile? (mobile?)
         conversation-toggle
@@ -69,10 +69,8 @@
        conversation-toggle
        [tooltip {:title "New chat"}
         [icon-button
-         {:on-click #(chat-actions/clear-chat! app-state
-                                               messages
-                                               message-ref
-                                               pending-image)
+         {:on-click
+          #(chat-actions/clear-chat! app-state message-ref pending-image)
           :aria-label "New chat"
           :sx {:color "secondary.main"}} [add]]]
        [tooltip {:title "Close"}
@@ -143,8 +141,9 @@
 (defn chat-dialog
   "Main chat dialog component"
   [app-state]
-  (let [chat-state (:chat @app-state)
-        messages (r/atom (vec (or (:messages chat-state) [])))
+  (let [;; The conversation itself lives in app-state; this is a view of it
+        ;; for the components that read or truncate it.
+        messages (r/cursor app-state [:chat :messages])
         message-ref (r/atom nil)
         is-sending? (r/atom false)
         show-camera? (r/atom false)
@@ -167,30 +166,25 @@
         {:keys [editing-message-id handle-edit handle-cancel handle-commit
                 is-editing?]}
         edit-state
-        handle-send (fn [message-text]
-                      (chat-utils/set-scroll-intent! app-state {:type :bottom})
-                      (cond (is-editing?) (when (seq message-text)
-                                            (chat-actions/handle-edit-send
-                                             app-state
-                                             editing-message-id
-                                             message-ref
-                                             messages
-                                             is-sending?
-                                             cancel-fn-atom
-                                             handle-commit))
-                            (and (empty? message-text) (not @pending-image))
-                            (chat-actions/ask-again! app-state
-                                                     messages
-                                                     is-sending?
-                                                     cancel-fn-atom)
-                            :else (do (chat-actions/handle-send-message
-                                       app-state
-                                       message-text
-                                       messages
-                                       is-sending?
-                                       cancel-fn-atom
-                                       @pending-image)
-                                      (reset! pending-image nil))))
+        handle-send
+        (fn [message-text]
+          (chat-utils/set-scroll-intent! app-state {:type :bottom})
+          (cond (is-editing?) (when (seq message-text)
+                                (chat-actions/handle-edit-send
+                                 app-state
+                                 editing-message-id
+                                 message-ref
+                                 is-sending?
+                                 cancel-fn-atom
+                                 handle-commit))
+                (and (empty? message-text) (not @pending-image))
+                (chat-actions/ask-again! app-state is-sending? cancel-fn-atom)
+                :else (do (chat-actions/handle-send-message app-state
+                                                            message-text
+                                                            is-sending?
+                                                            cancel-fn-atom
+                                                            @pending-image)
+                          (reset! pending-image nil))))
         handle-cancel-request (fn []
                                 (when-let [cancel @cancel-fn-atom] (cancel))
                                 (reset! cancel-fn-atom nil)
@@ -205,8 +199,7 @@
         handle-image-remove (fn [] (reset! pending-image nil))
         message-edit-handler (fn [id text] (handle-edit id text message-ref))
         message-fork-handler
-        (fn [id]
-          (chat-actions/fork-conversation! app-state messages id is-sending?))]
+        (fn [id] (chat-actions/fork-conversation! app-state id is-sending?))]
     (fn [app-state]
       (let [state @app-state
             chat-state (:chat state)
@@ -268,10 +261,7 @@
                     :current-match-index 0)
                   (chat-utils/set-scroll-intent! app-state
                                                  {:type :search-match}))
-                (chat-actions/open-conversation! app-state
-                                                 messages
-                                                 conversation
-                                                 false)
+                (chat-actions/open-conversation! app-state conversation false)
                 (when (and already-active? sidebar-open?) (toggle-sidebar!))))
             sidebar
             (chat-sidebar/conversation-sidebar
@@ -313,7 +303,6 @@
                           :filter-panel filter-panel
                           :on-cancel-request handle-cancel-request})
             header-props {:app-state app-state
-                          :messages messages
                           :message-ref message-ref
                           :pending-image pending-image
                           :conversation-loading? conversation-loading?
@@ -326,8 +315,6 @@
                            :error (:error chat-state)
                            :on-dismiss-error
                            #(swap! app-state update :chat dissoc :error)}]
-        (when (not= @messages conversation-messages)
-          (reset! messages conversation-messages))
         (when (and is-open
                    active-id
                    (not messages-loading?)

@@ -36,8 +36,7 @@
          (reset! original-messages current)
          (swap! app-state assoc-in [:chat :draft-message] text)
          (when (and (some? message-idx) (< (inc message-idx) (count current)))
-           (reset! messages truncated)
-           (swap! app-state assoc-in [:chat :messages] truncated))
+           (reset! messages truncated))
          (when @message-ref
            (set! (.-value @message-ref) text)
            (let [input-event (js/Event. "input" #js {:bubbles true})]
@@ -45,8 +44,7 @@
            (.focus @message-ref))))
      :handle-cancel (fn [message-ref]
                       (when-let [original @original-messages]
-                        (reset! messages original)
-                        (swap! app-state assoc-in [:chat :messages] original))
+                        (reset! messages original))
                       (reset! original-messages nil)
                       (reset! editing-message-id nil)
                       (swap! app-state update :chat dissoc :draft-message)

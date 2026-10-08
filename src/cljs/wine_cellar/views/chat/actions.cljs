@@ -7,6 +7,18 @@
             [wine-cellar.views.chat.context :as chat-context]
             [wine-cellar.views.chat.utils :as chat-utils]))
 
+;; The conversation lives in app-state under [:chat :messages]; these are
+;; the only ways the actions touch it.
+(defn- current-messages [app-state] (vec (get-in @app-state [:chat :messages])))
+
+(defn- set-messages!
+  [app-state msgs]
+  (swap! app-state assoc-in [:chat :messages] (vec msgs)))
+
+(defn- update-messages!
+  [app-state f & args]
+  (swap! app-state update-in [:chat :messages] #(apply f (vec %) args)))
+
 (defn ensure-conversation!
   "Ensure an active conversation exists before persisting messages."
   [app-state callback]
@@ -42,21 +54,19 @@
        (fn [_]))))))
 
 (defn- update-message!
-  [app-state messages message-id f & args]
-  (let [updated
-        (swap! messages (fn [current]
-                          (mapv #(if (= message-id (:id %)) (apply f % args) %)
-                                current)))]
-    (swap! app-state assoc-in [:chat :messages] updated)))
+  [app-state message-id f & args]
+  (update-messages! app-state
+                    (fn [current]
+                      (mapv #(if (= message-id (:id %)) (apply f % args) %)
+                            current))))
 
 (defn- adopt-saved-message!
   "Give a just-sent message its database id, so it can be edited or asked
    again, and the rendered text of its context note, so later requests show
    Claude the same snapshot."
-  [app-state messages local-id saved]
+  [app-state local-id saved]
   (when saved
     (update-message! app-state
-                     messages
                      local-id
                      (fn [message]
                        (cond-> (assoc message :id (:id saved))
@@ -80,55 +90,53 @@
      (api/load-conversations! app-state {:force? true}))))
 
 (defn- request-ai-reply!
-  "Ask the AI to answer the conversation as it stands in `messages`."
-  ([app-state messages is-sending? cancel-fn-atom]
-   (request-ai-reply! app-state messages is-sending? cancel-fn-atom nil))
-  ([app-state messages is-sending? cancel-fn-atom image]
-   (reset! cancel-fn-atom
-     (api/send-chat-message
-      app-state
-      @messages
-      image
-      (fn [response]
-        (reset! cancel-fn-atom nil)
-        (let [ai-message {:id (random-uuid)
-                          :text response
-                          :is-user false
-                          :timestamp (.getTime (js/Date.))}]
-          (swap! messages conj ai-message)
-          (swap! app-state assoc-in [:chat :messages] @messages)
-          (chat-utils/set-scroll-intent! app-state {:type :ai-top})
-          (persist-ai-reply! app-state response)
-          (reset! is-sending? false)))))))
+  "Ask the AI to answer the conversation as it stands."
+  ([app-state is-sending? cancel-fn-atom]
+   (request-ai-reply! app-state is-sending? cancel-fn-atom nil))
+  ([app-state is-sending? cancel-fn-atom image]
+   (reset! cancel-fn-atom (api/send-chat-message
+                           app-state
+                           (current-messages app-state)
+                           image
+                           (fn [response]
+                             (reset! cancel-fn-atom nil)
+                             (let [ai-message {:id (random-uuid)
+                                               :text response
+                                               :is-user false
+                                               :timestamp (.getTime
+                                                           (js/Date.))}]
+                               (update-messages! app-state conj ai-message)
+                               (chat-utils/set-scroll-intent! app-state
+                                                              {:type :ai-top})
+                               (persist-ai-reply! app-state response)
+                               (reset! is-sending? false)))))))
 
 (defn handle-send-message
   "Handle sending a message to the AI assistant with optional image"
-  [app-state message-text messages is-sending? cancel-fn-atom & [image]]
+  [app-state message-text is-sending? cancel-fn-atom & [image]]
   (when (and (not @is-sending?) (or (seq message-text) image))
     (reset! is-sending? true)
-    (let [note (chat-context/context-note app-state @messages)
+    (let [note (chat-context/context-note app-state
+                                          (current-messages app-state))
           user-message (with-context-note {:id (random-uuid)
                                            :text (or message-text "")
                                            :is-user true
                                            :timestamp (.getTime (js/Date.))}
                                           note)]
-      (swap! messages conj user-message)
-      (swap! app-state assoc-in [:chat :messages] @messages)
+      (update-messages! app-state conj user-message)
       (chat-utils/set-scroll-intent! app-state {:type :bottom})
       (persist-conversation-message!
        app-state
        (cond-> {:is_user true :content (or message-text "")}
          image (assoc :image_data image)
          note (assoc :context_note note))
-       (fn [_ saved]
-         (adopt-saved-message! app-state messages (:id user-message) saved)))
-      (request-ai-reply! app-state messages is-sending? cancel-fn-atom image))))
+       (fn [_ saved] (adopt-saved-message! app-state (:id user-message) saved)))
+      (request-ai-reply! app-state is-sending? cancel-fn-atom image))))
 
 (defn commit-local-edit!
-  [app-state messages editing-message-id message-ref on-edit-complete
-   is-sending? new-history]
-  (reset! messages new-history)
-  (swap! app-state assoc-in [:chat :messages] new-history)
+  [app-state editing-message-id message-ref on-edit-complete is-sending?
+   new-history]
+  (set-messages! app-state new-history)
   (reset! editing-message-id nil)
   (when @message-ref (set! (.-value @message-ref) ""))
   (swap! app-state update :chat dissoc :draft-message)
@@ -137,32 +145,29 @@
   (reset! is-sending? true))
 
 (defn remove-deleted-messages!
-  [app-state messages deleted-ids]
+  [app-state deleted-ids]
   (when-let [ids (seq deleted-ids)]
-    (let [delete-set (set ids)
-          pruned (swap! messages #(vec (remove (fn [msg]
-                                                 (contains? delete-set
-                                                            (:id msg)))
-                                               %)))]
-      (swap! app-state assoc-in [:chat :messages] pruned))))
+    (let [delete-set (set ids)]
+      (update-messages!
+       app-state
+       (fn [current] (vec (remove #(contains? delete-set (:id %)) current)))))))
 
 (defn apply-server-edit!
-  [app-state messages message-idx
-   {:keys [message deleted-message-ids] :as data}]
+  [app-state message-idx {:keys [message deleted-message-ids] :as data}]
   (when-let [sanitized (chat-utils/api-message->ui message)]
-    (let [updated (swap! messages #(assoc (vec %) message-idx sanitized))]
-      (swap! app-state assoc-in [:chat :messages] updated)))
-  (remove-deleted-messages! app-state messages deleted-message-ids)
+    (update-messages! app-state assoc message-idx sanitized))
+  (remove-deleted-messages! app-state deleted-message-ids)
   data)
 
 (defn handle-edit-send
-  [app-state editing-message-id message-ref messages is-sending? cancel-fn-atom
+  [app-state editing-message-id message-ref is-sending? cancel-fn-atom
    on-edit-complete]
   (when @message-ref
     (let [message-text (.-value @message-ref)]
-      (if-let [message-idx (chat-utils/find-message-index @messages
+      (if-let [message-idx (chat-utils/find-message-index (current-messages
+                                                           app-state)
                                                           @editing-message-id)]
-        (let [current @messages
+        (let [current (current-messages app-state)
               original-message (nth current message-idx)
               prior (subvec (vec current) 0 message-idx)
               note
@@ -179,19 +184,16 @@
                                       [:chat :active-conversation-id])
               message-db-id (:id original-message)]
           (commit-local-edit! app-state
-                              messages
                               editing-message-id
                               message-ref
                               on-edit-complete
                               is-sending?
                               new-history)
-          (let [follow-up #(request-ai-reply! app-state
-                                              messages
-                                              is-sending?
-                                              cancel-fn-atom)
+          (let [follow-up
+                #(request-ai-reply! app-state is-sending? cancel-fn-atom)
                 handle-update-success
                 (fn [data]
-                  (apply-server-edit! app-state messages message-idx data)
+                  (apply-server-edit! app-state message-idx data)
                   (follow-up))
                 ;; The failure itself already shows in the chat dialog.
                 handle-update-error (fn [_]
@@ -220,21 +222,17 @@
 
 (defn ask-again!
   "Answer the question the conversation ends on."
-  [app-state messages is-sending? cancel-fn-atom]
+  [app-state is-sending? cancel-fn-atom]
   (when (and (not @is-sending?) (chat-utils/unanswered-question? @app-state))
     (reset! is-sending? true)
-    (let [history (vec @messages)
+    (let [history (vec (current-messages app-state))
           question (peek history)
           note (chat-context/context-note app-state (pop history))
           conversation-id (get-in @app-state [:chat :active-conversation-id])]
       ;; The question already carries the note for the context it was asked
       ;; in; it only needs a new one if the context has changed since.
       (when-not (chat-context/same-note? note (:context-note question))
-        (update-message! app-state
-                         messages
-                         (:id question)
-                         with-context-note
-                         note)
+        (update-message! app-state (:id question) with-context-note note)
         (when (and (integer? conversation-id) (integer? (:id question)))
           (.then (api/update-conversation-message! app-state
                                                    conversation-id
@@ -242,34 +240,33 @@
                                                    {:content (:text question)
                                                     :context_note note})
                  #(update-message! app-state
-                                   messages
                                    (:id question)
                                    with-context-note
                                    (get-in % [:message :context_note]))
                  (fn [_]))))
-      (request-ai-reply! app-state messages is-sending? cancel-fn-atom))))
+      (request-ai-reply! app-state is-sending? cancel-fn-atom))))
 
 (defn fork-conversation!
   "Start a new conversation holding every message up to `message-id`. A fork
    that ends on a question waits for Send, so effort or provider can be
    changed before it is asked again."
-  [app-state messages message-id is-sending?]
+  [app-state message-id is-sending?]
   (let [conversation-id (get-in @app-state [:chat :active-conversation-id])
-        message-idx (chat-utils/find-message-index @messages message-id)]
+        message-idx (chat-utils/find-message-index (current-messages app-state)
+                                                   message-id)]
     (when (and (integer? conversation-id) message-idx (not @is-sending?))
       (.then
        (api/fork-conversation! app-state conversation-id (inc message-idx))
        (fn [api-messages]
          (let [forked (mapv chat-utils/api-message->ui api-messages)]
-           (reset! messages forked)
-           (swap! app-state assoc-in [:chat :messages] forked)
+           (set-messages! app-state forked)
            (chat-utils/set-scroll-intent! app-state {:type :bottom})))
        (fn [_])))))
 
 (defn clear-chat!
-  ([app-state messages] (clear-chat! app-state messages nil nil))
-  ([app-state messages message-ref pending-image]
-   (reset! messages [])
+  ([app-state] (clear-chat! app-state nil nil))
+  ([app-state message-ref pending-image]
+   (set-messages! app-state [])
    (when (and message-ref @message-ref) (set! (.-value @message-ref) ""))
    (when pending-image (reset! pending-image nil))
    (state-core/set-context-mode! app-state :wines)
@@ -316,9 +313,8 @@
   (when id (api/set-conversation-pinned! app-state id (not (true? pinned)))))
 
 (defn open-conversation!
-  ([app-state messages conversation]
-   (open-conversation! app-state messages conversation false))
-  ([app-state messages {:keys [id] :as conversation} close-sidebar?]
+  ([app-state conversation] (open-conversation! app-state conversation false))
+  ([app-state {:keys [id] :as conversation} close-sidebar?]
    (when id
      (when close-sidebar?
        (swap! app-state assoc-in [:chat :sidebar-open?] false))
@@ -326,7 +322,6 @@
      (swap! app-state assoc-in [:chat :active-conversation] conversation)
      (when-let [provider (:provider conversation)]
        (swap! app-state assoc-in [:ai :provider] (keyword provider)))
-     (reset! messages [])
-     (swap! app-state assoc-in [:chat :messages] [])
+     (set-messages! app-state [])
      (chat-context/hold-conversation-context! app-state)
      (api/fetch-conversation-messages! app-state id))))
