@@ -32,6 +32,7 @@
                         (wrap-session {:store session-store
                                        :cookie-attrs {:http-only true
                                                       :same-site :lax
+                                                      :secure production?
                                                       :path "/"}}))
         server (http-kit/run-server wrapped-app {:port port})]
     (println "Started http server on port:" port)

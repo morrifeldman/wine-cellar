@@ -37,7 +37,7 @@ below.
 - [x] B12 Raw SQL search regex in `list-conversations-for-user`
 - [x] B14 `pass` subprocess on every request in dev
 - [x] B15 Leaky `tap>` logs; Gemini key in URL (raw PostgreSQL messages sent to clients move to 1.1)
-- [ ] B16 `:secure` cookies; Anthropic key check
+- [x] B16 `:secure` cookies; Anthropic key check
 - [ ] B1/B3 Allowlist, `require-admin`, device-token scope (low priority, see §0)
 
 **Phase 2: backend plumbing (§1)**

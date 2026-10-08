@@ -126,12 +126,14 @@
                      :http-only true
                      :max-age (* 7 24 60 60) ; 7 days
                      :same-site :lax
+                     :secure config-utils/production?
                      :path "/"})
           (assoc-in [:cookies "login-hint"]
                     {:value (:email user-info)
                      :http-only true
                      :max-age (* 365 24 60 60)
                      :same-site :lax
+                     :secure config-utils/production?
                      :path "/"})
           (assoc :session (dissoc (:session request) :oauth-state))))
     (do (tap> ["token-exchange-failed"])
@@ -215,6 +217,7 @@
                  :http-only true
                  :max-age 0 ; Expire immediately
                  :same-site :lax
+                 :secure config-utils/production?
                  :path "/"})
       ;; Logging out is how you switch accounts, so the next login should
       ;; offer the picker again.
