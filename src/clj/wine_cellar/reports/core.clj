@@ -1,9 +1,8 @@
 (ns wine-cellar.reports.core
-  (:require [honey.sql :as sql]
-            [jsonista.core :as json]
+  (:require [jsonista.core :as json]
             [next.jdbc :as jdbc]
             [wine-cellar.ai.core :as ai]
-            [wine-cellar.db.connection :refer [ds db-opts]])
+            [wine-cellar.db.connection :refer [ds q-many q-one]])
   (:import [java.time LocalDate]))
 
 (defn- get-date-range
@@ -22,62 +21,52 @@
 
 (defn- fetch-drink-now-wines
   [tx current-year]
-  (jdbc/execute! tx
-                 (sql/format
-                  {:select [:id :producer :name :vintage :region :quantity]
-                   :from :wines
-                   :where [:and [:> :quantity 0]
-                           [:<= :drink_from_year current-year]
-                           [:>= :drink_until_year current-year]]
-                   :order-by [[:drink_until_year :asc] [:quantity :desc]]
-                   :limit 50})
-                 db-opts))
+  (q-many tx
+          {:select [:id :producer :name :vintage :region :quantity]
+           :from :wines
+           :where [:and [:> :quantity 0] [:<= :drink_from_year current-year]
+                   [:>= :drink_until_year current-year]]
+           :order-by [[:drink_until_year :asc] [:quantity :desc]]
+           :limit 50}))
 
 (defn- fetch-expiring-wines
   [tx current-year]
-  (jdbc/execute! tx
-                 (sql/format {:select [:id :producer :name :vintage :region
-                                       :quantity :drink_until_year]
-                              :from :wines
-                              :where [:and [:> :quantity 0]
-                                      [:<= :drink_until_year (+ current-year 1)]
-                                      [:>= :drink_until_year current-year]]
-                              :order-by [[:drink_until_year :asc]]})
-                 db-opts))
+  (q-many
+   tx
+   {:select [:id :producer :name :vintage :region :quantity :drink_until_year]
+    :from :wines
+    :where [:and [:> :quantity 0] [:<= :drink_until_year (+ current-year 1)]
+            [:>= :drink_until_year current-year]]
+    :order-by [[:drink_until_year :asc]]}))
 
 (defn- fetch-recent-activity
   [tx last-week-date]
-  (jdbc/execute! tx
-                 (sql/format {:select [:ih.* :w.producer :w.name :w.vintage]
-                              :from [[:inventory_history :ih]]
-                              :join [[:wines :w] [:= :ih.wine_id :w.id]]
-                              :where [:>= :ih.created_at last-week-date]
-                              :order-by [[:ih.created_at :desc]]})
-                 db-opts))
+  (q-many tx
+          {:select [:ih.* :w.producer :w.name :w.vintage]
+           :from [[:inventory_history :ih]]
+           :join [[:wines :w] [:= :ih.wine_id :w.id]]
+           :where [:>= :ih.created_at last-week-date]
+           :order-by [[:ih.created_at :desc]]}))
 
 (defn- fetch-past-prime-wines
   [tx current-year]
-  (jdbc/execute! tx
-                 (sql/format {:select [:id :producer :name :vintage :region
-                                       :quantity :drink_until_year]
-                              :from :wines
-                              :where [:and [:> :quantity 0]
-                                      [:< :drink_until_year current-year]]
-                              :order-by [[:drink_until_year :asc]]})
-                 db-opts))
+  (q-many tx
+          {:select [:id :producer :name :vintage :region :quantity
+                    :drink_until_year]
+           :from :wines
+           :where [:and [:> :quantity 0] [:< :drink_until_year current-year]]
+           :order-by [[:drink_until_year :asc]]}))
 
 (defn- fetch-recently-added-wines
   [tx last-week-date]
-  (jdbc/execute! tx
-                 (sql/format {:select [:id :producer :name :vintage :region
-                                       :quantity :created_at]
-                              :from :wines
-                              :where [:>= :created_at last-week-date]
-                              :order-by [[:created_at :desc]]})
-                 db-opts))
+  (q-many tx
+          {:select [:id :producer :name :vintage :region :quantity :created_at]
+           :from :wines
+           :where [:>= :created_at last-week-date]
+           :order-by [[:created_at :desc]]}))
 
 (defn- select-highlight-wine
-  [_tx drink-now-wines]
+  [drink-now-wines]
   (when (seq drink-now-wines) (rand-nth (take 20 drink-now-wines))))
 
 (defn- generate-report-data
@@ -88,7 +77,7 @@
         past-prime (fetch-past-prime-wines tx current-year)
         recent-added (fetch-recently-added-wines tx last-week)
         recent-activity (fetch-recent-activity tx last-week)
-        highlight (select-highlight-wine tx drink-now)]
+        highlight (select-highlight-wine drink-now)]
     {:generated-at (str today)
      :period-start (str last-week)
      :period-end (str today)
@@ -112,34 +101,29 @@
 
 (defn- save-report!
   [tx report-date data-json ai-text highlight-id]
-  (jdbc/execute-one! tx
-                     (sql/format
-                      {:insert-into :cellar_reports
-                       :values [{:report_date report-date
-                                 :summary_data [:cast data-json :jsonb]
-                                 :ai_commentary ai-text
-                                 :highlight_wine_id highlight-id}]
-                       :on-conflict [:report_date]
-                       :do-update-set {:summary_data [:cast data-json :jsonb]
-                                       :ai_commentary ai-text
-                                       :highlight_wine_id highlight-id
-                                       :updated_at [:now]}})
-                     db-opts))
+  (q-one tx
+         {:insert-into :cellar_reports
+          :values [{:report_date report-date
+                    :summary_data [:cast data-json :jsonb]
+                    :ai_commentary ai-text
+                    :highlight_wine_id highlight-id}]
+          :on-conflict [:report_date]
+          :do-update-set {:summary_data [:cast data-json :jsonb]
+                          :ai_commentary ai-text
+                          :highlight_wine_id highlight-id
+                          :updated_at [:now]}
+          :returning :*}))
 
 (defn list-reports
   []
-  (jdbc/execute! ds
-                 (sql/format {:select [:id :report_date]
-                              :from :cellar_reports
-                              :order-by [[:report_date :desc]]})
-                 db-opts))
+  (q-many ds
+          {:select [:id :report_date]
+           :from :cellar_reports
+           :order-by [[:report_date :desc]]}))
 
 (defn get-report-by-id
   [id]
-  (jdbc/execute-one! ds
-                     (sql/format
-                      {:select [:*] :from :cellar_reports :where [:= :id id]})
-                     db-opts))
+  (q-one ds {:select [:*] :from :cellar_reports :where [:= :id id]}))
 
 (defn generate-report!
   "Generates and saves a cellar report. Returns the report record."
@@ -149,12 +133,10 @@
     [tx ds]
     (let [{:keys [report-date]} (get-date-range)
           _ (tap> ["Fetching cellar report for date:" report-date])
-          existing (jdbc/execute-one! tx
-                                      (sql/format {:select [:*]
-                                                   :from :cellar_reports
-                                                   :where [:= :report_date
-                                                           report-date]})
-                                      db-opts)
+          existing (q-one tx
+                          {:select [:*]
+                           :from :cellar_reports
+                           :where [:= :report_date report-date]})
           ;; Check if the existing report has the new ID fields (stale
           ;; check)
           summary-data (:summary_data existing)
@@ -164,7 +146,9 @@
                                  (:recently-added-ids summary-data)))
           stale? (and existing (not has-ids?))
           should-generate? (or (nil? existing) stale? force?)
-          selected-provider :anthropic]
+          ;; The configured default, like the rest of the app before the
+          ;; user picks a provider in the UI.
+          selected-provider ai/default-provider]
       (if (not should-generate?)
         (do (tap> "Returning existing report from database") existing)
         (let
@@ -188,9 +172,4 @@
                (tap> ["AI Report Generation Failed:" (.getMessage e)])
                "The sommelier is currently unavailable to provide commentary, but your cellar statistics have been updated."))
            highlight-id (get-in data [:highlight-wine :id])]
-          (save-report! tx report-date data-json ai-response highlight-id)
-          (jdbc/execute-one! tx
-                             (sql/format {:select [:*]
-                                          :from :cellar_reports
-                                          :where [:= :report_date report-date]})
-                             db-opts)))))))
+          (save-report! tx report-date data-json ai-response highlight-id)))))))

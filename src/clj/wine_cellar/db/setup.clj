@@ -4,7 +4,7 @@
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [wine-cellar.db.api :as db-api]
-            [wine-cellar.db.connection :refer [db-opts ds]]
+            [wine-cellar.db.connection :refer [db-opts ds q-one]]
             [wine-cellar.db.schema :as schema]))
 
 ;; Classification seeding
@@ -26,10 +26,8 @@
 (defn classifications-exist?
   "Check if any classifications exist in the database"
   []
-  (pos? (:count (jdbc/execute-one! ds
-                                   (sql/format {:select [[[:count :*]]]
-                                                :from :wine_classifications})
-                                   db-opts))))
+  (pos? (:count (q-one ds
+                       {:select [[[:count :*]]] :from :wine_classifications}))))
 
 (defn seed-classifications-if-needed!
   "Seeds classifications only if none exist in the database"

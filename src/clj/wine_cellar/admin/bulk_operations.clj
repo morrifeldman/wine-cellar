@@ -1,4 +1,6 @@
 (ns wine-cellar.admin.bulk-operations
+  "Background jobs that run an AI task over many wines, one at a time, with
+   progress the admin page polls."
   (:require [clojure.string :as str]
             [wine-cellar.db.api :as db-api]
             [wine-cellar.ai.core :as ai]))
@@ -6,172 +8,94 @@
 ;; Job state management
 (def active-jobs (atom {}))
 
-(defn generate-job-id [] (str "job-" (System/currentTimeMillis)))
+(def ^:private finished-job-ttl-ms (* 60 60 1000))
 
-(defn update-job-status!
-  [job-id status & [progress total error]]
-  ;; Merge into the existing entry rather than replacing it, so accumulated
-  ;; keys like :failed-wines and :job-type survive each progress tick.
-  (swap! active-jobs update
-    job-id
-    (fn [existing]
-      (merge existing
-             {:status status :updated-at (System/currentTimeMillis)}
-             (when progress {:progress progress})
-             (when total {:total total})
-             (when error {:error error})))))
+(defn- now-ms [] (System/currentTimeMillis))
 
-(defn add-failed-wine!
-  [job-id wine-id error-msg]
-  (swap! active-jobs update-in
-    [job-id :failed-wines]
-    (fn [failed-wines]
-      (conj (or failed-wines []) {:wine-id wine-id :error error-msg}))))
+(defn- forget-old-jobs!
+  "Drops finished jobs nobody has polled for an hour, so the map stays small."
+  []
+  (swap! active-jobs (fn [jobs]
+                       (into {}
+                             (remove (fn [[_ {:keys [status updated-at]}]]
+                                       (and (#{:completed :failed} status)
+                                            (< (+ updated-at
+                                                  finished-job-ttl-ms)
+                                               (now-ms)))))
+                             jobs))))
+
+(defn- update-job!
+  "Merges `changes` into the job, so accumulated keys like :failed-wines and
+   :job-type survive each progress tick."
+  [job-id changes]
+  (swap! active-jobs update job-id merge changes {:updated-at (now-ms)}))
 
 (defn get-job-status [job-id] (get @active-jobs job-id))
+
+(defn- process-wine!
+  "Runs `process` on one wine. A failure is recorded on the job and doesn't
+   stop the others."
+  [job-id process wine]
+  (try (process wine)
+       (catch Exception e
+         (tap> ["❌ Job" job-id "failed on wine" (:id wine) e])
+         (swap! active-jobs update-in
+           [job-id :failed-wines]
+           (fnil conj [])
+           {:wine-id (:id wine) :error (.getMessage e)}))))
+
+(defn- start-wine-job!
+  "Starts `process` over the wines in a background thread and returns the job
+   id to poll."
+  [job-type wine-ids process]
+  (forget-old-jobs!)
+  (let [job-id (str "job-" (random-uuid))
+        total (count wine-ids)]
+    (tap> ["Starting" job-type "job" job-id "for" total "wines"])
+    (update-job! job-id
+                 {:status :running :job-type job-type :progress 0 :total total})
+    (future
+     (try (let [wines (db-api/get-enriched-wines-by-ids wine-ids)]
+            (if (empty? wines)
+              (update-job! job-id {:status :failed :error "No wines found"})
+              (do (doseq [[idx wine] (map-indexed vector wines)]
+                    (process-wine! job-id process wine)
+                    (update-job! job-id {:progress (inc idx)}))
+                  (update-job! job-id {:status :completed :progress total})
+                  (tap> ["Completed" job-type "job" job-id "failed wines:"
+                         (count (:failed-wines (get-job-status job-id)))]))))
+          (catch Exception e
+            (tap> ["💥 Job" job-id "failed:" e])
+            (update-job! job-id {:status :failed :error (.getMessage e)}))))
+    job-id))
 
 (defn start-drinking-window-job
   "Start async job to regenerate drinking windows for wine IDs"
   [{:keys [wine-ids provider]}]
-  (let [job-id (generate-job-id)
-        total-count (count wine-ids)
-        provider-key (some-> provider
-                             keyword)]
-    (tap> ["🍷 Starting async drinking window job" job-id "for" total-count
-           "wines"])
-    (swap! active-jobs assoc
-      job-id
-      {:status :running
-       :job-type :drinking-window
-       :progress 0
-       :total total-count
-       :updated-at (System/currentTimeMillis)})
-    (update-job-status! job-id :running 0 total-count)
-    ;; Start background processing
-    (future
-     (try
-       (tap> ["🔍 Getting enriched wines for IDs:" wine-ids])
-       (let [wines (db-api/get-enriched-wines-by-ids wine-ids)]
-         (tap> ["📋 Retrieved" (count wines) "wines for processing"])
-         (if (empty? wines)
-           (do (tap> ["⚠️ No wines found for processing"])
-               (update-job-status! job-id :failed nil nil "No wines found"))
-           (do
-             (doall
-              (map-indexed
-               (fn [idx wine]
-                 (try (tap> ["🍷 Processing wine" (inc idx) "of" total-count
-                             "- ID:" (:id wine) "Producer:" (:producer wine)])
-                      (let [ai-response (ai/suggest-drinking-window provider-key
-                                                                    wine)]
-                        (tap> ["🤖 AI response received for wine" (:id wine) ":"
-                               ai-response])
-                        (let [updates
-                              {:drink_from_year (:drink_from_year ai-response)
-                               :drink_until_year (:drink_until_year ai-response)
-                               :tasting_window_commentary (:reasoning
-                                                           ai-response)}]
-                          (tap> ["💾 Updating wine" (:id wine) "with:" updates])
-                          (db-api/update-wine! (:id wine) updates)
-                          (update-job-status! job-id
-                                              :running
-                                              (inc idx)
-                                              total-count)
-                          (tap> ["✅ Successfully updated wine ID" (:id wine)])))
-                      (catch Exception e
-                        (tap> ["❌ Failed to process wine ID" (:id wine) ":"
-                               (.getMessage e)])
-                        (tap> ["🔍 Exception details:" e])
-                        ;; Track the failed wine
-                        (add-failed-wine! job-id (:id wine) (.getMessage e))
-                        ;; Continue processing other wines even if one
-                        ;; fails
-                        (update-job-status! job-id
-                                            :running
-                                            (inc idx)
-                                            total-count))))
-               wines))
-             (let [final-status (get-job-status job-id)
-                   failed-count (count (:failed-wines final-status))
-                   success-count (- total-count failed-count)]
-               (update-job-status! job-id :completed total-count total-count)
-               (tap> ["🎉 Completed drinking window job" job-id "- success:"
-                      success-count "failed:" failed-count "total:"
-                      total-count])
-               (when (> failed-count 0)
-                 (tap> ["⚠️ Failed wines:" (:failed-wines final-status)]))))))
-       (catch Exception e
-         (tap> ["💥 Job" job-id "failed with top-level error:" (.getMessage e)])
-         (tap> ["🔍 Top-level exception details:" e])
-         (update-job-status! job-id :failed nil nil (.getMessage e)))))
-    job-id))
+  (start-wine-job! :drinking-window
+                   wine-ids
+                   (fn [wine]
+                     (let [{:keys [drink_from_year drink_until_year reasoning]}
+                           (ai/suggest-drinking-window (some-> provider
+                                                               keyword)
+                                                       wine)]
+                       (db-api/update-wine! (:id wine)
+                                            {:drink_from_year drink_from_year
+                                             :drink_until_year drink_until_year
+                                             :tasting_window_commentary
+                                             reasoning})))))
 
 (defn start-wine-summary-job
   "Start async job to regenerate AI wine summaries for wine IDs"
   [{:keys [wine-ids provider]}]
-  (let [job-id (generate-job-id)
-        total-count (count wine-ids)
-        provider-key (some-> provider
-                             keyword)]
-    (tap> ["📝 Starting async wine summary job" job-id "for" total-count
-           "wines"])
-    (swap! active-jobs assoc
-      job-id
-      {:status :running
-       :job-type :wine-summary
-       :progress 0
-       :total total-count
-       :updated-at (System/currentTimeMillis)})
-    (update-job-status! job-id :running 0 total-count)
-    (future
-     (try
-       (tap> ["🔍 Fetching wines for summary regeneration" wine-ids])
-       (let [wines (db-api/get-enriched-wines-by-ids wine-ids)]
-         (tap> ["📋 Retrieved" (count wines) "wines for summary generation"])
-         (if (empty? wines)
-           (do (tap> ["⚠️ No wines found for summary regeneration"])
-               (update-job-status! job-id :failed nil nil "No wines found"))
-           (do
-             (doall
-              (map-indexed
-               (fn [idx wine]
-                 (try
-                   (tap> ["📝 Generating summary for wine" (inc idx) "of"
-                          total-count "- ID:" (:id wine) "Producer:"
-                          (:producer wine)])
-                   (let [summary-text
-                         (some-> (ai/generate-wine-summary provider-key wine)
-                                 (str/trim))]
-                     (when (str/blank? summary-text)
-                       (throw (ex-info "AI summary was blank"
-                                       {:wine-id (:id wine)})))
-                     (tap> ["💾 Updating wine" (:id wine)
-                            "with AI summary text"])
-                     (db-api/update-wine! (:id wine) {:ai_summary summary-text})
-                     (update-job-status! job-id :running (inc idx) total-count)
-                     (tap> ["✅ Summary updated for wine" (:id wine)]))
-                   (catch Exception e
-                     (tap> ["❌ Failed to regenerate summary for wine ID"
-                            (:id wine) ":" (.getMessage e)])
-                     (tap> ["🔍 Summary exception details:" e])
-                     (add-failed-wine! job-id (:id wine) (.getMessage e))
-                     (update-job-status! job-id
-                                         :running
-                                         (inc idx)
-                                         total-count))))
-               wines))
-             (let [final-status (get-job-status job-id)
-                   failed-count (count (:failed-wines final-status))
-                   success-count (- total-count failed-count)]
-               (update-job-status! job-id :completed total-count total-count)
-               (tap> ["🎉 Completed wine summary job" job-id "- success:"
-                      success-count "failed:" failed-count "total:"
-                      total-count])
-               (when (> failed-count 0)
-                 (tap> ["⚠️ Failed wines:" (:failed-wines final-status)]))))))
-       (catch Exception e
-         (tap> ["💥 Summary job" job-id "failed with top-level error:"
-                (.getMessage e)])
-         (tap> ["🔍 Summary job top-level exception:" e])
-         (update-job-status! job-id :failed nil nil (.getMessage e)))))
-    job-id))
+  (start-wine-job!
+   :wine-summary
+   wine-ids
+   (fn [wine]
+     (let [summary (some-> (ai/generate-wine-summary (some-> provider
+                                                             keyword)
+                                                     wine)
+                           str/trim)]
+       (when (str/blank? summary)
+         (throw (ex-info "AI summary was blank" {:wine-id (:id wine)})))
+       (db-api/update-wine! (:id wine) {:ai_summary summary})))))

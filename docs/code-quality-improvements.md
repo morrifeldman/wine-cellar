@@ -26,12 +26,15 @@ below.
 - [x] B5 Frontend fallback error message is never shown
 - [x] B6 Undefined request specs; duplicate `::notes` / `::vineyard`
 - [x] B18 Every request-validation error came back as an opaque 500 (`tap-middleware` rewrapped exceptions)
+- [x] B19 A bulk job's failure message was wiped by the `fetch-wines` it starts, which cleared `:error`
+- [x] B20 `fetch-wines` merged old state over fresh data, so in-app refetches (e.g. after a bulk job) showed stale values
+- [x] B21 The wine list and detail reads omitted the open-bottle columns, so an open Coravin bottle vanished from the UI on reload
 - [x] B7 `drop-tables` skips the bar, report and inventory history tables
 - [x] B8 Image MIME type hard-coded to JPEG: not a live bug, since the browser re-encodes every image as JPEG (`file->jpeg-data-url`). The provider-neutral image format is still part of 5.4.
 - [x] B9 Check the tasting-window CHECK constraint: correct as is. HoneySQL renders `[:= col]` as `col IS NULL`.
 - [x] B10 Recipe rating range: spec allows 1–100, DB allows 1–10
 - [x] B2 JWT `iat`/`exp` in milliseconds: fixed for user tokens
-- [ ] B2b Same for device tokens. Blocked on firmware: on a 401 the ESP32 wipes its tokens and has to be claimed again, and after a boot without SNTP it trusts its stored access token. Make the firmware try a refresh before wiping, flash it, then switch `devices.clj` (and `touch-device!`) to seconds.
+- [x] B2b Same for device tokens: done. The sensor may need re-approval if its clock is off at boot; a firmware change to refresh on a 401 before wiping would remove that risk.
 - [x] B13 `create-wine` not atomic; returns raw image bytes
 - [x] B11 SSRF guard in `web_fetch`
 - [x] B12 Raw SQL search regex in `list-conversations-for-user`
@@ -41,13 +44,13 @@ below.
 - [ ] B1/B3 Allowlist, `require-admin`, device-token scope (low priority, see §0)
 
 **Phase 2: backend plumbing (§1)**
-- [ ] 1.1 One error-handling path + response helpers
-- [ ] 1.3 Shared route `:responses`; merge duplicate route entries
-- [ ] 1.2 CRUD helpers in handlers and `db/api`
-- [ ] 1.6 Merge the two bulk jobs
-- [ ] 1.4 `->jsonb`, codecs, timestamp `ReadableColumn`, shared `q-one`/`q-many`
-- [ ] 1.5 Inventory mutations share `record-history!`
-- [ ] 1.7 Smaller backend items
+- [x] 1.1 One error-handling path + response helpers (`wine-cellar.http`). Error bodies were also never JSON-encoded, because the exception middleware sat outside muuntaja.
+- [x] 1.3 Shared route `:responses`; merge duplicate route entries
+- [x] 1.2 CRUD helpers in handlers and `db/api`. The `updated_at` gap was not real: classifications, grape varieties and bar inventory have no such column.
+- [x] 1.6 Merge the two bulk jobs
+- [x] 1.4 `->jsonb` and shared `q-one`/`q-many`. Not done: a global timestamp `ReadableColumn`, which would change every timestamp's JSON format the frontend reads. The codec maps weren't worth it once `->jsonb` existed.
+- [x] 1.5 Inventory mutations share `record-history!`
+- [x] 1.7 Smaller backend items: sensor ingestion, reports provider, recipe-links namespace, sensor series columns, aliases. Skipped: a `current-user` helper (the ways the user is read differ for good reasons) and the claim-code 401-vs-422 split (device-facing vs admin-facing).
 
 **Phase 3: frontend plumbing (§2)**
 - [ ] 2.1 `request!` helper

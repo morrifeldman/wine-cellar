@@ -48,11 +48,13 @@
 (def test-email "test@example.com")
 
 (defn request
-  "Calls the app's ring handler as a logged-in user. `body` is sent as JSON;
-   the response body comes back parsed, with keyword keys."
+  "Calls the app's ring handler as a logged-in user, or with `:token` as the
+   bearer token. `body` is sent as JSON; the response body comes back parsed,
+   with keyword keys."
   ([method uri] (request method uri nil))
-  ([method uri body]
-   (let [token (auth/create-jwt-token {:email test-email})
+  ([method uri body] (request method uri body {}))
+  ([method uri body {:keys [token]}]
+   (let [token (or token (auth/create-jwt-token {:email test-email}))
          response (routes/app
                    (cond-> {:request-method method
                             :uri uri
@@ -66,10 +68,7 @@
      (update response
              :body
              (fn [b]
-               (let [s (cond (or (string? b) (nil? b)) b
-                             (instance? java.io.InputStream b) (slurp b)
-                             ;; Some error handlers return unencoded data
-                             :else (json/write-value-as-string b))]
+               (let [s (if (instance? java.io.InputStream b) (slurp b) b)]
                  (if (seq s)
                    (try (json/read-value s json/keyword-keys-object-mapper)
                         (catch Exception _ s))

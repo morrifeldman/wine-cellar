@@ -1,10 +1,8 @@
 (ns wine-cellar.db.thumbnails
   "Rebuilds label thumbnails from the full-size label photo, for wines whose
    thumbnail was made back when uploads capped it at 100 pixels."
-  (:require [honey.sql :as sql]
-            [next.jdbc :as jdbc]
-            [wine-cellar.common :as common]
-            [wine-cellar.db.connection :refer [db-opts ds]])
+  (:require [wine-cellar.common :as common]
+            [wine-cellar.db.connection :refer [ds q-many q-one]])
   (:import [java.awt RenderingHints]
            [java.awt.image BufferedImage]
            [java.io ByteArrayInputStream ByteArrayOutputStream]
@@ -64,27 +62,20 @@
 
 (defn- stale-thumbnail-ids
   []
-  (->> (jdbc/execute! ds
-                      (sql/format {:select [:id :label_thumbnail]
-                                   :from :wines
-                                   :where [:is-not :label_image nil]})
-                      db-opts)
+  (->> (q-many ds
+               {:select [:id :label_thumbnail]
+                :from :wines
+                :where [:is-not :label_image nil]})
        (filter #(undersized? (:label_thumbnail %)))
        (map :id)))
 
 (defn- rebuild!
   [id]
   (let [{:keys [label_image]}
-        (jdbc/execute-one!
-         ds
-         (sql/format {:select [:label_image] :from :wines :where [:= :id id]})
-         db-opts)]
+        (q-one ds {:select [:label_image] :from :wines :where [:= :id id]})]
     (when-let [thumb (thumbnail-bytes label_image)]
-      (jdbc/execute-one! ds
-                         (sql/format {:update :wines
-                                      :set {:label_thumbnail thumb}
-                                      :where [:= :id id]})
-                         db-opts)
+      (q-one ds
+             {:update :wines :set {:label_thumbnail thumb} :where [:= :id id]})
       true)))
 
 (defn rebuild-undersized-thumbnails!

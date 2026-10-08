@@ -4,21 +4,33 @@
             [next.jdbc :as jdbc]
             [jsonista.core :as json]
             [wine-cellar.common :as common]
-            [wine-cellar.db.connection :refer [db-opts ds]])
+            [wine-cellar.db.connection :refer [db-opts ds q-many q-one]])
   (:import [java.sql Date Timestamp]
            [java.time Instant]
            [java.util Base64]))
 
-;; Query helpers — wrap the recurring `(jdbc/execute*! ds (sql/format ...)
-;; db-opts)`
-;; shape so call sites can stay focused on the honeysql map.
-(defn- q-one
-  ([query] (q-one ds query))
-  ([tx-or-ds query] (jdbc/execute-one! tx-or-ds (sql/format query) db-opts)))
+;; Single-row CRUD on tables keyed by :id. Callers convert rows to and from
+;; their table's column types.
+(defn- get-by-id [table id] (q-one {:select :* :from table :where [:= :id id]}))
 
-(defn- q-many
-  ([query] (q-many ds query))
-  ([tx-or-ds query] (jdbc/execute! tx-or-ds (sql/format query) db-opts)))
+(defn- insert!
+  ([table row] (insert! ds table row))
+  ([tx-or-ds table row]
+   (q-one tx-or-ds {:insert-into table :values [row] :returning :*})))
+
+(defn- update-by-id!
+  "Updates the row and returns it, or nil when there is no such row."
+  [table id row]
+  (q-one {:update table :set row :where [:= :id id] :returning :*}))
+
+(defn- delete-by-id!
+  "Deletes the row; true when there was one."
+  ([table id] (delete-by-id! table :id id))
+  ([table id-column id]
+   (-> (q-one {:delete-from table :where [:= id-column id]})
+       :next.jdbc/update-count
+       (or 0)
+       pos?)))
 
 ;; Helper functions for SQL generation
 (defn ->pg-array
@@ -38,6 +50,13 @@
       {:raw (str "'{" (str/join "," items) "}'")})))
 
 (defn sql-cast [sql-type field] [:cast field sql-type])
+
+(defn- ->jsonb
+  "Encodes a value for a jsonb column; nil stays nil (NULL)."
+  [v]
+  (some->> v
+           json/write-value-as-string
+           (sql-cast :jsonb)))
 
 (defn- ->sql-date
   [^String date-string]
@@ -85,8 +104,7 @@
   (cond-> wine
     purchase_date (update :purchase_date ->sql-date)
     style (update :style (partial sql-cast :wine_style))
-    metadata (update :metadata
-                     #(sql-cast :jsonb (json/write-value-as-string %)))
+    metadata (update :metadata ->jsonb)
     label_image (update :label_image base64->bytes)
     label_thumbnail (update :label_thumbnail base64->bytes)
     back_label_image (update :back_label_image base64->bytes)))
@@ -95,8 +113,7 @@
   [{:keys [tasting_date wset_data] :as note}]
   (cond-> note
     tasting_date (update :tasting_date ->sql-date)
-    wset_data (update :wset_data
-                      #(sql-cast :jsonb (json/write-value-as-string %)))))
+    wset_data (update :wset_data ->jsonb)))
 
 (defn conversation->db-conversation
   [{:keys [wine_ids auto_tags wine_search_state] :as conversation}]
@@ -110,21 +127,13 @@
                     (string? value) (str/lower-case value)
                     (nil? value) nil
                     :else (str value))))
-    wine_search_state (update :wine_search_state
-                              #(sql-cast :jsonb
-                                         (json/write-value-as-string %)))))
-
-(defn- context-note->db
-  [note]
-  (some->> note
-           json/write-value-as-string
-           (sql-cast :jsonb)))
+    wine_search_state (update :wine_search_state ->jsonb)))
 
 (defn conversation-message->db-message
   [{:keys [image_data context_note] :as message}]
   (cond-> message
     image_data (update :image_data base64->bytes)
-    context_note (update :context_note context-note->db)))
+    context_note (update :context_note ->jsonb)))
 
 (defn db-conversation-message->message
   [{:keys [image_data] :as message}]
@@ -151,8 +160,7 @@
   [{:keys [measured_at temperatures] :as condition}]
   (cond-> condition
     measured_at (update :measured_at ->sql-timestamp)
-    temperatures (update :temperatures
-                         #(sql-cast :jsonb (json/write-value-as-string %)))))
+    temperatures (update :temperatures ->jsonb)))
 
 (defn db-sensor-reading->reading
   [{:keys [measured_at created_at] :as row}]
@@ -168,10 +176,8 @@
 (defn device->db-device
   [{:keys [capabilities sensor_config token_expires_at last_seen] :as device}]
   (cond-> device
-    capabilities (update :capabilities
-                         #(sql-cast :jsonb (json/write-value-as-string %)))
-    sensor_config (update :sensor_config
-                          #(sql-cast :jsonb (json/write-value-as-string %)))
+    capabilities (update :capabilities ->jsonb)
+    sensor_config (update :sensor_config ->jsonb)
     (instance? Instant token_expires_at) (update :token_expires_at
                                                  instant->sql-timestamp)
     (instance? Instant last_seen) (update :last_seen instant->sql-timestamp)))
@@ -359,7 +365,7 @@
                    (contains? opts :tokens_used) (assoc :tokens_used
                                                         tokens_used)
                    (contains? opts :context_note)
-                   (assoc :context_note (context-note->db context_note)))
+                   (assoc :context_note (->jsonb context_note)))
          updated (some-> (q-one tx
                                 {:update :ai_conversation_messages
                                  :set set-map
@@ -469,7 +475,8 @@
    :location :purveyor :quantity :original_quantity :price :drink_from_year
    :drink_until_year :alcohol_percentage :disgorgement_year :dosage
    :label_thumbnail :created_at :updated_at :verified :purchase_date
-   :latest_internal_rating :average_external_rating :varieties :metadata])
+   :latest_internal_rating :average_external_rating :varieties :metadata
+   :open_bottle_opened_at :open_bottle_oz_poured])
 
 (defn get-wines-for-list
   []
@@ -517,136 +524,118 @@
               :returning :*})
       db-wine->wine))
 
+(def ^:private stock-columns
+  [:id :quantity :original_quantity :open_bottle_opened_at
+   :open_bottle_oz_poured])
+
+(defn- stock
+  [tx id]
+  (q-one tx
+         {:select (conj stock-columns :bottle_format)
+          :from :wines
+          :where [:= :id id]}))
+
+(defn- record-history!
+  "Logs a stock change for the wine. `entry` gives :change_amount, :reason and
+   optionally :notes, :oz and :occurred_at."
+  [tx wine new-quantity entry]
+  (q-one tx
+         {:insert-into :inventory_history
+          :values [(merge {:wine_id (:id wine)
+                           :previous_quantity (:quantity wine)
+                           :new_quantity new-quantity
+                           :original_quantity (:original_quantity wine)}
+                          entry)]}))
+
+(defn- set-stock!
+  "Updates the wine's stock columns and returns them."
+  [tx id changes]
+  (q-one tx
+         {:update :wines
+          :set (assoc changes :updated_at [:now])
+          :where [:= :id id]
+          :returning stock-columns}))
+
+(defn- finish-bottle!
+  "Uses up the open bottle: one fewer in stock, nothing open."
+  [tx wine notes]
+  (let [new-qty (max 0 (dec (:quantity wine)))]
+    (record-history! tx
+                     wine
+                     new-qty
+                     {:change_amount -1 :reason "drunk" :notes notes})
+    (set-stock! tx
+                (:id wine)
+                {:quantity new-qty
+                 :open_bottle_opened_at nil
+                 :open_bottle_oz_poured nil})))
+
 (defn adjust-quantity
+  "Adds `adjustment` bottles (negative to remove) and logs why. A restock also
+   raises original_quantity. Returns the wine's stock columns."
   ([id adjustment] (adjust-quantity id adjustment {}))
   ([id adjustment {:keys [reason notes occurred_at]}]
    (jdbc/with-transaction
     [tx ds]
-    (let [wine (q-one tx
-                      {:select [:quantity :original_quantity]
-                       :from :wines
-                       :where [:= :id id]})
-          current-quantity (:quantity wine 0)
-          current-original-quantity (:original_quantity wine 0)
-          new-quantity (+ current-quantity adjustment)
-          actual-reason (or reason (if (neg? adjustment) "drunk" "return"))
-          restock? (= actual-reason "restock")
-          new-original-quantity (if restock?
-                                  (+ current-original-quantity adjustment)
-                                  current-original-quantity)
-          update-map (cond-> {:quantity new-quantity :updated_at [:now]}
-                       restock? (assoc :original_quantity
-                                       new-original-quantity))]
-      (q-one tx
-             {:insert-into :inventory_history
-              :values [(cond-> {:wine_id id
-                                :change_amount adjustment
-                                :reason actual-reason
-                                :previous_quantity current-quantity
-                                :new_quantity new-quantity
-                                :original_quantity new-original-quantity
-                                :notes notes}
-                         occurred_at (assoc :occurred_at
-                                            (->sql-timestamp occurred_at)))]})
-      (q-one tx {:update :wines :set update-map :where [:= :id id]})))))
+    (let [wine (update (stock tx id) :original_quantity #(or % 0))
+          new-quantity (+ (:quantity wine 0) adjustment)
+          reason (or reason (if (neg? adjustment) "drunk" "return"))
+          restock? (= reason "restock")
+          wine (cond-> wine restock? (update :original_quantity + adjustment))]
+      (when (neg? new-quantity)
+        (throw (ex-info "Adjustment would make quantity negative"
+                        {:status 400 :wine-id id})))
+      (record-history!
+       tx
+       wine
+       new-quantity
+       (cond-> {:change_amount adjustment :reason reason :notes notes}
+         occurred_at (assoc :occurred_at (->sql-timestamp occurred_at))))
+      (set-stock! tx
+                  id
+                  (cond-> {:quantity new-quantity}
+                    restock? (assoc :original_quantity
+                                    (:original_quantity wine))))))))
 
 (defn coravin-pour
   "Record a Coravin pour of `oz` ounces from wine `id`. Opens a bottle on the
   first pour and auto-finishes when total poured reaches the bottle volume
-  (derived from bottle_format). Returns the updated wine row."
+  (derived from bottle_format). Returns the wine's stock columns."
   ([id oz] (coravin-pour id oz {}))
   ([id oz {:keys [notes]}]
    (jdbc/with-transaction
     [tx ds]
-    (let [wine (q-one tx
-                      {:select [:quantity :original_quantity :bottle_format
-                                :open_bottle_opened_at :open_bottle_oz_poured]
-                       :from :wines
-                       :where [:= :id id]})
-          current-qty (:quantity wine 0)
-          bottle-oz (common/bottle-format->oz (:bottle_format wine))
-          prev-poured (or (some-> (:open_bottle_oz_poured wine)
-                                  double)
-                          0.0)
-          new-poured (+ prev-poured (double oz))
-          auto-finish? (>= new-poured bottle-oz)]
-      (when (zero? current-qty)
-        (throw (ex-info "No bottles available to pour from" {:wine-id id})))
-      (q-one tx
-             {:insert-into :inventory_history
-              :values [{:wine_id id
-                        :change_amount 0
+    (let [wine (stock tx id)
+          poured (+ (double (or (:open_bottle_oz_poured wine) 0)) (double oz))]
+      (when (zero? (:quantity wine 0))
+        (throw (ex-info "No bottles available to pour from"
+                        {:status 400 :wine-id id})))
+      (record-history! tx
+                       wine
+                       (:quantity wine)
+                       {:change_amount 0
                         :reason "coravin_pour"
-                        :previous_quantity current-qty
-                        :new_quantity current-qty
-                        :original_quantity (:original_quantity wine)
                         :oz oz
-                        :notes (when (seq notes) notes)}]})
-      (if auto-finish?
-        (let [new-qty (dec current-qty)]
-          (q-one tx
-                 {:insert-into :inventory_history
-                  :values [{:wine_id id
-                            :change_amount -1
-                            :reason "drunk"
-                            :previous_quantity current-qty
-                            :new_quantity new-qty
-                            :original_quantity (:original_quantity wine)
-                            :notes "Auto-finished after Coravin pours"}]})
-          (q-one tx
-                 {:update :wines
-                  :set {:quantity new-qty
-                        :open_bottle_opened_at nil
-                        :open_bottle_oz_poured nil
-                        :updated_at [:now]}
-                  :where [:= :id id]
-                  :returning [:id :quantity :original_quantity
-                              :open_bottle_opened_at :open_bottle_oz_poured]}))
-        (q-one
-         tx
-         {:update :wines
-          :set (cond-> {:open_bottle_oz_poured new-poured :updated_at [:now]}
-                 (nil? (:open_bottle_opened_at wine))
-                 (assoc :open_bottle_opened_at [:now]))
-          :where [:= :id id]
-          :returning [:id :quantity :original_quantity :open_bottle_opened_at
-                      :open_bottle_oz_poured]}))))))
+                        :notes (when (seq notes) notes)})
+      (if (>= poured (common/bottle-format->oz (:bottle_format wine)))
+        (finish-bottle! tx wine "Auto-finished after Coravin pours")
+        (set-stock! tx
+                    id
+                    (cond-> {:open_bottle_oz_poured poured}
+                      (nil? (:open_bottle_opened_at wine))
+                      (assoc :open_bottle_opened_at [:now]))))))))
 
 (defn finish-open-bottle
   "Mark the currently open bottle for wine `id` as finished. Decrements quantity
   by 1, clears open state, and writes a 'drunk' inventory_history row. Returns
-  the updated wine row, or nil if no bottle is open."
+  the wine's stock columns, or nil if no bottle is open."
   ([id] (finish-open-bottle id {}))
   ([id {:keys [notes]}]
    (jdbc/with-transaction
     [tx ds]
-    (let [wine (q-one tx
-                      {:select [:quantity :original_quantity
-                                :open_bottle_opened_at]
-                       :from :wines
-                       :where [:= :id id]})]
+    (let [wine (stock tx id)]
       (when (:open_bottle_opened_at wine)
-        (let [current-qty (:quantity wine 0)
-              new-qty (max 0 (dec current-qty))]
-          (q-one tx
-                 {:insert-into :inventory_history
-                  :values [{:wine_id id
-                            :change_amount -1
-                            :reason "drunk"
-                            :previous_quantity current-qty
-                            :new_quantity new-qty
-                            :original_quantity (:original_quantity wine)
-                            :notes (or notes "Finished open bottle")}]})
-          (q-one tx
-                 {:update :wines
-                  :set {:quantity new-qty
-                        :open_bottle_opened_at nil
-                        :open_bottle_oz_poured nil
-                        :updated_at [:now]}
-                  :where [:= :id id]
-                  :returning [:id :quantity :original_quantity
-                              :open_bottle_opened_at
-                              :open_bottle_oz_poured]})))))))
+        (finish-bottle! tx wine (or notes "Finished open bottle")))))))
 
 (defn get-inventory-history
   [wine-id]
@@ -715,7 +704,7 @@
                  new-q (+ (:quantity wine) delta)]
              (when (neg? new-q)
                (throw (ex-info "Adjustment would make quantity negative"
-                               {:wine-id (:wine_id existing)})))
+                               {:status 400 :wine-id (:wine_id existing)})))
              (q-one tx
                     {:update :wines
                      :set {:quantity new-q :updated_at [:now]}
@@ -737,12 +726,15 @@
                     {:select [:wine_id :reason]
                      :from :inventory_history
                      :where [:= :id id]})
-         result (q-one tx {:delete-from :inventory_history :where [:= :id id]})]
+         deleted?
+         (-> (q-one tx {:delete-from :inventory_history :where [:= :id id]})
+             :next.jdbc/update-count
+             pos?)]
      (when (and row (= "coravin_pour" (:reason row)))
        (recompute-open-poured! tx (:wine_id row)))
-     result)))
+     deleted?)))
 
-(defn delete-wine! [id] (q-one {:delete-from :wines :where [:= :id id]}))
+(defn delete-wine! [id] (delete-by-id! :wines id))
 
 ;; Classification operations
 (defn create-or-update-classification
@@ -785,20 +777,13 @@
            :from :wine_classifications
            :order-by [:country :region :appellation]}))
 
-(defn get-classification
-  [id]
-  (q-one {:select :* :from :wine_classifications :where [:= :id id]}))
+(defn get-classification [id] (get-by-id :wine_classifications id))
 
 (defn update-classification!
   [id classification]
-  (q-one {:update :wine_classifications
-          :set classification
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :wine_classifications id classification))
 
-(defn delete-classification!
-  [id]
-  (q-one {:delete-from :wine_classifications :where [:= :id id]}))
+(defn delete-classification! [id] (delete-by-id! :wine_classifications id))
 
 (defn get-regions-by-country
   [country]
@@ -818,26 +803,18 @@
 (defn create-tasting-note
   ([note] (create-tasting-note ds note))
   ([ds-or-tx note]
-   (q-one ds-or-tx
-          {:insert-into :tasting_notes
-           :values [(-> note
-                        tasting-note->db-tasting-note
-                        (assoc :updated_at [:now]))]
-           :returning :*})))
+   (insert! ds-or-tx
+            :tasting_notes
+            (assoc (tasting-note->db-tasting-note note) :updated_at [:now]))))
 
 (defn update-tasting-note!
   [id note]
-  (tap> ["update-tasting-note!" id note])
-  (q-one {:update :tasting_notes
-          :set (-> note
-                   tasting-note->db-tasting-note
-                   (assoc :updated_at [:now]))
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id!
+   :tasting_notes
+   id
+   (assoc (tasting-note->db-tasting-note note) :updated_at [:now])))
 
-(defn get-tasting-note
-  [id]
-  (q-one {:select :* :from :tasting_notes :where [:= :id id]}))
+(defn get-tasting-note [id] (get-by-id :tasting_notes id))
 
 (defn get-tasting-notes-by-wine
   [wine-id]
@@ -846,9 +823,7 @@
            :where [:= :wine_id wine-id]
            :order-by [[:tasting_date :desc]]}))
 
-(defn delete-tasting-note!
-  [id]
-  (q-one {:delete-from :tasting_notes :where [:= :id id]}))
+(defn delete-tasting-note! [id] (delete-by-id! :tasting_notes id))
 
 (defn get-tasting-note-sources
   "Returns a list of unique source names from external tasting notes"
@@ -891,28 +866,19 @@
           :returning :*}))
 
 ;; Grape Varieties Operations
-(defn create-grape-variety
-  [name]
-  (q-one {:insert-into :grape_varieties :values [{:name name}] :returning :*}))
+(defn create-grape-variety [name] (insert! :grape_varieties {:name name}))
 
 (defn get-all-grape-varieties
   []
   (q-many {:select :* :from :grape_varieties :order-by [:name]}))
 
-(defn get-grape-variety
-  [id]
-  (q-one {:select :* :from :grape_varieties :where [:= :id id]}))
+(defn get-grape-variety [id] (get-by-id :grape_varieties id))
 
 (defn update-grape-variety!
   [id name]
-  (q-one {:update :grape_varieties
-          :set {:name name}
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :grape_varieties id {:name name}))
 
-(defn delete-grape-variety!
-  [id]
-  (q-one {:delete-from :grape_varieties :where [:= :id id]}))
+(defn delete-grape-variety! [id] (delete-by-id! :grape_varieties id))
 
 ;; Wine Grape Varieties Operations
 (defn associate-grape-variety-with-wine
@@ -1013,6 +979,9 @@
    "6h" 21600 ;; 6 hours
    "1d" 86400}) ;; 1 day
 
+(def ^:private series-metrics
+  ["humidity_pct" "pressure_hpa" "illuminance_lux" "co2_ppm" "battery_mv"])
+
 (defn sensor-reading-series
   "Return aggregated sensor readings bucketed by the requested interval. Results
   always include :device_id and :bucket_start (ISO string). Metrics include
@@ -1035,27 +1004,21 @@
               from (conj from)
               to (conj to))
      where-clause (str/join " AND " conditions)
+     stat-columns (str/join ", "
+                            (for [metric series-metrics
+                                  stat ["avg" "min" "max"]]
+                              (str "b." stat "_" metric)))
+     aggregates (str/join ", "
+                          (for [metric series-metrics
+                                stat ["avg" "min" "max"]]
+                            (format "%s(%s) AS %s_%s" stat metric stat metric)))
      sql-str
      (str
       "WITH buckets AS ("
       "  SELECT device_id, "
       bucket-expr
-      " AS bucket_start,"
-      "    AVG(humidity_pct) AS avg_humidity_pct,"
-      "    MIN(humidity_pct) AS min_humidity_pct,"
-      "    MAX(humidity_pct) AS max_humidity_pct,"
-      "    AVG(pressure_hpa) AS avg_pressure_hpa,"
-      "    MIN(pressure_hpa) AS min_pressure_hpa,"
-      "    MAX(pressure_hpa) AS max_pressure_hpa,"
-      "    AVG(illuminance_lux) AS avg_illuminance_lux,"
-      "    MIN(illuminance_lux) AS min_illuminance_lux,"
-      "    MAX(illuminance_lux) AS max_illuminance_lux,"
-      "    AVG(co2_ppm) AS avg_co2_ppm,"
-      "    MIN(co2_ppm) AS min_co2_ppm,"
-      "    MAX(co2_ppm) AS max_co2_ppm,"
-      "    AVG(battery_mv) AS avg_battery_mv,"
-      "    MIN(battery_mv) AS min_battery_mv,"
-      "    MAX(battery_mv) AS max_battery_mv"
+      " AS bucket_start, "
+      aggregates
       "  FROM sensor_readings sr"
       "  WHERE "
       where-clause
@@ -1073,19 +1036,17 @@
       "  WHERE "
       where-clause
       "  GROUP BY sr.device_id, bucket_start, st.sensor_addr"
-      "), temp_json AS (" "  SELECT device_id, bucket_start,"
+      "), temp_json AS ("
+      "  SELECT device_id, bucket_start,"
       "    jsonb_object_agg(sensor_addr, round(avg_val::numeric, 2)) AS avg_temperatures,"
       "    jsonb_object_agg(sensor_addr, round(min_val::numeric, 2)) AS min_temperatures,"
       "    jsonb_object_agg(sensor_addr, round(max_val::numeric, 2)) AS max_temperatures"
       "  FROM temp_agg"
-      "  GROUP BY device_id, bucket_start" ")"
+      "  GROUP BY device_id, bucket_start"
+      ")"
       " SELECT b.device_id, b.bucket_start,"
-      "   t.avg_temperatures, t.min_temperatures, t.max_temperatures,"
-      "   b.avg_humidity_pct, b.min_humidity_pct, b.max_humidity_pct,"
-      "   b.avg_pressure_hpa, b.min_pressure_hpa, b.max_pressure_hpa,"
-      "   b.avg_illuminance_lux, b.min_illuminance_lux, b.max_illuminance_lux,"
-      "   b.avg_co2_ppm, b.min_co2_ppm, b.max_co2_ppm,"
-      "   b.avg_battery_mv, b.min_battery_mv, b.max_battery_mv"
+      "   t.avg_temperatures, t.min_temperatures, t.max_temperatures, "
+      stat-columns
       " FROM buckets b"
       " LEFT JOIN temp_json t ON b.device_id = t.device_id AND b.bucket_start = t.bucket_start"
       " ORDER BY b.bucket_start ASC, b.device_id ASC")
@@ -1178,9 +1139,7 @@
    device-id
    {:status "pending" :refresh_token_hash nil :token_expires_at nil}))
 
-(defn delete-device!
-  [device-id]
-  (q-one {:delete-from :devices :where [:= :device_id device-id]}))
+(defn delete-device! [device-id] (delete-by-id! :devices :device_id device-id))
 
 (defn touch-device!
   "Update last_seen and optionally token_expires_at (when a new access token is
@@ -1200,21 +1159,17 @@
   []
   (q-many {:select :* :from :spirits :order-by [[:created_at :desc]]}))
 
-(defn get-spirit [id] (q-one {:select :* :from :spirits :where [:= :id id]}))
+(defn get-spirit [id] (get-by-id :spirits id))
 
-(defn create-spirit!
-  [spirit]
-  (q-one
-   {:insert-into :spirits :values [(spirit->db-spirit spirit)] :returning :*}))
+(defn create-spirit! [spirit] (insert! :spirits (spirit->db-spirit spirit)))
 
 (defn update-spirit!
   [id spirit]
-  (q-one {:update :spirits
-          :set (assoc (spirit->db-spirit spirit) :updated_at [:now])
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :spirits
+                 id
+                 (assoc (spirit->db-spirit spirit) :updated_at [:now])))
 
-(defn delete-spirit! [id] (q-one {:delete-from :spirits :where [:= :id id]}))
+(defn delete-spirit! [id] (delete-by-id! :spirits id))
 
 ;; Bar: Inventory Items
 (defn get-bar-inventory-items
@@ -1223,40 +1178,33 @@
            :from :bar_inventory_items
            :order-by [:category :sort_order :name]}))
 
+(def ^:private bar-inventory-columns [:name :category :sort_order :have_it])
+
 (defn update-bar-inventory-item!
   [id fields]
-  (q-one {:update :bar_inventory_items
-          :set (select-keys fields [:have_it :name :category :sort_order])
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :bar_inventory_items
+                 id
+                 (select-keys fields bar-inventory-columns)))
 
 (defn create-bar-inventory-item!
   [item]
-  (q-one {:insert-into :bar_inventory_items
-          :values [(select-keys item [:name :category :sort_order :have_it])]
-          :returning :*}))
+  (insert! :bar_inventory_items (select-keys item bar-inventory-columns)))
 
-(defn delete-bar-inventory-item!
-  [id]
-  (pos? (:next.jdbc/update-count (q-one {:delete-from :bar_inventory_items
-                                         :where [:= :id id]}))))
+(defn delete-bar-inventory-item! [id] (delete-by-id! :bar_inventory_items id))
 
 ;; Bar: Cocktail Recipes
 (defn- recipe->db-recipe
   [{:keys [ingredients timers tags] :as recipe}]
   (cond-> recipe
-    ingredients (update :ingredients
-                        #(sql-cast :jsonb (json/write-value-as-string %)))
-    timers (update :timers #(sql-cast :jsonb (json/write-value-as-string %)))
+    ingredients (update :ingredients ->jsonb)
+    timers (update :timers ->jsonb)
     tags (update :tags #(->pg-array %))))
 
 (defn get-cocktail-recipes
   []
   (q-many {:select :* :from :cocktail_recipes :order-by [[:created_at :desc]]}))
 
-(defn get-cocktail-recipe
-  [id]
-  (q-one {:select :* :from :cocktail_recipes :where [:= :id id]}))
+(defn get-cocktail-recipe [id] (get-by-id :cocktail_recipes id))
 
 (defn distinct-recipe-tags
   "Distinct, lowercased recipe tags currently in use, sorted. Used to nudge the
@@ -1274,17 +1222,12 @@
 
 (defn create-cocktail-recipe!
   [recipe]
-  (q-one {:insert-into :cocktail_recipes
-          :values [(recipe->db-recipe recipe)]
-          :returning :*}))
+  (insert! :cocktail_recipes (recipe->db-recipe recipe)))
 
 (defn update-cocktail-recipe!
   [id recipe]
-  (q-one {:update :cocktail_recipes
-          :set (assoc (recipe->db-recipe recipe) :updated_at [:now])
-          :where [:= :id id]
-          :returning :*}))
+  (update-by-id! :cocktail_recipes
+                 id
+                 (assoc (recipe->db-recipe recipe) :updated_at [:now])))
 
-(defn delete-cocktail-recipe!
-  [id]
-  (q-one {:delete-from :cocktail_recipes :where [:= :id id]}))
+(defn delete-cocktail-recipe! [id] (delete-by-id! :cocktail_recipes id))
