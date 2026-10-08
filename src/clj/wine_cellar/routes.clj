@@ -1,10 +1,9 @@
 (ns wine-cellar.routes
-  (:require [clojure.string :as str]
-            [wine-cellar.handlers :as handlers]
+  (:require [wine-cellar.handlers :as handlers]
             [wine-cellar.http :as http]
-            [wine-cellar.common :as common]
             [wine-cellar.auth.core :as auth]
             [clojure.spec.alpha :as s]
+            [wine-cellar.specs :as specs]
             [reitit.ring :as ring]
             [reitit.coercion.spec :as spec-coercion]
             [reitit.swagger :as swagger]
@@ -50,243 +49,6 @@
                (throw e)))))))
 
 (def tap-middleware {:name ::tap :wrap tap-middleware-wrap})
-
-;; Specs for individual fields. Numeric ranges come from common, which the
-;; frontend forms and the schema CHECKs share.
-(defn- in-range [range] #(common/in-range? range %))
-
-(s/def ::producer string?)
-(s/def ::country string?)
-(s/def ::region string?)
-(s/def ::appellation (s/nilable string?))
-(s/def ::appellation_tier (s/nilable string?))
-(s/def ::classification (s/nilable string?))
-(s/def ::vineyard (s/nilable string?))
-(s/def ::name string?)
-(s/def ::vintage (s/nilable (s/and int? #(nil? (common/vintage-error %)))))
-(s/def ::style (set common/wine-styles))
-(s/def ::designation (s/nilable (set common/wine-designations)))
-(s/def ::designations (s/coll-of (set common/wine-designations)))
-(s/def ::location (s/nilable (s/and string? #(common/valid-location? %))))
-(s/def ::quantity nat-int?)
-(s/def ::original_quantity (s/nilable nat-int?))
-(s/def ::price (s/nilable (s/and number? (complement neg?))))
-(s/def ::purchase_date (s/nilable string?)) ;; Will be parsed to a date
-(s/def ::tasting_date (s/nilable string?)) ;; Will be parsed to a date
-(s/def ::rating (s/nilable (s/and int? (in-range common/rating-range))))
-(s/def ::drink_from_year
-  (s/nilable (s/and int? (in-range common/tasting-year-range))))
-(s/def ::drink_until_year
-  (s/nilable (s/and int? (in-range common/tasting-year-range))))
-(s/def ::alcohol_percentage
-  (s/nilable (s/and number? (in-range common/alcohol-range))))
-(s/def ::disgorgement_year
-  (s/nilable
-   (s/and int? #(<= common/earliest-disgorgement % (common/current-year)))))
-(s/def ::dosage (s/nilable (s/and number? (in-range common/dosage-range))))
-(s/def ::tasting_window_commentary (s/nilable string?))
-(s/def ::verified boolean?)
-(s/def ::ai_summary (s/nilable string?))
-(s/def ::closure_type (s/nilable (set common/closure-types)))
-(s/def ::bottle_format (s/nilable (set common/bottle-formats)))
-(s/def ::purveyor string?)
-(s/def ::is_external boolean?)
-(s/def ::source (s/nilable string?))
-(s/def ::wset_data (s/nilable map?))
-(s/def ::label_image (s/nilable string?))
-(s/def ::label_thumbnail (s/nilable string?))
-(s/def ::include_images boolean?)
-(s/def ::back_label_image (s/nilable string?))
-(s/def ::variety_id int?)
-(s/def ::wine_id int?)
-(s/def ::variety_name string?)
-(s/def ::percentage (s/nilable (s/and number? #(<= 0 % 100))))
-(s/def ::wine_variety (s/keys :req-un [::variety_id] :opt-un [::percentage]))
-(s/def ::message string?)
-(s/def ::wine-ids (s/coll-of int?))
-(s/def ::wine map?)
-(s/def ::conversation-history vector?)
-(s/def ::image (s/nilable string?))
-(s/def ::provider (s/and keyword? common/ai-providers))
-(s/def ::effort (set common/ai-effort-levels))
-(s/def ::title (s/nilable string?))
-(s/def ::wine_search_state (s/nilable map?))
-(s/def ::auto_tags (s/nilable (s/coll-of string?)))
-(s/def ::pinned boolean?)
-(s/def ::include-bar? boolean?)
-(s/def ::chat_type string?)
-(s/def ::conversation-create
-  (s/keys :req-un [::provider]
-          :opt-un [::title ::wine_ids ::wine_search_state ::auto_tags ::pinned
-                   ::chat_type]))
-(s/def ::conversation-update
-  (s/keys :opt-un [::provider ::title ::wine_ids ::wine_search_state ::auto_tags
-                   ::pinned]))
-(s/def ::context_note (s/nilable map?))
-(s/def ::conversation-message
-  (s/keys :req-un [::is_user ::content]
-          :opt-un [::image ::tokens_used ::context_note]))
-(s/def ::truncate_after? boolean?)
-(s/def ::message_count pos-int?)
-(s/def ::conversation-message-update
-  (s/keys :req-un [::content]
-          :opt-un [::image ::tokens_used ::truncate_after? ::context_note]))
-(s/def ::tasting-source string?)
-(s/def ::tasting-sources (s/coll-of ::tasting-source))
-(s/def ::enabled? boolean?)
-(s/def ::device_id (s/and string? (complement str/blank?)))
-(s/def ::measured_at (s/nilable string?))
-(s/def ::temperatures (s/nilable map?))
-(s/def ::humidity_pct (s/nilable number?))
-(s/def ::pressure_hpa (s/nilable number?))
-(s/def ::illuminance_lux (s/nilable number?))
-(s/def ::co2_ppm (s/nilable number?))
-(s/def ::battery_mv (s/nilable int?))
-(s/def ::leak_detected (s/nilable boolean?))
-(s/def ::notes (s/nilable string?))
-(s/def ::reason (s/nilable string?))
-(s/def ::adjustment int?)
-(s/def ::change_amount int?)
-(s/def ::occurred_at (s/nilable string?)) ;; Will be parsed to a timestamp
-(s/def ::wine_ids (s/nilable (s/coll-of int?)))
-(s/def ::is_user boolean?)
-(s/def ::content string?)
-(s/def ::tokens_used (s/nilable int?))
-(s/def ::oz (s/and number? pos?))
-(s/def ::bucket #{"15m" "1h" "6h" "1d"})
-(s/def ::from ::measured_at)
-(s/def ::to ::measured_at)
-(s/def ::claim_code (s/and string? (complement str/blank?)))
-(s/def ::refresh_token (s/and string? (complement str/blank?)))
-(s/def ::firmware_version (s/nilable string?))
-(s/def ::capabilities (s/nilable map?))
-(s/def ::series-query (s/keys :opt-un [::device_id ::bucket ::from ::to]))
-(s/def ::metadata (s/nilable map?))
-(s/def ::sensor_config (s/nilable map?))
-(s/def ::sensor-reading
-  (s/keys :req-un [::device_id]
-          :opt-un [::measured_at ::temperatures ::humidity_pct ::pressure_hpa
-                   ::illuminance_lux ::co2_ppm ::battery_mv ::leak_detected
-                   ::notes]))
-(s/def ::device-claim
-  (s/keys :req-un [::device_id ::claim_code]
-          :opt-un [::firmware_version ::capabilities]))
-(s/def ::device-token-request (s/keys :req-un [::device_id ::refresh_token]))
-(s/def ::limit
-  (s/and int?
-         pos?
-         #(<= % 500)))
-(s/def ::sensor-reading-query (s/keys :opt-un [::device_id ::limit]))
-(s/def ::query string?)
-(s/def ::search-text (s/nilable string?))
-
-;; Bar specs
-;; Spirits and the mixer shelf each have their own category vocabulary.
-(s/def :wine-cellar.routes.spirit/category (set common/spirit-categories))
-(s/def :wine-cellar.routes.bar-item/category
-  (set common/bar-inventory-categories))
-(s/def ::subcategory (s/nilable string?))
-(s/def ::distillery (s/nilable string?))
-(s/def ::age_statement (s/nilable string?))
-(s/def ::proof (s/nilable int?))
-(s/def ::have_it boolean?)
-(s/def ::sort_order (s/nilable int?))
-(s/def ::amount (s/nilable string?))
-(s/def ::unit (s/nilable string?))
-(s/def ::spirit_id pos-int?)
-(s/def ::garnish boolean?)
-(s/def ::inventory_item_ids (s/coll-of pos-int?))
-(s/def ::preferred_spirit_ids (s/coll-of pos-int?))
-(s/def ::alternate_spirit_ids (s/coll-of pos-int?))
-(s/def ::spirit
-  (s/keys :req-un [:wine-cellar.routes.spirit/category]
-          :opt-un [::subcategory ::spirit_id ::preferred_spirit_ids
-                   ::alternate_spirit_ids]))
-(s/def ::ingredient
-  (s/keys :req-un [::name]
-          :opt-un [::amount ::unit ::garnish ::inventory_item_ids ::spirit]))
-(s/def ::ingredients (s/coll-of ::ingredient))
-(s/def ::instructions (s/nilable string?))
-(s/def ::action string?)
-(s/def ::seconds pos-int?)
-(s/def ::timer (s/keys :req-un [::action ::seconds]))
-(s/def ::timers (s/nilable (s/coll-of ::timer)))
-(s/def ::tags (s/nilable (s/coll-of string?)))
-(s/def ::description (s/nilable string?))
-(s/def ::caption (s/nilable string?))
-(s/def ::message-text string?)
-
-(def spirit-schema
-  (s/keys :req-un [::name :wine-cellar.routes.spirit/category]
-          :opt-un [::subcategory ::distillery ::country ::region ::age_statement
-                   ::proof ::quantity ::price ::purchase_date ::location
-                   ::notes]))
-
-(def spirit-update-schema
-  (s/keys :opt-un
-          [::name :wine-cellar.routes.spirit/category ::subcategory ::distillery
-           ::country ::region ::age_statement ::proof ::quantity ::price
-           ::purchase_date ::location ::notes]))
-
-(def bar-inventory-item-schema
-  (s/keys :req-un [::name :wine-cellar.routes.bar-item/category]
-          :opt-un [::have_it ::sort_order]))
-
-;; Recipes are rated 1-10 (half stars, stored doubled), unlike wines' 1-100.
-;; The key is still :rating, so the spec lives under its own namespace.
-(s/def :wine-cellar.routes.recipe/rating
-  (s/nilable (s/and int? (in-range common/recipe-rating-range))))
-
-(def cocktail-recipe-schema
-  (s/keys :req-un [::name ::ingredients]
-          :opt-un [::caption ::description ::instructions ::timers ::notes
-                   ::tags ::source :wine-cellar.routes.recipe/rating]))
-
-(def cocktail-recipe-update-schema
-  (s/keys :opt-un
-          [::name ::ingredients ::caption ::description ::instructions ::timers
-           ::notes ::tags ::source :wine-cellar.routes.recipe/rating]))
-
-(def grape-variety-schema (s/keys :req-un [::variety_name]))
-
-(def ^:private wine-fields
-  "Every wine column a request may set."
-  [::producer ::name ::country ::region ::appellation ::appellation_tier
-   ::classification ::vineyard ::designation ::vintage ::style ::location
-   ::quantity ::original_quantity ::price ::purveyor ::purchase_date
-   ::label_image ::label_thumbnail ::back_label_image ::drink_from_year
-   ::drink_until_year ::alcohol_percentage ::disgorgement_year ::dosage
-   ::tasting_window_commentary ::verified ::ai_summary ::closure_type
-   ::bottle_format ::metadata])
-
-(defmacro ^:private optional-keys
-  "s/keys needs its keys at compile time; this spells out a var's vector."
-  [fields-sym]
-  `(s/keys :opt-un ~(deref (resolve fields-sym))))
-
-(def wine-schema
-  (s/merge (s/keys :req-un
-                   [(or ::name ::producer) ::country ::region ::style
-                    ::quantity])
-           (optional-keys wine-fields)))
-
-(def wine-update-schema
-  "Any subset of the wine fields, but at least one of them."
-  (s/and (optional-keys wine-fields)
-         (fn [body]
-           (some (set (map (comp keyword name) wine-fields)) (keys body)))))
-
-(def image-update-schema
-  (s/nilable (s/keys :opt-un
-                     [::label_image ::label_thumbnail ::back_label_image])))
-
-(def classification-schema
-  (s/keys :req-un [::country ::region]
-          :opt-un [::appellation ::appellation_tier ::classification]))
-
-(def tasting-note-schema
-  (s/keys :opt-un
-          [::notes ::rating ::tasting_date ::is_external ::source ::wset_data]))
 
 (defstate cors-middleware
           :start
@@ -334,38 +96,38 @@
   ;; Device provisioning (unauthenticated)
   ["/api/device-claim"
    {:post {:summary "Submit a device claim code to register"
-           :parameters {:body ::device-claim}
+           :parameters {:body ::specs/device-claim}
            :responses {202 {:body map?}}
            :handler handlers/claim-device}}]
   ["/api/device-claim/poll"
    {:post {:summary "Poll for device approval and obtain initial tokens"
-           :parameters {:body ::device-claim}
+           :parameters {:body ::specs/device-claim}
            :responses {200 {:body map?}}
            :handler handlers/poll-device-claim}}]
   ["/api/device-token"
    {:post {:summary "Rotate device JWT using refresh token"
-           :parameters {:body ::device-token-request}
+           :parameters {:body ::specs/device-token-request}
            :responses {200 {:body map?}}
            :handler handlers/refresh-device-token}}]
   ;; Protected API routes - require authentication
   ["/api" {:middleware [auth/require-authentication]}
    ["/sensor-readings"
     {:post {:summary "Record sensor reading"
-            :parameters {:body ::sensor-reading}
+            :parameters {:body ::specs/sensor-reading}
             :responses {201 {:body map?}}
             :handler handlers/ingest-sensor-reading}
      :get {:summary "List sensor readings"
-           :parameters {:query ::sensor-reading-query}
+           :parameters {:query ::specs/sensor-reading-query}
            :responses {200 {:body vector?}}
            :handler handlers/list-sensor-readings}}]
    ["/sensor-readings/latest"
     {:get {:summary "Most recent reading per device (or for one device)"
-           :parameters {:query (s/keys :opt-un [::device_id])}
+           :parameters {:query (s/keys :opt-un [::specs/device_id])}
            :responses {200 {:body vector?}}
            :handler handlers/latest-sensor-readings}}]
    ["/sensor-readings/series"
     {:get {:summary "Aggregated sensor readings bucketed over time"
-           :parameters {:query ::series-query}
+           :parameters {:query ::specs/series-query}
            :responses {200 {:body vector?}}
            :handler handlers/sensor-reading-series}}]
    ["/reports"
@@ -383,30 +145,33 @@
            :handler handlers/get-report}}]
    ["/cocktail-recipe-extract"
     {:post {:summary "Extract recipe from text or image using AI"
-            :parameters {:body (s/keys :opt-un [::message-text ::image])}
+            :parameters {:body (s/keys :opt-un
+                                       [::specs/message-text ::specs/image])}
             :responses {200 {:body map?}}
             :handler handlers/extract-cocktail-recipe}}]
    ["/chat"
     {:post {:summary "Chat with AI about your wine collection"
-            :parameters {:body (s/keys :req-un [::provider]
-                                       :opt-un [::message ::conversation-history
-                                                ::image ::include-bar?
-                                                ::effort])}
+            :parameters
+            {:body (s/keys :req-un [::specs/provider]
+                           :opt-un [::specs/message ::specs/conversation-history
+                                    ::specs/image ::specs/include-bar?
+                                    ::specs/effort])}
             :responses {200 {:body string?}}
             :handler handlers/chat-with-ai}}]
    ["/conversations"
     {:get {:summary "List AI conversations for the authenticated user"
-           :parameters {:query (s/keys :opt-un [::search-text ::chat_type])}
+           :parameters {:query (s/keys :opt-un
+                                       [::specs/search-text ::specs/chat_type])}
            :responses {200 {:body vector?}}
            :handler handlers/list-conversations}
      :post {:summary "Create a new AI conversation"
-            :parameters {:body ::conversation-create}
+            :parameters {:body ::specs/conversation-create}
             :responses {201 {:body map?}}
             :handler handlers/create-conversation}}]
    ["/conversations/:id"
     {:parameters {:path {:id int?}}
      :put {:summary "Update an AI conversation"
-           :parameters {:body ::conversation-update}
+           :parameters {:body ::specs/conversation-update}
            :responses {200 {:body map?}}
            :handler handlers/update-conversation}
      :delete {:summary "Delete an AI conversation"
@@ -418,38 +183,38 @@
            :responses {200 {:body vector?}}
            :handler handlers/list-conversation-messages}
      :post {:summary "Append a new message to a conversation"
-            :parameters {:body ::conversation-message}
+            :parameters {:body ::specs/conversation-message}
             :responses {201 {:body map?}}
             :handler handlers/append-conversation-message}}]
    ["/conversations/:id/fork"
     {:parameters {:path {:id int?}}
      :post {:summary
             "Copy a conversation up to and including one of its messages"
-            :parameters {:body (s/keys :req-un [::message_count])}
+            :parameters {:body (s/keys :req-un [::specs/message_count])}
             :responses {201 {:body map?}}
             :handler handlers/fork-conversation}}]
    ["/conversations/:id/messages/:message-id"
     {:parameters {:path {:id int? :message-id int?}}
      :put {:summary "Update a conversation message"
-           :parameters {:body ::conversation-message-update}
+           :parameters {:body ::specs/conversation-message-update}
            :responses {200 {:body map?}}
            :handler handlers/update-conversation-message}}]
    ["/tasting-note-sources"
     {:get {:summary "Get unique tasting note sources for suggestions"
-           :responses {200 {:body ::tasting-sources}}
+           :responses {200 {:body ::specs/tasting-sources}}
            :handler handlers/get-tasting-note-sources}}]
    ["/blind-tastings"
     {:get {:summary "Get all blind tasting notes (linked and unlinked)"
            :responses {200 {:body vector?}}
            :handler handlers/get-blind-tastings}
      :post {:summary "Create a blind tasting note (no wine attached)"
-            :parameters {:body tasting-note-schema}
+            :parameters {:body specs/tasting-note-schema}
             :responses {201 {:body map?}}
             :handler handlers/create-blind-tasting}}]
    ["/blind-tastings/:id/link"
     {:parameters {:path {:id int?}}
      :put {:summary "Link a blind tasting note to a wine"
-           :parameters {:body (s/keys :req-un [::wine_id])}
+           :parameters {:body (s/keys :req-un [::specs/wine_id])}
            :responses {200 {:body map?}}
            :handler handlers/link-blind-tasting}}]
    ;; Bar routes
@@ -458,12 +223,13 @@
            :responses {200 {:body vector?}}
            :handler handlers/get-spirits}
      :post {:summary "Create a new spirit"
-            :parameters {:body spirit-schema}
+            :parameters {:body specs/spirit-schema}
             :responses {201 {:body map?}}
             :handler handlers/create-spirit}}]
    ["/spirits/analyze-label"
     {:post {:summary "Analyze spirit label image"
-            :parameters {:body (s/keys :req-un [::label_image ::provider])}
+            :parameters {:body (s/keys :req-un
+                                       [::specs/label_image ::specs/provider])}
             :responses {200 {:body map?}}
             :handler handlers/analyze-spirit-label}}]
    ["/spirits/:id"
@@ -472,7 +238,7 @@
            :responses {200 {:body map?}}
            :handler handlers/get-spirit}
      :put {:summary "Update spirit"
-           :parameters {:body spirit-update-schema}
+           :parameters {:body specs/spirit-update-schema}
            :responses {200 {:body map?}}
            :handler handlers/update-spirit}
      :delete {:summary "Delete spirit"
@@ -483,13 +249,15 @@
            :responses {200 {:body vector?}}
            :handler handlers/get-bar-inventory}
      :post {:summary "Add a custom bar inventory item"
-            :parameters {:body bar-inventory-item-schema}
+            :parameters {:body specs/bar-inventory-item-schema}
             :responses {201 {:body map?}}
             :handler handlers/create-bar-inventory-item}}]
    ["/bar-inventory/:id"
     {:parameters {:path {:id int?}}
      :put {:summary "Update bar inventory item (e.g. toggle have_it)"
-           :parameters {:body (s/keys :opt-un [::have_it ::name ::sort_order])}
+           :parameters {:body (s/keys :opt-un
+                                      [::specs/have_it ::specs/name
+                                       ::specs/sort_order])}
            :responses {200 {:body map?}}
            :handler handlers/update-bar-inventory-item}
      :delete {:summary "Delete bar inventory item"
@@ -500,7 +268,7 @@
            :responses {200 {:body vector?}}
            :handler handlers/get-cocktail-recipes}
      :post {:summary "Create a new cocktail recipe"
-            :parameters {:body cocktail-recipe-schema}
+            :parameters {:body specs/cocktail-recipe-schema}
             :responses {201 {:body map?}}
             :handler handlers/create-cocktail-recipe}}]
    ["/cocktail-recipes/:id"
@@ -509,7 +277,7 @@
            :responses {200 {:body map?}}
            :handler handlers/get-cocktail-recipe}
      :put {:summary "Update cocktail recipe"
-           :parameters {:body cocktail-recipe-update-schema}
+           :parameters {:body specs/cocktail-recipe-update-schema}
            :responses {200 {:body map?}}
            :handler handlers/update-cocktail-recipe}
      :delete {:summary "Delete cocktail recipe"
@@ -532,7 +300,7 @@
             :handler handlers/get-db-schema}}]
     ["/sql"
      {:post {:summary "Admin: Execute raw SQL query"
-             :parameters {:body (s/keys :req-un [::query])}
+             :parameters {:body (s/keys :req-un [::specs/query])}
              :responses {200 {:body vector?}}
              :handler handlers/execute-sql-query}}]
     ["/reset-database"
@@ -553,40 +321,42 @@
             :responses {200 {:body vector?}}
             :handler handlers/list-devices-admin}}]
     ["/devices/:device_id/approve"
-     {:parameters {:path {:device_id ::device_id}
-                   :body (s/keys :req-un [::claim_code])}
+     {:parameters {:path {:device_id ::specs/device_id}
+                   :body (s/keys :req-un [::specs/claim_code])}
       :post {:summary "Admin: Approve device claim (requires claim_code)"
              :responses {200 {:body map?}}
              :handler handlers/approve-device}}]
     ["/devices/:device_id/block"
-     {:parameters {:path {:device_id ::device_id}}
+     {:parameters {:path {:device_id ::specs/device_id}}
       :post {:summary "Admin: Block a device and clear tokens"
              :responses {200 {:body map?}}
              :handler handlers/block-device}}]
     ["/devices/:device_id/unblock"
-     {:parameters {:path {:device_id ::device_id}}
+     {:parameters {:path {:device_id ::specs/device_id}}
       :post {:summary "Admin: Unblock a device (sets pending, clears tokens)"
              :responses {200 {:body map?}}
              :handler handlers/unblock-device}}]
     ["/devices/:device_id/delete"
-     {:parameters {:path {:device_id ::device_id}}
+     {:parameters {:path {:device_id ::specs/device_id}}
       :delete {:summary "Admin: Delete a device"
                :responses {204 {:body nil?}}
                :handler handlers/delete-device}}]
     ["/devices/:device_id/sensor-config"
-     {:parameters {:path {:device_id ::device_id}}
+     {:parameters {:path {:device_id ::specs/device_id}}
       :put {:summary "Admin: Update sensor labels for a device"
-            :parameters {:body ::sensor_config}
+            :parameters {:body ::specs/sensor_config}
             :responses {200 {:body map?}}
             :handler handlers/update-device-sensor-config}}]
     ["/start-drinking-window-job"
      {:post {:summary "Start async job to regenerate drinking windows"
-             :parameters {:body (s/keys :req-un [::wine-ids ::provider])}
+             :parameters {:body (s/keys :req-un
+                                        [::specs/wine-ids ::specs/provider])}
              :responses {200 {:body map?}}
              :handler handlers/start-drinking-window-job}}]
     ["/start-wine-summary-job"
      {:post {:summary "Start async job to regenerate wine summaries"
-             :parameters {:body (s/keys :req-un [::wine-ids ::provider])}
+             :parameters {:body (s/keys :req-un
+                                        [::specs/wine-ids ::specs/provider])}
              :responses {200 {:body map?}}
              :handler handlers/start-wine-summary-job}}]
     ["/verbose-logging"
@@ -594,7 +364,7 @@
             :responses {200 {:body map?}}
             :handler handlers/get-verbose-logging-state}
       :post {:summary "Set HTTP tap logging state"
-             :parameters {:body (s/keys :req-un [::enabled?])}
+             :parameters {:body (s/keys :req-un [::specs/enabled?])}
              :responses {200 {:body map?}}
              :handler handlers/set-verbose-logging-state}}]
     ["/job-status/:job-id"
@@ -607,7 +377,7 @@
            :responses {200 {:body vector?}}
            :handler handlers/get-grape-varieties}
      :post {:summary "Create a new grape variety"
-            :parameters {:body grape-variety-schema}
+            :parameters {:body specs/grape-variety-schema}
             :responses {201 {:body map?}}
             :handler handlers/create-grape-variety}}]
    ["/grape-varieties/:id"
@@ -616,7 +386,7 @@
            :responses {200 {:body map?}}
            :handler handlers/get-grape-variety}
      :put {:summary "Update grape variety"
-           :parameters {:body grape-variety-schema}
+           :parameters {:body specs/grape-variety-schema}
            :responses {200 {:body map?}}
            :handler handlers/update-grape-variety}
      :delete {:summary "Delete grape variety"
@@ -628,7 +398,7 @@
             :responses {200 {:body vector?}}
             :handler handlers/get-classifications}
       :post {:summary "Create a new wine classification"
-             :parameters {:body classification-schema}
+             :parameters {:body specs/classification-schema}
              :responses {201 {:body map?}}
              :handler handlers/create-classification}}]
     ["/regions/:country"
@@ -647,7 +417,7 @@
             :responses {200 {:body map?}}
             :handler handlers/get-classification}
       :put {:summary "Update classification"
-            :parameters {:body classification-schema}
+            :parameters {:body specs/classification-schema}
             :responses {200 {:body map?}}
             :handler handlers/update-classification}
       :delete {:summary "Delete classification"
@@ -656,7 +426,7 @@
    ["/wines"
     [""
      {:post {:summary "Create a new wine"
-             :parameters {:body wine-schema}
+             :parameters {:body specs/wine-schema}
              :responses {201 {:body map?}}
              :handler handlers/create-wine}}]
     ["/list"
@@ -669,28 +439,31 @@
             :handler handlers/get-technical-data-keys}}]
     ["/analyze-label"
      {:post {:summary "Analyze wine label images with AI"
-             :parameters {:body (s/keys :req-un [::label_image ::provider]
-                                        :opt-un [::back_label_image])}
+             :parameters {:body (s/keys :req-un [::specs/label_image
+                                                 ::specs/provider]
+                                        :opt-un [::specs/back_label_image])}
              :responses {200 {:body map?}}
              :handler handlers/analyze-wine-label}}]
     ["/suggest-drinking-window"
      {:post {:summary "Suggest optimal drinking window for a wine using AI"
-             :parameters {:body (s/keys :req-un [::wine ::provider])}
+             :parameters {:body (s/keys :req-un
+                                        [::specs/wine ::specs/provider])}
              :responses {200 {:body map?}}
              :handler handlers/suggest-drinking-window}}]
     ["/generate-summary"
      {:post
       {:summary
        "Generate comprehensive wine summary with taste profile and food pairings using AI"
-       :parameters {:body (s/keys :req-un [::wine ::provider])}
+       :parameters {:body (s/keys :req-un [::specs/wine ::specs/provider])}
        :responses {200 {:body string?}}
        :handler handlers/generate-wine-summary}}]
     ["/history/:history-id"
      {:parameters {:path {:history-id int?}}
       :put {:summary "Update inventory history record"
             :parameters {:body (s/keys :opt-un
-                                       [::occurred_at ::reason ::notes ::oz
-                                        ::change_amount])}
+                                       [::specs/occurred_at ::specs/reason
+                                        ::specs/notes ::specs/oz
+                                        ::specs/change_amount])}
             :responses {200 {:body map?}}
             :handler handlers/update-inventory-history}
       :delete {:summary "Delete inventory history record"
@@ -702,11 +475,11 @@
        {:summary "Get wine by ID"
         :description
         "Get wine by ID. Use query parameter ?include_images=true to include full-size images."
-        :parameters {:query (s/keys :opt-un [::include_images])}
+        :parameters {:query (s/keys :opt-un [::specs/include_images])}
         :responses {200 {:body map?}}
         :handler handlers/get-wine}
        :put {:summary "Update wine"
-             :parameters {:body wine-update-schema}
+             :parameters {:body specs/wine-update-schema}
              :responses {200 {:body map?}}
              :handler handlers/update-wine}
        :delete {:summary "Delete wine"
@@ -714,19 +487,20 @@
                 :handler handlers/delete-wine}}]
      ["/adjust-quantity"
       {:post {:summary "Adjust wine quantity"
-              :parameters {:body (s/keys :req-un [::adjustment]
-                                         :opt-un [::reason ::notes
-                                                  ::occurred_at])}
+              :parameters {:body (s/keys :req-un [::specs/adjustment]
+                                         :opt-un [::specs/reason ::specs/notes
+                                                  ::specs/occurred_at])}
               :responses {200 {:body map?}}
               :handler handlers/adjust-quantity}}]
      ["/coravin-pour"
       {:post {:summary "Record a Coravin pour from an open or new bottle"
-              :parameters {:body (s/keys :req-un [::oz] :opt-un [::notes])}
+              :parameters {:body (s/keys :req-un [::specs/oz]
+                                         :opt-un [::specs/notes])}
               :responses {200 {:body map?}}
               :handler handlers/coravin-pour}}]
      ["/finish-open-bottle"
       {:post {:summary "Mark the currently open bottle as finished"
-              :parameters {:body (s/keys :opt-un [::notes])}
+              :parameters {:body (s/keys :opt-un [::specs/notes])}
               :responses {200 {:body map?}}
               :handler handlers/finish-open-bottle}}]
      ["/history"
@@ -735,7 +509,7 @@
              :handler handlers/get-inventory-history}}]
      ["/image"
       {:put {:summary "Upload wine label image"
-             :parameters {:body image-update-schema}
+             :parameters {:body specs/image-update-schema}
              :responses {200 {:body map?}}
              :handler handlers/update-wine}}]
      ["/varieties"
@@ -743,13 +517,13 @@
              :responses {200 {:body vector?}}
              :handler handlers/get-wine-varieties}
        :post {:summary "Add grape variety to wine"
-              :parameters {:body ::wine_variety}
+              :parameters {:body ::specs/wine_variety}
               :responses {201 {:body map?}}
               :handler handlers/add-variety-to-wine}}]
      ["/varieties/:variety-id"
       {:parameters {:path {:variety-id int?}}
        :put {:summary "Update grape variety percentage for wine"
-             :parameters {:body {:percentage ::percentage}}
+             :parameters {:body {:percentage ::specs/percentage}}
              :responses {200 {:body map?}}
              :handler handlers/update-wine-variety-percentage}
        :delete {:summary "Remove grape variety from wine"
@@ -760,7 +534,7 @@
              :responses {200 {:body vector?}}
              :handler handlers/get-tasting-notes-by-wine}
        :post {:summary "Create a tasting note for a wine"
-              :parameters {:body tasting-note-schema}
+              :parameters {:body specs/tasting-note-schema}
               :responses {201 {:body map?}}
               :handler handlers/create-tasting-note}}]
      ["/tasting-notes/:note-id"
@@ -769,7 +543,7 @@
              :responses {200 {:body map?}}
              :handler handlers/get-tasting-note}
        :put {:summary "Update tasting note"
-             :parameters {:body tasting-note-schema}
+             :parameters {:body specs/tasting-note-schema}
              :responses {200 {:body map?}}
              :handler handlers/update-tasting-note}
        :delete {:summary "Delete tasting note"
