@@ -519,6 +519,13 @@
                        (http/ok (db-api/list-messages-for-conversation
                                  conversation-id)))))
 
+(defn- conversation-title
+  "An AI-written title, or nil. The message is already saved, so a failing
+   title call (provider down, key missing) mustn't fail the request."
+  [provider content]
+  (try (ai/generate-conversation-title provider content)
+       (catch Exception e (tap> ["conversation-title failed" e]) nil)))
+
 (defn append-conversation-message
   [request]
   (with-conversation
@@ -538,12 +545,11 @@
                               (str/blank? (:title conversation))
                               (not (str/blank? content)))
            updated-conversation
-           (or (when title-needed?
-                 (when-let [title (ai/generate-conversation-title (:provider
-                                                                   conversation)
-                                                                  content)]
-                   (db-api/update-conversation! conversation-id
-                                                {:title title})))
+           (or (when-let [title (and title-needed?
+                                     (conversation-title (:provider
+                                                          conversation)
+                                                         content))]
+                 (db-api/update-conversation! conversation-id {:title title}))
                (when context_note (db-api/get-conversation conversation-id)))]
        (http/created (cond-> {:message inserted}
                        updated-conversation (assoc :conversation

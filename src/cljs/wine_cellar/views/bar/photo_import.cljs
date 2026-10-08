@@ -78,7 +78,8 @@
   (let [image-data (r/atom nil)
         show-camera? (r/atom false)]
     (fn [app-state]
-      (let [{:keys [open? extracting?]} (get-in @app-state [:bar :photo-import])
+      (let [{:keys [open? extracting? error]} (get-in @app-state
+                                                      [:bar :photo-import])
             close! (fn []
                      (reset! image-data nil)
                      (reset! show-camera? false)
@@ -95,6 +96,9 @@
            :max-width "sm"
            :full-width true} [dialog-title "Import Recipe from Photo"]
           [dialog-content
+           ;; The dialog covers the page banner, so show failures here.
+           (when (and error (not extracting?))
+             [typography {:color "error" :variant "body2" :sx {:mb 2}} error])
            (cond extracting? [box
                               {:sx {:display "flex"
                                     :flexDirection "column"

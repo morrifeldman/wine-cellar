@@ -29,6 +29,9 @@ below.
 - [x] B19 A bulk job's failure message was wiped by the `fetch-wines` it starts, which cleared `:error`
 - [x] B20 `fetch-wines` merged old state over fresh data, so in-app refetches (e.g. after a bulk job) showed stale values
 - [x] B21 The wine list and detail reads omitted the open-bottle columns, so an open Coravin bottle vanished from the UI on reload
+- [x] B22 Failures in the bar, sensors, blind tastings and verbose-logging calls went to error keys no view displays (and three bar calls dropped failures entirely), so they failed silently
+- [x] B23 A failing AI title call failed the save of the user's chat message
+- [x] B24 An AI provider's own status reached the browser: a bad or revoked API key came back as 401, which the app treats as a lost session and redirects to login. The raw http-kit response in those errors also carried the API key into the logs. Provider failures are now 502s carrying only the provider's status and message.
 - [x] B7 `drop-tables` skips the bar, report and inventory history tables
 - [x] B8 Image MIME type hard-coded to JPEG: not a live bug, since the browser re-encodes every image as JPEG (`file->jpeg-data-url`). The provider-neutral image format is still part of 5.4.
 - [x] B9 Check the tasting-window CHECK constraint: correct as is. HoneySQL renders `[:= col]` as `col IS NULL`.
@@ -53,11 +56,11 @@ below.
 - [x] 1.7 Smaller backend items: sensor ingestion, reports provider, recipe-links namespace, sensor series columns, aliases. Skipped: a `current-user` helper (the ways the user is read differ for good reasons) and the claim-code 401-vs-422 split (device-facing vs admin-facing).
 
 **Phase 3: frontend plumbing (§2)**
-- [ ] 2.1 `request!` helper
-- [ ] 2.2 Resource table + `replace-by-id` / `remove-by-id`
-- [ ] 2.3 One error / loading / toast convention
-- [ ] 2.4 Chat, job polling and AI-call duplication in `api.cljs`
-- [ ] 2.5 App-state grouping; memoized `filtered-sorted-wines`
+- [x] 2.1 `request!` helper
+- [x] 2.2 `replace-by-id` / `remove-by-id` / `prepend`, plus `bar-change!` for the bar lists. A full resource table wasn't worth it once `request!` made each call a few lines.
+- [x] 2.3 One error / loading / toast convention: errors go to the app-wide banner, except in Devices, chat and photo import, which cover the banner and show their own. Loading flags are `request!`'s `:loading`.
+- [x] 2.4 Chat, job polling and AI-call duplication in `api.cljs`. Left: `send-chat-message` keeps its raw channel for cancelling; page lifecycle (`load-wine-detail-page`) still lives in `api.cljs`.
+- [x] 2.5 Memoized `filtered-sorted-wines`. Not done: regrouping app-state keys, which would touch most views for little gain now that `request!` owns the loading and error keys.
 
 **Phase 4: shared UI (§3)**
 - [ ] 3.1 Theme tokens + `tint-chip`

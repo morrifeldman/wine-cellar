@@ -10,8 +10,6 @@
 
 
 (def headless-mode? (r/atom false))
-(def job-status-failure-test (r/atom nil))
-
 (defn enable-headless-mode!
   []
   (reset! headless-mode? true)
@@ -22,22 +20,6 @@
   (reset! headless-mode? false)
   (js/console.log
    "Headless mode disabled - API calls will be processed normally"))
-
-(defn enable-job-status-failure-test!
-  ([attempts]
-   (enable-job-status-failure-test! attempts
-                                    "Simulated job status failure (test)"))
-  ([attempts error-msg]
-   (reset! job-status-failure-test {:remaining (max 0 (or attempts 0))
-                                    :error error-msg})
-   (js/console.log "Job status failure test enabled" @job-status-failure-test)))
-
-(defn disable-job-status-failure-test!
-  []
-  (reset! job-status-failure-test nil)
-  (js/console.log "Job status failure test disabled"))
-
-#_(enable-job-status-failure-test! 3 "Simulated network failure")
 
 (def api-base-url (config/get-api-base-url))
 
@@ -93,6 +75,53 @@
 
 (defn DELETE [url error-msg] (api-request http/delete url nil error-msg))
 
+(def ^:private http-methods
+  {:get http/get :post http/post :put http/put :delete http/delete})
+
+(defn request!
+  "Runs one API call against app-state and returns a Promise of the response
+   data, rejected with the error message. Options:
+   - :method (default :get), :url, :body
+   - :error-msg   shown when the server gives no message of its own
+   - :loading     app-state path that is true while the call runs
+   - :on-success  (fn [state data] new-state), applied with swap!
+   - :after       (fn [data]) for follow-up effects, like a refetch
+   - :error-path  where a failure's message goes. The default, [:error], is
+                  the app-wide banner. Any other path belongs to one feature
+                  and is cleared when a call succeeds.
+   Callers needn't handle the promise's rejection: the failure is shown."
+  [app-state
+   {:keys [method url body error-msg loading on-success after error-path]
+    :or {method :get error-path [:error]}}]
+  (when loading (swap! app-state assoc-in loading true))
+  (let [promise
+        (js/Promise.
+         (fn [resolve reject]
+           (go
+            (let [{:keys [success data error]}
+                  (<! (api-request (http-methods method) url body error-msg))]
+              (swap! app-state (fn [state]
+                                 (cond-> state
+                                   loading (assoc-in loading false)
+                                   (and success on-success) (on-success data)
+                                   (and success (not= error-path [:error]))
+                                   (assoc-in error-path nil)
+                                   (not success) (assoc-in error-path error))))
+              (if success
+                (do (when after (after data)) (resolve data))
+                (reject error))))))]
+    (.catch promise (fn [_]))
+    promise))
+
+;; Collection helpers for lists of maps with :id
+(defn- replace-by-id
+  [coll item]
+  (mapv #(if (= (:id %) (:id item)) item %) coll))
+
+(defn- remove-by-id [coll id] (filterv #(not= (:id %) id) coll))
+
+(defn- prepend [coll item] (into [item] coll))
+
 (defn- encode-query-params
   [params]
   (let [pairs (for [[k v] params
@@ -102,36 +131,30 @@
 
 (defn fetch-report-list
   [app-state]
-  (go (let [result (<! (GET "/api/reports" "Failed to fetch report list"))]
-        (when (:success result)
-          (swap! app-state assoc-in [:report-nav :list] (:data result))))))
+  (request! app-state
+            {:url "/api/reports"
+             :error-msg "Failed to fetch report list"
+             :on-success #(assoc-in %1 [:report-nav :list] %2)}))
 
 (defn fetch-report-by-id
   [app-state id]
-  (swap! app-state assoc :loading-report? true)
-  (go (let [result (<! (GET (str "/api/reports/by-id/" id)
-                            "Failed to fetch report"))]
-        (if (:success result)
-          (swap! app-state assoc :report (:data result) :loading-report? false)
-          (swap! app-state assoc :loading-report? false)))))
+  (request! app-state
+            {:url (str "/api/reports/by-id/" id)
+             :error-msg "Failed to fetch report"
+             :loading [:loading-report?]
+             :on-success #(assoc %1 :report %2)}))
 
 (defn fetch-latest-report
   ([app-state] (fetch-latest-report app-state {}))
-  ([app-state opts]
-   (let [{:keys [force? provider]} (if (map? opts) opts {:force? opts})
-         params (cond-> {}
-                  force? (assoc :force "true")
-                  provider (assoc :provider (name provider)))
-         query (encode-query-params params)]
-     (swap! app-state assoc :loading-report? true)
-     (go
-      (let [result (<! (GET (str "/api/reports/latest" query)
-                            "Failed to fetch cellar report"))]
-        (if (:success result)
-          (swap! app-state assoc :report (:data result) :loading-report? false)
-          (swap! app-state assoc
-            :loading-report? false
-            :error (:error result))))))))
+  ([app-state {:keys [force? provider]}]
+   (request! app-state
+             {:url (str "/api/reports/latest"
+                        (encode-query-params {:force (when force? "true")
+                                              :provider (some-> provider
+                                                                name)}))
+              :error-msg "Failed to fetch cellar report"
+              :loading [:loading-report?]
+              :on-success #(assoc %1 :report %2)})))
 
 (defn logout
   []
@@ -140,653 +163,505 @@
 
 (defn fetch-model-info
   [app-state]
-  (go
-   (let [result (<! (GET "/api/admin/model-info" "Failed to fetch model info"))]
-     (when (:success result)
-       (let [data (:data result)
-             default-provider (keyword (:default-provider data))]
-         (swap! app-state assoc-in [:ai :models] (:models data))
-         ;; Set default provider if none is currently set
-         (when-not (get-in @app-state [:ai :provider])
-           (swap! app-state assoc-in [:ai :provider] default-provider))
-         (when-not (get-in @app-state [:ai :effort])
-           (swap! app-state assoc-in [:ai :effort] (:default-effort data))))))))
+  (request! app-state
+            {:url "/api/admin/model-info"
+             :error-msg "Failed to fetch model info"
+             :on-success
+             (fn [state {:keys [models default-provider default-effort]}]
+               ;; Defaults only fill in what the user hasn't chosen.
+               (-> state
+                   (assoc-in [:ai :models] models)
+                   (update-in [:ai :provider]
+                              #(or % (keyword default-provider)))
+                   (update-in [:ai :effort] #(or % default-effort))))}))
 
 ;; Device admin endpoints
 
 (defn fetch-devices
   [app-state]
-  (swap! app-state assoc :devices/loading? true)
-  (go (let [result (<! (GET "/api/admin/devices" "Failed to fetch devices"))]
-        (if (:success result)
-          (swap! app-state assoc
-            :devices/list (:data result)
-            :devices/loading? false
-            :devices/error nil
-            :devices/approve-error nil)
-          (swap! app-state assoc
-            :devices/loading? false
-            :devices/error (:error result))))))
+  (request! app-state
+            {:url "/api/admin/devices"
+             :error-msg "Failed to fetch devices"
+             :loading [:devices/loading?]
+             :error-path [:devices/error]
+             :on-success
+             #(assoc %1 :devices/list %2 :devices/approve-error nil)}))
+
+(defn- device-action!
+  "An admin action on one device; its errors show beside the device list."
+  [app-state method path error-msg & [body]]
+  (request! app-state
+            {:method method
+             :url (str "/api/admin/devices/" path)
+             :body body
+             :error-msg error-msg
+             :loading [:devices/action?]
+             :error-path [:devices/approve-error]
+             :after #(fetch-devices app-state)}))
 
 (defn approve-device
   [app-state device-id claim-code]
-  (swap! app-state assoc :devices/action? true)
-  (go (let [result (<! (POST (str "/api/admin/devices/" device-id "/approve")
-                             {:claim_code claim-code}
-                             "Failed to approve device"))]
-        (swap! app-state assoc :devices/action? false)
-        (if (:success result)
-          (do (swap! app-state assoc :devices/approve-error nil)
-              (fetch-devices app-state))
-          (swap! app-state assoc :devices/approve-error (:error result))))))
-
-(defn- run-device-action!
-  [app-state request-fn]
-  (swap! app-state assoc :devices/action? true)
-  (go (let [result (<! (request-fn))]
-        (swap! app-state assoc :devices/action? false)
-        (if (:success result)
-          (do (swap! app-state assoc :devices/approve-error nil)
-              (fetch-devices app-state))
-          (swap! app-state assoc :devices/approve-error (:error result))))))
+  (device-action! app-state
+                  :post (str device-id "/approve")
+                  "Failed to approve device" {:claim_code claim-code}))
 
 (defn block-device
   [app-state device-id]
-  (run-device-action! app-state
-                      #(POST (str "/api/admin/devices/" device-id "/block")
-                             {}
-                             "Failed to block device")))
+  (device-action! app-state
+                  :post (str device-id "/block")
+                  "Failed to block device" {}))
 
 (defn unblock-device
   [app-state device-id]
-  (run-device-action! app-state
-                      #(POST (str "/api/admin/devices/" device-id "/unblock")
-                             {}
-                             "Failed to unblock device")))
+  (device-action! app-state
+                  :post (str device-id "/unblock")
+                  "Failed to unblock device" {}))
 
 (defn delete-device
   [app-state device-id]
-  (run-device-action! app-state
-                      #(DELETE (str "/api/admin/devices/" device-id "/delete")
-                               "Failed to delete device")))
+  (device-action! app-state
+                  :delete
+                  (str device-id "/delete")
+                  "Failed to delete device"))
 
 (defn update-device-sensor-config
   [app-state device-id sensor-config]
-  (go (let [result (<! (PUT
-                        (str "/api/admin/devices/" device-id "/sensor-config")
-                        sensor-config
-                        "Failed to update sensor config"))]
-        (if (:success result)
-          (fetch-devices app-state)
-          (swap! app-state assoc :devices/approve-error (:error result))))))
+  (device-action! app-state
+                  :put (str device-id "/sensor-config")
+                  "Failed to update sensor config" sensor-config))
 
 ;; Classification endpoints
 
 (defn fetch-classifications
   [app-state]
-  (go (let [result (<! (GET "/api/classifications"
-                            "Failed to fetch classifications"))]
-        (if (:success result)
-          (swap! app-state assoc :classifications (:data result))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:url "/api/classifications"
+             :error-msg "Failed to fetch classifications"
+             :on-success #(assoc %1 :classifications %2)}))
 
 (defn create-classification
   [app-state classification]
-  (js/console.log "Sending classification data:" (clj->js classification))
-  (go (let [result (<! (POST "/api/classifications"
-                             classification
-                             "Failed to create classification"))]
-        (if (:success result)
-          (do (swap! app-state assoc
-                :creating-classification? false
-                :new-classification nil)
-              (fetch-classifications app-state))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :post
+             :url "/api/classifications"
+             :body classification
+             :error-msg "Failed to create classification"
+             :on-success
+             #(assoc %1 :creating-classification? false :new-classification nil)
+             :after #(fetch-classifications app-state)}))
 
 (defn update-classification
   [app-state id updates]
-  (go (let [result (<! (PUT (str "/api/classifications/" id)
-                            updates
-                            "Failed to update classification"))]
-        (if (:success result)
-          (do (fetch-classifications app-state)
-              (swap! app-state assoc :editing-classification nil))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :put
+             :url (str "/api/classifications/" id)
+             :body updates
+             :error-msg "Failed to update classification"
+             :on-success #(assoc %1 :editing-classification nil)
+             :after #(fetch-classifications app-state)}))
 
 (defn delete-classification
   [app-state id]
-  (go (let [result (<! (DELETE (str "/api/classifications/" id)
-                               "Failed to delete classification"))]
-        (tap> ["delete-classification" id result])
-        (if (:success result)
-          (do (fetch-classifications app-state)
-              (swap! app-state dissoc :deleting-classification))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :delete
+             :url (str "/api/classifications/" id)
+             :error-msg "Failed to delete classification"
+             :on-success #(dissoc %1 :deleting-classification)
+             :after #(fetch-classifications app-state)}))
 
 ;; Sensor reading endpoints
 
 (defn fetch-latest-sensor-readings
   [app-state {:keys [device-id]}]
-  (swap! app-state assoc-in [:sensor-readings :loading-latest?] true)
-  (go (let [query (encode-query-params {:device_id device-id})
-            result (<! (GET (str "/api/sensor-readings/latest" query)
-                            "Failed to fetch latest sensor readings"))]
-        (if (:success result)
-          (swap! app-state update
-            :sensor-readings
-            (fn [state]
-              (-> state
-                  (assoc :latest (:data result))
-                  (assoc :loading-latest? false)
-                  (dissoc :error))))
-          (swap! app-state update
-            :sensor-readings
-            (fn [state]
-              (assoc state :loading-latest? false :error (:error result))))))))
+  (request! app-state
+            {:url (str "/api/sensor-readings/latest"
+                       (encode-query-params {:device_id device-id}))
+             :error-msg "Failed to fetch latest sensor readings"
+             :loading [:sensor-readings :loading-latest?]
+             :on-success #(assoc-in %1 [:sensor-readings :latest] %2)}))
 
 (defn fetch-sensor-series
   [app-state {:keys [device-id bucket from to]}]
-  (swap! app-state assoc-in [:sensor-readings :loading-series?] true)
-  (go (let [query (encode-query-params
-                   {:device_id device-id :bucket bucket :from from :to to})
-            result (<! (GET (str "/api/sensor-readings/series" query)
-                            "Failed to fetch sensor series"))]
-        (if (:success result)
-          (swap! app-state update
-            :sensor-readings
-            (fn [state]
-              (-> state
-                  (assoc :series (:data result))
-                  (assoc :loading-series? false)
-                  (dissoc :error))))
-          (swap! app-state update
-            :sensor-readings
-            (fn [state]
-              (assoc state :loading-series? false :error (:error result))))))))
+  (request! app-state
+            {:url (str
+                   "/api/sensor-readings/series"
+                   (encode-query-params
+                    {:device_id device-id :bucket bucket :from from :to to}))
+             :error-msg "Failed to fetch sensor series"
+             :loading [:sensor-readings :loading-series?]
+             :on-success #(assoc-in %1 [:sensor-readings :series] %2)}))
 
 ;; Wine endpoints
 (defn fetch-wines
   ([app-state] (fetch-wines app-state {}))
   ([app-state {:keys [background?]}]
-   (when-not background? (swap! app-state assoc :loading? true))
-   (js/console.log "Fetching wines...")
-   (go
-    (let [result (<! (GET "/api/wines/list" "Failed to fetch wines"))]
-      (if (:success result)
-        (do (js/console.log "Success! Wines count:" (count (:data result)))
-            (swap! app-state
-              (fn [state]
-                (let [existing-by-id
-                      (into {} (map (juxt :id identity)) (:wines state))
-                      ;; Fresh values win; fields loaded elsewhere (images,
-                      ;; detail-only data) are kept.
-                      merged-wines
-                      (mapv (fn [wine]
-                              (merge (get existing-by-id (:id wine)) wine))
-                            (:data result))]
-                  ;; Leave :error alone: it may be a message someone else
-                  ;; just set, like a bulk job's failures.
-                  (assoc state :wines merged-wines :loading? false)))))
-        (do (js/console.log "Error fetching wines:" (:error result))
-            (swap! app-state assoc :error (:error result) :loading? false)))))))
+   (request!
+    app-state
+    {:url "/api/wines/list"
+     :error-msg "Failed to fetch wines"
+     :loading (when-not background? [:loading?])
+     :on-success
+     (fn [state wines]
+       ;; Fresh values win; fields loaded elsewhere (images, detail-only
+       ;; data) are kept.
+       (let [existing-by-id (into {} (map (juxt :id identity)) (:wines state))]
+         (assoc state
+                :wines
+                (mapv #(merge (get existing-by-id (:id %)) %) wines))))})))
+
+(defn- merge-wine
+  "Merges `wine` into its entry in :wines, adding it if absent."
+  [state wine]
+  (update state
+          :wines
+          (fn [wines]
+            (if (some #(= (:id %) (:id wine)) wines)
+              (mapv #(if (= (:id %) (:id wine)) (merge % wine) %) wines)
+              (conj (vec wines) wine)))))
 
 (defn fetch-wine-details
   [app-state wine-id & {:keys [include-images] :or {include-images true}}]
-  (let [result-chan (chan)]
-    (go
-     (let [url (str "/api/wines/by-id/"
-                    wine-id
-                    (when include-images "?include_images=true"))
-           result (<! (GET url "Failed to fetch wine details"))]
-       (if (:success result)
-         (let [wine-with-details (:data result)]
-           ;; Update the wine in the list with full details including the
-           ;; full image if requested
-           (swap! app-state update
-             :wines
-             (fn [wines]
-               (let [updated (map #(if (= (:id %) wine-id)
-                                     (merge % wine-with-details)
-                                     %)
-                                  wines)]
-                 (if (some #(= (:id %) wine-id) wines)
-                   updated
-                   (conj (vec updated) wine-with-details)))))
-           ;; Set as selected wine
-           (swap! app-state assoc :selected-wine-id wine-id)
-           (put! result-chan {:success true :data wine-with-details}))
-         (do (swap! app-state assoc :error (:error result))
-             (put! result-chan {:success false :error (:error result)})))))
-    result-chan))
+  (request! app-state
+            {:url (str "/api/wines/by-id/"
+                       wine-id
+                       (when include-images "?include_images=true"))
+             :error-msg "Failed to fetch wine details"
+             :on-success #(-> %1
+                              (merge-wine %2)
+                              (assoc :selected-wine-id wine-id))}))
 
 (defn create-wine
   [app-state wine]
-  (js/console.log "Sending wine data:" (clj->js wine))
-  (go (let [result (<! (POST "/api/wines" wine "Failed to create wine"))]
-        (if (:success result)
-          (do (nav/replace-wines!)
-              (fetch-wines app-state)
-              (fetch-classifications app-state)
-              (swap! app-state assoc
-                :new-wine {}
-                :window-reason nil
-                :submitting-wine? false))
-          (swap! app-state assoc
-            :error (:error result)
-            :submitting-wine? false)))))
+  (request! app-state
+            {:method :post
+             :url "/api/wines"
+             :body wine
+             :error-msg "Failed to create wine"
+             :loading [:submitting-wine?]
+             :on-success #(assoc %1 :new-wine {} :window-reason nil)
+             :after (fn [_]
+                      (nav/replace-wines!)
+                      (fetch-wines app-state)
+                      (fetch-classifications app-state))}))
 
 (defn delete-wine
   [app-state id]
-  (go
-   (let [result (<! (DELETE (str "/api/wines/by-id/" id)
-                            "Failed to delete wine"))]
-     (if (:success result)
-       (swap! app-state update :wines #(remove (fn [wine] (= (:id wine) id)) %))
-       (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :delete
+             :url (str "/api/wines/by-id/" id)
+             :error-msg "Failed to delete wine"
+             :on-success #(update %1 :wines remove-by-id id)}))
 
 ;; Tasting Notes endpoints
 (defn fetch-tasting-notes
   [app-state wine-id]
-  (go (let [result (<! (GET (str "/api/wines/by-id/" wine-id "/tasting-notes")
-                            "Failed to fetch tasting notes"))]
-        (if (:success result)
-          (swap! app-state assoc :tasting-notes (:data result))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:url (str "/api/wines/by-id/" wine-id "/tasting-notes")
+             :error-msg "Failed to fetch tasting notes"
+             :on-success #(assoc %1 :tasting-notes %2)}))
 
 
 (defn create-tasting-note
   [app-state wine-id note notes-ref]
-  (go (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/tasting-notes")
-                             note
-                             "Failed to create tasting note"))]
-        (if (:success result)
-          (do (swap! app-state update :tasting-notes conj (:data result))
-              ;; The note is saved, so there is no longer any in-progress
-              ;; work for a navigation to ask about.
-              (swap! app-state assoc
-                :new-tasting-note {}
-                :tasting-note-baseline nil
-                :submitting-note? false)
-              ;; Clear the notes field after successful creation
-              (when (and notes-ref @notes-ref) (set! (.-value @notes-ref) "")))
-          (swap! app-state assoc
-            :error (:error result)
-            :submitting-note? false)))))
+  (request!
+   app-state
+   {:method :post
+    :url (str "/api/wines/by-id/" wine-id "/tasting-notes")
+    :body note
+    :error-msg "Failed to create tasting note"
+    :loading [:submitting-note?]
+    ;; The note is saved, so there is no longer any in-progress
+    ;; work for a navigation to ask about.
+    :on-success #(-> %1
+                     (update :tasting-notes (fnil conj []) %2)
+                     (assoc :new-tasting-note {} :tasting-note-baseline nil))
+    :after
+    (fn [_] (when (and notes-ref @notes-ref) (set! (.-value @notes-ref) "")))}))
 
 (defn update-tasting-note
   [app-state wine-id note-id note]
-  (go
-   (let [result (<! (PUT (str "/api/wines/by-id/" wine-id
-                              "/tasting-notes/" note-id)
-                         note
-                         "Failed to update tasting note"))]
-     (if (:success result)
-       (do (swap! app-state update
-             :tasting-notes
-             (fn [notes]
-               (map #(if (= (:id %) note-id) (:data result) %) notes)))
-           (swap! app-state assoc
-             :editing-note-id nil
-             :submitting-note? false
-             :new-tasting-note {}
-             :tasting-note-baseline nil))
-       (swap! app-state assoc
-         :error (:error result)
-         :submitting-note? false)))))
+  (request! app-state
+            {:method :put
+             :url (str "/api/wines/by-id/" wine-id "/tasting-notes/" note-id)
+             :body note
+             :error-msg "Failed to update tasting note"
+             :loading [:submitting-note?]
+             :on-success #(-> %1
+                              (update :tasting-notes replace-by-id %2)
+                              (assoc :editing-note-id nil
+                                     :new-tasting-note {}
+                                     :tasting-note-baseline nil))}))
 
 (defn delete-tasting-note
   [app-state wine-id note-id]
-  (go (let [result (<! (DELETE (str "/api/wines/by-id/" wine-id
-                                    "/tasting-notes/" note-id)
-                               "Failed to delete tasting note"))]
-        (if (:success result)
-          (swap! app-state update
-            :tasting-notes
-            #(remove (fn [note] (= (:id note) note-id)) %))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :delete
+             :url (str "/api/wines/by-id/" wine-id "/tasting-notes/" note-id)
+             :error-msg "Failed to delete tasting note"
+             :on-success #(update %1 :tasting-notes remove-by-id note-id)}))
 
 (defn fetch-tasting-note-sources
   [app-state]
-  (go (let [result (<! (GET "/api/tasting-note-sources"
-                            "Failed to fetch tasting note sources"))]
-        (if (:success result)
-          (swap! app-state assoc :tasting-note-sources (:data result))
-          (js/console.error "Failed to fetch tasting note sources:"
-                            (:error result))))))
+  (request! app-state
+            {:url "/api/tasting-note-sources"
+             :error-msg "Failed to fetch tasting note sources"
+             :on-success #(assoc %1 :tasting-note-sources %2)}))
 
 ;; Blind Tasting endpoints
 (defn fetch-blind-tastings
   [app-state]
-  (swap! app-state assoc-in [:blind-tastings :loading?] true)
-  (go (let [result (<! (GET "/api/blind-tastings"
-                            "Failed to fetch blind tastings"))]
-        (if (:success result)
-          (swap! app-state update
-            :blind-tastings
-            (fn [state]
-              (-> state
-                  (assoc :list (:data result))
-                  (assoc :loading? false)
-                  (dissoc :error))))
-          (swap! app-state update
-            :blind-tastings
-            (fn [state]
-              (assoc state :loading? false :error (:error result))))))))
+  (request! app-state
+            {:url "/api/blind-tastings"
+             :error-msg "Failed to fetch blind tastings"
+             :loading [:blind-tastings :loading?]
+             :on-success #(assoc-in %1 [:blind-tastings :list] %2)}))
 
 (defn create-blind-tasting
   [app-state note]
-  (swap! app-state assoc-in [:blind-tastings :submitting?] true)
-  (go
-   (let [result (<! (POST "/api/blind-tastings"
-                          note
-                          "Failed to create blind tasting"))]
-     (swap! app-state assoc-in [:blind-tastings :submitting?] false)
-     (if (:success result)
-       (do (swap! app-state update
-             :blind-tastings
-             (fn [state]
-               (-> state
-                   (assoc :form {})
-                   (assoc :show-form? false)
-                   (dissoc :error))))
-           (fetch-blind-tastings app-state))
-       (swap! app-state assoc-in [:blind-tastings :error] (:error result))))))
+  (request! app-state
+            {:method :post
+             :url "/api/blind-tastings"
+             :body note
+             :error-msg "Failed to create blind tasting"
+             :loading [:blind-tastings :submitting?]
+             :on-success
+             #(update %1 :blind-tastings assoc :form {} :show-form? false)
+             :after #(fetch-blind-tastings app-state)}))
 
 (defn link-blind-tasting
   [app-state note-id wine-id]
   (swap! app-state assoc-in [:blind-tastings :linking-note-id] note-id)
-  (go
-   (let [result (<! (PUT (str "/api/blind-tastings/" note-id "/link")
-                         {:wine_id wine-id}
-                         "Failed to link blind tasting"))]
-     (swap! app-state assoc-in [:blind-tastings :linking-note-id] nil)
-     (if (:success result)
-       (do (swap! app-state update
-             :blind-tastings
-             (fn [state]
-               (-> state
-                   (assoc :show-link-dialog? false)
-                   (dissoc :error))))
-           (fetch-blind-tastings app-state))
-       (swap! app-state assoc-in [:blind-tastings :error] (:error result))))))
+  (-> (request! app-state
+                {:method :put
+                 :url (str "/api/blind-tastings/" note-id "/link")
+                 :body {:wine_id wine-id}
+                 :error-msg "Failed to link blind tasting"
+                 :on-success
+                 #(assoc-in %1 [:blind-tastings :show-link-dialog?] false)
+                 :after #(fetch-blind-tastings app-state)})
+      (.finally
+       #(swap! app-state assoc-in [:blind-tastings :linking-note-id] nil))
+      ;; The failure is already on the banner.
+      (.catch (fn [_]))))
 
 (defn fetch-inventory-history
   [app-state wine-id]
-  (go (let [result (<! (GET (str "/api/wines/by-id/" wine-id "/history")
-                            "Failed to fetch inventory history"))]
-        (if (:success result)
-          (swap! app-state assoc-in [:inventory-history wine-id] (:data result))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:url (str "/api/wines/by-id/" wine-id "/history")
+             :error-msg "Failed to fetch inventory history"
+             :on-success #(assoc-in %1 [:inventory-history wine-id] %2)}))
+
+(defn- refresh-wine-stock!
+  "After a stock change, reload the wine's history and its quantities."
+  [app-state wine-id]
+  (fetch-inventory-history app-state wine-id)
+  (fetch-wine-details app-state wine-id :include-images false))
 
 (defn update-inventory-history
   [app-state wine-id history-id updates]
-  (go (let [result (<! (PUT (str "/api/wines/history/" history-id)
-                            updates
-                            "Failed to update history record"))]
-        (if (:success result)
-          (do (fetch-inventory-history app-state wine-id)
-              (fetch-wine-details app-state wine-id :include-images false))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :put
+             :url (str "/api/wines/history/" history-id)
+             :body updates
+             :error-msg "Failed to update history record"
+             :after #(refresh-wine-stock! app-state wine-id)}))
 
 (defn delete-inventory-history
   [app-state wine-id history-id]
-  (go (let [result (<! (DELETE (str "/api/wines/history/" history-id)
-                               "Failed to delete history record"))]
-        (if (:success result)
-          (do (fetch-inventory-history app-state wine-id)
-              (fetch-wine-details app-state wine-id :include-images false))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :delete
+             :url (str "/api/wines/history/" history-id)
+             :error-msg "Failed to delete history record"
+             :after #(refresh-wine-stock! app-state wine-id)}))
 
-(defn- merge-wine-update!
-  "Merge the open-bottle fields from a server response into the wine in app-state."
-  [app-state wine-id updated]
-  (swap! app-state update
-    :wines
-    (fn [wines]
-      (map #(if (= (:id %) wine-id)
-              (merge %
-                     (select-keys updated
-                                  [:quantity :original_quantity
-                                   :open_bottle_opened_at
-                                   :open_bottle_oz_poured]))
-              %)
-           wines))))
+(defn- stock-change!
+  "Posts a stock change for the wine and merges the stock columns the server
+   returns."
+  [app-state wine-id path body error-msg]
+  (request! app-state
+            {:method :post
+             :url (str "/api/wines/by-id/" wine-id path)
+             :body body
+             :error-msg error-msg
+             :on-success #(merge-wine %1 %2)
+             :after #(fetch-inventory-history app-state wine-id)}))
 
 (defn adjust-wine-quantity
   ([app-state wine-id adjustment]
    (adjust-wine-quantity app-state wine-id adjustment {}))
   ([app-state wine-id adjustment {:keys [reason notes occurred_at]}]
-   (go (let [result (<! (POST
-                         (str "/api/wines/by-id/" wine-id "/adjust-quantity")
-                         (cond-> {:adjustment adjustment}
-                           reason (assoc :reason reason)
-                           notes (assoc :notes notes)
-                           occurred_at (assoc :occurred_at occurred_at))
-                         "Failed to update wine quantity"))]
-         (if (:success result)
-           (do (fetch-inventory-history app-state wine-id) ;; Refresh history
-               (merge-wine-update! app-state wine-id (:data result)))
-           (swap! app-state assoc :error (:error result)))))))
+   (stock-change! app-state
+                  wine-id
+                  "/adjust-quantity"
+                  (cond-> {:adjustment adjustment}
+                    reason (assoc :reason reason)
+                    notes (assoc :notes notes)
+                    occurred_at (assoc :occurred_at occurred_at))
+                  "Failed to update wine quantity")))
 
 (defn coravin-pour
   ([app-state wine-id oz] (coravin-pour app-state wine-id oz {}))
   ([app-state wine-id oz {:keys [notes]}]
-   (go (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/coravin-pour")
-                              (cond-> {:oz oz} notes (assoc :notes notes))
-                              "Failed to record Coravin pour"))]
-         (if (:success result)
-           (do (fetch-inventory-history app-state wine-id)
-               (merge-wine-update! app-state wine-id (:data result)))
-           (swap! app-state assoc :error (:error result)))))))
+   (stock-change! app-state
+                  wine-id
+                  "/coravin-pour"
+                  (cond-> {:oz oz} notes (assoc :notes notes))
+                  "Failed to record Coravin pour")))
 
 (defn finish-open-bottle
   ([app-state wine-id] (finish-open-bottle app-state wine-id {}))
   ([app-state wine-id {:keys [notes]}]
-   (go (let [result (<! (POST
-                         (str "/api/wines/by-id/" wine-id "/finish-open-bottle")
-                         (cond-> {} notes (assoc :notes notes))
-                         "Failed to finish open bottle"))]
-         (if (:success result)
-           (do (fetch-inventory-history app-state wine-id)
-               (merge-wine-update! app-state wine-id (:data result)))
-           (swap! app-state assoc :error (:error result)))))))
+   (stock-change! app-state
+                  wine-id
+                  "/finish-open-bottle"
+                  (cond-> {} notes (assoc :notes notes))
+                  "Failed to finish open bottle")))
 
 (defn update-wine
   [app-state id updates]
-  (let [promise (js/Promise.
-                 (fn [resolve reject]
-                   (go (let [result (<! (PUT (str "/api/wines/by-id/" id)
-                                             updates
-                                             "Failed to update wine"))]
-                         (if (:success result)
-                           (let [updated-wine (:data result)]
-                             ;; Update the wine in the list
-                             (swap! app-state update
-                               :wines
-                               (fn [wines]
-                                 (map #(if (= (:id %) id) updated-wine %)
-                                      wines)))
-                             (resolve updated-wine))
-                           (do (swap! app-state assoc :error (:error result))
-                               (reject (:error result))))))))]
-    promise))
+  (request! app-state
+            {:method :put
+             :url (str "/api/wines/by-id/" id)
+             :body updates
+             :error-msg "Failed to update wine"
+             :on-success #(merge-wine %1 %2)}))
 
 (defn update-wine-image
   [app-state wine-id image-data]
-  (go (let [result (<! (PUT (str "/api/wines/by-id/" wine-id "/image")
-                            image-data
-                            "Failed to update wine image"))]
-        (if (:success result)
-          (let [updated-wine (:data result)]
-            ;; Update the wine in the list
-            (swap! app-state update
-              :wines
-              (fn [wines]
-                (map #(if (= (:id %) wine-id) updated-wine %) wines))))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :put
+             :url (str "/api/wines/by-id/" wine-id "/image")
+             :body image-data
+             :error-msg "Failed to update wine image"
+             :on-success #(merge-wine %1 %2)}))
 
-(defn- promise-from-channel
-  "Wraps an api-request result channel in a JS Promise.
-   Resolves with `:data` on success; on failure sets `:error` in app-state and rejects.
-   When `:loading-key` is provided, clears that flag in app-state on completion."
-  [app-state ch & {:keys [loading-key]}]
-  (js/Promise. (fn [resolve reject]
-                 (go (let [result (<! ch)]
-                       (when loading-key
-                         (swap! app-state assoc loading-key false))
-                       (if (:success result)
-                         (resolve (:data result))
-                         (do (swap! app-state assoc :error (:error result))
-                             (reject (:error result)))))))))
+(defn- ai-request!
+  "Posts `payload` plus the chosen AI provider; `loading` names the flag the
+   page shows while the model thinks."
+  [app-state url payload loading error-msg]
+  (request! app-state
+            {:method :post
+             :url url
+             :body (assoc payload :provider (get-in @app-state [:ai :provider]))
+             :error-msg error-msg
+             :loading (when loading [loading])}))
 
 (defn analyze-wine-label
   [app-state image-data]
-  (swap! app-state assoc :analyzing-label? true)
-  (let [provider (get-in @app-state [:ai :provider])
-        payload (assoc image-data :provider provider)]
-    (promise-from-channel
-     app-state
-     (POST "/api/wines/analyze-label" payload "Failed to analyze wine label")
-     :loading-key
-     :analyzing-label?)))
+  (ai-request! app-state
+               "/api/wines/analyze-label" image-data
+               :analyzing-label? "Failed to analyze wine label"))
 
 (defn analyze-spirit-label
   [app-state label-image]
-  (swap! app-state assoc :analyzing-spirit-label? true)
-  (let [provider (get-in @app-state [:ai :provider])
-        payload {:label_image label-image :provider provider}]
-    (promise-from-channel app-state
-                          (POST "/api/spirits/analyze-label"
-                                payload
-                                "Failed to analyze spirit label")
-                          :loading-key
-                          :analyzing-spirit-label?)))
+  (ai-request! app-state
+               "/api/spirits/analyze-label" {:label_image label-image}
+               :analyzing-spirit-label? "Failed to analyze spirit label"))
 
 (defn suggest-drinking-window
   [app-state wine]
-  (swap! app-state assoc :suggesting-drinking-window? true)
-  (let [provider (get-in @app-state [:ai :provider])
-        payload {:wine wine :provider provider}]
-    (promise-from-channel app-state
-                          (POST "/api/wines/suggest-drinking-window"
-                                payload
-                                "Failed to suggest drinking window")
-                          :loading-key
-                          :suggesting-drinking-window?)))
+  (ai-request! app-state
+               "/api/wines/suggest-drinking-window" {:wine wine}
+               :suggesting-drinking-window?
+               "Failed to suggest drinking window"))
 
 (defn generate-wine-summary
   [app-state wine]
-  (let [provider (some-> (get-in @app-state [:ai :provider])
-                         name)
-        payload (cond-> {:wine wine} provider (assoc :provider provider))]
-    (promise-from-channel app-state
-                          (POST "/api/wines/generate-summary"
-                                payload
-                                "Failed to generate wine summary"))))
+  (ai-request! app-state
+               "/api/wines/generate-summary"
+               {:wine wine}
+               nil
+               "Failed to generate wine summary"))
 
 (defn fetch-grape-varieties
   [app-state]
-  (go (let [result (<! (GET "/api/grape-varieties"
-                            "Failed to fetch grape varieties"))]
-        (if (:success result)
-          (swap! app-state assoc :grape-varieties (:data result))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:url "/api/grape-varieties"
+             :error-msg "Failed to fetch grape varieties"
+             :on-success #(assoc %1 :grape-varieties %2)}))
 
 (defn create-grape-variety
   [app-state variety]
-  (js/console.log "Creating grape variety:" (clj->js variety))
-  (js/Promise. (fn [resolve reject]
-                 (go (let [result (<! (POST "/api/grape-varieties"
-                                            variety
-                                            "Failed to create grape variety"))]
-                       (if (:success result)
-                         (do (fetch-grape-varieties app-state)
-                             (swap! app-state assoc
-                               :new-grape-variety {}
-                               :submitting-variety? false
-                               :show-variety-form? false)
-                             (resolve (:data result)))
-                         (do (swap! app-state assoc
-                               :error (:error result)
-                               :submitting-variety? false)
-                             (reject (:error result)))))))))
+  (request! app-state
+            {:method :post
+             :url "/api/grape-varieties"
+             :body variety
+             :error-msg "Failed to create grape variety"
+             :loading [:submitting-variety?]
+             :on-success
+             #(assoc %1 :new-grape-variety {} :show-variety-form? false)
+             :after #(fetch-grape-varieties app-state)}))
 
 (defn update-grape-variety
   [app-state id updates]
-  (go (let [result (<! (PUT (str "/api/grape-varieties/" id)
-                            updates
-                            "Failed to update grape variety"))]
-        (if (:success result)
-          (do (fetch-grape-varieties app-state)
-              (swap! app-state assoc
-                :editing-variety-id nil
-                :submitting-variety? false
-                :show-variety-form? false))
-          (swap! app-state assoc
-            :error (:error result)
-            :submitting-variety? false)))))
+  (request! app-state
+            {:method :put
+             :url (str "/api/grape-varieties/" id)
+             :body updates
+             :error-msg "Failed to update grape variety"
+             :loading [:submitting-variety?]
+             :on-success
+             #(assoc %1 :editing-variety-id nil :show-variety-form? false)
+             :after #(fetch-grape-varieties app-state)}))
 
 (defn delete-grape-variety
   [app-state id]
-  (go (let [result (<! (DELETE (str "/api/grape-varieties/" id)
-                               "Failed to delete grape variety"))]
-        (if (:success result)
-          (swap! app-state update
-            :grape-varieties
-            #(remove (fn [variety] (= (:id variety) id)) %))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :delete
+             :url (str "/api/grape-varieties/" id)
+             :error-msg "Failed to delete grape variety"
+             :on-success #(update %1 :grape-varieties remove-by-id id)}))
 
 ;; Wine Varieties endpoints
 (defn fetch-wine-varieties
   [app-state wine-id]
-  (go (let [result (<! (GET (str "/api/wines/by-id/" wine-id "/varieties")
-                            "Failed to fetch wine varieties"))]
-        (if (:success result)
-          (swap! app-state assoc :wine-varieties (:data result))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:url (str "/api/wines/by-id/" wine-id "/varieties")
+             :error-msg "Failed to fetch wine varieties"
+             :on-success #(assoc %1 :wine-varieties %2)}))
+
+(defn- wine-variety-change!
+  [app-state wine-id opts]
+  (request! app-state
+            (merge {:loading [:submitting-wine-variety?]
+                    :on-success #(assoc %1
+                                        :new-wine-variety {}
+                                        :editing-wine-variety-id nil
+                                        :show-wine-variety-form? false)
+                    :after #(fetch-wine-varieties app-state wine-id)}
+                   opts)))
 
 (defn add-variety-to-wine
   [app-state wine-id variety]
-  (tap> ["add-variety-to-wine" wine-id variety])
-  (go (let [result (<! (POST (str "/api/wines/by-id/" wine-id "/varieties")
-                             variety
-                             "Failed to add variety to wine"))]
-        (if (:success result)
-          (do (fetch-wine-varieties app-state wine-id)
-              (swap! app-state assoc
-                :new-wine-variety {}
-                :submitting-wine-variety? false
-                :show-wine-variety-form? false))
-          (swap! app-state assoc
-            :error (:error result)
-            :submitting-wine-variety? false)))))
+  (wine-variety-change! app-state
+                        wine-id
+                        {:method :post
+                         :url (str "/api/wines/by-id/" wine-id "/varieties")
+                         :body variety
+                         :error-msg "Failed to add variety to wine"}))
 
 (defn update-wine-variety-percentage
   [app-state wine-id variety-id percentage]
-  (go (let [result (<! (PUT (str "/api/wines/by-id/" wine-id
-                                 "/varieties/" variety-id)
-                            {:percentage percentage}
-                            "Failed to update variety percentage"))]
-        (if (:success result)
-          (do (fetch-wine-varieties app-state wine-id)
-              (swap! app-state assoc
-                :editing-wine-variety-id nil
-                :submitting-wine-variety? false
-                :show-wine-variety-form? false))
-          (swap! app-state assoc
-            :error (:error result)
-            :submitting-wine-variety? false)))))
+  (wine-variety-change! app-state
+                        wine-id
+                        {:method :put
+                         :url (str "/api/wines/by-id/" wine-id
+                                   "/varieties/" variety-id)
+                         :body {:percentage percentage}
+                         :error-msg "Failed to update variety percentage"}))
 
 (defn remove-variety-from-wine
   [app-state wine-id variety-id]
-  (go (let [result (<! (DELETE (str "/api/wines/by-id/" wine-id
-                                    "/varieties/" variety-id)
-                               "Failed to remove variety from wine"))]
-        (if (:success result)
-          (swap! app-state update
-            :wine-varieties
-            #(remove (fn [v] (= (:variety_id v) variety-id)) %))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :delete
+             :url (str "/api/wines/by-id/" wine-id "/varieties/" variety-id)
+             :error-msg "Failed to remove variety from wine"
+             :on-success (fn [state _]
+                           (update state
+                                   :wine-varieties
+                                   (fn [vs]
+                                     (filterv #(not= (:variety_id %) variety-id)
+                                              vs))))}))
 
 ;; Chat endpoints
 
@@ -816,299 +691,216 @@
   (let [without (remove #(= (:id %) (:id conversation)) conversations)]
     (sort-conversations (cons conversation without))))
 
-(defn- chat-error!
-  "Handle a failed chat API result: tap, set :chat :error, optional callback."
-  ([app-state tap-label result] (chat-error! app-state tap-label result nil))
-  ([app-state tap-label result callback]
-   (tap> [tap-label (:error result)])
-   (swap! app-state assoc-in [:chat :error] (:error result))
-   (when callback (callback {:success false :error (:error result)}))))
-
 (defn- apply-conversation-update!
-  [state conversation]
-  (let [chat (:chat state)
-        convs (or (:conversations chat) [])
-        updated (upsert-conversation convs conversation)
-        active? (= (:active-conversation-id chat) (:id conversation))
-        base (-> state
-                 (assoc-in [:chat :conversations] updated)
-                 (assoc-in [:chat :error] nil))]
-    (if active?
-      (-> base
-          (assoc-in [:chat :active-conversation] conversation)
-          (cond-> (:provider conversation) (assoc-in [:ai :provider]
-                                            (keyword (:provider
-                                                      conversation)))))
-      base)))
+  "Puts a conversation from the server into the list, and when it is the open
+   one makes it active and adopts its provider."
+  ([state conversation]
+   (apply-conversation-update! state
+                               conversation
+                               (= (get-in state [:chat :active-conversation-id])
+                                  (:id conversation))))
+  ([state conversation make-active?]
+   (cond-> (update-in state
+                      [:chat :conversations]
+                      #(upsert-conversation (or % []) conversation))
+     make-active? (-> (update :chat assoc
+                              :active-conversation conversation
+                              :active-conversation-id (:id conversation))
+                      (cond-> (:provider conversation)
+                              (assoc-in [:ai :provider]
+                               (keyword (:provider conversation))))))))
+
+(defn- chat-request!
+  "A conversation request; failures show in the chat dialog."
+  [app-state opts]
+  (request! app-state (assoc opts :error-path [:chat :error])))
+
+(defn- conversation-url [id & more] (apply str "/api/conversations/" id more))
+
+(defn- busy-with!
+  "Marks [:chat busy-key] with the conversation id while `promise` runs, so
+   the sidebar can show a spinner on that one row."
+  [app-state busy-key conversation-id promise]
+  (swap! app-state assoc-in [:chat busy-key] conversation-id)
+  (-> promise
+      (.finally #(swap! app-state assoc-in [:chat busy-key] nil))
+      (.catch (fn [_])))
+  promise)
 
 (defn load-conversations!
   "Fetch conversations for the authenticated user and store them in app state."
   ([app-state] (load-conversations! app-state {}))
-  ([app-state opts]
-   (let [{:keys [force? search-text] :or {force? false}} opts
-         chat-state (:chat @app-state)
-         loading? (:conversation-loading? chat-state)
-         loaded? (:conversations-loaded? chat-state)
-         chat-type (if (= :bar (:view @app-state)) "bar" "wine")
-         query (encode-query-params (cond-> {:chat_type chat-type}
-                                      search-text (assoc :search-text
-                                                         search-text)))]
-     (when (and (not loading?) (or force? (not loaded?) search-text))
-       (swap! app-state (fn [state]
-                          (-> state
-                              (assoc-in [:chat :conversation-loading?] true)
-                              (assoc-in [:chat :conversations-loaded?] false))))
-       (go
-        (let [result (<! (GET (str "/api/conversations" query)
-                              "Failed to load conversations"))]
-          (if (:success result)
-            (let [conversations (vec (:data result))
-                  sorted (sort-conversations conversations)]
-              (tap> ["conversations-loaded" (count conversations)])
-              (swap! app-state
-                (fn [state]
-                  (let [active-id (get-in state [:chat :active-conversation-id])
-                        active (some #(when (= (:id %) active-id) %) sorted)]
-                    (-> state
-                        (assoc-in [:chat :conversation-loading?] false)
-                        (assoc-in [:chat :conversations-loaded?] true)
-                        (assoc-in [:chat :conversations] sorted)
-                        (assoc-in [:chat :active-conversation] active)
-                        (cond-> (:provider active) (assoc-in [:ai :provider]
-                                                    (keyword (:provider
-                                                              active))))
-                        (assoc-in [:chat :error] nil))))))
-            (do
-              (swap! app-state (fn [state]
-                                 (-> state
-                                     (assoc-in [:chat :conversation-loading?]
-                                               false)
-                                     (assoc-in [:chat :conversations-loaded?]
-                                               true))))
-              (chat-error! app-state "conversations-load-error" result)))))))))
+  ([app-state {:keys [force? search-text]}]
+   (let [{:keys [conversation-loading? conversations-loaded?]} (:chat
+                                                                @app-state)
+         chat-type (if (= :bar (:view @app-state)) "bar" "wine")]
+     (when (and (not conversation-loading?)
+                (or force? (not conversations-loaded?) search-text))
+       (swap! app-state assoc-in [:chat :conversations-loaded?] false)
+       (-> (chat-request!
+            app-state
+            {:url (str "/api/conversations"
+                       (encode-query-params {:chat_type chat-type
+                                             :search-text search-text}))
+             :error-msg "Failed to load conversations"
+             :loading [:chat :conversation-loading?]
+             :on-success
+             (fn [state conversations]
+               (let [sorted (sort-conversations conversations)
+                     active-id (get-in state [:chat :active-conversation-id])
+                     active (some #(when (= (:id %) active-id) %) sorted)]
+                 (cond-> (update state
+                                 :chat assoc
+                                 :conversations sorted
+                                 :active-conversation active)
+                   (:provider active) (assoc-in [:ai :provider]
+                                       (keyword (:provider active))))))})
+           (.finally
+            #(swap! app-state assoc-in [:chat :conversations-loaded?] true))
+           (.catch (fn [_])))))))
 
 (defn create-conversation!
-  ([app-state payload] (create-conversation! app-state payload nil))
-  ([app-state payload callback]
-   (go
-    (let [result (<! (POST "/api/conversations"
-                           payload
-                           "Failed to create conversation"))]
-      (if (:success result)
-        (let [conversation (:data result)]
-          (tap> ["conversation-created" (:id conversation)])
-          (swap! app-state
-            (fn [state]
-              (-> state
-                  (assoc-in [:chat :conversations]
-                            (upsert-conversation
-                             (or (get-in state [:chat :conversations]) [])
-                             conversation))
-                  (assoc-in [:chat :active-conversation] conversation)
-                  (assoc-in [:chat :active-conversation-id] (:id conversation))
-                  (cond-> (:provider conversation) (assoc-in [:ai :provider]
-                                                    (keyword (:provider
-                                                              conversation))))
-                  (assoc-in [:chat :conversations-loaded?] true)
-                  (assoc-in [:chat :error] nil))))
-          (when callback (callback {:success true :conversation conversation})))
-        (chat-error! app-state "conversation-create-error" result callback))))))
+  "Creates a conversation and makes it the open one. Promise of the
+   conversation."
+  [app-state payload]
+  (chat-request! app-state
+                 {:method :post
+                  :url "/api/conversations"
+                  :body payload
+                  :error-msg "Failed to create conversation"
+                  :on-success #(-> %1
+                                   (apply-conversation-update! %2 true)
+                                   (assoc-in [:chat :conversations-loaded?]
+                                             true))}))
+
+(defn- update-conversation!
+  [app-state conversation-id changes busy-key]
+  (when conversation-id
+    (cond->> (chat-request! app-state
+                            {:method :put
+                             :url (conversation-url conversation-id)
+                             :body changes
+                             :error-msg "Failed to update conversation"
+                             :on-success apply-conversation-update!})
+      busy-key (busy-with! app-state busy-key conversation-id))))
 
 (defn rename-conversation!
-  ([app-state conversation-id title]
-   (rename-conversation! app-state conversation-id title nil))
-  ([app-state conversation-id title callback]
-   (when conversation-id
-     (swap! app-state assoc-in
-       [:chat :renaming-conversation-id]
-       conversation-id)
-     (go (let [result (<! (PUT (str "/api/conversations/" conversation-id)
-                               {:title title}
-                               "Failed to update conversation"))]
-           (swap! app-state assoc-in [:chat :renaming-conversation-id] nil)
-           (if (:success result)
-             (let [conversation (:data result)]
-               (tap> ["conversation-renamed" (:id conversation)])
-               (swap! app-state apply-conversation-update! conversation)
-               (when callback
-                 (callback {:success true :conversation conversation})))
-             (chat-error! app-state
-                          "conversation-rename-error"
-                          result
-                          callback)))))))
+  [app-state conversation-id title]
+  (update-conversation! app-state
+                        conversation-id
+                        {:title title}
+                        :renaming-conversation-id))
 
 (defn set-conversation-pinned!
   [app-state conversation-id pinned?]
-  (when conversation-id
-    (swap! app-state assoc-in [:chat :pinning-conversation-id] conversation-id)
-    (go (let [result (<! (PUT (str "/api/conversations/" conversation-id)
-                              {:pinned pinned?}
-                              "Failed to update conversation"))]
-          (swap! app-state assoc-in [:chat :pinning-conversation-id] nil)
-          (if (:success result)
-            (let [conversation (:data result)]
-              (tap> ["conversation-pinned"
-                     {:id (:id conversation) :pinned (:pinned conversation)}])
-              (swap! app-state apply-conversation-update! conversation)
-              (load-conversations! app-state {:force? true}))
-            (chat-error! app-state "conversation-pin-error" result))))))
+  (some-> (update-conversation! app-state
+                                conversation-id
+                                {:pinned pinned?}
+                                :pinning-conversation-id)
+          ;; pinning reorders the list
+          (.then #(load-conversations! app-state {:force? true}) (fn [_]))))
 
 (defn update-conversation-provider!
   [app-state conversation-id provider]
-  (when (and conversation-id provider)
-    (go (let [result (<! (PUT (str "/api/conversations/" conversation-id)
-                              {:provider provider}
-                              "Failed to update conversation"))]
-          (if (:success result)
-            (swap! app-state apply-conversation-update! (:data result))
-            (swap! app-state assoc-in [:chat :error] (:error result)))))))
+  (when provider
+    (update-conversation! app-state conversation-id {:provider provider} nil)))
+
+(defn- remove-conversation
+  "State without the conversation; closes it if it was open."
+  [state conversation-id]
+  (let [open? (= conversation-id
+                 (get-in state [:chat :active-conversation-id]))]
+    (cond->
+      (update-in state [:chat :conversations] remove-by-id conversation-id)
+      open? (update :chat
+                    #(-> %
+                         (assoc :active-conversation-id nil
+                                :active-conversation nil
+                                :messages []
+                                :messages-loading? false)
+                         (dissoc :held-list-ids))))))
 
 (defn delete-conversation!
   [app-state conversation-id]
   (when conversation-id
-    (swap! app-state assoc-in [:chat :deleting-conversation-id] conversation-id)
-    (go
-     (let [result (<! (DELETE (str "/api/conversations/" conversation-id)
-                              "Failed to delete conversation"))]
-       (swap! app-state assoc-in [:chat :deleting-conversation-id] nil)
-       (if (:success result)
-         (do (swap! app-state
-               (fn [state]
-                 (let [chat (:chat state)
-                       filtered (->> (:conversations chat)
-                                     (remove #(= (:id %) conversation-id)))
-                       sorted (sort-conversations filtered)
-                       active? (= (:active-conversation-id chat)
-                                  conversation-id)
-                       base-state (-> state
-                                      (assoc-in [:chat :conversations] sorted)
-                                      (assoc-in [:chat :conversations-loaded?]
-                                                false)
-                                      (assoc-in [:chat :error] nil))]
-                   (if active?
-                     (-> base-state
-                         (assoc-in [:chat :active-conversation-id] nil)
-                         (assoc-in [:chat :active-conversation] nil)
-                         (assoc-in [:chat :messages] [])
-                         (assoc-in [:chat :messages-loading?] false)
-                         (update :chat dissoc :held-list-ids))
-                     base-state))))
-             (tap> ["conversation-deleted" conversation-id])
-             (load-conversations! app-state {:force? true}))
-         (chat-error! app-state "conversation-delete-error" result))))))
+    (busy-with! app-state
+                :deleting-conversation-id
+                conversation-id
+                (chat-request!
+                 app-state
+                 {:method :delete
+                  :url (conversation-url conversation-id)
+                  :error-msg "Failed to delete conversation"
+                  :on-success (fn [state _]
+                                (remove-conversation state conversation-id))
+                  :after #(load-conversations! app-state {:force? true})}))))
 
 (defn fork-conversation!
   "Copy the first `message-count` messages of a conversation into a new one and
-   make it the active conversation. Calls back with the new messages."
-  [app-state conversation-id message-count callback]
-  (go (let [result (<! (POST (str "/api/conversations/" conversation-id "/fork")
-                             {:message_count message-count}
-                             "Failed to fork conversation"))]
-        (if (:success result)
-          (let [{:keys [conversation messages]} (:data result)]
-            (swap! app-state
-              (fn [state]
-                (-> state
-                    (update-in [:chat :conversations]
-                               #(upsert-conversation (or % []) conversation))
-                    (assoc-in [:chat :active-conversation] conversation)
-                    (assoc-in [:chat :active-conversation-id]
-                              (:id conversation))
-                    (assoc-in [:chat :error] nil))))
-            (callback messages))
-          (chat-error! app-state "conversation-fork-error" result)))))
+   make it the active conversation. Promise of the new messages."
+  [app-state conversation-id message-count]
+  (-> (chat-request! app-state
+                     {:method :post
+                      :url (conversation-url conversation-id "/fork")
+                      :body {:message_count message-count}
+                      :error-msg "Failed to fork conversation"
+                      :on-success
+                      #(apply-conversation-update! %1 (:conversation %2) true)})
+      (.then #(:messages %))))
 
 (defn append-conversation-message!
-  ([app-state conversation-id message]
-   (append-conversation-message! app-state conversation-id message nil))
-  ([app-state conversation-id message callback]
-   (let [payload (cond-> message
-                   (nil? (:image_data message)) (dissoc :image_data)
-                   (nil? (:tokens_used message)) (dissoc :tokens_used)
-                   (nil? (:context_note message)) (dissoc :context_note))]
-     (go
-      (let [result (<! (POST
-                        (str "/api/conversations/" conversation-id "/messages")
-                        payload
-                        "Failed to save conversation message"))]
-        (if (:success result)
-          (let [saved (:data result)
-                message (:message saved)
-                conversation (:conversation saved)
-                message (or message saved)]
-            (tap> ["conversation-message-saved" (:id message)])
-            (when conversation
-              (swap! app-state apply-conversation-update! conversation))
-            (swap! app-state assoc-in [:chat :error] nil)
-            (when callback
-              (callback
-               {:success true :message message :conversation conversation})))
-          (chat-error! app-state
-                       "conversation-message-save-error"
-                       result
-                       callback)))))))
+  "Saves a message. Promise of the saved message."
+  [app-state conversation-id message]
+  (-> (chat-request! app-state
+                     {:method :post
+                      :url (conversation-url conversation-id "/messages")
+                      :body (into {} (remove (comp nil? val)) message)
+                      :error-msg "Failed to save conversation message"
+                      :on-success (fn [state {:keys [conversation]}]
+                                    (cond-> state
+                                      conversation (apply-conversation-update!
+                                                    conversation)))})
+      (.then #(:message %))))
 
 (defn update-conversation-message!
-  ([app-state conversation-id message-id message]
-   (update-conversation-message! app-state
-                                 conversation-id
-                                 message-id
-                                 message
-                                 nil))
-  ([app-state conversation-id message-id message callback]
-   (let [payload
-         (cond-> {:content (:content message)}
-           (contains? message :image_data) (assoc :image (:image_data message))
-           (contains? message :tokens_used) (assoc :tokens_used
-                                                   (:tokens_used message))
-           (contains? message :context_note) (assoc :context_note
-                                                    (:context_note message))
-           (true? (:truncate_after? message)) (assoc :truncate_after? true))]
-     (go
-      (let [result (<! (PUT (str "/api/conversations/" conversation-id
-                                 "/messages/" message-id)
-                            payload
-                            "Failed to update conversation message"))]
-        (if (:success result)
-          (let [data (:data result)
-                conversation (:conversation data)]
-            (tap> ["conversation-message-updated"
-                   {:conversation-id conversation-id
-                    :message-id message-id
-                    :deleted (count (:deleted-message-ids data))}])
-            (when conversation
-              (swap! app-state apply-conversation-update! conversation))
-            (swap! app-state assoc-in [:chat :error] nil)
-            (when callback (callback {:success true :data data})))
-          (chat-error! app-state
-                       "conversation-message-update-error"
-                       result
-                       callback)))))))
+  "Edits a saved message; with :truncate_after? true, also drops every message
+   after it. Promise of the server's {:message :conversation
+   :deleted-message-ids}."
+  [app-state conversation-id message-id message]
+  (chat-request!
+   app-state
+   {:method :put
+    :url (conversation-url conversation-id "/messages/" message-id)
+    :body (cond-> {:content (:content message)}
+            (contains? message :image_data) (assoc :image (:image_data message))
+            (contains? message :tokens_used) (assoc :tokens_used
+                                                    (:tokens_used message))
+            (contains? message :context_note) (assoc :context_note
+                                                     (:context_note message))
+            (true? (:truncate_after? message)) (assoc :truncate_after? true))
+    :error-msg "Failed to update conversation message"
+    :on-success (fn [state {:keys [conversation]}]
+                  (cond-> state
+                    conversation (apply-conversation-update! conversation)))}))
 
 (defn fetch-conversation-messages!
   [app-state conversation-id]
-  (swap! app-state assoc-in [:chat :messages-loading?] true)
-  (go
-   (let [result (<! (GET (str "/api/conversations/" conversation-id "/messages")
-                         "Failed to load conversation messages"))]
-     (swap! app-state assoc-in [:chat :messages-loading?] false)
-     (if (:success result)
-       (let [messages (:data result)]
-         (tap> ["conversation-messages-loaded"
-                {:conversation-id conversation-id :count (count messages)}])
-         (swap! app-state assoc-in
-           [:chat :messages]
-           (mapv (fn [m]
-                   {:id (:id m)
-                    :text (:content m)
-                    :is-user (:is_user m)
-                    :context-note (:context_note m)
-                    :timestamp (some-> (:created_at m)
-                                       js/Date.parse
-                                       js/Date.)})
-                 messages))
-         (swap! app-state assoc-in [:chat :error] nil))
-       (chat-error! app-state "conversation-messages-load-error" result)))))
+  (chat-request! app-state
+                 {:url (conversation-url conversation-id "/messages")
+                  :error-msg "Failed to load conversation messages"
+                  :loading [:chat :messages-loading?]
+                  :on-success (fn [state messages]
+                                (assoc-in state
+                                 [:chat :messages]
+                                 (mapv (fn [m]
+                                         {:id (:id m)
+                                          :text (:content m)
+                                          :is-user (:is_user m)
+                                          :context-note (:context_note m)
+                                          :timestamp (some-> (:created_at m)
+                                                             js/Date.parse
+                                                             js/Date.)})
+                                       messages)))}))
 
 (defn send-chat-message
   "Send the conversation history to the AI chat endpoint. The wines under
@@ -1155,263 +947,156 @@
 (defn mark-all-wines-unverified
   "Admin function to mark all wines as unverified"
   [app-state]
-  (go (if-let [result (<! (POST "/api/admin/mark-all-unverified"
-                                {}
-                                "Failed to mark wines as unverified"))]
-        (if (:success result)
-          (do
-            ;; Refresh the wines list to show updated verification status
-            (fetch-wines app-state)
-            (swap! app-state assoc
-              :success
-              (str "Successfully marked "
-                   (get-in result [:data :wines-updated])
-                   " wines as unverified")))
-          (swap! app-state assoc :error (:error result)))
-        (swap! app-state assoc :error "Failed to mark wines as unverified"))))
+  (request! app-state
+            {:method :post
+             :url "/api/admin/mark-all-unverified"
+             :body {}
+             :error-msg "Failed to mark wines as unverified"
+             :on-success #(assoc %1
+                                 :success
+                                 (str "Successfully marked "
+                                      (:wines-updated %2)
+                                      " wines as unverified"))
+             :after #(fetch-wines app-state)}))
+
+(defn- verbose-logging-request!
+  [app-state opts]
+  (request! app-state
+            (assoc opts
+                   :on-success
+                   #(assoc-in %1
+                     [:verbose-logging :enabled?]
+                     (boolean (:verbose? %2))))))
 
 (defn fetch-verbose-logging-state
   [app-state]
-  (swap! app-state (fn [state]
-                     (-> state
-                         (assoc-in [:verbose-logging :loading?] true)
-                         (assoc-in [:verbose-logging :error] nil))))
-  (go
-   (let [result (<! (GET "/api/admin/verbose-logging"
-                         "Failed to get verbose logging state"))]
-     (swap! app-state assoc-in [:verbose-logging :loading?] false)
-     (if (:success result)
-       (let [verbose? (boolean (get-in result [:data :verbose?]))]
-         (swap! app-state assoc-in [:verbose-logging :enabled?] verbose?)
-         (swap! app-state assoc-in [:verbose-logging :error] nil))
-       (swap! app-state assoc-in [:verbose-logging :error] (:error result))))))
+  (verbose-logging-request! app-state
+                            {:url "/api/admin/verbose-logging"
+                             :error-msg "Failed to get verbose logging state"
+                             :loading [:verbose-logging :loading?]}))
 
 (defn set-verbose-logging-state
   [app-state enabled?]
-  (swap! app-state (fn [state]
-                     (-> state
-                         (assoc-in [:verbose-logging :updating?] true)
-                         (assoc-in [:verbose-logging :error] nil))))
-  (go
-   (let [result (<! (POST "/api/admin/verbose-logging"
-                          {:enabled? enabled?}
-                          "Failed to update verbose logging state"))]
-     (swap! app-state assoc-in [:verbose-logging :updating?] false)
-     (if (:success result)
-       (let [verbose? (boolean (get-in result [:data :verbose?]))]
-         (swap! app-state assoc-in [:verbose-logging :enabled?] verbose?)
-         (swap! app-state assoc-in [:verbose-logging :error] nil))
-       (swap! app-state assoc-in [:verbose-logging :error] (:error result))))))
+  (verbose-logging-request! app-state
+                            {:method :post
+                             :url "/api/admin/verbose-logging"
+                             :body {:enabled? enabled?}
+                             :error-msg "Failed to update verbose logging state"
+                             :loading [:verbose-logging :updating?]}))
 
-(def max-job-status-retries 5)
-(def base-job-status-delay-ms 2000)
-(def max-job-status-delay-ms 20000)
+(def ^:private job-types
+  {:drinking-window {:start-url "/api/admin/start-drinking-window-job"
+                     :flag :regenerating-drinking-windows?
+                     :label "drinking windows"}
+   :wine-summary {:start-url "/api/admin/start-wine-summary-job"
+                  :flag :regenerating-wine-summaries?
+                  :label "wine summaries"}})
 
-(defn- job-type-config
-  [job-type]
-  (case job-type
-    :wine-summary {:in-progress-key :regenerating-wine-summaries?
-                   :success-label "wine summaries"}
-    {:in-progress-key :regenerating-drinking-windows?
-     :success-label "drinking windows"}))
+(def ^:private poll-delay-ms 2000)
+(def ^:private max-poll-delay-ms 20000)
+(def ^:private max-poll-failures 5)
 
-(defn- format-success-message
-  [job-type total failed-wines]
-  (let [{:keys [success-label]} (job-type-config job-type)
-        failed-count (count failed-wines)
-        success-count (- total failed-count)
-        failures-text (when (> failed-count 0)
-                        (str " " failed-count
-                             " failed: " (string/join ", "
-                                                      (map #(str "ID "
-                                                                 (:wine-id %))
-                                                           failed-wines))))]
-    (if (> failed-count 0)
-      (str "Regenerated " success-count
-           "/" total
-           " wines successfully." failures-text)
-      (str "Successfully regenerated " success-label " for " total " wines"))))
+(defn- job-outcome
+  "What one poll of a bulk job means: [:poll], or [:done banner-key message]
+   once it has finished."
+  [{:keys [label]} {:keys [status total failed-wines error]}]
+  (case status
+    "running" [:poll]
+    "completed"
+    (if (seq failed-wines)
+      [:done :error
+       (str "Regenerated " (- total (count failed-wines))
+            "/" total
+            " wines successfully. " (count failed-wines)
+            " failed: "
+            (string/join ", " (map #(str "ID " (:wine-id %)) failed-wines)))]
+      [:done :success
+       (str "Successfully regenerated " label " for " total " wines")])
+    "failed" [:done :error
+              (str "Job failed while regenerating " label ": " error)]
+    [:done nil nil]))
 
-(defn- format-failure-message
-  [job-type status]
-  (let [{:keys [success-label]} (job-type-config job-type)]
-    (str "Job failed while regenerating " success-label ": " (:error status))))
+(defn- poll-job!
+  "Polls a bulk job until it finishes, keeping :job-progress current. A
+   failed poll is retried with backoff before giving up."
+  [app-state job-id job-type failures]
+  (let [{:keys [flag] :as job} (job-types job-type)
+        finish! (fn [banner message]
+                  (swap! app-state #(cond-> (dissoc % flag :job-progress)
+                                      banner (assoc banner message))))
+        again! (fn [failures delay-ms]
+                 (js/setTimeout #(poll-job! app-state job-id job-type failures)
+                                delay-ms))]
+    (go
+     (let [{:keys [success data error]}
+           (<! (api-request http/get
+                            (str "/api/admin/job-status/" job-id)
+                            nil
+                            "Failed to get job status"))]
+       (if success
+         (let [[step banner message] (job-outcome job data)]
+           (swap! app-state assoc
+             :job-progress
+             {:progress (or (:progress data) 0)
+              :total (or (:total data) 0)
+              :status (:status data)
+              :job-type job-type})
+           (if (= step :poll)
+             (again! 0 poll-delay-ms)
+             (do (fetch-wines app-state) (finish! banner message))))
+         (let [failures (inc failures)
+               delay-ms (min max-poll-delay-ms
+                             (* poll-delay-ms (js/Math.pow 2 failures)))]
+           (if (< failures max-poll-failures)
+             (do (swap! app-state update
+                   :job-progress assoc
+                   :job-type job-type
+                   :status "retrying"
+                   :retry-attempt failures
+                   :retry-max max-poll-failures
+                   :retry-delay delay-ms)
+                 (again! failures delay-ms))
+             (finish! :error
+                      (str "Failed to check job status after " max-poll-failures
+                           " attempts: " error)))))))))
 
-(defn- retryable-job-status-error?
-  [error-message]
-  (if-not (string? error-message)
-    true
-    (not (some #(string/includes? error-message %)
-               ["Authentication required" "Job not found"]))))
-
-(defn poll-job-status
-  "Poll job status until completion"
-  ([app-state job-id]
-   (poll-job-status app-state job-id {:job-type :drinking-window}))
-  ([app-state job-id {:keys [job-type retry-state]}]
-   (let [job-type (or job-type :drinking-window)
-         retry-state (merge {:failure-count 0
-                             :delay-ms base-job-status-delay-ms}
-                            retry-state)
-         {:keys [failure-count delay-ms]} retry-state
-         {:keys [in-progress-key]} (job-type-config job-type)
-         schedule (fn [opts wait-ms]
-                    (js/setTimeout (fn []
-                                     (poll-job-status app-state job-id opts))
-                                   wait-ms))]
-     (tap> ["🔍 Polling job status for" job-id "job-type" job-type])
-     (go
-      (let [test-state @job-status-failure-test
-            simulate? (and test-state (> (:remaining test-state) 0))
-            result
-            (if simulate?
-              (let [updated-state (swap! job-status-failure-test
-                                    (fn [{:keys [remaining] :as state}]
-                                      (let [next (dec (or remaining 0))]
-                                        (when (> next 0)
-                                          (assoc state :remaining next)))))]
-                (when-not updated-state (reset! job-status-failure-test nil))
-                (tap> ["🧪 Simulating job status failure" test-state])
-                {:success false :error (:error test-state)})
-              (<! (GET (str "/api/admin/job-status/" job-id)
-                       "Failed to get job status")))]
-        (tap> ["📊 Job status result:" result])
-        (if (:success result)
-          (let [status (:data result)
-                derived-job-type (let [value (:job-type status)]
-                                   (cond (keyword? value) value
-                                         (string? value) (keyword value)
-                                         :else nil))
-                job-type (or derived-job-type job-type)
-                {:keys [in-progress-key]} (job-type-config job-type)
-                job-status (:status status)
-                progress (:progress status)
-                total (:total status)]
-            (tap> ["📈 Job status details:"
-                   {:job-status job-status
-                    :progress progress
-                    :total total
-                    :job-type job-type}])
-            (swap! app-state assoc
-              :job-progress
-              {:progress (or progress 0)
-               :total (or total 0)
-               :status job-status
-               :job-type job-type})
-            (tap> ["🔄 Updated app-state with progress"])
-            (cond (= job-status "completed")
-                  (do (swap! app-state dissoc in-progress-key :job-progress)
-                      (fetch-wines app-state)
-                      (let [failed-wines (:failed-wines status)
-                            message (format-success-message job-type
-                                                            (or total 0)
-                                                            failed-wines)]
-                        (if (seq failed-wines)
-                          (swap! app-state assoc :error message)
-                          (swap! app-state assoc :success message))))
-                  (= job-status "failed")
-                  (do (swap! app-state dissoc in-progress-key :job-progress)
-                      (swap! app-state assoc
-                        :error
-                        (format-failure-message job-type status)))
-                  (= job-status "running")
-                  (schedule {:job-type job-type
-                             :retry-state {:failure-count 0
-                                           :delay-ms base-job-status-delay-ms}}
-                            base-job-status-delay-ms)
-                  :else (swap! app-state dissoc in-progress-key :job-progress)))
-          (let [error-message (:error result)
-                next-count (inc failure-count)
-                existing-progress (:job-progress @app-state)
-                processed (or (:progress existing-progress) 0)
-                total (or (:total existing-progress) 0)]
-            (tap> ["⚠️ Failed to get job status"
-                   {:error error-message :attempt next-count}])
-            (if (and (< next-count max-job-status-retries)
-                     (retryable-job-status-error? error-message))
-              (let [next-delay (-> (* 2 delay-ms)
-                                   (max base-job-status-delay-ms)
-                                   (min max-job-status-delay-ms))
-                    retry-opts {:job-type job-type
-                                :retry-state {:failure-count next-count
-                                              :delay-ms next-delay}}
-                    retry-progress {:job-type job-type
-                                    :progress processed
-                                    :total total
-                                    :status "retrying"
-                                    :retry-attempt next-count
-                                    :retry-max max-job-status-retries
-                                    :retry-delay next-delay}]
-                (tap> ["⏳ Retrying job status poll"
-                       {:attempt next-count
-                        :max max-job-status-retries
-                        :delay-ms next-delay
-                        :error error-message}])
-                (swap! app-state assoc :job-progress retry-progress)
-                (schedule retry-opts next-delay))
-              (do (swap! app-state dissoc in-progress-key :job-progress)
-                  (swap! app-state assoc
-                    :error
-                    (str "Failed to check job status"
-                         (when (> max-job-status-retries 0)
-                           (str " after " max-job-status-retries " attempts"))
-                         (when error-message
-                           (str ": " error-message)))))))))))))
+(defn- start-job-for-filtered-wines!
+  "Starts a bulk AI job over the wines the list currently shows."
+  [app-state job-type]
+  (let [{:keys [start-url flag]} (job-types job-type)
+        wine-ids (mapv :id (filters/filtered-sorted-wines app-state))]
+    (when (seq wine-ids)
+      (request! app-state
+                {:method :post
+                 :url start-url
+                 :body {:wine-ids wine-ids
+                        :provider (get-in @app-state [:ai :provider])}
+                 :error-msg "Failed to start job"
+                 :loading [flag]
+                 :after #(do (swap! app-state assoc flag true)
+                             (poll-job! app-state (:job-id %) job-type 0))}))))
 
 (defn regenerate-filtered-drinking-windows
-  "Admin function to regenerate drinking windows for currently filtered wines"
   [app-state]
-  (let [filtered-wines (filters/filtered-sorted-wines app-state)
-        wine-ids (map :id filtered-wines)
-        wine-count (count wine-ids)
-        provider (get-in @app-state [:ai :provider])]
-    (when (> wine-count 0)
-      (swap! app-state assoc :regenerating-drinking-windows? true)
-      (go (let [result (<! (POST "/api/admin/start-drinking-window-job"
-                                 {:wine-ids wine-ids :provider provider}
-                                 "Failed to start drinking window job"))]
-            (if (:success result)
-              (let [job-id (get-in result [:data :job-id])]
-                (tap> ["🚀 Starting polling for job:" job-id])
-                ;; Start polling for job status
-                (poll-job-status app-state job-id))
-              (do (swap! app-state dissoc :regenerating-drinking-windows?)
-                  (swap! app-state assoc :error (:error result)))))))))
+  (start-job-for-filtered-wines! app-state :drinking-window))
 
 (defn regenerate-filtered-wine-summaries
-  "Admin function to regenerate wine summaries for currently filtered wines"
   [app-state]
-  (let [filtered-wines (filters/filtered-sorted-wines app-state)
-        wine-ids (map :id filtered-wines)
-        wine-count (count wine-ids)
-        provider (get-in @app-state [:ai :provider])]
-    (when (> wine-count 0)
-      (swap! app-state assoc :regenerating-wine-summaries? true)
-      (go (let [result (<! (POST "/api/admin/start-wine-summary-job"
-                                 {:wine-ids wine-ids :provider provider}
-                                 "Failed to start wine summary job"))]
-            (if (:success result)
-              (let [job-id (get-in result [:data :job-id])]
-                (tap> ["🚀 Starting polling for wine summary job:" job-id])
-                (poll-job-status app-state job-id {:job-type :wine-summary}))
-              (do (swap! app-state dissoc :regenerating-wine-summaries?)
-                  (swap! app-state assoc :error (:error result)))))))))
+  (start-job-for-filtered-wines! app-state :wine-summary))
 
 (defn reset-database
   "Admin function to reset the database"
   [app-state]
-  (go (swap! app-state assoc :resetting-database? true)
-      (if-let [result (<! (POST "/api/admin/reset-database"
-                                {}
-                                "Failed to reset database"))]
-        (do (swap! app-state assoc :resetting-database? false)
-            (if (:success result)
-              (reset! app-state (assoc initial-app-state
-                                       :success
-                                       "Database reset successfully!"))
-              (swap! app-state assoc :error (:error result))))
-        (do (swap! app-state assoc :resetting-database? false)
-            (swap! app-state assoc :error "Failed to reset database")))))
+  (request! app-state
+            {:method :post
+             :url "/api/admin/reset-database"
+             :body {}
+             :error-msg "Failed to reset database"
+             :loading [:resetting-database?]
+             :on-success (fn [_ _]
+                           (assoc initial-app-state
+                                  :success
+                                  "Database reset successfully!"))}))
 
 (defn execute-sql
   "Execute a raw SQL query. Returns a channel."
@@ -1449,171 +1134,162 @@
 ;; Bar API
 (defn fetch-bar-data
   [app-state]
-  (swap! app-state assoc-in [:bar :loading?] true)
-  (go
-   (let [spirits-result (<! (GET "/api/spirits" "Failed to fetch spirits"))
-         inventory-result (<! (GET "/api/bar-inventory"
-                                   "Failed to fetch bar inventory"))
-         recipes-result (<! (GET "/api/cocktail-recipes"
-                                 "Failed to fetch recipes"))]
-     (swap! app-state
-       (fn [s]
-         (-> s
-             (assoc-in [:bar :loading?] false)
-             (assoc-in [:bar :spirits] (or (:data spirits-result) []))
-             (assoc-in [:bar :inventory-items] (or (:data inventory-result) []))
-             (assoc-in [:bar :recipes] (or (:data recipes-result) []))))))))
+  (doseq [[path url what] [[:spirits "/api/spirits" "spirits"]
+                           [:inventory-items "/api/bar-inventory"
+                            "bar inventory"]
+                           [:recipes "/api/cocktail-recipes" "recipes"]]]
+    (request! app-state
+              {:url url
+               :error-msg (str "Failed to fetch " what)
+               :on-success #(assoc-in %1 [:bar path] %2)})))
+
+(defn- bar-change!
+  "A request that adds, replaces or removes (`op`) one item in the [:bar coll]
+   list."
+  [app-state coll op {:keys [id] :as opts}]
+  (request! app-state
+            (merge {:on-success (fn [state item]
+                                  (update-in state
+                                             [:bar coll]
+                                             (case op
+                                               ;; newest first, like the
+                                               ;; server's order
+                                               :add #(prepend % item)
+                                               :replace #(replace-by-id % item)
+                                               :remove #(remove-by-id % id))))}
+                   (dissoc opts :id))))
 
 (defn create-spirit
   [app-state spirit]
-  (js/Promise.
-   (fn [resolve reject]
-     (go (let [result (<!
-                       (POST "/api/spirits" spirit "Failed to create spirit"))]
-           (if (:success result)
-             (do (swap! app-state update-in
-                   [:bar :spirits]
-                   #(into [(:data result)] %))
-                 (resolve (:data result)))
-             (do (swap! app-state assoc-in [:bar :error] (:error result))
-                 (reject (:error result)))))))))
+  (bar-change! app-state
+               :spirits
+               :add
+               {:method :post
+                :url "/api/spirits"
+                :body spirit
+                :error-msg "Failed to create spirit"}))
 
 (defn update-spirit
   [app-state id updates]
-  (js/Promise.
-   (fn [resolve reject]
-     (go (let [result (<! (PUT (str "/api/spirits/" id)
-                               updates
-                               "Failed to update spirit"))]
-           (if (:success result)
-             (do (swap! app-state update-in
-                   [:bar :spirits]
-                   (fn [spirits]
-                     (mapv #(if (= (:id %) id) (:data result) %) spirits)))
-                 (resolve (:data result)))
-             (do (swap! app-state assoc-in [:bar :error] (:error result))
-                 (reject (:error result)))))))))
+  (bar-change! app-state
+               :spirits
+               :replace
+               {:method :put
+                :url (str "/api/spirits/" id)
+                :body updates
+                :error-msg "Failed to update spirit"}))
 
 (defn delete-spirit
   [app-state id]
-  (go (let [result (<! (DELETE (str "/api/spirits/" id)
-                               "Failed to delete spirit"))]
-        (if (:success result)
-          (swap! app-state update-in
-            [:bar :spirits]
-            (fn [spirits] (filterv #(not= (:id %) id) spirits)))
-          (swap! app-state assoc-in [:bar :error] (:error result))))))
+  (bar-change! app-state
+               :spirits
+               :remove
+               {:method :delete
+                :id id
+                :url (str "/api/spirits/" id)
+                :error-msg "Failed to delete spirit"}))
 
 (defn toggle-bar-inventory-item
   [app-state id have-it?]
-  (go (let [result (<! (PUT (str "/api/bar-inventory/" id)
-                            {:have_it have-it?}
-                            "Failed to update inventory item"))]
-        (when (:success result)
-          (swap! app-state update-in
-            [:bar :inventory-items]
-            (fn [items] (mapv #(if (= (:id %) id) (:data result) %) items)))))))
+  (bar-change! app-state
+               :inventory-items
+               :replace
+               {:method :put
+                :url (str "/api/bar-inventory/" id)
+                :body {:have_it have-it?}
+                :error-msg "Failed to update inventory item"}))
 
 (defn create-bar-inventory-item
   [app-state item]
-  (go
-   (let [result (<! (POST "/api/bar-inventory"
-                          item
-                          "Failed to create inventory item"))]
-     (if (:success result)
-       (swap! app-state update-in [:bar :inventory-items] conj (:data result))
-       (swap! app-state assoc-in [:bar :error] (:error result))))))
+  (request! app-state
+            {:method :post
+             :url "/api/bar-inventory"
+             :body item
+             :error-msg "Failed to create inventory item"
+             ;; inventory is listed by category, so the new item goes last
+             :on-success #(update-in %1 [:bar :inventory-items] conj %2)}))
 
 (defn update-bar-inventory-item
   [app-state id fields]
-  (go (let [result (<! (PUT (str "/api/bar-inventory/" id)
-                            fields
-                            "Failed to update inventory item"))]
-        (when (:success result)
-          (swap! app-state update-in
-            [:bar :inventory-items]
-            (fn [items] (mapv #(if (= (:id %) id) (:data result) %) items)))))))
+  (bar-change! app-state
+               :inventory-items
+               :replace
+               {:method :put
+                :url (str "/api/bar-inventory/" id)
+                :body fields
+                :error-msg "Failed to update inventory item"}))
 
 (defn delete-bar-inventory-item
   [app-state id]
-  (go (let [result (<! (DELETE (str "/api/bar-inventory/" id)
-                               "Failed to delete inventory item"))]
-        (when (:success result)
-          (swap! app-state update-in
-            [:bar :inventory-items]
-            (fn [items] (filterv #(not= (:id %) id) items)))))))
+  (bar-change! app-state
+               :inventory-items
+               :remove
+               {:method :delete
+                :id id
+                :url (str "/api/bar-inventory/" id)
+                :error-msg "Failed to delete inventory item"}))
 
 (defn create-cocktail-recipe
   ([app-state recipe] (create-cocktail-recipe app-state recipe nil))
   ([app-state recipe {:keys [open?]}]
-   (go (let [result (<! (POST "/api/cocktail-recipes"
-                              recipe
-                              "Failed to create recipe"))]
-         (if (:success result)
-           (let [created (:data result)]
-             ;; prepend: matches the server's newest-first order, so a
-             ;; later refetch doesn't reshuffle the list under an open
-             ;; detail view
-             (swap! app-state update-in [:bar :recipes] #(into [created] %))
-             (swap! app-state assoc-in [:bar :show-recipe-form?] false)
-             (swap! app-state assoc-in [:bar :new-recipe] {:ingredients []})
-             ;; The URL owns which recipe is open, so opening the new one
-             ;; is a navigation — it scrolls itself into view on arrival.
-             (when open? (nav/go-bar-recipe! (:id created))))
-           (swap! app-state assoc-in [:bar :error] (:error result)))))))
+   (-> (bar-change! app-state
+                    :recipes
+                    :add
+                    {:method :post
+                     :url "/api/cocktail-recipes"
+                     :body recipe
+                     :error-msg "Failed to create recipe"
+                     ;; The URL owns which recipe is open, so opening the
+                     ;; new one is a navigation; it scrolls itself into
+                     ;; view.
+                     :after #(when open? (nav/go-bar-recipe! (:id %)))})
+       (.then (fn [_]
+                (swap! app-state update
+                  :bar assoc
+                  :show-recipe-form? false
+                  :new-recipe {:ingredients []}))
+              (fn [_])))))
 
 (defn update-cocktail-recipe
   [app-state id recipe]
-  (js/Promise.
-   (fn [resolve reject]
-     (go (let [result (<! (PUT (str "/api/cocktail-recipes/" id)
-                               recipe
-                               "Failed to update recipe"))]
-           (if (:success result)
-             (do (swap! app-state update-in
-                   [:bar :recipes]
-                   (fn [recipes]
-                     (mapv #(if (= (:id %) id) (:data result) %) recipes)))
-                 (swap! app-state assoc-in [:bar :editing-recipe-id] nil)
-                 (resolve (:data result)))
-             (do (swap! app-state assoc-in [:bar :error] (:error result))
-                 (reject (:error result)))))))))
+  (bar-change! app-state
+               :recipes
+               :replace
+               {:method :put
+                :url (str "/api/cocktail-recipes/" id)
+                :body recipe
+                :error-msg "Failed to update recipe"
+                :after
+                #(swap! app-state assoc-in [:bar :editing-recipe-id] nil)}))
 
 (defn reextract-recipe-timers
   [app-state]
-  (swap! app-state assoc :reextracting-recipe-timers? true)
-  (go (let [result (<! (POST "/api/admin/reextract-recipe-timers"
-                             {}
-                             "Failed to re-read recipe timers"))]
-        (swap! app-state dissoc :reextracting-recipe-timers?)
-        (if (:success result)
-          (let [{:keys [recipes-updated recipes-failed]} (:data result)]
-            (fetch-bar-data app-state)
-            (swap! app-state assoc
-              :success
-              (str "Re-read timers for " recipes-updated
-                   " recipes" (when (pos? recipes-failed)
-                                (str "; " recipes-failed " failed")))))
-          (swap! app-state assoc :error (:error result))))))
+  (request! app-state
+            {:method :post
+             :url "/api/admin/reextract-recipe-timers"
+             :body {}
+             :error-msg "Failed to re-read recipe timers"
+             :loading [:reextracting-recipe-timers?]
+             :on-success (fn [state {:keys [recipes-updated recipes-failed]}]
+                           (assoc state
+                                  :success
+                                  (str "Re-read timers for " recipes-updated
+                                       " recipes"
+                                       (when (pos? recipes-failed)
+                                         (str "; " recipes-failed " failed")))))
+             :after #(fetch-bar-data app-state)}))
 
 (defn refresh-recipe-links
   "Re-resolves one recipe's spirit/ingredient links against current inventory.
    Returns a JS Promise resolving to the updated recipe."
   [app-state id]
-  (js/Promise.
-   (fn [resolve reject]
-     (go (let [result (<! (POST
-                           (str "/api/cocktail-recipes/" id "/refresh-links")
-                           {}
-                           "Failed to refresh recipe links"))]
-           (if (:success result)
-             (do (swap! app-state update-in
-                   [:bar :recipes]
-                   (fn [recipes]
-                     (mapv #(if (= (:id %) id) (:data result) %) recipes)))
-                 (resolve (:data result)))
-             (do (swap! app-state assoc-in [:bar :error] (:error result))
-                 (reject (:error result)))))))))
+  (bar-change! app-state
+               :recipes
+               :replace
+               {:method :post
+                :url (str "/api/cocktail-recipes/" id "/refresh-links")
+                :body {}
+                :error-msg "Failed to refresh recipe links"}))
 
 (defn refresh-all-recipe-links
   "Sequentially refreshes every recipe's links, updating
@@ -1649,64 +1325,52 @@
 
 (defn delete-cocktail-recipe
   [app-state id]
-  (go (let [result (<! (DELETE (str "/api/cocktail-recipes/" id)
-                               "Failed to delete recipe"))]
-        (if (:success result)
-          (swap! app-state update-in
-            [:bar :recipes]
-            (fn [recipes] (filterv #(not= (:id %) id) recipes)))
-          (swap! app-state assoc-in [:bar :error] (:error result))))))
+  (bar-change! app-state
+               :recipes
+               :remove
+               {:method :delete
+                :id id
+                :url (str "/api/cocktail-recipes/" id)
+                :error-msg "Failed to delete recipe"}))
+
+(defn- extracted-recipes
+  "The extract endpoint answers {:recipes [...]}, or a single recipe."
+  [data]
+  (vec (or (:recipes data) (when (:name data) [data]))))
 
 (defn extract-recipe-from-message!
   [app-state message-id message-text]
   (swap! app-state assoc-in
     [:chat :save-recipe]
     {:extracting? true :message-id message-id :recipe nil :open? false})
-  (go
-   (let [result (<! (POST "/api/cocktail-recipe-extract"
-                          {:message-text message-text}
-                          "Failed to extract recipe"))]
-     (if (:success result)
-       (let [data (:data result)
-             recipes (or (:recipes data) (when (:name data) [data]))]
-         (swap! app-state assoc-in
-           [:chat :save-recipe]
-           {:extracting? false
-            :message-id message-id
-            :recipes (vec recipes)
-            :open? true}))
-       (swap! app-state (fn [s]
-                          (-> s
-                              (assoc-in [:chat :save-recipe :extracting?] false)
-                              (assoc-in [:bar :error] (:error result)))))))))
+  (request! app-state
+            {:method :post
+             :url "/api/cocktail-recipe-extract"
+             :body {:message-text message-text}
+             :error-msg "Failed to extract recipe"
+             :error-path [:chat :error]
+             :loading [:chat :save-recipe :extracting?]
+             :on-success #(update-in %1
+                                     [:chat :save-recipe]
+                                     assoc
+                                     :recipes (extracted-recipes %2)
+                                     :open? true)}))
 
 (defn extract-recipe-from-image!
   [app-state image-data]
-  (swap! app-state (fn [s]
-                     (-> s
-                         (assoc-in [:bar :photo-import :extracting?] true)
-                         (assoc-in [:chat :save-recipe]
-                                   {:extracting? true
-                                    :recipe nil
-                                    :open? false
-                                    :origin :photo}))))
-  (go
-   (let [result (<! (POST "/api/cocktail-recipe-extract"
-                          {:image image-data}
-                          "Failed to extract recipe"))]
-     (if (:success result)
-       (let [data (:data result)
-             recipes (or (:recipes data) (when (:name data) [data]))]
-         (swap! app-state (fn [s]
-                            (-> s
-                                (assoc-in [:bar :photo-import]
-                                          {:open? false :extracting? false})
-                                (assoc-in [:chat :save-recipe]
-                                          {:extracting? false
-                                           :recipes (vec recipes)
-                                           :open? true
-                                           :origin :photo})))))
-       (swap! app-state (fn [s]
-                          (-> s
-                              (assoc-in [:bar :photo-import :extracting?] false)
-                              (assoc-in [:bar :error] (:error result)))))))))
+  (swap! app-state assoc-in
+    [:chat :save-recipe]
+    {:extracting? false :recipe nil :open? false :origin :photo})
+  (request! app-state
+            {:method :post
+             :url "/api/cocktail-recipe-extract"
+             :body {:image image-data}
+             :error-msg "Failed to extract recipe"
+             :error-path [:bar :photo-import :error]
+             :loading [:bar :photo-import :extracting?]
+             :on-success #(-> %1
+                              (assoc-in [:bar :photo-import :open?] false)
+                              (update-in [:chat :save-recipe]
+                                         assoc
+                                         :recipes (extracted-recipes %2)
+                                         :open? true))}))

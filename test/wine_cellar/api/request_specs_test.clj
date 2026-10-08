@@ -2,6 +2,7 @@
   "Request bodies are validated against their specs. These specs were once
    referenced without being defined, so only the keys' presence was checked."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [wine-cellar.ai.core]
             [wine-cellar.db.api :as db]
             [wine-cellar.test-support :as ts]))
 
@@ -38,3 +39,17 @@
     (testing "content must be a string"
       (is (= 400
              (:status (ts/request :post url {:is_user true :content 7})))))))
+
+(deftest a-failing-title-call-keeps-the-message
+  (let [{conversation :body}
+        (ts/request :post "/api/conversations" {:provider "anthropic"})]
+    (with-redefs [wine-cellar.ai.core/generate-conversation-title
+                  (fn [_ _]
+                    (throw (ex-info "Anthropic is down" {:status 401})))]
+      (let [{:keys [status body]}
+            (ts/request
+             :post
+             (str "/api/conversations/" (:id conversation) "/messages")
+             {:is_user true :content "Which red tonight?"})]
+        (is (= 201 status))
+        (is (= "Which red tonight?" (get-in body [:message :content])))))))

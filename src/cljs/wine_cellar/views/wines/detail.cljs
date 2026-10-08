@@ -1,7 +1,6 @@
 (ns wine-cellar.views.wines.detail
   (:require
     [clojure.string :as str]
-    [cljs.core.async :refer [<! go]]
     [goog.string :as gstring]
     [goog.string.format]
     [goog.object :as gobj]
@@ -1306,8 +1305,10 @@
   [app-state selected-wine-id selected-wine]
   (fn []
     (when (js/confirm (delete-wine-confirmation-text selected-wine))
-      (go (<! (api/delete-wine app-state selected-wine-id))
-          (nav/replace-wines!)))))
+      ;; A failed delete is already on the banner; stay on the wine.
+      (.then (api/delete-wine app-state selected-wine-id)
+             #(nav/replace-wines!)
+             (fn [_])))))
 
 (defn share-wine-url
   "Build a shareable URL for the given wine id"
