@@ -27,7 +27,17 @@
   [{:value :all :label "All time" :days nil}
    {:value :90d :label "90 days" :days 90}
    {:value :30d :label "30 days" :days 30} {:value :7d :label "7 days" :days 7}
-   {:value :1d :label "24 hours" :days 1}])
+   {:value :3d :label "3 days" :days 3} {:value :1d :label "24 hours" :days 1}])
+
+(def ^:private raw-max-days
+  "Longest range \"Every reading\" keeps: a reading every half minute is
+  about 2,900 points a day, and much more than a few days of that is slow to
+  draw and too dense to read."
+  3)
+
+(defn- range-days
+  [range]
+  (:days (some #(when (= (:value %) range) %) range-options)))
 
 (defn- now-iso [] (.toISOString (js/Date.)))
 
@@ -41,9 +51,7 @@
 (defn- load-sensor-data!
   [app-state]
   (let [{:keys [device-id bucket range]} (:sensor-readings @app-state)
-        from (let [days (:days (some #(when (= (:value %) range) %)
-                                     range-options))]
-               (iso-days-ago days))]
+        from (iso-days-ago (range-days range))]
     (api/fetch-latest-sensor-readings app-state {:device-id device-id})
     (api/fetch-sensor-series
      app-state
@@ -161,12 +169,34 @@
                             :hour "2-digit"
                             :minute "2-digit"}))))
 
-(defn- tooltip-formatter
-  [unit decimals]
-  (fn [v _ payload]
-    (let [n (js/Number v)
-          p (.-payload payload)]
-      #js [(str (.toFixed n decimals) unit) (str (gobj/get p "device_id"))])))
+(defn- swatch
+  "A short stroke in a series' colour, so a tooltip value can be matched to
+  its line."
+  [color]
+  [:span
+   {:style {:display "inline-block"
+            :width 14
+            :height 3
+            :marginLeft 8
+            :verticalAlign "middle"
+            :borderRadius 2
+            :backgroundColor color}}])
+
+(defn- tooltip-props
+  "One tooltip for every chart: entries highest first, the same top-to-bottom
+  order as the lines, each value followed by its line's colour. item-name,
+  when given, renames an entry from its recharts item."
+  [{:keys [unit decimals item-name]}]
+  {:contentStyle #js {:backgroundColor "#2b0e16" :border "1px solid #f4f0eb"}
+   :labelStyle #js {:color "#f4f0eb"}
+   :itemStyle #js {:color "#f4f0eb"}
+   :labelFormatter (fn [value] (or (format-bucket-ts value) value))
+   :itemSorter (fn [item] (- (js/Number (.-value item))))
+   :formatter (fn [v line-name item]
+                #js [(r/as-element [:span
+                                    (str (.toFixed (js/Number v) decimals) unit)
+                                    [swatch (.-color item)]])
+                     (if item-name (item-name item) line-name)])})
 
 (defn- chart-lines
   [devices palette metric]
@@ -229,12 +259,9 @@
                                    (str (.toFixed n decimals) unit)))}
          autoscale? (assoc :domain #js ["auto" "auto"]))]
       [:> Tooltip
-       {:contentStyle #js {:backgroundColor "#2b0e16"
-                           :border "1px solid #f4f0eb"}
-        :labelStyle #js {:color "#f4f0eb"}
-        :itemStyle #js {:color "#f4f0eb"}
-        :labelFormatter (fn [value] (or (format-bucket-ts value) value))
-        :formatter (tooltip-formatter unit decimals)}]
+       (tooltip-props {:unit unit
+                       :decimals decimals
+                       :item-name #(str (gobj/get (.-payload %) "device_id"))})]
       [:> Legend {:wrapperStyle #js {:color "#f4f0eb"}}]
       (chart-lines devices palette metric)]]))
 
@@ -247,10 +274,17 @@
      :value (or (:bucket state) "")
      :label "Bucket size"
      :onChange (fn [e]
-                 (swap! app-state assoc-in
-                   [:sensor-readings :bucket]
-                   (.. e -target -value))
-                 (load-sensor-data! app-state))}
+                 (let [bucket (.. e -target -value)]
+                   (swap! app-state update
+                     :sensor-readings
+                     (fn [sr]
+                       (let [days (range-days (:range sr))]
+                         (cond-> (assoc sr :bucket bucket)
+                           ;; nil days is "All time"
+                           (and (= "raw" bucket)
+                                (or (nil? days) (> days raw-max-days)))
+                           (assoc :range :1d)))))
+                   (load-sensor-data! app-state)))}
     (for [{:keys [value label]} bucket-options]
       ^{:key value} [menu-item {:value value} label])]])
 
@@ -365,12 +399,7 @@
         :axisLine {:stroke "#f4f0eb"}
         :domain #js ["auto" "auto"]
         :tickFormatter (fn [v] (str (.toFixed (js/Number v) 1) "°F"))}]
-      [:> Tooltip
-       {:contentStyle #js {:backgroundColor "#2b0e16"
-                           :border "1px solid #f4f0eb"}
-        :labelStyle #js {:color "#f4f0eb"}
-        :itemStyle #js {:color "#f4f0eb"}
-        :labelFormatter (fn [value] (or (format-bucket-ts value) value))}]
+      [:> Tooltip (tooltip-props {:unit "°F" :decimals 1})]
       [:> Legend {:wrapperStyle #js {:color "#f4f0eb"}}]
       (for [[idx [device sk]] (map-indexed vector pairs)]
         ^{:key (str device "_" sk)}

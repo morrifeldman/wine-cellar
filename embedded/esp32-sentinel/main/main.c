@@ -365,7 +365,10 @@ static esp_err_t post_sensor_reading(void) {
     }
 
     // DS18B20 Readings (multiple sensors)
+    // Successful reads only, each with the address of the probe it came from:
+    // a failed read must not shift later readings onto the wrong probe.
     float ds_temps[DS18B20_MAX_DEVICES];
+    uint64_t ds_temp_addrs[DS18B20_MAX_DEVICES];
     int ds_temp_count = 0;
     if (s_ds18b20_count > 0) {
         // Trigger conversion on all devices
@@ -382,7 +385,9 @@ static esp_err_t post_sensor_reading(void) {
             esp_err_t ds_err = ds18b20_get_temperature(s_ds18b20_devices[i], &t);
             if (ds_err == ESP_OK) {
                 ESP_LOGI(TAG, "DS18B20[%d]: T=%.2fC", i, t);
-                ds_temps[ds_temp_count++] = t;
+                ds_temps[ds_temp_count] = t;
+                ds_temp_addrs[ds_temp_count] = s_ds18b20_addrs[i];
+                ds_temp_count++;
             } else {
                 ESP_LOGE(TAG, "DS18B20[%d] read failed: %s", i, esp_err_to_name(ds_err));
             }
@@ -436,7 +441,7 @@ static esp_err_t post_sensor_reading(void) {
             tj_written += snprintf(temps_json + tj_written, sizeof(temps_json) - tj_written, ",");
         }
         tj_written += snprintf(temps_json + tj_written, sizeof(temps_json) - tj_written,
-                               "\"%012llX\":%.2f", (unsigned long long)s_ds18b20_addrs[i], ds_temps[i]);
+                               "\"%012llX\":%.2f", (unsigned long long)ds_temp_addrs[i], ds_temps[i]);
         has_any_temp = true;
     }
     if (!isnan(temp_bme)) {
@@ -469,7 +474,7 @@ static esp_err_t post_sensor_reading(void) {
         display_status.temps[display_status.temp_count] = ds_temps[i];
         snprintf(display_status.temp_labels[display_status.temp_count],
                  CELLAR_DISPLAY_LABEL_LEN, "%012llX",
-                 (unsigned long long)s_ds18b20_addrs[i]);
+                 (unsigned long long)ds_temp_addrs[i]);
         display_status.temp_count++;
     }
     if (!isnan(temp_bme) && display_status.temp_count < CELLAR_DISPLAY_MAX_TEMPS) {
