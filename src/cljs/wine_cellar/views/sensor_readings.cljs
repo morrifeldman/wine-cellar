@@ -2,7 +2,6 @@
   (:require [wine-cellar.views.components.placeholders :refer [empty-state]]
             [reagent.core :as r]
             [wine-cellar.api :as api]
-            [wine-cellar.utils.formatting :refer [format-date]]
             [goog.object :as gobj]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.paper :refer [paper]]
@@ -57,7 +56,19 @@
        distinct
        sort))
 
-(defn- format-timestamp [ts] (if ts (format-date ts) "–"))
+(defn- format-timestamp
+  "Local date and time, e.g. \"Oct 10, 2026, 9:42 AM\". The date alone
+  (and a UTC one at that) can't say whether a sensor is still reporting."
+  [ts]
+  (if ts
+    (.toLocaleString (js/Date. ts)
+                     "en-US"
+                     #js {:month "short"
+                          :day "numeric"
+                          :year "numeric"
+                          :hour "numeric"
+                          :minute "2-digit"})
+    "–"))
 
 (defn- fahrenheit "Convert Celsius to Fahrenheit." [c] (+ (* 1.8 c) 32))
 

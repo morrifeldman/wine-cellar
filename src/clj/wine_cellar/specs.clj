@@ -114,7 +114,10 @@
 (s/def ::refresh_token (s/and string? (complement str/blank?)))
 (s/def ::firmware_version (s/nilable string?))
 (s/def ::capabilities (s/nilable map?))
-(s/def ::series-query (s/keys :opt-un [::device_id ::bucket ::from ::to]))
+;; An IANA zone name such as "America/Los_Angeles"; Postgres rejects unknown
+;; ones.
+(s/def ::tz (s/and string? #(re-matches #"[A-Za-z0-9_+\-/]{1,64}" %)))
+(s/def ::series-query (s/keys :opt-un [::device_id ::bucket ::from ::to ::tz]))
 (s/def ::metadata (s/nilable map?))
 (s/def ::sensor_config (s/nilable map?))
 (s/def ::sensor-reading

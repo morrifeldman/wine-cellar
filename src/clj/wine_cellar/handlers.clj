@@ -835,10 +835,10 @@
 
 (defn sensor-reading-series
   [request]
-  (let [{:keys [device_id bucket from to]}
+  (let [{:keys [device_id bucket from to tz]}
         (or (get-in request [:parameters :query]) {})]
     (http/ok (db-api/sensor-reading-series
-              {:device_id device_id :bucket bucket :from from :to to}))))
+              {:device_id device_id :bucket bucket :from from :to to :tz tz}))))
 
 (defn- start-bulk-job
   [request {:keys [job-label start-fn message]}]
