@@ -53,3 +53,13 @@
                    "/api/sensor-readings/series?bucket=1d&tz=Not/AZone"
                    nil)))
       "an unknown zone is a bad request"))
+
+(deftest raw-buckets-are-the-readings-themselves
+  (doseq [at ["2026-10-10T13:00:00Z" "2026-10-10T13:00:37Z"]]
+    (db/create-sensor-reading!
+     {:device_id "zz-raw" :measured_at at :humidity_pct 60.0}))
+  (is (= ["2026-10-10T13:00:00Z" "2026-10-10T13:00:37Z"]
+         (map :bucket_start
+              (db/sensor-reading-series {:device_id "zz-raw"
+                                         :bucket "raw"
+                                         :tz "America/Los_Angeles"})))))

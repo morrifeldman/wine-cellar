@@ -107,7 +107,7 @@
 (s/def ::content string?)
 (s/def ::tokens_used (s/nilable int?))
 (s/def ::oz (s/and number? pos?))
-(s/def ::bucket #{"15m" "1h" "6h" "1d"})
+(s/def ::bucket #{"raw" "15m" "1h" "6h" "1d"})
 (s/def ::from ::measured_at)
 (s/def ::to ::measured_at)
 (s/def ::claim_code (s/and string? (complement str/blank?)))

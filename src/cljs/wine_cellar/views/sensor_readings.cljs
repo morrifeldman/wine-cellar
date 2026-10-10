@@ -19,8 +19,9 @@
               Tooltip Legend]]))
 
 (def bucket-options
-  [{:value "15m" :label "15 min"} {:value "1h" :label "1 hour"}
-   {:value "6h" :label "6 hours"} {:value "1d" :label "1 day"}])
+  [{:value "raw" :label "Every reading"} {:value "15m" :label "15 min"}
+   {:value "1h" :label "1 hour"} {:value "6h" :label "6 hours"}
+   {:value "1d" :label "1 day"}])
 
 (def range-options
   [{:value :all :label "All time" :days nil}
@@ -137,6 +138,17 @@
     (when leak_detected
       [chip {:label "Leak detected" :color "error" :size "small"}])]])
 
+(defn- time-tick-formatter
+  "Dates on the x-axis, or times of day when the chart spans two days or less
+  (a 24-hour chart labelled only with dates says nothing)."
+  [chart-data]
+  (let [ts (keep :bucket_ts chart-data)
+        span-ms (if (seq ts) (- (apply max ts) (apply min ts)) 0)
+        opts (if (<= span-ms (* 2 24 60 60 1000))
+               #js {:hour "numeric" :minute "2-digit"}
+               #js {:month "short" :day "numeric"})]
+    (fn [value] (.toLocaleString (js/Date. value) "en-US" opts))))
+
 (defn- format-bucket-ts
   [ts]
   (when ts
@@ -208,12 +220,7 @@
         :domain #js ["dataMin" "dataMax"]
         :tick {:fill "#f4f0eb"}
         :axisLine {:stroke "#f4f0eb"}
-        :tickFormatter (fn [value]
-                         (let [d (js/Date. value)]
-                           (.toLocaleDateString d
-                                                "en-US"
-                                                #js {:month "short"
-                                                     :day "numeric"})))}]
+        :tickFormatter (time-tick-formatter chart-data)}]
       [:> YAxis
        (cond-> {:tick {:fill "#f4f0eb"}
                 :axisLine {:stroke "#f4f0eb"}
@@ -352,12 +359,7 @@
         :domain #js ["dataMin" "dataMax"]
         :tick {:fill "#f4f0eb"}
         :axisLine {:stroke "#f4f0eb"}
-        :tickFormatter (fn [value]
-                         (let [d (js/Date. value)]
-                           (.toLocaleDateString d
-                                                "en-US"
-                                                #js {:month "short"
-                                                     :day "numeric"})))}]
+        :tickFormatter (time-tick-formatter chart-data)}]
       [:> YAxis
        {:tick {:fill "#f4f0eb"}
         :axisLine {:stroke "#f4f0eb"}
