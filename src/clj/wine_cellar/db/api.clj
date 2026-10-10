@@ -990,18 +990,22 @@
   and returns avg_temperatures as a JSONB map {sensor_key: avg_value}."
   [{:keys [device_id from to bucket tz]}]
   (let
-    [bucket-seconds (get bucket->seconds bucket 3600)
+    [raw? (= "raw" bucket)
+     bucket-seconds (get bucket->seconds bucket 3600)
      tz (or tz "UTC")
      ;; Buckets line up with the viewer's clock, so a day bucket is a local
      ;; day: floor the local wall-clock time, then turn it back into an
      ;; instant. Flooring the UTC epoch put a US evening's readings on the
      ;; next date's bucket and labelled today's as yesterday. Takes tz
-     ;; twice.
+     ;; twice. "raw" makes every reading its own bucket.
      bucket-expr
-     (format
-      "((to_timestamp(floor(extract(epoch from (sr.measured_at AT TIME ZONE ?))/%d)*%d) AT TIME ZONE 'UTC') AT TIME ZONE ?)"
-      bucket-seconds
-      bucket-seconds)
+     (if raw?
+       "sr.measured_at"
+       (format
+        "((to_timestamp(floor(extract(epoch from (sr.measured_at AT TIME ZONE ?))/%d)*%d) AT TIME ZONE 'UTC') AT TIME ZONE ?)"
+        bucket-seconds
+        bucket-seconds))
+     tz-params (if raw? [] [tz tz])
      conditions (cond-> ["1=1"]
                   device_id (conj "sr.device_id = ?")
                   from (conj "sr.measured_at >= ?::timestamptz")
@@ -1058,7 +1062,8 @@
       " LEFT JOIN temp_json t ON b.device_id = t.device_id AND b.bucket_start = t.bucket_start"
       " ORDER BY b.bucket_start ASC, b.device_id ASC")
      rows (jdbc/execute! ds
-                         (into [sql-str] (concat [tz tz] params [tz tz] params))
+                         (into [sql-str]
+                               (concat tz-params params tz-params params))
                          db-opts)]
     (->> rows
          (map (fn [row]
