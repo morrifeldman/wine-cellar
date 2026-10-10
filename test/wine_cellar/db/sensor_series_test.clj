@@ -30,3 +30,26 @@
     (is (= {:probe 1.0} (update-vals (:avg_temperatures first-hour) double)))
     (is (= "zz-series" (:device_id first-hour)))
     (is (= 20 (count first-hour)) "device, bucket and every statistic")))
+
+(deftest day-buckets-follow-the-viewers-days
+  ;; 8pm and 11pm Pacific on Oct 9 are already Oct 10 in UTC.
+  (doseq [at ["2026-10-10T03:00:00Z" "2026-10-10T06:00:00Z"
+              ;; 9am Pacific on Oct 10
+              "2026-10-10T16:00:00Z"]]
+    (db/create-sensor-reading!
+     {:device_id "zz-days" :measured_at at :humidity_pct 60.0}))
+  (is (= ["2026-10-09T07:00:00Z" "2026-10-10T07:00:00Z"]
+         (map :bucket_start
+              (db/sensor-reading-series
+               {:device_id "zz-days" :bucket "1d" :tz "America/Los_Angeles"})))
+      "local midnights, Oct 9 and Oct 10")
+  (is (= ["2026-10-10T00:00:00Z"]
+         (map :bucket_start
+              (db/sensor-reading-series {:device_id "zz-days" :bucket "1d"})))
+      "with no zone, UTC days")
+  (is (= 400
+         (:status (ts/request
+                   :get
+                   "/api/sensor-readings/series?bucket=1d&tz=Not/AZone"
+                   nil)))
+      "an unknown zone is a bad request"))

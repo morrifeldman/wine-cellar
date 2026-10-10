@@ -5,7 +5,8 @@
    wine_cellar_test) that is dropped and recreated once per test run, using
    the same connection settings as the app. The app's mount states start with
    that database swapped in; the HTTP server and scheduler stay off."
-  (:require [jsonista.core :as json]
+  (:require [clojure.string :as str]
+            [jsonista.core :as json]
             [mount.core :as mount]
             [next.jdbc :as jdbc]
             [wine-cellar.auth.core :as auth]
@@ -49,15 +50,17 @@
 
 (defn request
   "Calls the app's ring handler as a logged-in user, or with `:token` as the
-   bearer token. `body` is sent as JSON; the response body comes back parsed,
+   bearer token. uri may carry a ?query. `body` is sent as JSON; the response body comes back parsed,
    with keyword keys."
   ([method uri] (request method uri nil))
   ([method uri body] (request method uri body {}))
   ([method uri body {:keys [token]}]
    (let [token (or token (auth/create-jwt-token {:email test-email}))
+         [path query] (str/split uri #"\?" 2)
          response (routes/app
                    (cond-> {:request-method method
-                            :uri uri
+                            :uri path
+                            :query-string query
                             :headers {"accept" "application/json"
                                       "authorization" (str "Bearer " token)}}
                      body (-> (assoc-in [:headers "content-type"]

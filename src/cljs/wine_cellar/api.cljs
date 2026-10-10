@@ -283,10 +283,15 @@
 (defn fetch-sensor-series
   [app-state {:keys [device-id bucket from to]}]
   (request! app-state
-            {:url (str
-                   "/api/sensor-readings/series"
-                   (encode-query-params
-                    {:device_id device-id :bucket bucket :from from :to to}))
+            {:url
+             (str "/api/sensor-readings/series"
+                  (encode-query-params
+                   {:device_id device-id
+                    :bucket bucket
+                    :from from
+                    :to to
+                    ;; Buckets follow this browser's days and hours.
+                    :tz (.. js/Intl DateTimeFormat resolvedOptions -timeZone)}))
              :error-msg "Failed to fetch sensor series"
              :loading [:sensor-readings :loading-series?]
              :on-success #(assoc-in %1 [:sensor-readings :series] %2)}))
