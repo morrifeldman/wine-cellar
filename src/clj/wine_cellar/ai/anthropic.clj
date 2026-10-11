@@ -163,7 +163,8 @@
   (let [request {:system system
                  :messages [{:role "user" :content [{:type "text" :text user}]}]
                  :output_config (json-output (schemas/->json-schema
-                                              schemas/drinking-window))}]
+                                              schemas/drinking-window
+                                              {:typed-enums? false}))}]
     (call-anthropic-api request true)))
 
 (defn analyze-wine-label
@@ -176,7 +177,8 @@
   (let [request {:system system
                  :messages [{:role "user" :content (vec user-content)}]
                  :output_config (json-output (schemas/->json-schema
-                                              schemas/wine-label))}]
+                                              schemas/wine-label
+                                              {:typed-enums? false}))}]
     (call-anthropic-api request true)))
 
 (defn analyze-spirit-label
@@ -189,7 +191,8 @@
   (let [request {:system system
                  :messages [{:role "user" :content (vec user-content)}]
                  :output_config (json-output (schemas/->json-schema
-                                              schemas/spirit-label))}]
+                                              schemas/spirit-label
+                                              {:typed-enums? false}))}]
     (call-anthropic-api request true)))
 
 (def web-fetch-tool

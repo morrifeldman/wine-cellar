@@ -85,20 +85,25 @@
     [:proof (label-field :integer "Proof value as an integer (e.g. 80).")]]})
 
 (defn- json-field
-  [{:keys [type nullable? enum description]}]
+  [{:keys [type nullable? enum description]} typed-enums?]
   (let [t (name type)]
-    (cond-> {:type (if nullable? [t "null"] t)}
+    (cond-> {}
+      (or typed-enums? (not enum)) (assoc :type (if nullable? [t "null"] t))
       enum (assoc :enum (cond-> (vec enum) nullable? (conj nil)))
       description (assoc :description description))))
 
 (defn ->json-schema
   "Strict JSON Schema, as Anthropic's output_config and OpenAI's json_schema
-  format take it: every field required, nullable ones typed [t \"null\"]."
-  [{:keys [fields]}]
-  {:type "object"
-   :properties (into {} (map (fn [[k f]] [k (json-field f)])) fields)
-   :required (mapv first fields)
-   :additionalProperties false})
+  format take it: every field required, nullable ones typed [t \"null\"].
+  Anthropic rejects a type list next to an enum, so for Anthropic pass
+  :typed-enums? false and the enum alone (null included) types the field."
+  ([schema] (->json-schema schema {:typed-enums? true}))
+  ([{:keys [fields]} {:keys [typed-enums?]}]
+   {:type "object"
+    :properties
+    (into {} (map (fn [[k f]] [k (json-field f typed-enums?)])) fields)
+    :required (mapv first fields)
+    :additionalProperties false}))
 
 (defn- gemini-field
   [{:keys [type nullable? enum description]}]

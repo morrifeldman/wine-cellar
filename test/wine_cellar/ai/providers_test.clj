@@ -63,19 +63,25 @@
       (is (= reply-json (first (call provider #(f window-prompt))))))))
 
 (deftest one-schema-in-each-dialect
-  (testing "Anthropic: strict JSON Schema, nullable fields typed [t null]"
+  (testing "Anthropic: strict JSON Schema; an enum alone types its field"
     (let [schema (get-in (second (call :anthropic
                                        #(anthropic/analyze-spirit-label
                                          label-prompt)))
-                         [:output_config :format :schema])]
-      (is (= ["string" "null"] (get-in schema [:properties :category :type])))
-      (is (some #{"vermouth"} (get-in schema [:properties :category :enum])))
+                         [:output_config :format :schema])
+          category (get-in schema [:properties :category])]
+      (is (not (contains? category :type))
+          "Anthropic rejects a type list next to an enum")
+      (is (some #{"vermouth"} (:enum category)))
+      (is (some nil? (:enum category)) "null is one of the choices")
+      (is (= ["string" "null"] (get-in schema [:properties :distillery :type])))
       (is (false? (:additionalProperties schema)))))
   (testing "OpenAI: the same schema, named, strict"
     (let [fmt (get-in (second (call :openai
                                     #(openai/analyze-wine-label label-prompt)))
                       [:text :format])]
       (is (= "WineLabelAnalysis" (:name fmt)))
+      (is (= ["string" "null"]
+             (get-in fmt [:schema :properties :appellation_tier :type])))
       (is (true? (:strict fmt)))
       (is (string? (get-in fmt [:schema :properties :region :description])))))
   (testing "Gemini: upper-case types with a nullable flag"
