@@ -1,13 +1,16 @@
 (ns wine-cellar.ai.providers-test
   "The providers against a stubbed HTTP client: what each sends, and that
    each one's reply comes back as the same data."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
             [jsonista.core :as json]
             [org.httpkit.client :as http]
             [wine-cellar.ai.anthropic :as anthropic]
             [wine-cellar.ai.core]
             [wine-cellar.ai.gemini :as gemini]
-            [wine-cellar.ai.openai :as openai]))
+            [wine-cellar.ai.openai :as openai]
+            [wine-cellar.ai.prompts :as prompts]
+            [wine-cellar.ai.schemas :as schemas]))
 
 (def ^:private reply-json {:drink_from_year 2026 :drink_until_year 2034})
 
@@ -172,3 +175,12 @@
                                                :finishReason "MAX_TOKENS"}]}}])]
       (is (= 502 (:status (ex-data e))))
       (is (re-find #"ran out of room" (ex-message e))))))
+
+(deftest prompts-describe-the-fields-the-schema-enforces
+  (doseq [[schema prompt]
+          [[schemas/wine-label (prompts/label-analysis-system-prompt)]
+           [schemas/spirit-label (prompts/spirit-label-analysis-system-prompt)]
+           [schemas/drinking-window (prompts/drinking-window-system-prompt)]]
+          [k {:keys [description]}] (:fields schema)]
+    (testing (str (:name schema) " " (name k))
+      (is (str/includes? prompt (str "- " (name k) ": " description))))))

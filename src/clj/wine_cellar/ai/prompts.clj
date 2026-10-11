@@ -1,6 +1,7 @@
 (ns wine-cellar.ai.prompts
   "Shared prompt helpers for AI providers."
   (:require [clojure.string :as str]
+            [wine-cellar.ai.schemas :as schemas]
             [wine-cellar.common :as common]
             [wine-cellar.summary :as summary]))
 
@@ -509,58 +510,19 @@
 (defn label-analysis-system-prompt
   ([] (label-analysis-system-prompt nil))
   ([classifications]
-   (let [style-options (str/join ", " (sort common/wine-styles))
-         designation-options (str/join ", " (sort common/wine-designations))
-         tier-options (str/join ", " (sort common/appellation-tiers))
-         format-options (str/join ", " common/bottle-formats)
-         classifications-context (format-classifications-context
+   (let [classifications-context (format-classifications-context
                                   classifications)]
      (str
       "You are a wine expert tasked with extracting information from wine label images. "
-      "Analyze the provided wine label images and extract the following information in JSON format:\n\n"
+      "Analyze the provided wine label images and extract the following information:\n\n"
       taxonomy-summary
       "\n\n"
-      "- producer: The wine producer/winery name\n"
-      "- name: The specific name of the wine (if different from producer)\n"
-      "- vintage: The year the wine was produced (numeric, or null for non-vintage)\n"
-      "- country: The country of origin\n"
-      "- region: "
-      (:region common/field-descriptions)
-      "\n"
-      "- appellation: "
-      (:appellation common/field-descriptions)
-      "\n"
-      "- appellation_tier: "
-      (:appellation_tier common/field-descriptions)
-      " Must be one of: "
-      tier-options
-      "\n"
-      "- vineyard: "
-      (:vineyard common/field-descriptions)
-      "\n"
-      "- classification: "
-      (:classification common/field-descriptions)
-      "\n"
-      "- style: The wine style. Must be one of: "
-      style-options
-      "\n"
-      "- designation: "
-      (:designation common/field-descriptions)
-      " Must be one of: "
-      designation-options
-      "\n"
-      "- bottle_format: The bottle size/format. Must be one of: "
-      format-options
-      "\n"
-      "- alcohol_percentage: The percentage of alcohol if it is visible\n\n"
+      (schemas/prompt-fields schemas/wine-label)
       (when classifications-context
         (str
-         "Use the following known wine regions/classifications as a reference guide to improve accuracy, "
+         "\n\nUse the following known wine regions/classifications as a reference guide to improve accuracy, "
          "but trust the label text above all:\n"
-         classifications-context
-         "\n\n"))
-      "Return ONLY a valid parseable JSON object with these fields. If you cannot determine a value, use null for that field. "
-      "Do not nest the result in a markdown code block. Do not include any explanatory text outside the JSON object."))))
+         classifications-context))))))
 
 (defn label-analysis-user-content
   [front-image back-image]
@@ -587,11 +549,10 @@
   ([] (spirit-label-analysis-system-prompt nil))
   ([subcategory-tree]
    (let
-     [categories (str/join ", " common/spirit-categories)
-      subcategory-hint
+     [subcategory-hint
       (when (seq subcategory-tree)
         (str
-         " Known subcategories already in use, by category:\n"
+         "\n\nKnown subcategories already in use, by category:\n"
          (str/join "\n"
                    (for [[category subcategories] (sort subcategory-tree)]
                      (str "  " category
@@ -604,20 +565,9 @@
       "AND your expert knowledge about this specific product to fill in every field. "
       "For well-known spirits, you should know the distillery, country, region, proof, "
       "and subcategory even if not all are clearly visible on the label.\n\n"
-      "Extract the following fields as JSON:\n\n"
-      "- name: The expression/product name (e.g. \"Black Label 12 Year\", \"Small Batch\"), NOT the brand/distillery\n"
-      "- category: Spirit type. Must be one of: "
-      categories
-      "\n"
-      "- subcategory: More specific type (e.g. \"bourbon\", \"rye\", \"single malt\", \"reposado\", \"amaro\"), else null."
-      subcategory-hint
-      "\n"
-      "- distillery: Producer, brand, or distillery name (e.g. \"Johnnie Walker\", \"Buffalo Trace\")\n"
-      "- country: Country of origin\n"
-      "- region: Region of production (e.g. Speyside, Jalisco, Kentucky)\n"
-      "- age_statement: Age statement text if present (e.g. \"12 Year\"), else null\n"
-      "- proof: Proof value as an integer (e.g. 80). If only ABV% is shown, convert to proof (ABV * 2). Use your knowledge if not on label. Null only if truly unknown.\n\n"
-      "Return ONLY a valid JSON object. Use null only when you genuinely don't know."))))
+      "Extract the following fields:\n\n"
+      (schemas/prompt-fields schemas/spirit-label)
+      subcategory-hint))))
 
 (defn drinking-window-system-prompt
   []
@@ -650,14 +600,11 @@
    "variation, which can modestly accelerate maturation. Factor these real-world "
    "conditions into your drinking-window estimate rather than assuming perfectly "
    "controlled cold storage.\n\n"
-   "The current year is " (current-year)
-   ".\n\n" "Return your response in JSON format with the following fields:\n"
-   "- drink_from_year: (integer) The year the optimal drinking window opens — when the wine first reaches peak quality. May be a past year for already-mature wines.\n"
-   "- drink_until_year: (integer) The last year the wine stays at peak quality (not merely drinkable). May be at or before the current year for wines already in decline.\n"
-   "- confidence: (string) \"high\", \"medium\", or \"low\" based on how confident you are in this assessment\n"
-   "- reasoning: (string) A brief explanation of your recommendation focusing on peak quality timing, and mention the broader window when the wine remains enjoyable to drink\n\n"
-   "Only return a valid parseable JSON object without any additional text. "
-   "Do not nest the response in a markdown code block."))
+   "The current year is "
+   (current-year)
+   ".\n\n"
+   "Fill in these fields:\n"
+   (schemas/prompt-fields schemas/drinking-window)))
 
 (defn drinking-window-user-message
   [wine]
