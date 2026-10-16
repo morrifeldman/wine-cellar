@@ -26,6 +26,16 @@
 
 (def default-opts {:with-credentials? true})
 
+(defn wine-thumbnail-url
+  "Where a list card loads its label from, or nil when the wine has none. The
+   version is the thumbnail's hash, so a new label gets a new URL and the
+   browser can cache each one for good."
+  [{:keys [id label_thumbnail_version]}]
+  (when label_thumbnail_version
+    (str api-base-url
+         "/api/wines/by-id/" id
+         "/thumbnail?v=" label_thumbnail_version)))
+
 (defn handle-api-response
   [response error-msg]
   (cond

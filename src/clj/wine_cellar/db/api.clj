@@ -5,9 +5,10 @@
             [jsonista.core :as json]
             [wine-cellar.common :as common]
             [wine-cellar.db.connection :refer [db-opts ds q-many q-one]])
-  (:import [java.sql Date Timestamp]
+  (:import [java.security MessageDigest]
+           [java.sql Date Timestamp]
            [java.time Instant]
-           [java.util Base64]))
+           [java.util Base64 HexFormat]))
 
 ;; Single-row CRUD on tables keyed by :id. Callers convert rows to and from
 ;; their table's column types.
@@ -149,9 +150,20 @@
                                                        str/lower-case
                                                        keyword))))))
 
+(defn- md5-hex
+  "Hex MD5 of `bytes`, the same string PostgreSQL's md5() gives."
+  [^bytes bytes]
+  (.formatHex (HexFormat/of) (.digest (MessageDigest/getInstance "MD5") bytes)))
+
 (defn db-wine->wine
   [{:keys [label_image label_thumbnail back_label_image] :as db-wine}]
   (cond-> db-wine
+    ;; The list fetches thumbnails by URL, keyed on this, so a wine row
+    ;; that carries its thumbnail also says which one it is (nil once
+    ;; removed, so the card drops it).
+    (contains? db-wine :label_thumbnail) (assoc :label_thumbnail_version
+                                                (some-> label_thumbnail
+                                                        md5-hex))
     label_image (update :label_image bytes->base64)
     label_thumbnail (update :label_thumbnail bytes->base64)
     back_label_image (update :back_label_image bytes->base64)))
@@ -474,15 +486,16 @@
    :vineyard :designation :name :vintage :style :closure_type :bottle_format
    :location :purveyor :quantity :original_quantity :price :drink_from_year
    :drink_until_year :alcohol_percentage :disgorgement_year :dosage
-   :label_thumbnail :created_at :updated_at :verified :purchase_date
-   :latest_internal_rating :average_external_rating :varieties :metadata
-   :open_bottle_opened_at :open_bottle_oz_poured])
+   ;; Not the thumbnail itself: inlining every label made the list
+   ;; megabytes. Cards fetch it by URL, versioned on this hash.
+   [[:md5 :label_thumbnail] :label_thumbnail_version] :created_at :updated_at
+   :verified :purchase_date :latest_internal_rating :average_external_rating
+   :varieties :metadata :open_bottle_opened_at :open_bottle_oz_poured])
 
 (defn get-wines-for-list
   []
-  ;; Listing columns explicitly since the only image we are getting is the
-  ;; label_thumbnail. The :varieties JSON is auto-parsed by our PgObject
-  ;; ext.
+  ;; Listing columns explicitly to leave the images out. The :varieties
+  ;; JSON is auto-parsed by our PgObject ext.
   (mapv db-wine->wine
         (q-many {:select wine-list-fields
                  :from :enriched_wines
@@ -502,6 +515,12 @@
               :from :enriched_wines
               :where [:= :id id]})
       db-wine->wine))
+
+(defn get-wine-thumbnail
+  "The label thumbnail's JPEG bytes, or nil."
+  [id]
+  (:label_thumbnail
+   (q-one {:select [:label_thumbnail] :from :wines :where [:= :id id]})))
 
 (def enriched-wine-fields-for-ai
   (conj wine-list-fields :tasting_notes :tasting_window_commentary :ai_summary))

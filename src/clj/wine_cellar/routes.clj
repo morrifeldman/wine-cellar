@@ -507,6 +507,9 @@
       {:get {:summary "Get inventory history for a wine"
              :responses {200 {:body vector?}}
              :handler handlers/get-inventory-history}}]
+     ["/thumbnail"
+      {:get {:summary "Label thumbnail JPEG, for the wine list"
+             :handler handlers/get-wine-thumbnail}}]
      ["/image"
       {:put {:summary "Upload wine label image"
              :parameters {:body specs/image-update-schema}

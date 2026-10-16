@@ -12,7 +12,8 @@
             [wine-cellar.summary :as summary]
             [wine-cellar.logging :as logging]
             [wine-cellar.utils.web-fetch :as web-fetch])
-  (:import [java.time Instant]))
+  (:import [java.io ByteArrayInputStream]
+           [java.time Instant]))
 
 (defn- if-wine
   "If the wine identified by `id` exists, run `f` and return its ring response;
@@ -72,6 +73,17 @@
   (http/ok (db-api/get-appellations-by-region country region)))
 
 (defn get-wines-for-list [_] (http/ok (db-api/get-wines-for-list)))
+
+(defn get-wine-thumbnail
+  "The URL carries the thumbnail's hash, so a given URL never changes and the
+   browser can keep it."
+  [{{{:keys [id]} :path} :parameters}]
+  (if-let [thumb (db-api/get-wine-thumbnail id)]
+    {:status 200
+     :headers {"Content-Type" "image/jpeg"
+               "Cache-Control" "private, max-age=31536000, immutable"}
+     :body (ByteArrayInputStream. thumb)}
+    (http/not-found "Thumbnail")))
 
 (defn get-technical-data-keys [_] (http/ok (db-api/get-all-metadata-keys)))
 

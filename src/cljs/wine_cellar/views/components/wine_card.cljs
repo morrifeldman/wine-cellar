@@ -48,11 +48,13 @@
          :display "flex"
          :alignItems "center"
          :justifyContent "center"}}
-   (if (:label_thumbnail wine)
+   (if-let [src (api/wine-thumbnail-url wine)]
      [box
       {:component "img"
-       :src (:label_thumbnail wine)
+       :src src
        :alt ""
+       :loading "lazy"
+       :decoding "async"
        :sx {:width "100%" :height "100%" :objectFit "cover" :display "block"}}]
      [wine-bar {:sx {:color "text.disabled" :fontSize 32}}])])
 
