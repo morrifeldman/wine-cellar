@@ -173,8 +173,7 @@
                          (update :quantity (fn [q] (js/parseInt q 10)))
                          (update :original_quantity
                                  (fn [_] (js/parseInt (:quantity new-wine) 10)))
-                         (assoc :tasting_window_commentary commentary)
-                         (assoc :create-classification-if-needed true))))))))]
+                         (assoc :tasting_window_commentary commentary))))))))]
     [form-container {:title "Add a wine" :on-submit submit-handler}
      ;; Wine Label Images Section
      [form-divider "Label photos"]

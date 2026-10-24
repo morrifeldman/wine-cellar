@@ -259,15 +259,19 @@
   [app-state]
   (let [path [:new-wine :varieties]
         varieties (get-in @app-state path)
+        ;; checks the list current at the time of adding, not this
+        ;; render's: Enter adds the grape and the field's blur then offers
+        ;; it again
         add! (fn [variety-name]
                (let [trimmed (str/trim (or variety-name ""))]
-                 (when-not (or (str/blank? trimmed)
-                               (some #(same-variety? trimmed (:variety_name %))
-                                     varieties))
+                 (when-not (str/blank? trimmed)
                    (swap! app-state update-in
                      path
-                     (fnil conj [])
-                     {:variety_name trimmed}))))
+                     (fn [vs]
+                       (cond-> (vec vs)
+                         (not-any? #(same-variety? trimmed (:variety_name %))
+                                   vs)
+                         (conj {:variety_name trimmed})))))))
         options (->> (:grape-varieties @app-state)
                      (map :name)
                      (remove (fn [n]

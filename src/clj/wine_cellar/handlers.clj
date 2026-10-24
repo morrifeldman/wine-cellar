@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [wine-cellar.common :as common]
             [wine-cellar.db.api :as db-api]
+            [wine-cellar.specs :as specs]
             [wine-cellar.ai.core :as ai]
             [wine-cellar.db.setup :as db-setup]
             [wine-cellar.admin.bulk-operations :as bulk]
@@ -91,9 +92,15 @@
   [{{{:keys [id]} :path {:keys [include_images]} :query} :parameters}]
   (http/found-or-404 "Wine" (db-api/get-wine id include_images)))
 
+(def ^:private new-wine-keys
+  (conj (mapv (comp keyword name) specs/wine-fields) :varieties))
+
 (defn create-wine
+  ;; request coercion leaves unknown keys in the body, and the INSERT would
+  ;; take each one for a column
   [{{wine :body} :parameters}]
-  (http/created (db-api/create-wine-with-classification! wine)))
+  (http/created (db-api/create-wine-with-classification!
+                 (select-keys wine new-wine-keys))))
 
 (defn update-wine
   [{{{:keys [id]} :path body :body} :parameters}]

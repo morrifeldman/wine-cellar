@@ -56,3 +56,15 @@
       (is (contains? by-name "ZZ Grenache"))
       (is (nil? (get by-name "ZZ Grenache"))))
     (is (= 2 (count varieties)))))
+
+(deftest unknown-keys-never-reach-the-insert
+  (testing "the add-wine form's extra flag is dropped, not inserted"
+    (let [{:keys [status]} (ts/request :post
+                                       "/api/wines"
+                                       {:producer "ZZ Flagged"
+                                        :country "France"
+                                        :region "ZZ Region One"
+                                        :style "Red"
+                                        :quantity 1
+                                        :create-classification-if-needed true})]
+      (is (= 201 status)))))
