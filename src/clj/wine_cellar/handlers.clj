@@ -244,7 +244,9 @@
     (http/ok (ai/analyze-wine-label provider
                                     label_image
                                     back_label_image
-                                    (db-api/get-classifications)))))
+                                    (db-api/get-classifications)
+                                    (map :name
+                                         (db-api/get-all-grape-varieties))))))
 
 (defn analyze-spirit-label
   [{{{:keys [label_image provider]} :body} :parameters}]

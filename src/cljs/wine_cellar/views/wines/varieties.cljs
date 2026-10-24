@@ -7,10 +7,12 @@
             [reagent-mui.material.dialog-actions :refer [dialog-actions]]
             [reagent-mui.material.dialog-content :refer [dialog-content]]
             [reagent-mui.material.dialog-title :refer [dialog-title]]
+            [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.text-field :refer [text-field]]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.tooltip :refer [tooltip]]
             [reagent-mui.icons.add :refer [add]]
+            [reagent-mui.icons.close :refer [close]]
             [wine-cellar.api :as api]
             [wine-cellar.views.components.confirm :refer [confirm!]]
             [wine-cellar.views.components.form :refer
@@ -238,3 +240,68 @@
         [wine-variety-form app-state wine-id])
       (when @open-variety
         [variety-edit-modal app-state wine-id @open-variety open-variety])])))
+
+(defn- same-variety?
+  [a b]
+  (= (str/lower-case (str/trim a)) (str/lower-case (str/trim b))))
+
+(defn label-varieties->new-wine
+  "Label analysis names grapes as {:name :percentage}; the new wine keeps
+  them as {:variety_name :percentage}, the shape the create endpoint takes."
+  [varieties]
+  (vec (for [{:keys [name percentage]} varieties
+             :when (not (str/blank? name))]
+         {:variety_name (str/trim name) :percentage percentage})))
+
+(defn new-wine-varieties
+  "Grapes for a wine not yet saved: they ride along in [:new-wine :varieties]
+  and are created with the wine."
+  [app-state]
+  (let [path [:new-wine :varieties]
+        varieties (get-in @app-state path)
+        add! (fn [variety-name]
+               (let [trimmed (str/trim (or variety-name ""))]
+                 (when-not (or (str/blank? trimmed)
+                               (some #(same-variety? trimmed (:variety_name %))
+                                     varieties))
+                   (swap! app-state update-in
+                     path
+                     (fnil conj [])
+                     {:variety_name trimmed}))))
+        options (->> (:grape-varieties @app-state)
+                     (map :name)
+                     (remove (fn [n]
+                               (some #(same-variety? n (:variety_name %))
+                                     varieties))))]
+    [box {:sx {:width "100%"}}
+     (for [[idx {:keys [variety_name percentage]}] (map-indexed vector
+                                                                varieties)]
+       ^{:key (str idx "-" variety_name)}
+       [box {:sx {:display "flex" :alignItems "center" :gap 1}}
+        [typography {:sx {:flex 1} :variant "body1"} variety_name]
+        [box {:sx {:width 110}}
+         [number-field
+          {:label "%"
+           :min 0
+           :max 100
+           :value (or percentage "")
+           :on-change #(swap! app-state assoc-in
+                         (conj path idx :percentage)
+                         (when-not (str/blank? %) (js/parseFloat %)))}]]
+        [icon-button
+         {:size "small"
+          :aria-label (str "Remove " variety_name)
+          :on-click #(swap! app-state update-in
+                       path
+                       (fn [vs]
+                         (into (subvec vs 0 idx) (subvec vs (inc idx)))))}
+         [close {:fontSize "small"}]]])
+     ;; keyed on the count so the field clears once a grape is added
+     ^{:key (str "add-variety-" (count varieties))}
+     [select-field
+      {:label "Add a grape"
+       :free-solo true
+       :value nil
+       :options (clj->js options)
+       :helper-text "Analyze Label fills these in when the label names them"
+       :on-change #(when (string? %) (add! %))}]]))

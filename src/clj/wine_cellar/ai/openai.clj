@@ -189,7 +189,7 @@
                                 :content [{:type "input_text" :text system}]}]
                               [user-message])
                  :text (json-format schemas/wine-label)
-                 :max_output_tokens 900
+                 :max_output_tokens 1500
                  :reasoning {:effort "low"}}]
     (call-openai-responses request true)))
 

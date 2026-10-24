@@ -34,3 +34,25 @@
                                                        :style "Red"
                                                        :quantity nil})))
     (is (nil? (classification-for "ZZ Region Two")))))
+
+(deftest wine-and-varieties-are-created-together
+  (db/create-grape-variety "ZZ Syrah")
+  (let [{:keys [status body]}
+        (ts/request :post
+                    "/api/wines"
+                    {:producer "ZZ Blend"
+                     :country "France"
+                     :region "ZZ Region One"
+                     :style "Red"
+                     :quantity 1
+                     :varieties [{:variety_name "zz syrah" :percentage 60}
+                                 {:variety_name "ZZ Grenache"}]})
+        varieties (db/get-wine-grape-varieties (:id body))
+        by-name (into {} (map (juxt :variety_name :percentage)) varieties)]
+    (is (= 201 status))
+    (testing "an existing variety is reused whatever its case"
+      (is (= 60M (get by-name "ZZ Syrah"))))
+    (testing "a new variety is created, with no percentage"
+      (is (contains? by-name "ZZ Grenache"))
+      (is (nil? (get by-name "ZZ Grenache"))))
+    (is (= 2 (count varieties)))))

@@ -345,6 +345,8 @@
                               (merge-wine %2)
                               (assoc :selected-wine-id wine-id))}))
 
+(declare fetch-grape-varieties)
+
 (defn create-wine
   [app-state wine]
   (request! app-state
@@ -357,7 +359,9 @@
              :after (fn [_]
                       (nav/replace-wines!)
                       (fetch-wines app-state)
-                      (fetch-classifications app-state))}))
+                      (fetch-classifications app-state)
+                      ;; the wine may have brought new grape varieties
+                      (fetch-grape-varieties app-state))}))
 
 (defn delete-wine
   [app-state id]

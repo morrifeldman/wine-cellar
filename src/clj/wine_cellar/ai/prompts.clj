@@ -508,8 +508,9 @@
    - For Spanish \"Vi de Vila\", put the Village Name here (e.g., \"Gratallops\").")
 
 (defn label-analysis-system-prompt
-  ([] (label-analysis-system-prompt nil))
-  ([classifications]
+  ([] (label-analysis-system-prompt nil nil))
+  ([classifications] (label-analysis-system-prompt classifications nil))
+  ([classifications variety-names]
    (let [classifications-context (format-classifications-context
                                   classifications)]
      (str
@@ -522,7 +523,11 @@
         (str
          "\n\nUse the following known wine regions/classifications as a reference guide to improve accuracy, "
          "but trust the label text above all:\n"
-         classifications-context))))))
+         classifications-context))
+      (when (seq variety-names)
+        (str
+         "\n\nKnown grape varieties (reuse these spellings for the same grape):\n"
+         (str/join ", " variety-names)))))))
 
 (defn label-analysis-user-content
   [front-image back-image]

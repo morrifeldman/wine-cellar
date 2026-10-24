@@ -59,7 +59,22 @@
                   :enum (vec common/bottle-formats))]
     [:alcohol_percentage
      (label-field :number
-                  "Alcohol percentage as a number (e.g. 12.5), if visible.")]]})
+                  "Alcohol percentage as a number (e.g. 12.5), if visible.")]
+    [:varieties
+     {:type :array
+      :description
+      "Grape varieties the label names, in label order. List only grapes printed on the label; never infer them from the appellation, the producer, or your own knowledge. Empty when the label names none."
+      :items
+      {:fields
+       [[:name
+         {:type :string
+          :description
+          "The grape's name, spelled as in the known varieties list when it is the same grape (e.g. Syrah for Shiraz), otherwise as on the label."}]
+        [:percentage
+         {:type :number
+          :nullable? true
+          :description
+          "Share of the blend, only when the label states it; otherwise null."}]]}}]]})
 
 (def spirit-label
   {:name "SpiritLabelAnalysis"
@@ -112,12 +127,15 @@
   (cond-> field
     (and nullable? null-note) (update :description str " " null-note)))
 
+(declare ->json-schema ->gemini-schema)
+
 (defn- json-field
-  [{:keys [type nullable? enum description]} typed-enums?]
+  [{:keys [type nullable? enum description items]} typed-enums?]
   (let [t (name type)]
     (cond-> {}
       (or typed-enums? (not enum)) (assoc :type (if nullable? [t "null"] t))
       enum (assoc :enum (cond-> (vec enum) nullable? (conj nil)))
+      items (assoc :items (->json-schema items {:typed-enums? typed-enums?}))
       description (assoc :description description))))
 
 (defn ->json-schema
@@ -137,10 +155,11 @@
     :additionalProperties false}))
 
 (defn- gemini-field
-  [{:keys [type nullable? enum description]}]
+  [{:keys [type nullable? enum description items]}]
   (cond-> {:type (str/upper-case (name type))}
     nullable? (assoc :nullable true)
     enum (assoc :enum (vec enum))
+    items (assoc :items (->gemini-schema items))
     description (assoc :description description)))
 
 (defn ->gemini-schema

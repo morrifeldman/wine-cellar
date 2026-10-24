@@ -778,17 +778,40 @@
                :values [classification]
                :returning :*}))))
 
+(defn- find-or-create-grape-variety!
+  "The variety's id, matching an existing name case-insensitively."
+  [tx variety-name]
+  (:id (or (q-one tx
+                  {:select [:id]
+                   :from :grape_varieties
+                   :where [:= [:lower :name] (str/lower-case variety-name)]})
+           (insert! tx :grape_varieties {:name variety-name}))))
+
 (defn create-wine-with-classification!
-  "Creates the wine, and its classification if new, in one transaction."
-  [wine]
-  (jdbc/with-transaction [tx ds]
-                         (when (and (:country wine) (:region wine))
-                           (create-or-update-classification
-                            tx
-                            (select-keys wine
-                                         [:country :region :appellation
-                                          :appellation_tier :classification])))
-                         (create-wine tx wine)))
+  "Creates the wine, its classification if new, and its grape varieties
+  (each found or created by name) in one transaction."
+  [{:keys [varieties] :as wine}]
+  (jdbc/with-transaction
+   [tx ds]
+   (when (and (:country wine) (:region wine))
+     (create-or-update-classification tx
+                                      (select-keys
+                                       wine
+                                       [:country :region :appellation
+                                        :appellation_tier :classification])))
+   (let [created (create-wine tx (dissoc wine :varieties))]
+     (doseq [{:keys [variety_name percentage]} varieties
+             :let [variety-name (str/trim variety_name)]
+             :when (seq variety-name)]
+       (q-one tx
+              {:insert-into :wine_grape_varieties
+               :values [{:wine_id (:id created)
+                         :variety_id
+                         (find-or-create-grape-variety! tx variety-name)
+                         :percentage percentage}]
+               :on-conflict [:wine_id :variety_id]
+               :do-update-set {:percentage :excluded.percentage}}))
+     created)))
 
 (defn get-classifications
   []

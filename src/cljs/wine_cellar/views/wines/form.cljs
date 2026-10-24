@@ -16,6 +16,8 @@
               form-row number-field ref-value select-field smart-select-field
               uncontrolled-text-area-field uncontrolled-text-field year-field]]
             [wine-cellar.views.components.image-upload :refer [image-upload]]
+            [wine-cellar.views.wines.varieties :refer
+             [label-varieties->new-wine new-wine-varieties]]
             [wine-cellar.views.components.ai-provider-toggle :refer
              [ai-button]]))
 
@@ -209,7 +211,15 @@
                                                      new-wine)}]
                   (-> (api/analyze-wine-label app-state image-data)
                       (.then (fn [result]
-                               (swap! app-state update :new-wine merge result)))
+                               ;; keep grapes entered by hand when the
+                               ;; label names none
+                               (let [varieties (label-varieties->new-wine
+                                                (:varieties result))]
+                                 (swap! app-state update
+                                   :new-wine
+                                   #(cond-> (merge % (dissoc result :varieties))
+                                      (seq varieties) (assoc :varieties
+                                                             varieties))))))
                       (.catch (fn [error]
                                 (swap! app-state assoc
                                   :error
@@ -268,10 +278,7 @@
         :options common/bottle-formats
         :on-change #(swap! app-state assoc-in [:new-wine :bottle_format] %)}]]
      ;; Wine Classification Section
-     [form-divider "Grapes"]
-     [form-row
-      [typography {:variant "body2" :color "text.secondary"}
-       "You can add grape varieties after creating the wine."]]
+     [form-divider "Grapes"] [form-row [new-wine-varieties app-state]]
      [form-divider "Where it's from"]
      ;; Classification dropdowns with free-solo mode
      [form-row

@@ -56,6 +56,8 @@
 (s/def ::variety_name string?)
 (s/def ::percentage (s/nilable (s/and number? #(<= 0 % 100))))
 (s/def ::wine_variety (s/keys :req-un [::variety_id] :opt-un [::percentage]))
+(s/def ::varieties
+  (s/coll-of (s/keys :req-un [::variety_name] :opt-un [::percentage])))
 (s/def ::message string?)
 (s/def ::wine-ids (s/coll-of int?))
 (s/def ::wine map?)
@@ -223,9 +225,10 @@
   `(s/keys :opt-un ~(deref (resolve fields-sym))))
 
 (def wine-schema
-  (s/merge (s/keys :req-un
-                   [(or ::name ::producer) ::country ::region ::style
-                    ::quantity])
+  "A new wine, optionally with the grape varieties it's made from."
+  (s/merge (s/keys :req-un [(or ::name ::producer) ::country ::region ::style
+                            ::quantity]
+                   :opt-un [::varieties])
            (optional-keys wine-fields)))
 
 (def wine-update-schema

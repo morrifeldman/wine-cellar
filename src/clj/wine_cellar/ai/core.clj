@@ -94,8 +94,9 @@
     (run-task provider :wine-summary prompt-data)))
 
 (defn analyze-wine-label
-  [provider front-image back-image & [classifications]]
-  (let [system-prompt (prompts/label-analysis-system-prompt classifications)
+  [provider front-image back-image & [classifications variety-names]]
+  (let [system-prompt (prompts/label-analysis-system-prompt classifications
+                                                            variety-names)
         user-content (prompts/label-analysis-user-content front-image
                                                           back-image)
         prompt {:system system-prompt :user-content user-content}]

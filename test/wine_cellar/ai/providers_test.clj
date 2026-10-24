@@ -86,6 +86,11 @@
       (is (= ["string" "null"]
              (get-in fmt [:schema :properties :appellation_tier :type])))
       (is (true? (:strict fmt)))
+      (let [varieties (get-in fmt [:schema :properties :varieties])]
+        (is (= "array" (:type varieties)))
+        (is (= ["name" "percentage"]
+               (map name (get-in varieties [:items :required]))))
+        (is (false? (get-in varieties [:items :additionalProperties]))))
       (is (string? (get-in fmt [:schema :properties :region :description])))))
   (testing "Gemini: upper-case types with a nullable flag"
     (let [schema (get-in (second (call :gemini
