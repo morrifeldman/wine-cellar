@@ -5,6 +5,7 @@
 - `scripts/start-dev.sh` - full dev environment (backend + watcher + ngrok) in tmux session `wine-dev`
 - `clojure -M:test` - backend tests against a throwaway `wine_cellar_test` database, using the app's own DB settings (DB_* env vars, or the local `wine_cellar` user with its `pass` password). That user needs `CREATEDB`, granted once with `sudo -u postgres psql -c "ALTER ROLE wine_cellar CREATEDB;"`
 - `npm run test:e2e` - Playwright tests against the running dev stack
+- Cloud sessions fetch Maven deps through Google's mirror of Central, set up by `.claude/hooks/session-start.sh`: Central throttles their shared IPs, so builds there fail with "Could not find artifact" for jars that exist. If that error shows up anyway, check `~/.clojure/deps.edn` and `~/.shadow-cljs/config.edn` name the mirror rather than retrying
 
 ## Dev Environment Ownership
 - The dev stack lives in tmux session `wine-dev` so it survives any single terminal or Claude session; start-dev also links it as a window into the user's most recently active tmux session for easy viewing

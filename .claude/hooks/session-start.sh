@@ -79,6 +79,23 @@ su postgres -c "psql -qc \"ALTER USER postgres PASSWORD 'postgres';\"" >/dev/nul
 su postgres -c "psql -lqt" | cut -d'|' -f1 | grep -qw wine_cellar ||
   su postgres -c "createdb wine_cellar"
 
+# --- Maven mirror -------------------------------------------------------------
+# Maven Central throttles the shared IPs cloud sessions egress from: most jar
+# requests come back 404 or 429, so builds fail with "Could not find
+# artifact" for jars that exist. Google's mirror of Central doesn't, so fetch
+# through it here. User-level config only; the repo, local dev and the Fly
+# build stay on Central.
+# Merged into whatever is there: the Clojure installer writes a default
+# ~/.clojure/deps.edn.
+bb -e '
+(let [mirror {"central" {:url "https://maven-central.storage-download.googleapis.com/maven2/"}}]
+  (doseq [[file path] [["/.clojure/deps.edn" [:mvn/repos]]
+                       ["/.shadow-cljs/config.edn" [:maven :repositories]]]
+          :let [f (clojure.java.io/file (str (System/getProperty "user.home") file))
+                config (if (.exists f) (clojure.edn/read-string (slurp f)) {})]]
+    (clojure.java.io/make-parents f)
+    (spit f (pr-str (update-in config path merge mirror)))))'
+
 # --- Project dependencies -----------------------------------------------------
 npm install --no-audit --no-fund >/dev/null 2>&1
 clojure -P -M:dev:clj-kondo:dev-all:repl/conjure >/dev/null 2>&1
