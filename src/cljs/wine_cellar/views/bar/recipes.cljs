@@ -81,7 +81,10 @@
         [:bar :new-inventory-item]
         {:name (str/trim (or (:name ingredient) ""))
          :category (if (:garnish ingredient) "garnish" "other")}))
-    (nav/go-bar-inventory-items! ids)))
+    (nav/go-bar-inventory-items! ids)
+    ;; With nothing to highlight, the route has no item to scroll to, so
+    ;; bring up the prefilled add form instead.
+    (when (empty? ids) (dom/scroll-bar-item-form-into-view!))))
 
 (defn- make-row
   "Row-structure entry for an ingredient: stable identity + initial values +

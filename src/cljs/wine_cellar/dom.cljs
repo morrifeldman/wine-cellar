@@ -20,6 +20,8 @@
 
 (defn bar-item-id [id] (str "bar-inventory-item-" id))
 
+(def bar-item-form-id "bar-inventory-add-form")
+
 (defn- scroll-to-top-of!
   "Smooth-scrolls the window so `dom-id` sits near the top. Delayed a tick so
    the element exists after a state change re-renders."
@@ -36,6 +38,8 @@
 (defn scroll-recipe-into-view! [id] (scroll-to-top-of! (recipe-id id)))
 
 (defn scroll-spirit-into-view! [id] (scroll-to-top-of! (spirit-id id)))
+
+(defn scroll-bar-item-form-into-view! [] (scroll-to-top-of! bar-item-form-id))
 
 (defn scroll-bar-item-into-view!
   "Centers a Mixers item rather than putting it at the top: the items are small

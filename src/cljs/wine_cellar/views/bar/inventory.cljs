@@ -58,7 +58,8 @@
         close-form!
         #(swap! app-state assoc-in [:bar :show-inventory-form?] false)]
     [box
-     {:sx
+     {:id dom/bar-item-form-id
+      :sx
       {:mt 1.5 :display "flex" :gap 1 :alignItems "flex-end" :flexWrap "wrap"}}
      [mui-text-field/text-field
       {:label "Item name"
