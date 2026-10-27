@@ -284,6 +284,10 @@
    :properties
    {:recipes
     {:type "array"
+     :description
+     (str "Every cocktail in the source, one entry each, in the order they "
+          "appear — never just the one the text recommends or offers to "
+          "save.")
      :items
      {:type "object"
       :required ["name" "ingredients"]
@@ -381,6 +385,13 @@
            (str "\n\nTags already in use (reuse these exact strings when one "
                 "applies; only add a new tag if none fit): "
                 (str/join ", " existing-tags)))
+         scope-hint
+         (str "\n\nReturn one recipe per drink: a list of options, numbered "
+              "or not, gives one recipe each, even when the text recommends "
+              "one of them or asks which to save. A variation of another "
+              "drink in the list (\"make option 2 but add gin\") is its own "
+              "recipe, written out in full. Skip only drinks named in "
+              "passing with no build.")
          image-entry (prompts/label-image-entry image)
          content (if image-entry
                    [image-entry
@@ -388,9 +399,11 @@
                      :text (str "Extract all cocktail recipes from this image."
                                 (when (seq text)
                                   (str "\n\nAccompanying text:\n" text))
+                                scope-hint
                                 tag-hint)}]
                    (str "Extract all cocktail recipes from this text:\n\n"
                         text
+                        scope-hint
                         tag-hint))
          request {:messages [{:role "user" :content content}]
                   :output_config (json-output extract-recipe-schema)}]
