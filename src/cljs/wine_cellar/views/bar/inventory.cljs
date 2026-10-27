@@ -51,6 +51,18 @@
 ;; is already said by the section it sits in.
 (def item-color :rose)
 
+(defn- category-select
+  [value on-change]
+  [form-control {:size "small" :sx {:flex "1 1 100px"}} [input-label "Category"]
+   [select
+    {:value value
+     :label "Category"
+     :on-change #(on-change (-> %
+                                .-target
+                                .-value))}
+    (for [[cat label] category-labels]
+      ^{:key cat} [menu-item {:value cat} label])]])
+
 (defn- add-item-form
   [app-state form-data]
   (let [name-val (:name @form-data "")
@@ -70,18 +82,7 @@
                          .-value))
        :size "small"
        :sx {:flex "2 1 150px"}}]
-     [form-control {:size "small" :sx {:flex "1 1 100px"}}
-      [input-label "Category"]
-      [select
-       {:value cat-val
-        :label "Category"
-        :on-change #(swap! form-data assoc
-                      :category
-                      (-> %
-                          .-target
-                          .-value))}
-       (for [[cat label] category-labels]
-         ^{:key cat} [menu-item {:value cat} label])]]
+     [category-select cat-val #(swap! form-data assoc :category %)]
      [button
       {:variant "contained"
        :size "small"
@@ -99,13 +100,29 @@
 
 (defn- inventory-item
   [_app-state _item _editing-id _cat-color _highlight?]
-  (let [edit-name (r/atom nil)]
+  (let [edit-name (r/atom nil)
+        edit-category (r/atom nil)]
     (fn [app-state item editing-id cat-color highlight?]
-      (let [have? (boolean (:have_it item))]
+      (let [have? (boolean (:have_it item))
+            stop-editing! #(do (reset! edit-name nil)
+                               (reset! edit-category nil)
+                               (reset! editing-id nil))
+            save!
+            (fn []
+              (let [n (str/trim (or @edit-name (:name item)))
+                    cat (or @edit-category (:category item))
+                    changes
+                    (cond-> {}
+                      (and (seq n) (not= n (:name item))) (assoc :name n)
+                      (not= cat (:category item)) (assoc :category cat))]
+                (when (seq changes)
+                  (api/update-bar-inventory-item app-state (:id item) changes)))
+              (stop-editing!))]
         (if (= (:id item) @editing-id)
           [box
            {:sx {:display "flex"
                  :alignItems "center"
+                 :flexWrap "wrap"
                  :gap 0.5
                  :p 1
                  :borderRadius 2
@@ -118,39 +135,22 @@
                                                .-value))
              :size "small"
              :auto-focus true
-             :sx {:flex 1}
+             :sx {:flex "2 1 150px"}
              :on-key-down (fn [e]
-                            (when (= (.-key e) "Enter")
-                              (let [n (str/trim (or @edit-name (:name item)))]
-                                (when (seq n)
-                                  (api/update-bar-inventory-item app-state
-                                                                 (:id item)
-                                                                 {:name n})))
-                              (reset! edit-name nil)
-                              (reset! editing-id nil))
-                            (when (= (.-key e) "Escape")
-                              (reset! edit-name nil)
-                              (reset! editing-id nil)))}]
-           [icon-button
-            {:size "small"
-             :color "primary"
-             :on-click (fn []
-                         (let [n (str/trim (or @edit-name (:name item)))]
-                           (when (seq n)
-                             (api/update-bar-inventory-item app-state
-                                                            (:id item)
-                                                            {:name n})))
-                         (reset! edit-name nil)
-                         (reset! editing-id nil))} [check {:fontSize "small"}]]
+                            (case (.-key e)
+                              "Enter" (save!)
+                              "Escape" (stop-editing!)
+                              nil))}]
+           [category-select (or @edit-category (:category item))
+            #(reset! edit-category %)]
+           [icon-button {:size "small" :color "primary" :on-click save!}
+            [check {:fontSize "small"}]]
            [icon-button
             {:size "small"
              :color "error"
              :on-click #(do (api/delete-bar-inventory-item app-state (:id item))
-                            (reset! editing-id nil))}
-            [delete {:fontSize "small"}]]
-           [icon-button
-            {:size "small"
-             :on-click #(do (reset! edit-name nil) (reset! editing-id nil))}
+                            (stop-editing!))} [delete {:fontSize "small"}]]
+           [icon-button {:size "small" :on-click stop-editing!}
             [close {:fontSize "small"}]]]
           [box
            {:id (dom/bar-item-id (:id item))

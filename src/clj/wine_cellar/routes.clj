@@ -257,7 +257,8 @@
      :put {:summary "Update bar inventory item (e.g. toggle have_it)"
            :parameters {:body (s/keys :opt-un
                                       [::specs/have_it ::specs/name
-                                       ::specs/sort_order])}
+                                       ::specs/sort_order
+                                       :wine-cellar.specs.bar-item/category])}
            :responses {200 {:body map?}}
            :handler handlers/update-bar-inventory-item}
      :delete {:summary "Delete bar inventory item"
