@@ -371,40 +371,69 @@
                                 "family name over a variant (use 'negroni', "
                                 "not 'negroni variation').")}}}}}})
 
+(defn- recipe-source-content
+  "Message content asking for instruction about the recipe source: the image
+   (with any accompanying text) or the text alone."
+  [text image instruction]
+  (if-let [image-entry (prompts/label-image-entry image)]
+    [image-entry
+     {:type "text"
+      :text (str instruction
+                 " in this image."
+                 (when (seq text) (str "\n\nAccompanying text:\n" text)))}]
+    (str instruction " in this text:\n\n" text)))
+
+(defn list-cocktail-names
+  "Names every drink the source gives a build for. Opus 5.5 asked to extract
+   them all at once tends to return just one, so extraction goes drink by
+   drink from this list."
+  [text image]
+  {:pre [(or (string? text) (string? image))]}
+  (let [instruction
+        (str "List the name of every cocktail that has a recipe. A list of "
+             "options, numbered or not, gives one name each, even when the "
+             "text recommends one of them or asks which to save. A variation "
+             "of another drink in the list (\"make option 2 but add gin\") "
+             "counts as its own drink. Leave out drinks named in passing with "
+             "no build")
+        request
+        {:messages [{:role "user"
+                     :content (recipe-source-content text image instruction)}]
+         :effort "low"
+         :output_config (json-output {:type "object"
+                                      :required ["names"]
+                                      :additionalProperties false
+                                      :properties
+                                      {:names {:type "array"
+                                               :items {:type "string"}}}})}]
+    (:names (call-anthropic-api request true))))
+
 (defn extract-cocktail-recipe
   "Extracts structured cocktail recipe data from a plain-text message and/or
-   an image supplied as a base64 data URL. When existing-tags are supplied,
-   nudges the model to reuse that vocabulary. Pure extraction — linking to
-   the user's bar happens in a separate resolve-recipe-links phase."
+   an image supplied as a base64 data URL. With drink-name, extracts just
+   that drink. When existing-tags are supplied, nudges the model to reuse
+   that vocabulary. Pure extraction — linking to the user's bar happens in a
+   separate resolve-recipe-links phase."
   ([text] (extract-cocktail-recipe text nil))
   ([text existing-tags] (extract-cocktail-recipe text existing-tags nil))
   ([text existing-tags image]
+   (extract-cocktail-recipe text existing-tags image nil))
+  ([text existing-tags image drink-name]
    {:pre [(or (string? text) (string? image))]}
    (let [tag-hint
          (when (seq existing-tags)
            (str "\n\nTags already in use (reuse these exact strings when one "
                 "applies; only add a new tag if none fit): "
                 (str/join ", " existing-tags)))
-         scope-hint
-         (str "\n\nReturn one recipe per drink: a list of options, numbered "
-              "or not, gives one recipe each, even when the text recommends "
-              "one of them or asks which to save. A variation of another "
-              "drink in the list (\"make option 2 but add gin\") is its own "
-              "recipe, written out in full. Skip only drinks named in "
-              "passing with no build.")
-         image-entry (prompts/label-image-entry image)
-         content (if image-entry
-                   [image-entry
-                    {:type "text"
-                     :text (str "Extract all cocktail recipes from this image."
-                                (when (seq text)
-                                  (str "\n\nAccompanying text:\n" text))
-                                scope-hint
-                                tag-hint)}]
-                   (str "Extract all cocktail recipes from this text:\n\n"
-                        text
-                        scope-hint
-                        tag-hint))
+         instruction (if drink-name
+                       (str "Extract only the cocktail called \"" drink-name
+                            "\", writing out its full build even when the "
+                            "source describes it as a change to another drink,")
+                       "Extract all cocktail recipes")
+         content (recipe-source-content text image instruction)
+         content (if (string? content)
+                   (str content tag-hint)
+                   (update-in content [1 :text] str tag-hint))
          request {:messages [{:role "user" :content content}]
                   :output_config (json-output extract-recipe-schema)}]
      (call-anthropic-api request true))))
