@@ -290,7 +290,11 @@
           "save.")
      :items
      {:type "object"
-      :required ["name" "ingredients"]
+      ;; Every field is required because, with optional fields, Opus 5.5
+      ;; skipped most of them, padded notes with filler, and stopped after
+      ;; the first drink. An empty string stands for "the source has none".
+      :required ["name" "caption" "description" "source" "ingredients"
+                 "instructions" "timers" "notes" "tags"]
       :additionalProperties false
       :properties
       {:name {:type "string"}
@@ -304,17 +308,18 @@
                       "your own.")}
        :description {:type "string"
                      :description
-                     (str "When the source includes a headnote or "
-                          "introductory text about the drink (history, "
-                          "attribution, tasting notes), transcribe it "
-                          "verbatim and in full — do not summarize or "
-                          "truncate it. Omit when the source has none; "
-                          "the caption already covers the one-liner.")}
+                     (str
+                      "When the source includes a headnote or "
+                      "introductory text about the drink (history, "
+                      "attribution, tasting notes), transcribe it "
+                      "verbatim and in full — do not summarize or "
+                      "truncate it. Leave it empty when the source has none; "
+                      "the caption already covers the one-liner.")}
        :source {:type "string"
                 :description
                 (str "The publication, book, or site name the recipe comes "
                      "from, only when it is visible in the source material "
-                     "(e.g. 'Death & Co'); omit otherwise.")}
+                     "(e.g. 'Death & Co'); leave it empty otherwise.")}
        :ingredients
        {:type "array"
         :items {:type "object"
@@ -343,16 +348,17 @@
        :timers recipe-timers-property
        :notes {:type "string"
                :description
-               (str "Tips, variations, ratio tweaks, and serving "
-                    "suggestions from the source that aren't part of the "
-                    "core build (e.g. a 'notes' section, substitutions, "
-                    "'if too mellow, bump X'). Also record here any "
-                    "specific bottle/brand recommendations dropped from "
-                    "the generic ingredient names (e.g. 'Del Maguey Vida "
-                    "works well for the mezcal') — downstream linking "
-                    "uses these to mark preferred bottles. Stay faithful "
-                    "to the source; omit when it offers nothing beyond "
-                    "the build.")}
+               (str
+                "Tips, variations, ratio tweaks, and serving "
+                "suggestions from the source that aren't part of the "
+                "core build (e.g. a 'notes' section, substitutions, "
+                "'if too mellow, bump X'). Also record here any "
+                "specific bottle/brand recommendations dropped from "
+                "the generic ingredient names (e.g. 'Del Maguey Vida "
+                "works well for the mezcal') — downstream linking "
+                "uses these to mark preferred bottles. Stay faithful "
+                "to the source; leave it empty when it offers nothing beyond "
+                "the build.")}
        :tags {:type "array"
               :items {:type "string"}
               :description (str "1-3 short, lowercase tags for filtering. "
@@ -406,8 +412,15 @@
                         scope-hint
                         tag-hint))
          request {:messages [{:role "user" :content content}]
-                  :output_config (json-output extract-recipe-schema)}]
-     (call-anthropic-api request true))))
+                  :output_config (json-output extract-recipe-schema)}
+         drop-blank-fields (fn [recipe]
+                             (into {}
+                                   (remove (fn [[_ v]]
+                                             (and (string? v) (str/blank? v))))
+                                   recipe))]
+     (update (call-anthropic-api request true)
+             :recipes
+             (partial mapv drop-blank-fields)))))
 
 (defn extract-recipe-timers
   "Reads a recipe's saved instructions and returns its timed steps, so recipes
