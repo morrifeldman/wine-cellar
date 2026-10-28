@@ -142,18 +142,7 @@
   ([text] (extract-cocktail-recipe text nil))
   ([text existing-tags] (extract-cocktail-recipe text existing-tags nil))
   ([text existing-tags image]
-   (try (let [names (distinct (anthropic/list-cocktail-names text image))]
-          (if (seq names)
-            ;; One drink per call, in parallel: asked for all of them at
-            ;; once the model tends to return just one.
-            {:recipes (->> names
-                           (mapv #(future (anthropic/extract-cocktail-recipe
-                                           text
-                                           existing-tags
-                                           image
-                                           %)))
-                           (into [] (mapcat #(take 1 (:recipes @%)))))}
-            (anthropic/extract-cocktail-recipe text existing-tags image)))
+   (try (anthropic/extract-cocktail-recipe text existing-tags image)
         (catch Exception e (tap> ["❌ extract-cocktail-recipe failed" e]) nil))))
 
 (defn extract-recipe-timers

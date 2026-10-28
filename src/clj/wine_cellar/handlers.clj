@@ -393,19 +393,16 @@
       (if-let [result
                (ai/extract-cocktail-recipe message-text existing-tags image)]
         (http/ok
-         (update result
-                 :recipes
-                 (fn [recipes]
-                   ;; In parallel: each recipe is its own AI call.
-                   (->>
-                     recipes
-                     (mapv
-                      #(future
-                        (if-let [links (and (seq (:ingredients %))
-                                            (ai/resolve-recipe-links % bar))]
-                          (update % :ingredients recipe-links/merge-links links)
-                          %)))
-                     (mapv deref)))))
+         (update
+          result
+          :recipes
+          (partial
+           mapv
+           (fn [recipe]
+             (if-let [links (and (seq (:ingredients recipe))
+                                 (ai/resolve-recipe-links recipe bar))]
+               (update recipe :ingredients recipe-links/merge-links links)
+               recipe)))))
         {:status 422 :body {:error "Could not extract recipe"}}))))
 
 (defn refresh-recipe-links
