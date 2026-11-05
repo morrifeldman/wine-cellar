@@ -58,13 +58,14 @@ if ! have jj; then
 fi
 
 # --- jj, colocated with the git clone so the ship skill works ----------------
-if [ ! -d .jj ]; then
-  branch=$(git branch --show-current)
-  jj git init --colocate >/dev/null 2>&1
-  # Track the session's branch so `jj git push` moves it like any other.
-  [ -n "$branch" ] &&
-    jj bookmark track "$branch" --remote=origin >/dev/null 2>&1 || true
-fi
+branch=$(git branch --show-current)
+[ -d .jj ] || jj git init --colocate >/dev/null 2>&1
+# Track main and the session's branch on origin. A fresh clone leaves
+# main@origin untracked, and then `jj git push` refuses to move main
+# ("stale info") and the ship skill can't deploy.
+for b in main $branch; do
+  jj bookmark track "$b@origin" >/dev/null 2>&1 || true
+done
 jj config set --user user.name "Morris Feldman" >/dev/null 2>&1
 jj config set --user user.email "morrifeldman@gmail.com" >/dev/null 2>&1
 sh scripts/setup-jj-config.sh >/dev/null
