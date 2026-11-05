@@ -144,7 +144,7 @@
   [wine]
   (let [price (:price wine)
         purveyor (when-not (str/blank? (:purveyor wine)) (:purveyor wine))
-        date (format-date-iso (:purchase_date wine))
+        date (not-empty (format-date-iso (:purchase_date wine)))
         price-str (when price (str "$" (gstring/format "%.2f" price)))]
     (if (and (nil? price-str) (nil? purveyor) (nil? date))
       "Add purchase details"
