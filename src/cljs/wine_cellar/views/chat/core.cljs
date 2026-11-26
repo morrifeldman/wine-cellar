@@ -260,8 +260,13 @@
                     :current-match-index 0)
                   (chat-utils/set-scroll-intent! app-state
                                                  {:type :search-match}))
-                (chat-actions/open-conversation! app-state conversation false)
-                (when (and already-active? sidebar-open?) (toggle-sidebar!))))
+                ;; A second click on the open conversation only closes the
+                ;; list; reopening it would fetch every message again.
+                (if already-active?
+                  (when sidebar-open? (toggle-sidebar!))
+                  (chat-actions/open-conversation! app-state
+                                                   conversation
+                                                   false))))
             sidebar
             (chat-sidebar/conversation-sidebar
              app-state

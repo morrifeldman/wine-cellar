@@ -65,14 +65,18 @@
 
 (defn- list-key
   "What the user controls about the list. Wines arriving or being refetched
-   don't count as a change; filtering, checking and the history toggle do."
-  [state]
-  (select-keys state [:filters :selected-wine-ids :show-out-of-stock?]))
+   don't count as a change; filtering, checking and the history toggle do.
+   Missing values read as their defaults, so a restored list compares equal to
+   the one it was restored from."
+  [{:keys [filters selected-wine-ids show-out-of-stock?]}]
+  {:filters filters
+   :selected-wine-ids (set selected-wine-ids)
+   :show-out-of-stock? (boolean show-out-of-stock?)})
 
 (defn- read-list-state
   [s]
   (when (string? s)
-    (try (let [v (reader/read-string s)] (when (map? v) v))
+    (try (let [v (reader/read-string s)] (when (map? v) (list-key v)))
          (catch :default _ nil))))
 
 (defn- note-context
@@ -227,6 +231,14 @@
              (str wine-count)]] (subs label (dec (count count-text)))]
           :else label)))
 
+(defn- earlier-heading
+  "Picking wines that came from the list puts its filters back, so say so
+   while the list shows something else."
+  [state {:keys [list-state]}]
+  (if (and list-state (not= list-state (list-key state)))
+    "Earlier in this chat · tap to filter the list"
+    "Earlier in this chat"))
+
 (defn- scope-options
   "What the chat could look at instead, in menu order. Options that would show
    the same wines as one before them are left out."
@@ -247,12 +259,12 @@
                     (when (seq (:wine-ids previous))
                       (assoc previous
                              :source :conversation
-                             :heading "Earlier in this chat"
+                             :heading (earlier-heading state previous)
                              :scope {:kind :conversation}))]
         earlier (for [{:keys [wine-ids] :as context} (earlier-contexts state)]
                   (assoc context
                          :source [:earlier wine-ids]
-                         :heading "Earlier in this chat"
+                         :heading (earlier-heading state context)
                          :scope (-> context
                                     (select-keys [:wine-ids :label :list-state])
                                     (assoc :kind :earlier))))
