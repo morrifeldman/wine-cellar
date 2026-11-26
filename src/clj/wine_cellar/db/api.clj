@@ -490,7 +490,8 @@
    ;; megabytes. Cards fetch it by URL, versioned on this hash.
    [[:md5 :label_thumbnail] :label_thumbnail_version] :created_at :updated_at
    :verified :purchase_date :latest_internal_rating :average_external_rating
-   :varieties :metadata :open_bottle_opened_at :open_bottle_oz_poured])
+   :varieties :metadata :open_bottle_opened_at :open_bottle_oz_poured
+   :fridge_quantity])
 
 (defn get-wines-for-list
   []
@@ -545,7 +546,7 @@
 
 (def ^:private stock-columns
   [:id :quantity :original_quantity :open_bottle_opened_at
-   :open_bottle_oz_poured])
+   :open_bottle_oz_poured :fridge_quantity])
 
 (defn- stock
   [tx id]
@@ -566,14 +567,28 @@
                            :original_quantity (:original_quantity wine)}
                           entry)]}))
 
+(defn- clamp-fridge!
+  "Keeps the fridge count within the sealed bottles left (stock less any open
+   bottle), so a bottle gifted, broken or opened when the cellar has none
+   comes out of the fridge. Returns the wine's stock columns."
+  [tx id]
+  (q-one tx
+         {:update :wines
+          :set {:fridge_quantity [:least :fridge_quantity
+                                  [:greatest 0
+                                   [:- :quantity
+                                    [:case [:= :open_bottle_opened_at nil] 0
+                                     :else 1]]]]}
+          :where [:= :id id]
+          :returning stock-columns}))
+
 (defn- set-stock!
   "Updates the wine's stock columns and returns them."
   [tx id changes]
-  (q-one tx
-         {:update :wines
-          :set (assoc changes :updated_at [:now])
-          :where [:= :id id]
-          :returning stock-columns}))
+  (q-one
+   tx
+   {:update :wines :set (assoc changes :updated_at [:now]) :where [:= :id id]})
+  (clamp-fridge! tx id))
 
 (defn- finish-bottle!
   "Uses up the open bottle: one fewer in stock, nothing open."
@@ -610,11 +625,41 @@
        new-quantity
        (cond-> {:change_amount adjustment :reason reason :notes notes}
          occurred_at (assoc :occurred_at (->sql-timestamp occurred_at))))
-      (set-stock! tx
-                  id
-                  (cond-> {:quantity new-quantity}
-                    restock? (assoc :original_quantity
-                                    (:original_quantity wine))))))))
+      (set-stock!
+       tx
+       id
+       (cond-> {:quantity new-quantity}
+         restock? (assoc :original_quantity (:original_quantity wine))
+         ;; A bottle drunk is the one that was chilling.
+         (and (= reason "drunk") (neg? adjustment))
+         (assoc :fridge_quantity
+                (max 0 (+ (:fridge_quantity wine 0) adjustment)))))))))
+
+(defn move-to-fridge
+  "Moves `n` sealed bottles from the cellar to the fridge (negative `n` puts
+   them back). They stay in stock until drunk. Returns the wine's stock
+   columns."
+  [id n]
+  (jdbc/with-transaction
+   [tx ds]
+   (let [wine (stock tx id)
+         sealed (- (:quantity wine 0) (if (:open_bottle_opened_at wine) 1 0))
+         new-fridge (+ (:fridge_quantity wine 0) n)]
+     (when (zero? n)
+       (throw (ex-info "Nothing to move" {:status 400 :wine-id id})))
+     (when (neg? new-fridge)
+       (throw (ex-info "No bottles in the fridge to return"
+                       {:status 400 :wine-id id})))
+     (when (> new-fridge sealed)
+       (throw (ex-info "No bottles left in the cellar to move"
+                       {:status 400 :wine-id id})))
+     (record-history! tx
+                      wine
+                      (:quantity wine)
+                      {:change_amount 0
+                       :reason (if (pos? n) "to_fridge" "from_fridge")
+                       :notes (when (> (abs n) 1) (str (abs n) " bottles"))})
+     (set-stock! tx id {:fridge_quantity new-fridge}))))
 
 (defn coravin-pour
   "Record a Coravin pour of `oz` ounces from wine `id`. Opens a bottle on the
@@ -724,10 +769,7 @@
              (when (neg? new-q)
                (throw (ex-info "Adjustment would make quantity negative"
                                {:status 400 :wine-id (:wine_id existing)})))
-             (q-one tx
-                    {:update :wines
-                     :set {:quantity new-q :updated_at [:now]}
-                     :where [:= :id (:wine_id existing)]})))
+             (set-stock! tx (:wine_id existing) {:quantity new-q})))
          (let [updated (q-one tx
                               {:update :inventory_history
                                :set set-map

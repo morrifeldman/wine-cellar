@@ -9,6 +9,7 @@
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.checkbox :refer [checkbox]]
             [reagent-mui.icons.wine-bar :refer [wine-bar]]
+            [reagent-mui.icons.ac-unit :refer [ac-unit]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
             [wine-cellar.common :as common]
@@ -275,6 +276,25 @@
              :whiteSpace "nowrap"}} [wine-bar {:sx {:fontSize "0.9rem"}}]
        [box {:component "span"} (str "~" remaining "oz left")]])))
 
+(defn fridge-badge
+  "Snowflake and count for bottles moved to the fridge."
+  [wine]
+  (let [n (common/fridge-count wine)]
+    (when (pos? n)
+      [box
+       {:title (str n " in the fridge")
+        :sx {:display "flex"
+             :alignItems "center"
+             :gap 0.25
+             :px 0.75
+             :py 0.25
+             :borderRadius 1
+             :border "1px solid rgba(150, 190, 230, 0.4)"
+             :color "rgb(170, 205, 240)"
+             :fontSize "0.875rem"
+             :whiteSpace "nowrap"}} [ac-unit {:sx {:fontSize "0.9rem"}}]
+       [box {:component "span"} n]])))
+
 (defn wine-quantity-display
   [app-state wine]
   (let [quantity (:quantity wine)
@@ -285,10 +305,10 @@
                        (str full-count "/" original-quantity)
                        (str full-count))]
     [box {:sx {:display "flex" :alignItems "center" :gap 1}}
-     (when open? [open-bottle-badge wine])
+     (when open? [open-bottle-badge wine]) [fridge-badge wine]
      [quantity-control app-state (:id wine) quantity display-text
       original-quantity
-      {:mode :card :minus-icon [wine-bar {:fontSize "small"}]}]]))
+      {:mode :card :minus-icon [wine-bar {:fontSize "small"}] :wine wine}]]))
 
 (defn wine-controls
   [app-state wine status drink-from-year drink-until-year]

@@ -527,6 +527,17 @@
                   (cond-> {:oz oz} notes (assoc :notes notes))
                   "Failed to record Coravin pour")))
 
+(defn move-to-fridge
+  "Moves `n` bottles of the wine to the fridge; negative `n` puts them back."
+  [app-state wine-id n]
+  (stock-change! app-state
+                 wine-id
+                 "/fridge"
+                 {:adjustment n}
+                 (if (pos? n)
+                   "Failed to move bottle to the fridge"
+                   "Failed to return bottle to the cellar")))
+
 (defn finish-open-bottle
   ([app-state wine-id] (finish-open-bottle app-state wine-id {}))
   ([app-state wine-id {:keys [notes]}]

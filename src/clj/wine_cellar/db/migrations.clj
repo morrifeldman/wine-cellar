@@ -137,7 +137,11 @@
     :sql
     {:raw
      ["ALTER TABLE ai_conversations ADD CONSTRAINT ai_conversations_provider_check CHECK (provider IS NULL OR provider IN "
-      [:inline (vec (sort (map name common/ai-providers)))] ") NOT VALID"]}}])
+      [:inline (vec (sort (map name common/ai-providers)))] ") NOT VALID"]}}
+   {:id "0020-wines-fridge-quantity"
+    :sql
+    {:raw
+     ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS fridge_quantity integer NOT NULL DEFAULT 0;"]}}])
 
 (def ^:private create-migrations-table
   {:create-table [:schema_migrations :if-not-exists]

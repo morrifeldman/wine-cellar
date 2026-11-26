@@ -75,3 +75,41 @@
       (is (= 1 (:quantity (wine id)))))
     (is (true? (db/delete-inventory-history! (:id row))))
     (is (false? (db/delete-inventory-history! (:id row))) "already gone")))
+
+(deftest bottles-move-to-the-fridge-and-back
+  (let [id (new-wine! 3)]
+    (testing "moving keeps the bottle in stock"
+      (let [w (db/move-to-fridge id 2)]
+        (is (= 3 (:quantity w)))
+        (is (= 2 (:fridge_quantity w)))))
+    (testing "it can come back to the cellar"
+      (is (= 1 (:fridge_quantity (db/move-to-fridge id -1)))))
+    (testing "drinking takes the chilled bottle first"
+      (let [w (db/adjust-quantity id -1 {:reason "drunk"})]
+        (is (= 2 (:quantity w)))
+        (is (= 0 (:fridge_quantity w)))))
+    (testing "moves are logged without changing stock"
+      (is (= ["drunk" "from_fridge" "to_fridge"]
+             (map :reason (db/get-inventory-history id))))
+      (is (every? zero?
+                  (map :change_amount (rest (db/get-inventory-history id)))))))
+  (testing "can't move more than the cellar holds, or return what isn't there"
+    (let [id (new-wine! 1)]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"fridge to return"
+                            (db/move-to-fridge id -1)))
+      (db/move-to-fridge id 1)
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"left in the cellar"
+                            (db/move-to-fridge id 1))))))
+
+(deftest the-fridge-never-holds-more-than-is-in-stock
+  (let [id (new-wine! 2)]
+    (db/move-to-fridge id 2)
+    (testing "a gift of the last cellar bottle comes out of the fridge"
+      (db/adjust-quantity id -1 {:reason "gift"})
+      (is (= 1 (:fridge_quantity (wine id)))))
+    (testing "opening the only bottle left takes it out of the fridge"
+      (let [w (db/coravin-pour id 2)]
+        (is (= 1 (:quantity w)))
+        (is (= 0 (:fridge_quantity w)))))))

@@ -6,6 +6,8 @@
             [reagent-mui.icons.wine-bar :refer [wine-bar]]
             [reagent-mui.icons.inventory :refer [inventory]]
             [reagent-mui.icons.receipt :refer [receipt]]
+            [reagent-mui.icons.ac-unit :refer [ac-unit]]
+            [reagent-mui.material.button :refer [button]]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.icon-button :refer [icon-button]]
             [reagent-mui.material.typography :refer [typography]]
@@ -20,7 +22,7 @@
             [wine-cellar.utils.formatting :refer [format-date-iso]]
             [wine-cellar.views.components :refer
              [date-input coravin-pour-dialog detail-section drink-dialog
-              gift-dialog minus-menu quantity-control]]))
+              fridge-options gift-dialog minus-menu quantity-control]]))
 
 (defn- cellar-summary
   [wine]
@@ -47,6 +49,28 @@
           " of "
           (js/Math.round bottle-oz)
           " oz left)")]))
+
+(defn- fridge-line
+  "Bottles pulled from the cellar to chill: drink one or put it back."
+  [app-state wine]
+  (let [n (common/fridge-count wine)]
+    (when (pos? n)
+      [box
+       {:sx
+        {:display "flex" :alignItems "center" :flexWrap "wrap" :gap 1 :mt 0.5}}
+       [ac-unit {:sx {:fontSize "1rem" :color "rgb(170, 205, 240)"}}]
+       [typography {:variant "body2" :sx {:flex 1}} (str n " in the fridge")]
+       [button
+        {:size "small"
+         :startIcon (r/as-element [wine-bar {:fontSize "small"}])
+         :onClick
+         #(api/adjust-wine-quantity app-state (:id wine) -1 {:reason "drunk"})}
+        "Drink"]
+       [button
+        {:size "small"
+         :color "inherit"
+         :onClick #(api/move-to-fridge app-state (:id wine) -1)}
+        "Back to cellar"]])))
 
 (defn- cellar-edit-modal
   [app-state wine open?]
@@ -77,7 +101,8 @@
           full (max 0 (- (:quantity wine) (if open? 1 0)))]
       [box {:sx {:display "flex" :flexDirection "column"}}
        [quantity-control app-state (:id wine) (:quantity wine) (str full)
-        (:original_quantity wine)] (when open? [open-bottle-level wine])])
+        (:original_quantity wine) {:wine wine}]
+       (when open? [open-bottle-level wine])])
     [box {:sx {:borderTop "1px solid rgba(255,255,255,0.08)" :mt 0.5}}]
     [text-field
      {:value (or @laid-down-val "")
@@ -126,10 +151,11 @@
            :onClick
            (fn [e] (.stopPropagation e) (reset! anchor-el (.-currentTarget e)))}
           [wine-bar {:fontSize "small" :color "primary"}]]]]
-       [minus-menu app-state wine-id anchor-el #{:drink :coravin-pour :gift}
+       [minus-menu app-state wine-id anchor-el
+        (into #{:drink :coravin-pour :gift} (fridge-options wine))
         #(reset! gift-open? true) #(reset! coravin-open? true)
         #(reset! drink-open? true)]]
-      (when bottle-open? [open-bottle-level wine])
+      (when bottle-open? [open-bottle-level wine]) [fridge-line app-state wine]
       (when @modal-open? [cellar-edit-modal app-state wine modal-open?])
       (when @drink-open?
         [drink-dialog app-state wine-id qty drink-open?

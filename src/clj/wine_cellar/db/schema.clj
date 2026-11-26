@@ -48,6 +48,9 @@
     [:back_label_image :bytea] [:metadata :jsonb]
     [:open_bottle_opened_at :timestamptz]
     [:open_bottle_oz_poured :numeric [5 2]]
+    ;; Bottles pulled from the cellar but not drunk yet, still counted in
+    ;; :quantity.
+    [:fridge_quantity :integer [:not nil] [:default 0]]
     [[:constraint :valid_tasting_window]
      [:check
       [:or [:= :drink_from_year] [:= :drink_until_year]

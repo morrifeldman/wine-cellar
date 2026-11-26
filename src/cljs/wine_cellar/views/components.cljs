@@ -16,6 +16,9 @@
             [reagent-mui.icons.cancel :refer [cancel]]
             [reagent-mui.icons.wine-bar :refer [wine-bar]]
             [reagent-mui.icons.opacity :refer [opacity]]
+            [reagent-mui.icons.ac-unit :refer [ac-unit]]
+            [reagent-mui.icons.inventory :refer [inventory] :rename
+             {inventory inventory-icon}]
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.material.circular-progress :refer [circular-progress]]
             [reagent-mui.material.input-adornment :refer [input-adornment]]
@@ -23,6 +26,7 @@
             [reagent-mui.material.tooltip :as mui-tooltip]
             [wine-cellar.utils.formatting :as formatting]
             [wine-cellar.api :as api]
+            [wine-cellar.common :as common]
             [wine-cellar.utils.mui :refer [safe-js-props]]))
 
 ;; Dot-separated inline layout
@@ -198,6 +202,14 @@
       :rows 2
       :onChange (fn [e] (reset! notes (.. e -target -value)))}]]))
 
+(defn fridge-options
+  "The fridge moves open to this wine: out of the cellar while it has sealed
+   bottles there, back while any are in the fridge."
+  [wine]
+  (cond-> #{}
+    (pos? (common/cellar-count wine)) (conj :to-fridge)
+    (pos? (common/fridge-count wine)) (conj :from-fridge)))
+
 (defn minus-menu
   [app-state wine-id anchor-el options on-gift on-coravin-pour on-drink]
   [menu
@@ -219,6 +231,18 @@
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-coravin-pour))}
       [list-item-icon [opacity {:fontSize "small" :color "primary"}]]
       "Coravin pour"])
+   (when (:to-fridge options)
+     [menu-item
+      {:onClick
+       (fn [] (reset! anchor-el nil) (api/move-to-fridge app-state wine-id 1))}
+      [list-item-icon [ac-unit {:fontSize "small" :color "primary"}]]
+      "Move to fridge"])
+   (when (:from-fridge options)
+     [menu-item
+      {:onClick
+       (fn [] (reset! anchor-el nil) (api/move-to-fridge app-state wine-id -1))}
+      [list-item-icon [inventory-icon {:fontSize "small" :color "primary"}]]
+      "Back to cellar"])
    (when (:gift options)
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-gift))} "Gift"])
    (when (:broken options)
@@ -306,9 +330,12 @@
   ([app-state wine-id quantity display-text original-quantity opts]
    (let [mode (:mode opts :detail) ;; :card or :detail
          show-plus? (not= mode :card)
-         minus-options (if (= mode :card)
-                         #{:drink :coravin-pour :gift}
-                         #{:drink :coravin-pour :gift :broken :correction})
+         minus-options (into (if (= mode :card)
+                               #{:drink :coravin-pour :gift}
+                               #{:drink :coravin-pour :gift :broken
+                                 :correction})
+                             (some-> (:wine opts)
+                                     fridge-options))
          minus-icon (:minus-icon opts [arrow-drop-down {:fontSize "small"}])]
      (r/with-let
       [anchor-el-add (r/atom nil) anchor-el-sub (r/atom nil) gift-open?

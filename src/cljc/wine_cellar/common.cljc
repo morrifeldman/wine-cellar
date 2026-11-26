@@ -364,4 +364,17 @@
    "correction" "Correction"
    "return" "Return to Cellar"
    "broken" "Broken"
-   "coravin_pour" "Coravin pour"})
+   "coravin_pour" "Coravin pour"
+   "to_fridge" "Moved to fridge"
+   "from_fridge" "Back from fridge"})
+
+(defn fridge-count [wine] (or (:fridge_quantity wine) 0))
+
+(defn cellar-count
+  "Sealed bottles still in the cellar: stock less the open bottle and those
+   moved to the fridge."
+  [wine]
+  (max 0
+       (- (or (:quantity wine) 0)
+          (if (:open_bottle_opened_at wine) 1 0)
+          (fridge-count wine))))
