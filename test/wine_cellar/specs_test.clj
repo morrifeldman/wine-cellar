@@ -15,8 +15,8 @@
   #{"id" "created_at" "updated_at"
     ;; Set by the Coravin pour and finish-bottle endpoints.
     "open_bottle_opened_at" "open_bottle_oz_poured"
-    ;; Set by the fridge endpoint and kept in step by every stock change.
-    "fridge_quantity"})
+    ;; Set by the take-out endpoint and kept in step by every stock change.
+    "out_quantity"})
 
 (deftest every-wine-column-is-covered
   (let

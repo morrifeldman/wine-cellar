@@ -141,7 +141,21 @@
    {:id "0020-wines-fridge-quantity"
     :sql
     {:raw
-     ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS fridge_quantity integer NOT NULL DEFAULT 0;"]}}])
+     ["ALTER TABLE wines ADD COLUMN IF NOT EXISTS fridge_quantity integer NOT NULL DEFAULT 0;"]}}
+   ;; The fridge became anywhere out of the cellar, not drunk yet.
+   {:id "0021-wines-out-quantity"
+    :sql
+    {:raw
+     ["DO $$ BEGIN "
+      "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='wines' AND column_name='fridge_quantity') THEN "
+      "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='wines' AND column_name='out_quantity') THEN "
+      ;; A fresh database: the table already had out_quantity when 0020
+      ;; added its column.
+      "ALTER TABLE wines DROP COLUMN fridge_quantity; "
+      "ELSE ALTER TABLE wines RENAME COLUMN fridge_quantity TO out_quantity; "
+      "END IF; END IF; END $$; "
+      "UPDATE inventory_history SET reason = 'taken_out' WHERE reason = 'to_fridge'; "
+      "UPDATE inventory_history SET reason = 'put_back' WHERE reason = 'from_fridge';"]}}])
 
 (def ^:private create-migrations-table
   {:create-table [:schema_migrations :if-not-exists]

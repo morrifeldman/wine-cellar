@@ -16,7 +16,7 @@
             [reagent-mui.icons.cancel :refer [cancel]]
             [reagent-mui.icons.wine-bar :refer [wine-bar]]
             [reagent-mui.icons.opacity :refer [opacity]]
-            [reagent-mui.icons.ac-unit :refer [ac-unit]]
+            [reagent-mui.icons.move-up :refer [move-up]]
             [reagent-mui.icons.inventory :refer [inventory] :rename
              {inventory inventory-icon}]
             [reagent-mui.material.typography :refer [typography]]
@@ -202,13 +202,13 @@
       :rows 2
       :onChange (fn [e] (reset! notes (.. e -target -value)))}]]))
 
-(defn fridge-options
-  "The fridge moves open to this wine: out of the cellar while it has sealed
-   bottles there, back while any are in the fridge."
+(defn out-options
+  "Out-of-cellar moves open to this wine: out while the cellar has sealed
+   bottles, back while any are out."
   [wine]
   (cond-> #{}
-    (pos? (common/cellar-count wine)) (conj :to-fridge)
-    (pos? (common/fridge-count wine)) (conj :from-fridge)))
+    (pos? (common/cellar-count wine)) (conj :take-out)
+    (pos? (common/out-count wine)) (conj :put-back)))
 
 (defn minus-menu
   [app-state wine-id anchor-el options on-gift on-coravin-pour on-drink]
@@ -231,16 +231,18 @@
      [menu-item {:onClick (fn [] (reset! anchor-el nil) (on-coravin-pour))}
       [list-item-icon [opacity {:fontSize "small" :color "primary"}]]
       "Coravin pour"])
-   (when (:to-fridge options)
+   (when (:take-out options)
      [menu-item
-      {:onClick
-       (fn [] (reset! anchor-el nil) (api/move-to-fridge app-state wine-id 1))}
-      [list-item-icon [ac-unit {:fontSize "small" :color "primary"}]]
-      "Move to fridge"])
-   (when (:from-fridge options)
+      {:onClick (fn []
+                  (reset! anchor-el nil)
+                  (api/take-out-of-cellar app-state wine-id 1))}
+      [list-item-icon [move-up {:fontSize "small" :color "primary"}]]
+      "Take out of cellar"])
+   (when (:put-back options)
      [menu-item
-      {:onClick
-       (fn [] (reset! anchor-el nil) (api/move-to-fridge app-state wine-id -1))}
+      {:onClick (fn []
+                  (reset! anchor-el nil)
+                  (api/take-out-of-cellar app-state wine-id -1))}
       [list-item-icon [inventory-icon {:fontSize "small" :color "primary"}]]
       "Back to cellar"])
    (when (:gift options)
@@ -335,7 +337,7 @@
                                #{:drink :coravin-pour :gift :broken
                                  :correction})
                              (some-> (:wine opts)
-                                     fridge-options))
+                                     out-options))
          minus-icon (:minus-icon opts [arrow-drop-down {:fontSize "small"}])]
      (r/with-let
       [anchor-el-add (r/atom nil) anchor-el-sub (r/atom nil) gift-open?

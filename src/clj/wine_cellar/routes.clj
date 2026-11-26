@@ -499,12 +499,12 @@
                                          :opt-un [::specs/notes])}
               :responses {200 {:body map?}}
               :handler handlers/coravin-pour}}]
-     ["/fridge"
+     ["/take-out"
       {:post {:summary
-              "Move bottles from the cellar to the fridge (negative: back)"
+              "Take bottles out of the cellar, not drunk yet (negative: back)"
               :parameters {:body (s/keys :req-un [::specs/adjustment])}
               :responses {200 {:body map?}}
-              :handler handlers/move-to-fridge}}]
+              :handler handlers/take-out-of-cellar}}]
      ["/finish-open-bottle"
       {:post {:summary "Mark the currently open bottle as finished"
               :parameters {:body (s/keys :opt-un [::specs/notes])}

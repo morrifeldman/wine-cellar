@@ -491,7 +491,7 @@
    [[:md5 :label_thumbnail] :label_thumbnail_version] :created_at :updated_at
    :verified :purchase_date :latest_internal_rating :average_external_rating
    :varieties :metadata :open_bottle_opened_at :open_bottle_oz_poured
-   :fridge_quantity])
+   :out_quantity])
 
 (defn get-wines-for-list
   []
@@ -546,7 +546,7 @@
 
 (def ^:private stock-columns
   [:id :quantity :original_quantity :open_bottle_opened_at
-   :open_bottle_oz_poured :fridge_quantity])
+   :open_bottle_oz_poured :out_quantity])
 
 (defn- stock
   [tx id]
@@ -567,18 +567,18 @@
                            :original_quantity (:original_quantity wine)}
                           entry)]}))
 
-(defn- clamp-fridge!
-  "Keeps the fridge count within the sealed bottles left (stock less any open
+(defn- clamp-out!
+  "Keeps the out-of-cellar count within the sealed bottles left (stock less any open
    bottle), so a bottle gifted, broken or opened when the cellar has none
-   comes out of the fridge. Returns the wine's stock columns."
+   comes from those taken out. Returns the wine's stock columns."
   [tx id]
   (q-one tx
          {:update :wines
-          :set {:fridge_quantity [:least :fridge_quantity
-                                  [:greatest 0
-                                   [:- :quantity
-                                    [:case [:= :open_bottle_opened_at nil] 0
-                                     :else 1]]]]}
+          :set {:out_quantity [:least :out_quantity
+                               [:greatest 0
+                                [:- :quantity
+                                 [:case [:= :open_bottle_opened_at nil] 0 :else
+                                  1]]]]}
           :where [:= :id id]
           :returning stock-columns}))
 
@@ -588,7 +588,7 @@
   (q-one
    tx
    {:update :wines :set (assoc changes :updated_at [:now]) :where [:= :id id]})
-  (clamp-fridge! tx id))
+  (clamp-out! tx id))
 
 (defn- finish-bottle!
   "Uses up the open bottle: one fewer in stock, nothing open."
@@ -625,18 +625,18 @@
        new-quantity
        (cond-> {:change_amount adjustment :reason reason :notes notes}
          occurred_at (assoc :occurred_at (->sql-timestamp occurred_at))))
-      (set-stock!
-       tx
-       id
-       (cond-> {:quantity new-quantity}
-         restock? (assoc :original_quantity (:original_quantity wine))
-         ;; A bottle drunk is the one that was chilling.
-         (and (= reason "drunk") (neg? adjustment))
-         (assoc :fridge_quantity
-                (max 0 (+ (:fridge_quantity wine 0) adjustment)))))))))
+      (set-stock! tx
+                  id
+                  (cond-> {:quantity new-quantity}
+                    restock? (assoc :original_quantity
+                                    (:original_quantity wine))
+                    ;; A bottle drunk is one already taken out.
+                    (and (= reason "drunk") (neg? adjustment))
+                    (assoc :out_quantity
+                           (max 0 (+ (:out_quantity wine 0) adjustment)))))))))
 
-(defn move-to-fridge
-  "Moves `n` sealed bottles from the cellar to the fridge (negative `n` puts
+(defn take-out-of-cellar
+  "Takes `n` sealed bottles out of the cellar (negative `n` puts
    them back). They stay in stock until drunk. Returns the wine's stock
    columns."
   [id n]
@@ -644,22 +644,22 @@
    [tx ds]
    (let [wine (stock tx id)
          sealed (- (:quantity wine 0) (if (:open_bottle_opened_at wine) 1 0))
-         new-fridge (+ (:fridge_quantity wine 0) n)]
+         new-out (+ (:out_quantity wine 0) n)]
      (when (zero? n)
        (throw (ex-info "Nothing to move" {:status 400 :wine-id id})))
-     (when (neg? new-fridge)
-       (throw (ex-info "No bottles in the fridge to return"
+     (when (neg? new-out)
+       (throw (ex-info "No bottles out of the cellar to put back"
                        {:status 400 :wine-id id})))
-     (when (> new-fridge sealed)
+     (when (> new-out sealed)
        (throw (ex-info "No bottles left in the cellar to move"
                        {:status 400 :wine-id id})))
      (record-history! tx
                       wine
                       (:quantity wine)
                       {:change_amount 0
-                       :reason (if (pos? n) "to_fridge" "from_fridge")
+                       :reason (if (pos? n) "taken_out" "put_back")
                        :notes (when (> (abs n) 1) (str (abs n) " bottles"))})
-     (set-stock! tx id {:fridge_quantity new-fridge}))))
+     (set-stock! tx id {:out_quantity new-out}))))
 
 (defn coravin-pour
   "Record a Coravin pour of `oz` ounces from wine `id`. Opens a bottle on the

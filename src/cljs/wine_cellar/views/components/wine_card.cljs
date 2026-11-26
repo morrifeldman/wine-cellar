@@ -9,7 +9,7 @@
             [reagent-mui.material.grid :refer [grid]]
             [reagent-mui.material.checkbox :refer [checkbox]]
             [reagent-mui.icons.wine-bar :refer [wine-bar]]
-            [reagent-mui.icons.ac-unit :refer [ac-unit]]
+            [reagent-mui.icons.move-up :refer [move-up]]
             [reagent-mui.material.form-control-label :refer
              [form-control-label]]
             [wine-cellar.common :as common]
@@ -276,23 +276,23 @@
              :whiteSpace "nowrap"}} [wine-bar {:sx {:fontSize "0.9rem"}}]
        [box {:component "span"} (str "~" remaining "oz left")]])))
 
-(defn fridge-badge
-  "Snowflake and count for bottles moved to the fridge."
+(defn out-badge
+  "Count of bottles taken out of the cellar but not drunk yet."
   [wine]
-  (let [n (common/fridge-count wine)]
+  (let [n (common/out-count wine)]
     (when (pos? n)
       [box
-       {:title (str n " in the fridge")
+       {:title (str n " out of the cellar")
         :sx {:display "flex"
              :alignItems "center"
              :gap 0.25
              :px 0.75
              :py 0.25
              :borderRadius 1
-             :border "1px solid rgba(150, 190, 230, 0.4)"
-             :color "rgb(170, 205, 240)"
+             :border "1px solid rgba(255, 255, 255, 0.2)"
+             :color "text.secondary"
              :fontSize "0.875rem"
-             :whiteSpace "nowrap"}} [ac-unit {:sx {:fontSize "0.9rem"}}]
+             :whiteSpace "nowrap"}} [move-up {:sx {:fontSize "0.9rem"}}]
        [box {:component "span"} n]])))
 
 (defn wine-quantity-display
@@ -305,7 +305,7 @@
                        (str full-count "/" original-quantity)
                        (str full-count))]
     [box {:sx {:display "flex" :alignItems "center" :gap 1}}
-     (when open? [open-bottle-badge wine]) [fridge-badge wine]
+     (when open? [open-bottle-badge wine]) [out-badge wine]
      [quantity-control app-state (:id wine) quantity display-text
       original-quantity
       {:mode :card :minus-icon [wine-bar {:fontSize "small"}] :wine wine}]]))

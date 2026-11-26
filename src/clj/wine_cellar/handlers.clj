@@ -123,9 +123,9 @@
   [{{{:keys [id]} :path {:keys [oz notes]} :body} :parameters}]
   (if-wine id #(http/ok (db-api/coravin-pour id oz {:notes notes}))))
 
-(defn move-to-fridge
+(defn take-out-of-cellar
   [{{{:keys [id]} :path {:keys [adjustment]} :body} :parameters}]
-  (if-wine id #(http/ok (db-api/move-to-fridge id adjustment))))
+  (if-wine id #(http/ok (db-api/take-out-of-cellar id adjustment))))
 
 (defn finish-open-bottle
   [{{{:keys [id]} :path {:keys [notes]} :body} :parameters}]
