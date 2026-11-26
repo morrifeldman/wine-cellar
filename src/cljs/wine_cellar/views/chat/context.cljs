@@ -1,5 +1,6 @@
 (ns wine-cellar.views.chat.context
-  (:require [clojure.string :as string]
+  (:require [cljs.reader :as reader]
+            [clojure.string :as string]
             [reagent.core :as r]
             [reagent-mui.material.box :refer [box]]
             [reagent-mui.material.button-base :refer [button-base]]
@@ -10,6 +11,7 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.icons.arrow-drop-down :refer [arrow-drop-down]]
             [reagent-mui.icons.check :refer [check]]
+            [wine-cellar.nav :as nav]
             [wine-cellar.utils.filters :refer
              [filtered-sorted-wines filters-active?]]))
 
@@ -18,8 +20,9 @@
 ;; {:kind :wine :wine-id id}, {:kind :conversation} (stay on what the
 ;; conversation was last discussing) or {:kind :earlier :wine-ids :label} (go
 ;; back to wines it discussed before that). Any pick but the summary lasts
-;; until
-;; the list changes; changing it is a choice too, and the chat follows it.
+;; until the list changes; changing it is a choice too, and the chat follows
+;; it. Wines that came from the list remember its settings (:list-state), so
+;; picking them again puts the filters back and the chat follows the list.
 
 (def ^:private summary-context {:wine-ids [] :label "Summary only"})
 
@@ -60,9 +63,23 @@
                      (when (and (seq ids) (filters-active? state))
                        " (filtered)"))}))))
 
+(defn- list-key
+  "What the user controls about the list. Wines arriving or being refetched
+   don't count as a change; filtering, checking and the history toggle do."
+  [state]
+  (select-keys state [:filters :selected-wine-ids :show-out-of-stock?]))
+
+(defn- read-list-state
+  [s]
+  (when (string? s)
+    (try (let [v (reader/read-string s)] (when (map? v) v))
+         (catch :default _ nil))))
+
 (defn- note-context
-  [{:keys [wine_ids label]}]
-  {:wine-ids (vec (sort wine_ids)) :label label})
+  [{:keys [wine_ids label list_state]}]
+  (let [list-state (read-list-state list_state)]
+    (cond-> {:wine-ids (vec (sort wine_ids)) :label label}
+      list-state (assoc :list-state list-state))))
 
 (defn- conversation-context
   "What the active conversation was last discussing: its latest context note,
@@ -109,9 +126,11 @@
       :wine (assoc (wine-context state wine-id) :source :wine)
       :conversation (assoc (conversation-context state) :source :conversation)
       :earlier (-> (get-in state [:chat :scope])
-                   (select-keys [:wine-ids :label])
+                   (select-keys [:wine-ids :label :list-state])
                    (assoc :source :earlier))
-      (assoc (list-context app-state) :source :list))))
+      (assoc (list-context app-state)
+             :source :list
+             :list-state (list-key state)))))
 
 (defn- set-scope!
   [app-state scope]
@@ -144,12 +163,6 @@
   [app-state]
   (set-scope! app-state {:kind :conversation}))
 
-(defn- list-key
-  "What the user controls about the list. Wines arriving or being refetched
-   don't count as a change; filtering, checking and the history toggle do."
-  [state]
-  (select-keys state [:filters :selected-wine-ids :show-out-of-stock?]))
-
 (defn follow-list-changes!
   "When the user changes the list, any pick but the summary gives way to it, so filtering from the chat always moves what the chat sees."
   [app-state]
@@ -179,13 +192,15 @@
    note yet, whenever there are wines to see."
   [app-state prior-messages]
   (when-not (= :bar (:view @app-state))
-    (let [{:keys [wine-ids label]} (chat-context app-state)
+    (let [{:keys [wine-ids label list-state]} (chat-context app-state)
           latest (some :context-note (rseq (vec prior-messages)))]
       (when (if latest
               (not= wine-ids (:wine-ids (note-context latest)))
               (seq wine-ids))
-        {:label (if (seq wine-ids) label (:label summary-context))
-         :wine_ids wine-ids}))))
+        (cond-> {:label (if (seq wine-ids) label (:label summary-context))
+                 :wine_ids wine-ids}
+          (and (seq wine-ids) list-state) (assoc :list_state
+                                                 (pr-str list-state)))))))
 
 (defn- count-sx
   [wine-count]
@@ -234,12 +249,13 @@
                              :source :conversation
                              :heading "Earlier in this chat"
                              :scope {:kind :conversation}))]
-        earlier
-        (for [{:keys [wine-ids label] :as context} (earlier-contexts state)]
-          (assoc context
-                 :source [:earlier wine-ids]
-                 :heading "Earlier in this chat"
-                 :scope {:kind :earlier :wine-ids wine-ids :label label}))
+        earlier (for [{:keys [wine-ids] :as context} (earlier-contexts state)]
+                  (assoc context
+                         :source [:earlier wine-ids]
+                         :heading "Earlier in this chat"
+                         :scope (-> context
+                                    (select-keys [:wine-ids :label :list-state])
+                                    (assoc :kind :earlier))))
         summary
         [(assoc summary-context :source :summary :scope {:kind :summary})]]
     (->> (concat (remove nil? candidates) earlier summary)
@@ -258,6 +274,22 @@
                                                (:wine-ids current))))))])))
                  [#{} []])
          second)))
+
+(defn- pick!
+  "Point the chat at a menu option. Wines that came from the list put its
+   settings back, so the list shows them again and the chat follows it; the
+   rest are held on their own."
+  [app-state {:keys [scope source list-state]}]
+  (if (and list-state (not= :list source))
+    (let [{:keys [filters show-out-of-stock? selected-wine-ids]} list-state]
+      (swap! app-state #(-> %
+                            (assoc :filters filters
+                                   :show-out-of-stock? (boolean
+                                                        show-out-of-stock?))
+                            (update :chat dissoc :scope)))
+      ;; The URL owns the checked wines
+      (nav/set-selected-wines! (or selected-wine-ids #{})))
+    (set-scope! app-state scope)))
 
 (defn context-bar
   "Says what the chat sees and lets the user point it elsewhere: the list, the
@@ -300,13 +332,13 @@
           [arrow-drop-down {:sx {:fontSize "1rem" :flexShrink 0}}]]
          [menu
           {:anchor-el @anchor-el :open (boolean @anchor-el) :on-close close!}
-          (for [{:keys [heading scope selected? source] :as option}
+          (for [{:keys [heading selected? source] :as option}
                 (scope-options app-state current previous)]
             ^{:key (str (:source option))}
             [menu-item
              {:selected selected?
               :dense true
-              :on-click #(do (close!) (set-scope! app-state scope))}
+              :on-click #(do (close!) (pick! app-state option))}
              [list-item-icon
               (when selected? [check {:fontSize "small" :color "primary"}])]
              [list-item-text

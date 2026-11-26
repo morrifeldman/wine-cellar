@@ -431,12 +431,16 @@
 
 (defn- complete-context-note
   "A note is a snapshot of the wines as Claude saw them when they came into
-   the conversation, so it carries their rendered details, not just ids."
-  [{:keys [label wine_ids text]}]
+   the conversation, so it carries their rendered details, not just ids. A
+   note taken from the wine list also keeps the list's settings (an opaque
+   string the browser reads), so going back to those wines restores the
+   filters that found them."
+  [{:keys [label wine_ids text list_state]}]
   (let [wine-ids (vec (remove nil? wine_ids))]
-    {:label label
-     :wine_ids wine-ids
-     :text (or text (ai/wines-context-text wine-ids))}))
+    (cond-> {:label label
+             :wine_ids wine-ids
+             :text (or text (ai/wines-context-text wine-ids))}
+      (string? list_state) (assoc :list_state list_state))))
 
 (defn- complete-history-notes
   "A note whose message was saved moments ago may not have its text back in

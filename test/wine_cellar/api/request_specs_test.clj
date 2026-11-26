@@ -53,3 +53,25 @@
              {:is_user true :content "Which red tonight?"})]
         (is (= 201 status))
         (is (= "Which red tonight?" (get-in body [:message :content])))))))
+
+(deftest context-note-keeps-the-list-state
+  (let [{conversation :body}
+        (ts/request :post "/api/conversations" {:provider "anthropic"})
+        url (str "/api/conversations/" (:id conversation) "/messages")
+        wine-id (new-wine!)
+        note-back (fn [list-state]
+                    (get-in (ts/request :post
+                                        url
+                                        {:is_user false
+                                         :content "Hi"
+                                         :context_note {:label "1 wine"
+                                                        :wine_ids [wine-id]
+                                                        :list_state
+                                                        list-state}})
+                            [:body :message :context_note]))]
+    (testing "the list's settings come back as they were sent"
+      (let [note (note-back "{:filters {:styles [\"Red\"]}}")]
+        (is (= "{:filters {:styles [\"Red\"]}}" (:list_state note)))
+        (is (= [wine-id] (:wine_ids note)))))
+    (testing "anything but a string is dropped"
+      (is (not (contains? (note-back {:filters "x"}) :list_state))))))
