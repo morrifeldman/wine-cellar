@@ -3,7 +3,6 @@
             [wine-cellar.api :as api]
             [wine-cellar.views.components.confirm :refer [confirm!]]
             [wine-cellar.nav :as nav]
-            [wine-cellar.state :as state-core]
             [wine-cellar.views.chat.context :as chat-context]
             [wine-cellar.views.chat.utils :as chat-utils]))
 
@@ -269,7 +268,6 @@
    (set-messages! app-state [])
    (when (and message-ref @message-ref) (set! (.-value @message-ref) ""))
    (when pending-image (reset! pending-image nil))
-   (state-core/set-context-mode! app-state :wines)
    (swap! app-state (fn [state]
                       (-> state
                           (assoc-in [:chat :messages] [])
@@ -277,7 +275,8 @@
                           (assoc-in [:chat :active-conversation] nil)
                           (assoc-in [:chat :messages-loading?] false)
                           (assoc-in [:chat :creating-conversation?] false)
-                          (assoc-in [:chat :draft-message] nil))))))
+                          (assoc-in [:chat :draft-message] nil))))
+   (chat-context/start-fresh! app-state)))
 
 (defn close-chat!
   [app-state message-ref]

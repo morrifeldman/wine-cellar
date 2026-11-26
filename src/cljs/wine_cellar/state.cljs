@@ -56,7 +56,7 @@
           :renaming-conversation-id nil
           :deleting-conversation-id nil
           :sidebar-open? false
-          :context-mode :wines
+          :scope nil
           :error nil}
    :sensor-readings {:latest []
                      :series []
@@ -87,23 +87,6 @@
          :new-spirit {}
          :new-recipe {:ingredients []}
          :recipe-filters default-recipe-filters}})
-
-(defn context-mode
-  "Whether the chat sees wines (:wines) or only the cellar summary (:summary)."
-  [state]
-  (if (= :summary (get-in state [:chat :context-mode])) :summary :wines))
-
-(defn set-context-mode!
-  "Choose between :wines and :summary. Either choice is a deliberate pick of
-   what to talk about, so a reopened conversation stops holding on to its own
-   wines."
-  [app-state mode]
-  (swap! app-state update
-    :chat
-    (fn [chat]
-      (-> chat
-          (assoc :context-mode (if (= :summary mode) :summary :wines))
-          (dissoc :held-list-ids)))))
 
 (defn toggle-wine-selection!
   "Add or remove a wine id from the multi-select set. The URL holds the set, so

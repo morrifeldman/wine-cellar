@@ -21,7 +21,6 @@
             [wine-cellar.utils.filters :refer [filtered-sorted-wines]]
             [wine-cellar.api :as api]
             [wine-cellar.nav :as nav]
-            [wine-cellar.state :as state-core]
             [wine-cellar.views.chat.utils :as chat-utils]
             [wine-cellar.views.chat.context :as chat-context]
             [wine-cellar.views.chat.actions :as chat-actions]
@@ -220,7 +219,7 @@
                          wines
                          (filter #(pos? (or (:quantity %) 0)) wines))
             total-count (count base-wines)
-            wines-mode? (= :wines (state-core/context-mode state))
+            wines-mode? (not (chat-context/summary? state))
             visible-count
             (if wines-mode? (count (filtered-sorted-wines app-state)) 0)
             bar-view? (= :bar (:view state))

@@ -17,7 +17,18 @@
    ["/bar/inventory" {:name ::bar-inventory}]])
 
 (defn go-wines! [] (rfe/push-state ::wines))
-(defn go-wine-detail! [id] (rfe/push-state ::wine-detail {:id id}))
+(defn- query-param
+  [param]
+  (.get (js/URLSearchParams. (.-search js/location)) (name param)))
+
+(defn go-wine-detail!
+  "Open a wine's page. The checked wines come along in the URL, so the chat
+   there still knows which wines the list was narrowed to."
+  [id]
+  (rfe/push-state ::wine-detail
+                  {:id id}
+                  (when-let [selected (query-param :selected)]
+                    {:selected selected})))
 (defn go-add-wine! [] (rfe/push-state ::add-wine))
 (defn go-insights! [] (rfe/push-state ::insights))
 (defn go-grape-varieties! [] (rfe/push-state ::grape-varieties))
@@ -89,10 +100,6 @@
                  {:replace true}))
 
 (defn back! [] (.back js/history))
-
-(defn- query-param
-  [param]
-  (.get (js/URLSearchParams. (.-search js/location)) (name param)))
 
 (defn modal-in-url?
   "Whether the current URL names this modal, i.e. whether Back is what closes it."

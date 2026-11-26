@@ -849,7 +849,7 @@
                                 :active-conversation nil
                                 :messages []
                                 :messages-loading? false)
-                         (dissoc :held-list-ids))))))
+                         (dissoc :scope))))))
 
 (defn delete-conversation!
   [app-state conversation-id]

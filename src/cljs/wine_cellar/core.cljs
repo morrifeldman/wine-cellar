@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [reagent.dom.client :as dom-client]
             [wine-cellar.views.main :as views]
+            [wine-cellar.views.chat.context :as chat-context]
             [wine-cellar.api :as api]
             [wine-cellar.dom :as dom]
             [wine-cellar.nav :as nav]
@@ -189,6 +190,7 @@
           ;; included.
           chat-open? (when-not chat-was-open?
                        (swap! app-state assoc-in [:chat :open?] true)
+                       (chat-context/chat-opened! app-state)
                        (api/load-conversations! app-state {:force? true}))
           ;; The conversation belongs to the page it was started on
           (not= old-view new-view)
@@ -284,6 +286,7 @@
 (defn init
   []
   (js/console.log "Initializing app...")
+  (chat-context/follow-list-changes! app-state)
   (rfe/start! (rf/router nav/routes) on-navigate {:use-fragment false})
   (when-not @api/headless-mode?
     (api/fetch-model-info app-state)
