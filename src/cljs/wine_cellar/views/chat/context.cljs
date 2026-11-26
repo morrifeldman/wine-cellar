@@ -11,9 +11,9 @@
             [reagent-mui.material.typography :refer [typography]]
             [reagent-mui.icons.arrow-drop-down :refer [arrow-drop-down]]
             [reagent-mui.icons.check :refer [check]]
+            [reagent-mui.icons.push-pin :refer [push-pin]]
             [wine-cellar.nav :as nav]
-            [wine-cellar.utils.filters :refer
-             [filtered-sorted-wines filters-active?]]))
+            [wine-cellar.utils.filters :refer [filtered-sorted-wines]]))
 
 ;; What the chat sees is the list, unless the user picked something else:
 ;; [:chat :scope] is nil (follow the list), {:kind :summary},
@@ -27,13 +27,8 @@
 (def ^:private summary-context {:wine-ids [] :label "Summary only"})
 
 (defn- wines-label
-  ([wine-count] (wines-label wine-count nil))
-  ([wine-count qualifier]
-   (if (zero? wine-count)
-     "No wines match"
-     (str wine-count
-          (when qualifier (str " " qualifier))
-          (if (= 1 wine-count) " wine" " wines")))))
+  [wine-count]
+  (if (= 1 wine-count) "1 wine" (str wine-count " wines")))
 
 (defn- wine-name
   [{:keys [producer name vintage]}]
@@ -46,6 +41,53 @@
    :label (or (some #(when (= wine-id (:id %)) (wine-name %)) (:wines state))
               (wines-label 1))})
 
+(defn- join-or
+  [words]
+  (if (< (count words) 2)
+    (first words)
+    (str (string/join ", " (butlast words)) " or " (last words))))
+
+(defn- as-seq
+  "A filter that once held one value and now holds several, as a seq."
+  [values legacy-value]
+  (cond (sequential? values) (seq values)
+        (some? legacy-value) [legacy-value]))
+
+(defn- list-label
+  "Names the list's wines by what found them: \"3 red wines · France ·
+   ready to drink\" rather than \"3 wines (filtered)\"."
+  [{:keys [filters show-out-of-stock?]} wine-count checked?]
+  (let [{:keys [search country region styles style varieties variety price-range
+                tasting-window verification columns]}
+        filters
+        search (some-> search
+                       string/trim
+                       not-empty)
+        kinds (concat [(when checked? "checked")
+                       (case verification
+                         :verified-only "verified"
+                         :unverified-only "unverified"
+                         nil)
+                       (some->> (as-seq styles style)
+                                (map string/lower-case)
+                                join-or) (join-or (as-seq varieties variety))]
+                      [(if (= 1 wine-count) "wine" "wines")])
+        details [(not-empty (string/join ", " (remove nil? [region country])))
+                 (when search (str "“" search "”"))
+                 (when-let [[low high] price-range] (str "$" low "–$" high))
+                 (case tasting-window
+                   :ready "ready to drink"
+                   :too-young "not ready yet"
+                   :too-old "past their prime"
+                   nil)
+                 (when (seq columns)
+                   (str (if (= 1 (count columns)) "column " "columns ")
+                        (string/join ", " (sort columns))))
+                 (when show-out-of-stock? "incl. finished bottles")]]
+    (string/join " · "
+                 (cons (string/join " " (cons wine-count (remove nil? kinds)))
+                       (remove nil? details)))))
+
 (defn list-context
   "The wines the list offers the chat: the checked wines that the filters and
    history toggle leave visible, else everything visible. An open wine page
@@ -53,15 +95,11 @@
   [app-state]
   (let [state @app-state
         visible-ids (map :id (filtered-sorted-wines app-state))
-        checked (:selected-wine-ids state)]
-    (if (seq checked)
-      (let [ids (vec (sort (filter checked visible-ids)))]
-        {:wine-ids ids :label (wines-label (count ids) "selected")})
-      (let [ids (vec (sort visible-ids))]
-        {:wine-ids ids
-         :label (str (wines-label (count ids))
-                     (when (and (seq ids) (filters-active? state))
-                       " (filtered)"))}))))
+        checked (:selected-wine-ids state)
+        ids (vec (sort
+                  (if (seq checked) (filter checked visible-ids) visible-ids)))]
+    {:wine-ids ids
+     :label (list-label state (count ids) (boolean (seq checked)))}))
 
 (defn- list-key
   "What the user controls about the list. Wines arriving or being refetched
@@ -317,6 +355,10 @@
             ;; The next message will move the conversation onto new wines.
             switching? (and previous
                             (not= (:wine-ids current) (:wine-ids previous)))
+            ;; Held on wines the list isn't showing
+            pinned? (and (#{:wine :conversation :earlier} (:source current))
+                         (not= (:wine-ids current)
+                               (:wine-ids (list-context app-state))))
             close! #(reset! anchor-el nil)]
         [box {:sx {:display "flex" :align-items "center" :minWidth 0}}
          [button-base
@@ -332,6 +374,14 @@
                 :ml -0.5
                 :color "text.secondary"
                 "&:hover" {:backgroundColor "action.hover"}}}
+          (when pinned?
+            [push-pin
+             {:titleAccess "Not your list"
+              :sx {:fontSize "0.8rem"
+                   :color "secondary.main"
+                   :mr 0.25
+                   :flexShrink 0
+                   :transform "rotate(30deg)"}}])
           [typography
            {:variant "caption"
             :noWrap true
