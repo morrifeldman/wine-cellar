@@ -362,7 +362,7 @@
                             :verification nil
                             :out-of-cellar? false
                             :columns #{}}
-                  :sort {:field :created_at :direction :desc})}
+                  :sort app-state-core/default-sort)}
      [restart-alt {:fontSize "small"}]]]])
 
 (defn filter-header

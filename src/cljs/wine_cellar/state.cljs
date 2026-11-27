@@ -15,6 +15,11 @@
    :open-ingredient-cat nil
    :makeable nil})
 
+(def default-sort
+  "The wine list's sort on load and after a filter reset: the wines touched most
+   recently first."
+  {:field :last_activity_at :direction :desc})
+
 (def initial-app-state
   "Initial app state structure - shared between initialization and reset"
   {:wines []
@@ -34,7 +39,7 @@
    :show-debug-controls? false
    :tasting-notes []
    :new-tasting-note {}
-   :sort {:field :created_at :direction :desc}
+   :sort default-sort
    :filters
    {:search "" :country nil :region nil :styles [] :style nil :varieties []}
    :view nil
