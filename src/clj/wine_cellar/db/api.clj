@@ -489,9 +489,9 @@
    ;; Not the thumbnail itself: inlining every label made the list
    ;; megabytes. Cards fetch it by URL, versioned on this hash.
    [[:md5 :label_thumbnail] :label_thumbnail_version] :created_at :updated_at
-   :verified :purchase_date :latest_internal_rating :average_external_rating
-   :varieties :metadata :open_bottle_opened_at :open_bottle_oz_poured
-   :out_quantity])
+   :last_activity_at :verified :purchase_date :latest_internal_rating
+   :average_external_rating :varieties :metadata :open_bottle_opened_at
+   :open_bottle_oz_poured :out_quantity])
 
 (defn get-wines-for-list
   []

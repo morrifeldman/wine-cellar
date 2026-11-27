@@ -497,13 +497,17 @@
   "Posts a stock change for the wine and merges the stock columns the server
    returns."
   [app-state wine-id path body error-msg]
-  (request! app-state
-            {:method :post
-             :url (str "/api/wines/by-id/" wine-id path)
-             :body body
-             :error-msg error-msg
-             :on-success #(merge-wine %1 %2)
-             :after #(fetch-inventory-history app-state wine-id)}))
+  (request!
+   app-state
+   {:method :post
+    :url (str "/api/wines/by-id/" wine-id path)
+    :body body
+    :error-msg error-msg
+    ;; The list's Recent Activity sort sees this at once, without
+    ;; refetching the wine.
+    :on-success
+    #(merge-wine %1 (assoc %2 :last_activity_at (.toISOString (js/Date.))))
+    :after #(fetch-inventory-history app-state wine-id)}))
 
 (defn adjust-wine-quantity
   ([app-state wine-id adjustment]

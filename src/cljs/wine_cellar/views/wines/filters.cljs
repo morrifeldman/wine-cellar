@@ -53,7 +53,18 @@
    "drink_from_year" "Win. Open"
    "drink_until_year" "Win. Close"
    "created_at" "Date Added"
-   "updated_at" "Last Updated"})
+   "updated_at" "Last Updated"
+   "last_activity_at" "Recent Activity"})
+
+(defn- pick-sort-field
+  "Sorts by `field`, keeping the direction when it's already the field. Dates
+   start newest first; everything else A–Z or low to high."
+  [sort-state field]
+  (if (= field (:field sort-state))
+    sort-state
+    {:field field
+     :direction
+     (if (#{:created_at :updated_at :last_activity_at} field) :desc :asc)}))
 
 (defn search-field
   [app-state]
@@ -496,11 +507,8 @@
         :sx {"& .MuiSelect-icon" {:color "text.secondary"}}
         :onChange #(swap! app-state update
                      :sort
-                     (fn [s]
-                       (let [new-field (keyword (.. % -target -value))]
-                         (if (= new-field (:field s))
-                           s
-                           {:field new-field :direction :asc}))))}
+                     pick-sort-field
+                     (keyword (.. % -target -value)))}
        [menu-item {:value "location"} "Location"]
        [menu-item {:value "producer"} "Producer"]
        [menu-item {:value "name"} "Name"]
@@ -514,7 +522,8 @@
        [menu-item {:value "drink_from_year"} "Drinking Window Open"]
        [menu-item {:value "drink_until_year"} "Drinking Window Close"]
        [menu-item {:value "created_at"} "Date Added"]
-       [menu-item {:value "updated_at"} "Last Updated"]]]
+       [menu-item {:value "updated_at"} "Last Updated"]
+       [menu-item {:value "last_activity_at"} "Recent Activity"]]]
      (let [current-direction (get-in @app-state [:sort :direction])]
        [box {:sx {:alignSelf "center" :display "flex"}}
         [tooltip
@@ -605,14 +614,9 @@
           ^{:key value}
           [menu-item
            {:selected (= field value)
-            :onClick #(do (swap! app-state update
-                            :sort
-                            (fn [s]
-                              (let [new-field (keyword value)]
-                                (if (= new-field (:field s))
-                                  s
-                                  {:field new-field :direction :asc}))))
-                          (reset! sort-anchor nil))} label])]]
+            :onClick
+            #(do (swap! app-state update :sort pick-sort-field (keyword value))
+                 (reset! sort-anchor nil))} label])]]
       [popover
        {:open (boolean @style-anchor)
         :anchorEl @style-anchor

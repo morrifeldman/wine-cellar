@@ -113,3 +113,15 @@
       (let [w (db/coravin-pour id 2)]
         (is (= 1 (:quantity w)))
         (is (= 0 (:out_quantity w)))))))
+
+(deftest last-activity-follows-the-latest-stock-change
+  (let [id (new-wine! 2)]
+    (testing "a new wine's activity is when it was added"
+      (is (= (str (:created_at (wine id)))
+             (str (:last_activity_at (wine id))))))
+    (testing "a drink dated later moves it to that date"
+      (db/adjust-quantity id -1 {:reason "drunk" :occurred_at "2031-05-04"})
+      (is (re-find #"2031-05-04" (str (:last_activity_at (wine id))))))
+    (testing "the list carries it too"
+      (is (some #(and (= id (:id %)) (:last_activity_at %))
+                (db/get-wines-for-list))))))

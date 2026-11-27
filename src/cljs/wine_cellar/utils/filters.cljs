@@ -116,7 +116,8 @@
                  (and (#{:drink_from_year :drink_until_year} field) (nil? val))
                  9999 ;; Sort wines without drinking windows last
                  ;; Handle timestamps for date sorting
-                 (and (#{:updated_at :created_at} field) val) (js/Date. val)
+                 (and (#{:updated_at :created_at :last_activity_at} field) val)
+                 (js/Date. val)
                  ;; Handle nil price specifically
                  (and (= field :price) (nil? val)) 999999 ;; Sort wines
                                                           ;; without prices

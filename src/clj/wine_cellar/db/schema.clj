@@ -119,6 +119,17 @@
               [:not [:= :tn.rating nil]]]
       :order-by [[:tn.tasting_date :desc]]
       :limit [:inline 1]} :latest_internal_rating]
+    ;; The last thing done with the bottles: a stock change (out, back,
+    ;; drunk, poured, ...), one's own tasting note, or adding the wine.
+    ;; GREATEST skips the NULLs of a wine with neither.
+    [[:greatest :w.created_at
+      {:select [[[:max :ih.occurred_at]]]
+       :from [[:inventory_history :ih]]
+       :where [:= :ih.wine_id :w.id]}
+      {:select [[[:max :tn.tasting_date]]]
+       :from [[:tasting_notes :tn]]
+       :where [:and [:= :tn.wine_id :w.id] [:not [:= :tn.is_external true]]]}]
+     :last_activity_at]
     [{:select [[[:round [:avg :tn.rating]]]]
       :from [[:tasting_notes :tn]]
       :where [:and [:= :tn.wine_id :w.id] [:= :tn.is_external true]
