@@ -12,7 +12,9 @@
   (let [calls (atom 0)]
     (with-redefs [ai/generate-report-commentary
                   (fn [_ _] (swap! calls inc) "ZZ commentary")]
-      (let [report (reports/generate-report!)]
+      ;; Forced, since another test may have made this week's report
+      ;; already
+      (let [report (reports/generate-report! {:force? true})]
         (is (= "ZZ commentary" (:ai_commentary report)))
         (is (contains? (:summary_data report) :drink-now-ids))
         (testing "listed and fetchable by id"
@@ -41,3 +43,29 @@
                                            json/keyword-keys-object-mapper))
                         (filter #(= id (:wine_id %))))]
         (is (= 8 (count events)))))))
+
+(deftest the-commentary-sees-the-users-own-recent-tasting-notes
+  (let [id (:id (db/create-wine {:producer "ZZ Report Tasting"
+                                 :country "Italy"
+                                 :region "Piedmont"
+                                 :style "Red"
+                                 :quantity 3
+                                 :original_quantity 3}))
+        sent (atom nil)]
+    (db/create-tasting-note {:wine_id id
+                             :tasting_date "2026-11-20"
+                             :rating 94
+                             :notes "ZZ tar and roses"})
+    (db/create-tasting-note {:wine_id id
+                             :rating 90
+                             :notes "ZZ critic note"
+                             :is_external true
+                             :source "ZZ Critic"})
+    (with-redefs [ai/generate-report-commentary
+                  (fn [_ data-json] (reset! sent data-json) "ZZ commentary")]
+      (reports/generate-report! {:force? true})
+      (let [notes (->> (:recent-tasting-notes
+                        (json/read-value @sent json/keyword-keys-object-mapper))
+                       (filter #(= id (:wine_id %))))]
+        (is (= ["ZZ tar and roses"] (map :notes notes)))
+        (is (= 94 (:rating (first notes))))))))

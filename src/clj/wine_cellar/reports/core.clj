@@ -49,6 +49,19 @@
            :where [:>= :ih.created_at last-week-date]
            :order-by [[:ih.created_at :desc]]}))
 
+(defn- fetch-recent-tasting-notes
+  "The user's own notes written in the period; imported critic notes are left
+   out."
+  [tx last-week-date]
+  (q-many tx
+          {:select [:tn.wine_id :tn.tasting_date :tn.rating :tn.notes
+                    :w.producer :w.name :w.vintage]
+           :from [[:tasting_notes :tn]]
+           :join [[:wines :w] [:= :tn.wine_id :w.id]]
+           :where [:and [:>= :tn.created_at last-week-date]
+                   [:not [:= :tn.is_external true]]]
+           :order-by [[:tn.created_at :desc]]}))
+
 (defn- fetch-past-prime-wines
   [tx current-year]
   (q-many tx
@@ -78,6 +91,7 @@
         past-prime (fetch-past-prime-wines tx current-year)
         recent-added (fetch-recently-added-wines tx last-week)
         recent-activity (fetch-recent-activity tx last-week)
+        recent-tastings (fetch-recent-tasting-notes tx last-week)
         highlight (select-highlight-wine drink-now)]
     {:generated-at (str today)
      :period-start (str last-week)
@@ -94,6 +108,7 @@
      :recently-added-sample (take 5 recent-added)
      ;; Every event in the period, so the commentary can cover all of it
      :recent-activity recent-activity
+     :recent-tasting-notes recent-tastings
      ;; Full ID lists for interaction
      :drink-now-ids (mapv :id drink-now)
      :expiring-ids (mapv :id expiring)
