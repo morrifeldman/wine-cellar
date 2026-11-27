@@ -653,12 +653,13 @@
      (when (> new-out sealed)
        (throw (ex-info "No bottles left in the cellar to move"
                        {:status 400 :wine-id id})))
-     (record-history! tx
-                      wine
-                      (:quantity wine)
-                      {:change_amount 0
-                       :reason (if (pos? n) "taken_out" "put_back")
-                       :notes (when (> (abs n) 1) (str (abs n) " bottles"))})
+     ;; A row per bottle, so deleting one undoes exactly one move.
+     (dotimes [_ (abs n)]
+       (record-history! tx
+                        wine
+                        (:quantity wine)
+                        {:change_amount 0
+                         :reason (if (pos? n) "taken_out" "put_back")}))
      (set-stock! tx id {:out_quantity new-out}))))
 
 (defn coravin-pour
@@ -779,20 +780,51 @@
              (recompute-open-poured! tx (:wine_id updated)))
            updated))))))
 
+(defn- undo-stock-change!
+  "Reverses what history `row` did to its wine's stock: bottles come back or
+   go away again (a restock also lowers the laid-down count), and a move out
+   of the cellar or back is undone. Throws rather than leave stock negative."
+  [tx {:keys [wine_id reason change_amount]}]
+  (let [wine (stock tx wine_id)
+        out (:out_quantity wine 0)]
+    (case reason
+      "taken_out" (set-stock! tx wine_id {:out_quantity (max 0 (dec out))})
+      ;; set-stock! caps it at the sealed bottles left.
+      "put_back" (set-stock! tx wine_id {:out_quantity (inc out)})
+      (when-not (zero? change_amount)
+        (let [new-quantity (- (:quantity wine 0) change_amount)]
+          (when (neg? new-quantity)
+            (throw (ex-info (str "Can't undo: only "
+                                 (:quantity wine 0)
+                                 " in stock to take back")
+                            {:status 400 :wine-id wine_id})))
+          (set-stock! tx
+                      wine_id
+                      (cond-> {:quantity new-quantity}
+                        (and (= reason "restock") (:original_quantity wine))
+                        (assoc :original_quantity
+                               (max new-quantity
+                                    (- (:original_quantity wine)
+                                       change_amount))))))))))
+
 (defn delete-inventory-history!
+  "Deletes history row `id` and undoes its effect on the wine's stock (a
+   Coravin pour instead comes off the open bottle's running total)."
   [id]
   (jdbc/with-transaction
    [tx ds]
    (let [row (q-one tx
-                    {:select [:wine_id :reason]
+                    {:select [:wine_id :reason :change_amount]
                      :from :inventory_history
                      :where [:= :id id]})
          deleted?
          (-> (q-one tx {:delete-from :inventory_history :where [:= :id id]})
              :next.jdbc/update-count
              pos?)]
-     (when (and row (= "coravin_pour" (:reason row)))
-       (recompute-open-poured! tx (:wine_id row)))
+     (when row
+       (if (= "coravin_pour" (:reason row))
+         (recompute-open-poured! tx (:wine_id row))
+         (undo-stock-change! tx row)))
      deleted?)))
 
 (defn delete-wine! [id] (delete-by-id! :wines id))

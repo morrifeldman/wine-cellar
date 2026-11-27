@@ -74,7 +74,40 @@
       (db/update-inventory-history! (:id row) {:change_amount -2})
       (is (= 1 (:quantity (wine id)))))
     (is (true? (db/delete-inventory-history! (:id row))))
+    (testing "deleting the drink puts its bottles back"
+      (is (= 3 (:quantity (wine id)))))
     (is (false? (db/delete-inventory-history! (:id row))) "already gone")))
+
+(defn- latest-row [id] (first (db/get-inventory-history id)))
+
+(deftest deleting-history-undoes-its-stock-change
+  (testing "a restock comes off the stock and the laid-down count"
+    (let [id (new-wine! 2)]
+      (db/adjust-quantity id 3 {:reason "restock"})
+      (db/delete-inventory-history! (:id (latest-row id)))
+      (is (= [2 2] ((juxt :quantity :original_quantity) (wine id))))))
+  (testing "a restock whose bottles are gone can't be undone"
+    (let [id (new-wine! 0)]
+      (db/adjust-quantity id 2 {:reason "restock"})
+      (let [restock (latest-row id)]
+        (db/adjust-quantity id -2 {:reason "drunk"})
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"Can't undo"
+                              (db/delete-inventory-history! (:id restock))))
+        (is (= 0 (:quantity (wine id))))
+        (is (= 2 (count (db/get-inventory-history id))) "row kept"))))
+  (testing "moves out of the cellar and back are undone one bottle at a time"
+    (let [id (new-wine! 3)]
+      (db/take-out-of-cellar id 2)
+      (is (= ["taken_out" "taken_out"]
+             (map :reason (db/get-inventory-history id)))
+          "a row per bottle")
+      (db/delete-inventory-history! (:id (latest-row id)))
+      (is (= 1 (:out_quantity (wine id))))
+      (db/take-out-of-cellar id -1)
+      (db/delete-inventory-history! (:id (latest-row id)))
+      (is (= 1 (:out_quantity (wine id))) "the put-back is undone")
+      (is (= 3 (:quantity (wine id))) "stock never moved"))))
 
 (deftest bottles-go-out-of-the-cellar-and-back
   (let [id (new-wine! 3)]
@@ -89,7 +122,7 @@
         (is (= 2 (:quantity w)))
         (is (= 0 (:out_quantity w)))))
     (testing "moves are logged without changing stock"
-      (is (= ["drunk" "put_back" "taken_out"]
+      (is (= ["drunk" "put_back" "taken_out" "taken_out"]
              (map :reason (db/get-inventory-history id))))
       (is (every? zero?
                   (map :change_amount (rest (db/get-inventory-history id)))))))

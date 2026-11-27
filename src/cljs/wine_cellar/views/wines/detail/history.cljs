@@ -143,6 +143,19 @@
       :fullWidth true
       :variant "outlined"}]]))
 
+(defn- bottles [n] (str n (if (= 1 n) " bottle" " bottles")))
+
+(defn- undo-message
+  "What deleting history `record` does to the wine's stock."
+  [{:keys [reason change_amount]}]
+  (cond (= reason "taken_out") "The bottle goes back into the cellar."
+        (= reason "put_back") "The bottle counts as out of the cellar again."
+        (pos? change_amount)
+        (str "This takes away the " (bottles change_amount) " it added.")
+        (neg? change_amount)
+        (str "This puts " (bottles (- change_amount)) " back in stock.")
+        :else "The wine's stock doesn't change."))
+
 (defn history-edit-dialog
   [app-state wine-id record open? on-close]
   (r/with-let
@@ -167,7 +180,7 @@
        :on-delete (fn []
                     (confirm! app-state
                               {:title "Delete this history record?"
-                               :message "The wine's quantity will NOT change."
+                               :message (undo-message record)
                                :confirm-label "Delete"
                                :danger? true
                                :on-confirm (fn []
@@ -180,24 +193,37 @@
        :on-save (fn []
                   (let [n (js/parseInt (:bottles @local-state) 10)
                         sign (if (neg? (:change_amount record)) -1 1)]
-                    (when (and (not (js/isNaN n)) (pos? n))
-                      (api/update-inventory-history
-                       app-state
-                       wine-id
-                       (:id record)
-                       (assoc @local-state :change_amount (* sign n)))
-                      (on-close))))}
+                    (cond
+                      ;; A move out of the cellar or back: no bottle count
+                      ;; to edit.
+                      (zero? (:change_amount record))
+                      (do (api/update-inventory-history app-state
+                                                        wine-id
+                                                        (:id record)
+                                                        (dissoc @local-state
+                                                         :bottles))
+                          (on-close))
+                      (and (not (js/isNaN n)) (pos? n))
+                      (do (api/update-inventory-history
+                           app-state
+                           wine-id
+                           (:id record)
+                           (-> @local-state
+                               (dissoc :bottles)
+                               (assoc :change_amount (* sign n))))
+                          (on-close)))))}
       [date-input
        {:value (:occurred_at @local-state)
         :on-change #(swap! local-state assoc :occurred_at %)}]
-      [text-field
-       {:type "number"
-        :label "Bottles"
-        :value (:bottles @local-state)
-        :onChange #(swap! local-state assoc :bottles (.. % -target -value))
-        :fullWidth true
-        :helperText "Changing this adjusts your cellar quantity"
-        :InputProps {:inputProps {:step "1" :min "1"}}}]
+      (when-not (zero? (:change_amount record))
+        [text-field
+         {:type "number"
+          :label "Bottles"
+          :value (:bottles @local-state)
+          :onChange #(swap! local-state assoc :bottles (.. % -target -value))
+          :fullWidth true
+          :helperText "Changing this adjusts your cellar quantity"
+          :InputProps {:inputProps {:step "1" :min "1"}}}])
       [autocomplete
        {:freeSolo true
         :options (sort (vals common/inventory-reasons))
