@@ -42,7 +42,8 @@
 (defn- fetch-recent-activity
   [tx last-week-date]
   (q-many tx
-          {:select [:ih.* :w.producer :w.name :w.vintage]
+          {:select [:ih.wine_id :ih.change_amount :ih.reason :ih.new_quantity
+                    :ih.notes :ih.occurred_at :w.producer :w.name :w.vintage]
            :from [[:inventory_history :ih]]
            :join [[:wines :w] [:= :ih.wine_id :w.id]]
            :where [:>= :ih.created_at last-week-date]
@@ -91,7 +92,8 @@
      :expiring-sample (take 5 expiring)
      :past-prime-sample (take 5 past-prime)
      :recently-added-sample (take 5 recent-added)
-     :recent-sample (take 5 recent-activity)
+     ;; Every event in the period, so the commentary can cover all of it
+     :recent-activity recent-activity
      ;; Full ID lists for interaction
      :drink-now-ids (mapv :id drink-now)
      :expiring-ids (mapv :id expiring)

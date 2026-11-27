@@ -1,6 +1,8 @@
 (ns wine-cellar.reports.core-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [jsonista.core :as json]
             [wine-cellar.ai.core :as ai]
+            [wine-cellar.db.api :as db]
             [wine-cellar.reports.core :as reports]
             [wine-cellar.test-support :as ts]))
 
@@ -21,3 +23,21 @@
           (is (= 1 @calls))
           (reports/generate-report! {:force? true})
           (is (= 2 @calls)))))))
+
+(deftest the-commentary-sees-every-recent-event
+  (let [id (:id (db/create-wine {:producer "ZZ Report Activity"
+                                 :country "France"
+                                 :region "Bordeaux"
+                                 :style "Red"
+                                 :quantity 12
+                                 :original_quantity 12}))
+        sent (atom nil)]
+    (dotimes [_ 8] (db/adjust-quantity id -1 {:reason "drunk"}))
+    (with-redefs [ai/generate-report-commentary
+                  (fn [_ data-json] (reset! sent data-json) "ZZ commentary")]
+      (reports/generate-report! {:force? true})
+      (let [events (->> (:recent-activity (json/read-value
+                                           @sent
+                                           json/keyword-keys-object-mapper))
+                        (filter #(= id (:wine_id %))))]
+        (is (= 8 (count events)))))))
