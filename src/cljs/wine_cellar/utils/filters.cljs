@@ -1,5 +1,6 @@
 (ns wine-cellar.utils.filters
   (:require [clojure.string :as str]
+            [wine-cellar.common :as common]
             [wine-cellar.utils.vintage :refer [matches-tasting-window?]]))
 
 ;; Text normalization helper for accent-insensitive search
@@ -137,7 +138,7 @@
   "True when any wine filter is set to a non-default value."
   [state]
   (let [{:keys [search country region styles style varieties variety
-                tasting-window price-range verification columns]}
+                tasting-window price-range verification columns out-of-cellar?]}
         (:filters state)]
     (boolean (or (seq search)
                  country
@@ -149,13 +150,14 @@
                  price-range
                  tasting-window
                  verification
+                 out-of-cellar?
                  (seq columns)))))
 
 ;; Main filtering and sorting function
 (defn- compute-filtered-sorted-wines
   [{:keys [wines filters sort show-out-of-stock?]}]
   (let [{:keys [search country region styles style varieties variety
-                tasting-window price-range verification columns]}
+                tasting-window price-range verification columns out-of-cellar?]}
         filters
         style-values (cond (sequential? styles) styles
                            (some? style) [style]
@@ -177,6 +179,7 @@
       (filter #(matches-tasting-window? % tasting-window) w)
       (filter #(matches-verification-status? % verification) w)
       (filter #(matches-columns? % columns) w)
+      (if out-of-cellar? (filter #(pos? (common/out-count %)) w) w)
       ;; Apply sorting
       (apply-sorting w field direction)
       (vec w))))

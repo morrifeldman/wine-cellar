@@ -58,7 +58,7 @@
    ready to drink\" rather than \"3 wines (filtered)\"."
   [{:keys [filters show-out-of-stock?]} wine-count checked?]
   (let [{:keys [search country region styles style varieties variety price-range
-                tasting-window verification columns]}
+                tasting-window verification columns out-of-cellar?]}
         filters
         search (some-> search
                        string/trim
@@ -83,6 +83,7 @@
                  (when (seq columns)
                    (str (if (= 1 (count columns)) "column " "columns ")
                         (string/join ", " (sort columns))))
+                 (when out-of-cellar? "out of the cellar")
                  (when show-out-of-stock? "incl. finished bottles")]]
     (string/join " · "
                  (cons (string/join " " (cons wine-count (remove nil? kinds)))

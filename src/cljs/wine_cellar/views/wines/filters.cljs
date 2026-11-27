@@ -23,6 +23,7 @@
     [reagent-mui.icons.expand-more :refer [expand-more]]
     [reagent-mui.icons.expand-less :refer [expand-less]]
     [reagent-mui.icons.history :refer [history]]
+    [reagent-mui.icons.move-up :refer [move-up]]
     [reagent-mui.icons.restart-alt :refer [restart-alt]]
     [reagent-mui.icons.wine-bar :refer [wine-bar]]
     [reagent-mui.material.checkbox :refer [checkbox]]
@@ -348,6 +349,7 @@
                             :price-range nil
                             :tasting-window nil
                             :verification nil
+                            :out-of-cellar? false
                             :columns #{}}
                   :sort {:field :created_at :direction :desc})}
      [restart-alt {:fontSize "small"}]]]])
@@ -378,6 +380,16 @@
                          :onClick
                          #(swap! app-state update :show-out-of-stock? not)}
                         [history {:fontSize "small"}]]]]
+         out? (get-in state [:filters :out-of-cellar?])
+         out-btn [box {:sx {:alignSelf "center" :display "flex"}}
+                  [tooltip
+                   {:title (if out? "Show All Wines" "Show Out of Cellar Only")}
+                   [icon-button
+                    {:size "small"
+                     :color (if out? "secondary" "primary")
+                     :onClick #(swap! app-state update-in
+                                 [:filters :out-of-cellar?]
+                                 not)} [move-up {:fontSize "small"}]]]]
          clear-btn [clear-filters-btn app-state]
          checked-shown (count (filter (comp (or (:selected-wine-ids state) #{})
                                             :id)
@@ -415,7 +427,7 @@
             {:sx {:display "flex"
                   :gap button-gap
                   :flexWrap "wrap"
-                  :alignItems "center"}} history-btn clear-btn]
+                  :alignItems "center"}} history-btn out-btn clear-btn]
            (when (seq selection-buttons)
              (into [box
                     {:sx {:display "flex"
@@ -427,7 +439,7 @@
         [box
          {:sx {:display "flex" :alignItems "center" :gap 0.75 :flexWrap "wrap"}}
          [box {:sx {:flex 1 :minWidth {:xs 80 :sm 160}}}
-          [search-field app-state]] history-btn
+          [search-field app-state]] history-btn out-btn
          (when count-info
            (let [{:keys [visible total]} count-info
                  same? (= visible total)
