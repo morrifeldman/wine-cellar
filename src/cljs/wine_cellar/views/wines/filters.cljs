@@ -392,15 +392,19 @@
                          #(swap! app-state update :show-out-of-stock? not)}
                         [history {:fontSize "small"}]]]]
          out? (get-in state [:filters :out-of-cellar?])
-         out-btn [box {:sx {:alignSelf "center" :display "flex"}}
-                  [tooltip
-                   {:title (if out? "Show All Wines" "Show Out of Cellar Only")}
-                   [icon-button
-                    {:size "small"
-                     :color (if out? "secondary" "primary")
-                     :onClick #(swap! app-state update-in
-                                 [:filters :out-of-cellar?]
-                                 not)} [move-up {:fontSize "small"}]]]]
+         ;; Nothing to show while every bottle is in the cellar, but kept
+         ;; while on: drinking the last one out mustn't strand the filter.
+         out-btn
+         (when (or out? (some #(pos? (common/out-count %)) (:wines state)))
+           [box {:sx {:alignSelf "center" :display "flex"}}
+            [tooltip
+             {:title (if out? "Show All Wines" "Show Out of Cellar Only")}
+             [icon-button
+              {:size "small"
+               :color (if out? "secondary" "primary")
+               :onClick
+               #(swap! app-state update-in [:filters :out-of-cellar?] not)}
+              [move-up {:fontSize "small"}]]]])
          clear-btn [clear-filters-btn app-state]
          checked-shown (count (filter (comp (or (:selected-wine-ids state) #{})
                                             :id)
